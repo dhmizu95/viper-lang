@@ -8,5 +8,11 @@ edition = "2021"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm20-1", "no-libffi-linking"] }
 llvm-sys = { version = "201", features = ["prefer-dynamic"] }
 
+# CLI argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Error handling
+thiserror = "1.0"
+
 [build-dependencies]
 cc = "1.0"

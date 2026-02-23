@@ -1,0 +1,315 @@
+use crate::utils::Span;
+use crate::ast::types::Type;
+
+/// Abstract Syntax Tree node for expressions
+#[derive(Debug, Clone)]
+pub enum Expr {
+    /// Integer literal
+    Int(i64, Span),
+    /// Float literal
+    Float(f64, Span),
+    /// String literal
+    Str(String, Span),
+    /// Boolean literal
+    Bool(bool, Span),
+    /// Identifier/variable reference
+    Ident(String, Span),
+    /// Binary operation
+    BinOp {
+        left: Box<Expr>,
+        op: BinOp,
+        right: Box<Expr>,
+        span: Span,
+    },
+    /// Unary operation
+    UnaryOp {
+        op: UnaryOp,
+        operand: Box<Expr>,
+        span: Span,
+    },
+    /// Function call
+    Call {
+        func: Box<Expr>,
+        args: Vec<Expr>,
+        span: Span,
+    },
+    /// Index access (list[i])
+    Index {
+        obj: Box<Expr>,
+        index: Box<Expr>,
+        span: Span,
+    },
+    /// Attribute access (obj.attr)
+    Attribute {
+        obj: Box<Expr>,
+        attr: String,
+        span: Span,
+    },
+    /// List literal
+    List {
+        elements: Vec<Expr>,
+        span: Span,
+    },
+    /// Tuple literal
+    Tuple {
+        elements: Vec<Expr>,
+        span: Span,
+    },
+    /// Dictionary literal
+    Dict {
+        pairs: Vec<(Expr, Expr)>,
+        span: Span,
+    },
+    /// Lambda expression
+    Lambda {
+        params: Vec<String>,
+        body: Box<Expr>,
+        span: Span,
+    },
+    /// Conditional expression (a if cond else b)
+    Conditional {
+        condition: Box<Expr>,
+        then_expr: Box<Expr>,
+        else_expr: Box<Expr>,
+        span: Span,
+    },
+}
+
+impl Expr {
+    pub fn span(&self) -> Span {
+        match self {
+            Expr::Int(_, s) => *s,
+            Expr::Float(_, s) => *s,
+            Expr::Str(_, s) => *s,
+            Expr::Bool(_, s) => *s,
+            Expr::Ident(_, s) => *s,
+            Expr::BinOp { span, .. } => *span,
+            Expr::UnaryOp { span, .. } => *span,
+            Expr::Call { span, .. } => *span,
+            Expr::Index { span, .. } => *span,
+            Expr::Attribute { span, .. } => *span,
+            Expr::List { span, .. } => *span,
+            Expr::Tuple { span, .. } => *span,
+            Expr::Dict { span, .. } => *span,
+            Expr::Lambda { span, .. } => *span,
+            Expr::Conditional { span, .. } => *span,
+        }
+    }
+}
+
+/// Binary operators
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BinOp {
+    // Arithmetic
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    FloorDiv,
+    Pow,
+    // Comparison
+    Eq,
+    NotEq,
+    Lt,
+    LtEq,
+    Gt,
+    GtEq,
+    // Logical
+    And,
+    Or,
+    // Bitwise
+    BitAnd,
+    BitOr,
+    BitXor,
+    LShift,
+    RShift,
+}
+
+impl BinOp {
+    pub fn precedence(&self) -> u8 {
+        match self {
+            BinOp::Pow => 14,
+            BinOp::Mul | BinOp::Div | BinOp::Mod | BinOp::FloorDiv => 13,
+            BinOp::Add | BinOp::Sub => 12,
+            BinOp::LShift | BinOp::RShift => 11,
+            BinOp::BitAnd => 10,
+            BinOp::BitXor => 9,
+            BinOp::BitOr => 8,
+            BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => 7,
+            BinOp::Eq | BinOp::NotEq => 6,
+            BinOp::And => 5,
+            BinOp::Or => 4,
+        }
+    }
+
+    pub fn is_right_associative(&self) -> bool {
+        matches!(self, BinOp::Pow)
+    }
+}
+
+/// Unary operators
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum UnaryOp {
+    Not,
+    Neg,
+    Pos,
+    Invert,
+}
+
+/// Abstract Syntax Tree node for statements
+#[derive(Debug, Clone)]
+pub enum Stmt {
+    /// Expression statement (expression as statement)
+    Expr(Expr),
+    /// Variable assignment: x = expr
+    Assign {
+        target: Box<Expr>,
+        value: Box<Expr>,
+        span: Span,
+    },
+    /// Augmented assignment: x += expr
+    AugAssign {
+        target: Box<Expr>,
+        op: BinOp,
+        value: Box<Expr>,
+        span: Span,
+    },
+    /// Variable declaration with type: x: i64 = expr
+    Declare {
+        name: String,
+        type_ann: Option<Type>,
+        value: Option<Expr>,
+        mutable: bool,
+        span: Span,
+    },
+    /// If statement
+    If {
+        condition: Expr,
+        body: Vec<Stmt>,
+        elif_blocks: Vec<(Expr, Vec<Stmt>)>,
+        else_body: Option<Vec<Stmt>>,
+        span: Span,
+    },
+    /// While loop
+    While {
+        condition: Expr,
+        body: Vec<Stmt>,
+        else_body: Option<Vec<Stmt>>,
+        span: Span,
+    },
+    /// For loop
+    For {
+        target: Box<Expr>,
+        iter: Box<Expr>,
+        body: Vec<Stmt>,
+        else_body: Option<Vec<Stmt>>,
+        span: Span,
+    },
+    /// Function definition
+    Function {
+        name: String,
+        params: Vec<Param>,
+        return_type: Option<Type>,
+        body: Vec<Stmt>,
+        span: Span,
+    },
+    /// Return statement
+    Return {
+        value: Option<Expr>,
+        span: Span,
+    },
+    /// Break statement
+    Break(Span),
+    /// Continue statement
+    Continue(Span),
+    /// Pass statement
+    Pass(Span),
+    /// Import statement
+    Import {
+        module: String,
+        alias: Option<String>,
+        span: Span,
+    },
+    /// From import
+    FromImport {
+        module: String,
+        names: Vec<(String, Option<String>)>,
+        span: Span,
+    },
+    /// Class definition
+    Class {
+        name: String,
+        bases: Vec<Expr>,
+        body: Vec<Stmt>,
+        span: Span,
+    },
+    /// Try-except block
+    Try {
+        body: Vec<Stmt>,
+        handlers: Vec<ExceptHandler>,
+        else_body: Option<Vec<Stmt>>,
+        finally_body: Option<Vec<Stmt>>,
+        span: Span,
+    },
+    /// Sync block (concurrency)
+    Sync {
+        body: Vec<Stmt>,
+        span: Span,
+    },
+    /// Task spawn
+    Task {
+        call: Expr,
+        span: Span,
+    },
+}
+
+impl Stmt {
+    pub fn span(&self) -> Span {
+        match self {
+            Stmt::Expr(e) => e.span(),
+            Stmt::Assign { span, .. } => *span,
+            Stmt::AugAssign { span, .. } => *span,
+            Stmt::Declare { span, .. } => *span,
+            Stmt::If { span, .. } => *span,
+            Stmt::While { span, .. } => *span,
+            Stmt::For { span, .. } => *span,
+            Stmt::Function { span, .. } => *span,
+            Stmt::Return { span, .. } => *span,
+            Stmt::Break(s) => *s,
+            Stmt::Continue(s) => *s,
+            Stmt::Pass(s) => *s,
+            Stmt::Import { span, .. } => *span,
+            Stmt::FromImport { span, .. } => *span,
+            Stmt::Class { span, .. } => *span,
+            Stmt::Try { span, .. } => *span,
+            Stmt::Sync { span, .. } => *span,
+            Stmt::Task { span, .. } => *span,
+        }
+    }
+}
+
+/// Function parameter
+#[derive(Debug, Clone)]
+pub struct Param {
+    pub name: String,
+    pub type_ann: Option<Type>,
+    pub default: Option<Expr>,
+    pub span: Span,
+}
+
+/// Exception handler
+#[derive(Debug, Clone)]
+pub struct ExceptHandler {
+    pub type_ann: Option<Type>,
+    pub name: Option<String>,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+/// A complete Viper module/program
+#[derive(Debug, Default)]
+pub struct Module {
+    pub statements: Vec<Stmt>,
+    pub span: Span,
+}

@@ -1,0 +1,7 @@
+# Test: Simple function without if
+def add(a: i64, b: i64) -> i64:
+    return a + b
+
+def main():
+    x = add(3, 4)
+    print(x)

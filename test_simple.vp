@@ -1,0 +1,7 @@
+# Test: Simple function
+def add(a: i64, b: i64) -> i64:
+    return a + b
+
+def main():
+    x = 5
+    print(x)

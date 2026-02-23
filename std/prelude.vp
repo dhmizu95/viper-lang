@@ -1,0 +1,55 @@
+# Viper Standard Library Prelude
+# Auto-imported in all Viper programs
+
+# Print function - outputs a value to stdout
+def print(value):
+    # Implemented as builtin in compiler
+    pass
+
+# Range generator - yields numbers from 0 to n-1
+def range(n: i64):
+    # Implemented as builtin in compiler
+    pass
+
+# Length of a collection
+def len(obj) -> i64:
+    # Implemented as builtin
+    return 0
+
+# Type inspection
+def typeof(obj) -> str:
+    # Implemented as builtin
+    return ""
+
+# Assert statement helper
+def assert(condition: bool, message: str = ""):
+    if not condition:
+        raise AssertionError(message)
+
+# Identity function
+def identity(x) -> x:
+    return x
+
+# Min/Max
+def min(a: i64, b: i64) -> i64:
+    if a < b:
+        return a
+    return b
+
+def max(a: i64, b: i64) -> i64:
+    if a > b:
+        return a
+    return b
+
+# Absolute value
+def abs(x: i64) -> i64:
+    if x < 0:
+        return -x
+    return x
+
+# Sum of a list
+def sum(items: [i64]) -> i64:
+    total = 0
+    for item in items:
+        total = total + item
+    return total
