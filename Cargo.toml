@@ -1,0 +1,12 @@
+[package]
+name = "viper-lang"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# LLVM Bindings (Using master branch for LLVM 20 support)
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm20-1", "no-libffi-linking"] }
+llvm-sys = { version = "201", features = ["prefer-dynamic"] }
+
+[build-dependencies]
+cc = "1.0"
