@@ -1,1 +1,43 @@
 /target
+
+# Build artifacts
+*.o
+*.bc
+*.opt.bc
+
+# Executables
+*_opt
+*_aot
+*_c
+*_rust
+benchmark
+ackermann_opt
+dotprod
+dotprod_opt
+geometric_aot
+geometric_c
+geometric_rust
+harmonic_bench
+primes_opt
+recursive_sum
+recursive_sum_opt
+test_factorial
+
+# Generated source files
+*.c
+*.go
+*.rs
+!build.rs
+!Cargo.toml
+!src/**/*.rs
+!runtime.c
+
+# Viper outputs
+*.vp
+!tests/*.vp
+
+# Libraries
+*.a
+
+# Misc
+expanded.rs

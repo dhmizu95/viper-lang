@@ -1,8 +1,0 @@
-# Benchmark: Sum with multiplication - 50 million iterations
-def main():
-    sum = 0
-    i = 0
-    while i < 50000000:
-        sum = sum + i * 2
-        i = i + 1
-    print(sum)
