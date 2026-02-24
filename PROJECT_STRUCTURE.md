@@ -1,352 +1,191 @@
-viper/
+# Viper Language - Project Structure
+
+```
+viper-lang/
 ├── Cargo.toml                    # Rust project configuration
 ├── Cargo.lock                    # Dependency lock file
 ├── Makefile                      # Build automation
 ├── build.rs                      # LLVM linking configuration
-├── setup_viper.sh               # Project initialization script
-├── publish.sh                   # Production release script
-├── viper.toml                   # Default project manifest (template)
-├── Dockerfile                   # Container configuration
+├── setup_viper.sh                # Project initialization script
+├── publish.sh                    # Production release script
+├── Dockerfile                    # Container configuration
 │
-├── src/                         # Rust compiler source
-│   ├── main.rs                  # CLI entry point & orchestration
-│   ├── lib.rs                   # Library exports (for testing)
+├── src/                          # Rust compiler source
+│   ├── main.rs                   # CLI entry point & orchestration
+│   ├── lib.rs                    # Library exports (for testing)
 │   │
-│   ├── cli/                     # Command-line interface
+│   ├── cli/                      # Command-line interface
 │   │   ├── mod.rs
-│   │   ├── args.rs              # clap argument definitions
-│   │   └── commands.rs          # build, run, test, init, etc.
+│   │   ├── args.rs               # clap argument definitions
+│   │   └── commands.rs           # build, run, test, init, etc.
 │   │
-│   ├── lexer/                   # Lexical analysis
+│   ├── lexer/                    # Lexical analysis
 │   │   ├── mod.rs
-│   │   ├── scanner.rs           # Character-by-character scanning
-│   │   ├── tokens.rs            # Token enum definitions
-│   │   ├── indent_stack.rs      # Indentation tracking
-│   │   └── tests.rs             # Unit tests
+│   │   ├── scanner.rs            # Character-by-character scanning
+│   │   ├── tokens.rs             # Token enum definitions
+│   │   ├── indent_stack.rs       # Indentation tracking
+│   │   └── tests.rs              # Unit tests
 │   │
-│   ├── parser/                  # Syntax analysis
+│   ├── parser/                   # Syntax analysis
 │   │   ├── mod.rs
-│   │   ├── recursive_descent.rs # Main parser implementation
-│   │   ├── expressions.rs       # Expression parsing (Pratt parser)
-│   │   ├── statements.rs        # Statement parsing
-│   │   ├── precedence.rs        # Operator precedence table
+│   │   ├── recursive_descent.rs  # Main parser implementation
+│   │   ├── expressions.rs        # Expression parsing (Pratt parser)
+│   │   ├── statements.rs         # Statement parsing
+│   │   ├── precedence.rs         # Operator precedence table
 │   │   └── tests.rs
 │   │
-│   ├── ast/                     # Abstract Syntax Tree definitions
+│   ├── ast/                      # Abstract Syntax Tree definitions
 │   │   ├── mod.rs
-│   │   ├── nodes.rs             # Expr, Stmt enums
-│   │   ├── types.rs             # Type representations
-│   │   ├── visitor.rs           # Visitor trait for tree traversal
-│   │   └── printer.rs           # Debug AST printing
+│   │   ├── nodes.rs              # Expr, Stmt enums
+│   │   ├── types.rs              # Type representations
+│   │   ├── visitor.rs            # Visitor trait for tree traversal
+│   │   └── printer.rs            # Debug AST printing
 │   │
-│   ├── semantic/                # Semantic analysis
+│   ├── semantic/                 # Semantic analysis
 │   │   ├── mod.rs
-│   │   ├── symbol_table.rs      # Scope management
-│   │   ├── type_checker.rs      # Type inference & validation
-│   │   ├── reachability.rs      # Dead code detection
-│   │   ├── ownership.rs         # ARC analysis
-│   │   └── diagnostics.rs       # Error reporting
+│   │   ├── symbol_table.rs       # Scope management
+│   │   ├── type_checker.rs       # Type inference & validation
+│   │   ├── reachability.rs       # Dead code detection
+│   │   ├── ownership.rs          # ARC analysis
+│   │   └── diagnostics.rs        # Error reporting
 │   │
-│   ├── codegen/                 # LLVM IR generation
+│   ├── codegen/                  # LLVM IR generation
 │   │   ├── mod.rs
-│   │   ├── context.rs           # LLVM context wrapper
-│   │   ├── module.rs            # LLVM module management
-│   │   ├── builder.rs           # IR instruction building
-│   │   ├── types.rs             # Viper type → LLVM type mapping
-│   │   ├── values.rs            # Value generation (constants, variables)
-│   │   ├── expressions.rs       # Expression compilation
-│   │   ├── statements.rs        # Statement compilation
-│   │   ├── functions.rs         # Function definition/calls
-│   │   ├── classes.rs           # OOP: VTables, methods
-│   │   ├── concurrency.rs       # sync, task, chan, async/await
-│   │   ├── memory.rs            # alloca, load, store, ARC calls
-│   │   ├── control_flow.rs      # if/else, loops, branches
-│   │   ├── optimizations.rs     # Custom LLVM passes
-│   │   └── debug_info.rs        # DWARF generation
+│   │   ├── context.rs            # LLVM context wrapper
+│   │   ├── builder.rs            # IR instruction building
+│   │   ├── dce.rs                # Dead code elimination
+│   │   └── types.rs              # Viper type → LLVM type mapping
 │   │
-│   ├── linker/                  # Final binary generation
-│   │   ├── mod.rs
-│   │   ├── object_file.rs       # .o file emission
-│   │   ├── system_linker.rs     # cc/clang invocation
-│   │   └── static_lib.rs        # libviper.a linking
-│   │
-│   └── utils/                   # Shared utilities
+│   └── utils/                    # Shared utilities
 │       ├── mod.rs
-│       ├── source_file.rs       # File loading with encoding
-│       ├── span.rs              # Source location tracking
-│       ├── interner.rs          # String interning
-│       └── config.rs            # Compiler configuration
+│       ├── span.rs               # Source location tracking
+│       └── source_file.rs        # File loading with encoding
 │
-├── runtime/                     # C runtime library
+├── runtime/                      # C runtime library
 │   ├── include/
-│   │   ├── viper_stdlib.h       # Public C API header
-│   │   ├── viper_types.h        # Type definitions
-│   │   └── viper_atomic.h       # Atomic operations
+│   │   ├── viper_stdlib.h        # Public C API header
+│   │   ├── viper_types.h         # Type definitions
+│   │   └── viper_arc.h           # ARC operations
 │   │
 │   ├── src/
-│   │   ├── runtime.c            # Main runtime initialization
+│   │   ├── runtime.c             # Main runtime initialization
 │   │   ├── memory/
-│   │   │   ├── arc.c            # Atomic Reference Counting
-│   │   │   ├── allocator.c      # malloc/free wrappers
-│   │   │   ├── weak_ref.c       # Weak reference support
-│   │   │   └── cycle_detector.c # Cycle detection (optional)
+│   │   │   └── arc.c             # Atomic Reference Counting
 │   │   │
-│   │   ├── data_structures/
-│   │   │   ├── list.c           # ViperList implementation
-│   │   │   ├── dict.c           # ViperDict (hash map)
-│   │   │   ├── set.c            # ViperSet
-│   │   │   ├── tuple.c          # ViperTuple
-│   │   │   ├── string.c         # ViperString
-│   │   │   └── slice.c          # Zero-copy slicing
-│   │   │
-│   │   ├── concurrency/
-│   │   │   ├── thread_pool.c    # M:N scheduler
-│   │   │   ├── task_queue.c     # Work-stealing deque
-│   │   │   ├── channel.c        # chan implementation
-│   │   │   ├── wait_group.c     # sync block support
-│   │   │   ├── mutex.c          # Synchronization primitives
-│   │   │   └── async_runtime.c  # Event loop (epoll/kqueue/IOCP)
-│   │   │
-│   │   ├── io/
-│   │   │   ├── file.c           # File operations
-│   │   │   ├── socket.c         # Network primitives
-│   │   │   └── buffer.c         # I/O buffering
-│   │   │
-│   │   ├── crypto/
-│   │   │   ├── hash.c           # SHA-256, Argon2
-│   │   │   └── cipher.c         # AES-GCM
-│   │   │
-│   │   ├── math/
-│   │   │   ├── basic.c          # sqrt, sin, cos, etc.
-│   │   │   ├── complex.c        # Complex number ops
-│   │   │   └── vector.c         # SIMD wrappers
-│   │   │
-│   │   └── exception/
-│   │       ├── unwinding.c      # Stack unwinding
-│   │       └── landing_pad.c    # LLVM personality function
+│   │   └── data_structures/
+│   │       ├── list.c            # ViperList implementation
+│   │       └── dict.c            # ViperDict (hash map)
 │   │
-│   └── Makefile                 # Runtime build configuration
+│   └── Makefile                  # Runtime build configuration
 │
-├── std/                         # Viper standard library
-│   ├── prelude.vp               # Auto-imported builtins
-│   ├── builtins/
-│   │   ├── print.vp             # print(), format()
-│   │   ├── range.vp             # range(), enumerate()
-│   │   ├── len.vp               # len(), sizeof()
-│   │   ├── typeof.vp            # typeof(), isinstance()
-│   │   └── assert.vp            # assert(), test()
-│   │
+├── std/                          # Viper standard library
+│   ├── prelude.vp                # Auto-imported builtins
 │   ├── core/
-│   │   ├── types.vp             # Type definitions
-│   │   ├── operators.vp         # Operator overloads
-│   │   ├── iterators.vp         # Iterator protocol
-│   │   ├── context.vp           # with statements
-│   │   └── decorators.vp        # @decorator syntax
+│   │   ├── types.vp
+│   │   └── operators.vp
 │   │
 │   ├── collections/
-│   │   ├── list.vp              # List methods
-│   │   ├── dict.vp              # Dict methods
-│   │   ├── set.vp               # Set operations
-│   │   ├── tuple.vp             # Tuple utilities
-│   │   └── deque.vp             # Double-ended queue
+│   │   ├── list.vp
+│   │   └── dict.vp
 │   │
-│   ├── math/
-│   │   ├── __init__.vp
-│   │   ├── constants.vp         # pi, e, etc.
-│   │   ├── trig.vp              # Trigonometric functions
-│   │   ├── stats.vp             # Statistics
-│   │   └── random.vp            # RNG
-│   │
-│   ├── io/
-│   │   ├── __init__.vp
-│   │   ├── file.vp              # File class
-│   │   ├── path.vp              # Path manipulation
-│   │   ├── buffer.vp            # Buffered I/O
-│   │   └── serialization/
-│   │       ├── json.vp          # JSON parser
-│   │       ├── csv.vp           # CSV parser
-│   │       └── binary.vp        # Binary formats
-│   │
-│   ├── net/
-│   │   ├── __init__.vp
-│   │   ├── socket.vp            # Low-level sockets
-│   │   ├── http.vp              # HTTP client/server
-│   │   ├── url.vp               # URL parsing
-│   │   └── async.vp             # asyncio module
-│   │
-│   ├── os/
-│   │   ├── __init__.vp
-│   │   ├── env.vp               # Environment variables
-│   │   ├── process.vp           # Process management
-│   │   ├── fs.vp                # Filesystem operations
-│   │   └── time.vp              # Clocks, timers
-│   │
-│   ├── crypto/
-│   │   ├── __init__.vp
-│   │   ├── hash.vp              # Hashing interface
-│   │   ├── cipher.vp            # Encryption
-│   │   └── random.vp            # Secure random
-│   │
-│   ├── concurrency/
-│   │   ├── __init__.vp
-│   │   ├── sync.vp              # sync, task primitives
-│   │   ├── channel.vp           # chan utilities
-│   │   ├── atomic.vp            # Atomic types
-│   │   └── multiprocessing.vp   # Process pools
-│   │
-│   ├── re/                      # Regular expressions
-│   │   ├── __init__.vp
-│   │   ├── pattern.vp
-│   │   └── engine.vp
-│   │
-│   └── testing/
-│       ├── __init__.vp
-│       ├── test.vp              # Test runner
-│       ├── mock.vp              # Mocking
-│       └── bench.vp             # Benchmarking
+│   └── io/
+│       ├── file.vp
+│       └── path.vp
 │
-├── vpm/                         # Package manager (separate crate)
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs              # vpm CLI
-│       ├── commands/
-│       │   ├── init.rs          # vpm init
-│       │   ├── install.rs       # vpm install
-│       │   ├── add.rs           # vpm add
-│       │   ├── build.rs         # vpm build
-│       │   ├── test.rs          # vpm test
-│       │   └── publish.rs       # vpm publish
-│       ├── resolver/
-│       │   ├── mod.rs
-│       │   ├── dependency.rs    # Dependency graph
-│       │   ├── version.rs       # SemVer handling
-│       │   └── lockfile.rs      # viper.lock generation
-│       ├── registry/
-│       │   ├── mod.rs
-│       │   ├── git.rs           # Git-based packages
-│       │   ├── local.rs         # Local path packages
-│       │   └── index.rs         # Registry index
-│       └── manifest/
-│           ├── mod.rs
-│           ├── parser.rs        # viper.toml parsing
-│           └── validation.rs
-│
-├── viper-lsp/                   # Language Server Protocol
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs
-│       ├── server.rs
-│       ├── handlers.rs          # LSP method handlers
-│       ├── completion.rs        # Autocompletion
-│       ├── hover.rs             # Type info on hover
-│       ├── goto.rs              # Go-to-definition
-│       ├── diagnostics.rs       # Real-time errors
-│       └── symbols.rs           # Document symbols
-│
-├── viper-fmt/                   # Code formatter
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs
-│       ├── rules.rs             # Formatting rules
-│       └── indent.rs            # Indentation handling
-│
-├── vdoc/                        # Documentation generator
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs
-│       ├── parser.rs            # Docstring extraction
-│       ├── markdown.rs          # Markdown generation
-│       └── html.rs              # HTML output
-│
-├── tests/                       # Integration tests
+├── tests/                        # Integration tests
 │   ├── integration/
 │   │   ├── lexer_tests.rs
 │   │   ├── parser_tests.rs
-│   │   ├── codegen_tests.rs
-│   │   └── end_to_end.rs
+│   │   └── codegen_tests.rs
 │   │
-│   ├── vscripts/                # Viper test programs
-│   │   ├── 01_hello.vp
-│   │   ├── 02_math.vp
-│   │   ├── 03_functions.vp
-│   │   ├── 04_classes.vp
-│   │   ├── 05_concurrency.vp
-│   │   ├── 06_generics.vp
-│   │   ├── 07_exceptions.vp
-│   │   ├── 08_file_io.vp
-│   │   ├── 09_json.vp
-│   │   ├── 10_http.vp
-│   │   └── stress/
-│   │       ├── fibonacci.vp
-│   │       ├── million_list.vp
-│   │       └── web_server.vp
-│   │
-│   └── expected/                # Expected outputs
-│       ├── 01_hello.out
-│       └── ...
+│   └── *.vp                      # Viper test programs
 │
-├── examples/                    # Example projects
+├── examples/                     # Example projects
 │   ├── hello_world/
-│   │   ├── viper.toml
-│   │   └── src/main.vp
-│   │
 │   ├── rest_api/
-│   │   ├── viper.toml
-│   │   ├── Dockerfile
-│   │   └── src/
-│   │       ├── main.vp
-│   │       ├── models.vp
-│   │       └── routes.vp
-│   │
-│   ├── data_processing/
-│   │   ├── viper.toml
-│   │   └── src/
-│   │       ├── main.vp
-│   │       └── pipeline.vp
-│   │
-│   └── concurrent_server/
-│       ├── viper.toml
-│       └── src/
-│           ├── main.vp
-│           └── handlers.vp
+│   └── data_processing/
 │
-├── docs/                        # Documentation
+├── docs/                         # Documentation
 │   ├── README.md
 │   ├── INSTALL.md
-│   ├── LANGUAGE_SPEC.md        # Formal specification
-│   ├── WHITEPAPER.md
-│   ├── QUICK_START.md
-│   ├── API_REFERENCE/
-│   │   ├── std.md
-│   │   └── runtime.md
-│   │
-│   ├── INTERNALS/
-│   │   ├── architecture.md
-│   │   ├── memory_model.md
-│   │   ├── concurrency.md
-│   │   └── codegen.md
-│   │
+│   ├── RELEASE_PHASE1.md         # Phase 1 release notes
+│   ├── RELEASE_PHASE2.md         # Phase 2 release notes
 │   └── CONTRIBUTING.md
 │
-├── scripts/                     # Utility scripts
-│   ├── install.sh               # System-wide install
-│   ├── uninstall.sh
-│   ├── test_runner.sh
-│   └── benchmark.sh
+├── scripts/                      # Utility scripts
+│   ├── install.sh
+│   └── test_runner.sh
 │
-├── .github/                     # GitHub configuration
-│   ├── workflows/
-│   │   ├── ci.yml               # Continuous integration
-│   │   ├── release.yml
-│   │   └── docs.yml
-│   ├── ISSUE_TEMPLATE/
-│   └── PULL_REQUEST_TEMPLATE.md
+├── .github/                      # GitHub configuration
+│   └── workflows/
+│       └── ci.yml
 │
-├── .vscode/                     # VS Code configuration
+├── .vscode/                      # VS Code configuration
 │   ├── extensions.json
-│   ├── settings.json
-│   └── launch.json
+│   └── settings.json
 │
 ├── .gitignore
-├── LICENSE                      # MIT or Apache-2.0
-└── README.md                    # Project overview
+├── LICENSE
+├── README.md
+├── PROJECT_OVERVIEW.md
+└── PROJECT_STRUCTURE.md
+```
+
+## Directory Descriptions
+
+### `src/` - Compiler Source Code
+
+| Directory | Purpose |
+|-----------|---------|
+| `cli/` | Command-line interface with `clap` |
+| `lexer/` | Lexical analysis, tokenization |
+| `parser/` | Syntax analysis, AST construction |
+| `ast/` | Abstract Syntax Tree node definitions |
+| `semantic/` | Type checking, symbol table management |
+| `codegen/` | LLVM IR generation |
+| `utils/` | Shared utilities (spans, file loading) |
+
+### `runtime/` - C Runtime Library
+
+| Directory | Purpose |
+|-----------|---------|
+| `include/` | Public C API headers |
+| `src/memory/` | ARC memory management |
+| `src/data_structures/` | Lists, dictionaries |
+| `src/runtime.c` | Runtime initialization, builtins |
+
+### `std/` - Viper Standard Library
+
+| Directory | Purpose |
+|-----------|---------|
+| `prelude.vp` | Auto-imported functions |
+| `core/` | Core language utilities |
+| `collections/` | Data structure implementations |
+| `io/` | File and path operations |
+
+### `tests/` - Test Suite
+
+| Directory | Purpose |
+|-----------|---------|
+| `integration/` | Rust integration tests |
+| `*.vp` | Viper program test files |
+
+### `docs/` - Documentation
+
+| File | Purpose |
+|------|---------|
+| `README.md` | Project overview |
+| `INSTALL.md` | Installation guide |
+| `RELEASE_PHASE1.md` | Phase 1 release notes |
+| `RELEASE_PHASE2.md` | Phase 2 release notes |
+| `CONTRIBUTING.md` | Contribution guidelines |
+
+## Build Artifacts
+
+| File | Generated By |
+|------|--------------|
+| `target/` | `cargo build` |
+| `runtime/*.o` | `make -C runtime` |
+| `runtime/libviper.a` | `make -C runtime` |
+| `*.bc` | `viper build` |
+| `*.opt.bc` | `viper build -O2/-O3` |
