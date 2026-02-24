@@ -50,6 +50,32 @@ bool vp_list_contains(ViperList* list, int64_t value);
 ViperList* vp_list_copy(ViperList* list);
 
 /* ============================================ */
+/* Dictionary Functions                         */
+/* ============================================ */
+
+ViperDict* vp_dict_create(void);
+void vp_dict_free(ViperDict* dict);
+void vp_dict_set(ViperDict* dict, const char* key, ViperValue value);
+ViperValue vp_dict_get(ViperDict* dict, const char* key);
+bool vp_dict_contains(ViperDict* dict, const char* key);
+bool vp_dict_remove(ViperDict* dict, const char* key);
+void vp_dict_clear(ViperDict* dict);
+int64_t vp_dict_len(ViperDict* dict);
+ViperDict* vp_dict_copy(ViperDict* dict);
+
+/* Dictionary Iterator */
+typedef struct ViperDictIter ViperDictIter;
+struct ViperDictIter {
+    ViperDict* dict;
+    int64_t bucket_index;
+    DictEntry* current;
+};
+
+ViperDictIter* vp_dict_iter_create(ViperDict* dict);
+void vp_dict_iter_free(ViperDictIter* iter);
+bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value);
+
+/* ============================================ */
 /* String Functions                             */
 /* ============================================ */
 

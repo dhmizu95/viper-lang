@@ -5,8 +5,10 @@ use std::collections::HashMap;
 
 mod builder;
 mod context;
+pub mod dce;
 
 use builder::IRBuilder;
+pub use dce::DeadCodeEliminator;
 
 /// Variable info: stores both the alloca pointer and its LLVM type
 struct VarInfo<'ctx> {

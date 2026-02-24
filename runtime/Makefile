@@ -9,12 +9,14 @@ INCLUDE = -I./include
 SRC_DIR = src
 MEMORY_SRC = $(SRC_DIR)/memory/arc.c
 DS_SRC = $(SRC_DIR)/data_structures/list.c
+DICT_SRC = $(SRC_DIR)/data_structures/dict.c
 RUNTIME_SRC = $(SRC_DIR)/runtime.c
 
 # Object files
 OBJ_DIR = obj
 MEMORY_OBJ = $(OBJ_DIR)/arc.o
 DS_OBJ = $(OBJ_DIR)/list.o
+DICT_OBJ = $(OBJ_DIR)/dict.o
 RUNTIME_OBJ = $(OBJ_DIR)/runtime.o
 
 # Output
@@ -22,7 +24,7 @@ LIB_NAME = libviper.a
 LIB_PATH = $(LIB_NAME)
 
 # All source files
-ALL_SRC = $(RUNTIME_SRC) $(MEMORY_SRC) $(DS_SRC)
+ALL_SRC = $(RUNTIME_SRC) $(MEMORY_SRC) $(DS_SRC) $(DICT_SRC)
 
 .PHONY: all clean dirs
 
@@ -31,7 +33,7 @@ all: dirs $(LIB_PATH)
 dirs:
 	@mkdir -p $(OBJ_DIR)
 
-$(LIB_PATH): $(RUNTIME_OBJ) $(MEMORY_OBJ) $(DS_OBJ)
+$(LIB_PATH): $(RUNTIME_OBJ) $(MEMORY_OBJ) $(DS_OBJ) $(DICT_OBJ)
 	ar rcs $@ $^
 	@echo "Built static library: $(LIB_PATH)"
 
@@ -42,6 +44,9 @@ $(OBJ_DIR)/arc.o: $(MEMORY_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
 $(OBJ_DIR)/list.o: $(DS_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
+
+$(OBJ_DIR)/dict.o: $(DICT_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
 clean:

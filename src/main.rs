@@ -4,6 +4,7 @@ mod codegen;
 mod lexer;
 mod parser;
 mod utils;
+mod semantic;
 
 use inkwell::context::Context;
 use inkwell::passes::PassManager;
@@ -140,8 +141,16 @@ fn compile_file_aot(
 
     println!("   [2/4] Parsing...");
     let mut parser = parser::Parser::new(tokens);
-    let ast = parser.parse()?;
+    let mut ast = parser.parse()?;
     println!("   ✓ Parsed {} statements", ast.statements.len());
+
+    // Apply Dead Code Elimination optimization
+    if opt_level >= 1 {
+        println!("   [2.5/4] Running DCE optimization...");
+        let mut dce = codegen::DeadCodeEliminator::new();
+        ast = dce.optimize(&ast);
+        println!("   ✓ DCE complete, {} statements remaining", ast.statements.len());
+    }
 
     println!("   [3/4] Generating LLVM IR...");
     let context = Context::create();
@@ -243,8 +252,13 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
 
     println!("   [2/5] Parsing...");
     let mut parser = parser::Parser::new(tokens);
-    let ast = parser.parse()?;
+    let mut ast = parser.parse()?;
     println!("   ✓ Parsed {} statements", ast.statements.len());
+
+    println!("   [2.5/5] Running DCE optimization...");
+    let mut dce = codegen::DeadCodeEliminator::new();
+    ast = dce.optimize(&ast);
+    println!("   ✓ DCE complete, {} statements remaining", ast.statements.len());
 
     println!("   [3/5] Generating LLVM IR...");
     let context = Context::create();
