@@ -6,6 +6,8 @@ mod parser;
 mod utils;
 mod semantic;
 
+use cli::args::{Args, Commands};
+use clap::Parser;
 use inkwell::context::Context;
 use inkwell::passes::PassManager;
 use inkwell::targets::{
@@ -16,90 +18,30 @@ use std::fs;
 use std::path::Path;
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args = Args::parse();
 
-    if args.len() < 2 {
-        eprintln!("Viper Compiler 0.2.2");
-        eprintln!("Usage: viper <command> [options]");
-        eprintln!();
-        eprintln!("Commands:");
-        eprintln!("  build <file.vp>  Compile a Viper source file (AOT)");
-        eprintln!("  run <file.vp>    Compile and run a Viper source file (JIT)");
-        eprintln!("  run-opt <file.vp> Run with optimizations enabled");
-        eprintln!("  help             Show this help message");
-        std::process::exit(1);
-    }
-
-    let command = &args[1];
-
-    match command.as_str() {
-        "build" | "compile" => {
-            if args.len() < 3 {
-                eprintln!("Error: No input file specified");
-                eprintln!("Usage: viper build <file.vp>");
-                std::process::exit(1);
-            }
-            let opt_level = get_opt_level(&args);
-            let input_file = args.iter().find(|a| a.ends_with(".vp"))
-                .ok_or("Error: No input file specified")
-                .map(|s| s.as_str())
-                .unwrap();
-            if let Err(e) = compile_file_aot(input_file, opt_level, None) {
+    match args.command {
+        Commands::Build { input, output, optimize } => {
+            if let Err(e) = compile_file_aot(&input, optimize, output.as_deref()) {
                 eprintln!("Compilation failed: {}", e);
                 std::process::exit(1);
             }
         }
-        "build-opt" => {
-            if args.len() < 3 {
-                eprintln!("Error: No input file specified");
-                eprintln!("Usage: viper build-opt <file.vp>");
-                std::process::exit(1);
-            }
-            let input_file = &args[2];
-            if let Err(e) = compile_file_optimized(input_file) {
-                eprintln!("Compilation failed: {}", e);
-                std::process::exit(1);
-            }
-        }
-        "run" => {
-            if args.len() < 3 {
-                eprintln!("Error: No input file specified");
-                eprintln!("Usage: viper run <file.vp>");
-                std::process::exit(1);
-            }
-            let input_file = &args[2];
-            let opt_level = get_opt_level(&args);
-            if let Err(e) = compile_and_run_jit(input_file, opt_level) {
+        Commands::Run { input, optimize } => {
+            if let Err(e) = compile_and_run_jit(&input, optimize) {
                 eprintln!("Execution failed: {}", e);
                 std::process::exit(1);
             }
         }
-        "run-opt" => {
-            if args.len() < 3 {
-                eprintln!("Error: No input file specified");
-                eprintln!("Usage: viper run-opt <file.vp>");
-                std::process::exit(1);
-            }
-            let input_file = &args[2];
-            if let Err(e) = compile_and_run_jit(input_file, 3) {
-                eprintln!("Execution failed: {}", e);
+        Commands::Init { name } => {
+            let project_name = name.unwrap_or_else(|| "viper_project".to_string());
+            if let Err(e) = init_project(&project_name) {
+                eprintln!("Init failed: {}", e);
                 std::process::exit(1);
             }
         }
-        "help" | "--help" | "-h" => {
-            println!("Viper Compiler 0.2.2");
-            println!("Usage: viper <command> [options]");
-            println!();
-            println!("Commands:");
-            println!("  build <file.vp>       AOT compile to native binary");
-            println!("  run <file.vp>         JIT compile and run (no opt)");
-            println!("  run-opt <file.vp>     JIT compile and run (O3)");
-            println!("  help                  Show this help message");
-        }
-        _ => {
-            eprintln!("Unknown command: {}", command);
-            eprintln!("Use 'viper help' for usage information");
-            std::process::exit(1);
+        Commands::Info => {
+            show_info();
         }
     }
 }
@@ -635,4 +577,57 @@ extern "C" fn vp_retain_stub(_ptr: *mut std::ffi::c_void) {
 
 extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
     // No-op for JIT
+}
+
+/// Initialize a new Viper project
+fn init_project(name: &str) -> Result<(), String> {
+    // Create project directory
+    std::fs::create_dir_all(format!("{}/src", name))
+        .map_err(|e| format!("Failed to create project directory: {}", e))?;
+    
+    // Create main.vp
+    let main_vp = r#"# Viper Project
+
+def main():
+    print("Hello from Viper!")
+
+"#;
+    std::fs::write(format!("{}/src/main.vp", name), main_vp)
+        .map_err(|e| format!("Failed to create main.vp: {}", e))?;
+    
+    // Create Cargo.toml for the project
+    let cargo_toml = r#"[package]
+name = "PROJECT_NAME"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+"#.replace("PROJECT_NAME", name);
+    std::fs::write(format!("{}/Cargo.toml", name), cargo_toml)
+        .map_err(|e| format!("Failed to create Cargo.toml: {}", e))?;
+    
+    println!("✅ Created Viper project: {}", name);
+    println!("   cd {} && viper run src/main.vp", name);
+    Ok(())
+}
+
+/// Show compiler information
+fn show_info() {
+    println!("Viper Compiler 0.2.3");
+    println!("====================");
+    println!("LLVM-based compiler for the Viper programming language");
+    println!();
+    println!("Features:");
+    println!("  • AOT compilation to native binaries");
+    println!("  • JIT execution for rapid development");
+    println!("  • Python-like syntax");
+    println!("  • Static typing with type inference");
+    println!("  • List and dictionary data structures");
+    println!("  • Math builtins (sqrt, abs, ln, floor)");
+    println!();
+    println!("Usage:");
+    println!("  viper build <file.vp>     Compile to native binary");
+    println!("  viper run <file.vp>       JIT compile and execute");
+    println!("  viper init <project>      Create new project");
+    println!("  viper info                Show this information");
 }
