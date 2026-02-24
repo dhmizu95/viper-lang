@@ -718,7 +718,8 @@ impl<'a> StatementParser<'a> {
             TokenKind::LBracket => {
                 self.advance();
                 let mut elements = Vec::new();
-                if !self.match_token(&TokenKind::RBracket) {
+                // Check for empty list without consuming the RBracket
+                if !matches!(self.current().kind, TokenKind::RBracket) {
                     loop {
                         elements.push(self.parse_expression()?);
                         if !self.match_token(&TokenKind::Comma) {

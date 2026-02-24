@@ -1,0 +1,4 @@
+# Phase 2: Empty List Test
+def main():
+    empty = []
+    print(1)

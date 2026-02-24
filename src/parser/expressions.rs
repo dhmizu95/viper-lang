@@ -111,6 +111,21 @@ impl<'a> PrattParser<'a> {
             }
         }
 
+        // Handle ternary expression: `a if cond else b`
+        if self.match_token(&TokenKind::If) {
+            // This is a ternary: left if condition else else_expr
+            let condition = self.parse_expr(Precedence::MIN)?;
+            self.expect(&TokenKind::Else)?;
+            let else_expr = self.parse_expr(Precedence::MIN)?;
+            let span = left.span().merge(else_expr.span());
+            left = Expr::Conditional {
+                condition: Box::new(condition),
+                then_expr: Box::new(left),
+                else_expr: Box::new(else_expr),
+                span,
+            };
+        }
+
         Ok(left)
     }
 
@@ -241,6 +256,16 @@ impl<'a> PrattParser<'a> {
                     span: merged_span,
                 })
             }
+            TokenKind::Tilde => {
+                self.advance();
+                let operand = self.parse_expr(Precedence::UNARY)?;
+                let merged_span = span.merge(operand.span());
+                Ok(Expr::UnaryOp {
+                    op: UnaryOp::Invert,
+                    operand: Box::new(operand),
+                    span: merged_span,
+                })
+            }
             _ => Err(format!("Unexpected token in expression: {:?}", token.kind)),
         }
     }
@@ -265,6 +290,15 @@ impl<'a> PrattParser<'a> {
             TokenKind::GtEq => BinOp::GtEq,
             TokenKind::And => BinOp::And,
             TokenKind::Or => BinOp::Or,
+            TokenKind::Ampersand => BinOp::BitAnd,
+            TokenKind::Pipe => BinOp::BitOr,
+            TokenKind::Caret => BinOp::BitXor,
+            TokenKind::LtLt => BinOp::LShift,
+            TokenKind::GtGt => BinOp::RShift,
+            TokenKind::Is => BinOp::Is,
+            TokenKind::IsNot => BinOp::IsNot,
+            TokenKind::In => BinOp::In,
+            TokenKind::NotIn => BinOp::NotIn,
             _ => return Err("Unknown infix operator".to_string()),
         };
 
@@ -283,7 +317,15 @@ impl<'a> PrattParser<'a> {
             | TokenKind::Lt
             | TokenKind::LtEq
             | TokenKind::Gt
-            | TokenKind::GtEq => Precedence::COMPARISON,
+            | TokenKind::GtEq
+            | TokenKind::Is
+            | TokenKind::IsNot
+            | TokenKind::In
+            | TokenKind::NotIn => Precedence::COMPARISON,
+            TokenKind::Pipe => Precedence::BITWISE_OR,
+            TokenKind::Caret => Precedence::BITWISE_XOR,
+            TokenKind::Ampersand => Precedence::BITWISE_AND,
+            TokenKind::LtLt | TokenKind::GtGt => Precedence::BITWISE_SHIFT,
             TokenKind::Plus | TokenKind::Minus => Precedence::SUM,
             TokenKind::Star | TokenKind::Slash | TokenKind::Percent | TokenKind::DoubleSlash => {
                 Precedence::PRODUCT

@@ -1,0 +1,95 @@
+# Test: All Phase 2 Features
+# This test covers: lists, mut, None, identity, membership, ternary
+
+def test_lists():
+    # List literals
+    nums = [1, 2, 3, 4, 5]
+    
+    # List operations
+    nums.append(6)
+    nums.insert(0, 0)
+    
+    # Print elements
+    i = 0
+    while i < 7:
+        print(nums[i])
+        i = i + 1
+    
+    # Test len
+    print(len(nums))
+    
+    # Test pop
+    last = nums.pop()
+    print(last)
+    
+    # Test remove
+    removed = nums.remove(0)
+    print(removed)
+
+def test_mut():
+    # Mutable variables
+    mut counter = 0
+    mut total = 10
+    
+    while counter < 5:
+        total = total + counter
+        counter = counter + 1
+    
+    print(total)
+
+def test_none():
+    # None type
+    nothing = None
+    x = 5
+    
+    # Test None comparison (is operator)
+    if nothing == None:
+        print(1)
+    else:
+        print(0)
+
+def test_identity():
+    # Identity operators (is, is not)
+    x = None
+    y = None
+    z = 5
+    
+    # x is y (both None)
+    if x is y:
+        print(100)
+    
+    # x is not z
+    if x is not z:
+        print(200)
+
+def test_membership():
+    # Membership operators (in, not in)
+    nums = [1, 2, 3, 4, 5]
+    
+    # 3 in nums
+    if 3 in nums:
+        print(300)
+    
+    # 10 not in nums
+    if 10 not in nums:
+        print(400)
+
+def test_ternary():
+    # Ternary conditional expression
+    x = 10
+    result = 1 if x > 5 else 0
+    print(result)
+    
+    y = 3
+    result2 = 100 if y > 5 else 200
+    print(result2)
+
+def main():
+    print(1000)  # Start marker
+    test_lists()
+    test_mut()
+    test_none()
+    test_identity()
+    test_membership()
+    test_ternary()
+    print(9999)  # End marker

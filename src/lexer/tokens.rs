@@ -55,6 +55,19 @@ pub enum TokenKind {
     And,
     Or,
     Not,
+    // Bitwise operators (Phase 2)
+    Ampersand,    // &
+    Pipe,         // |
+    Caret,        // ^
+    Tilde,        // ~
+    LtLt,         // <<
+    GtGt,         // >>
+    // Identity and Membership (Phase 2)
+    Is,
+    IsNot,
+    NotIn,
+    // Ternary (Phase 2)
+    Question,     // ?
 
     // Delimiters
     LParen,
@@ -155,6 +168,16 @@ impl std::fmt::Display for TokenKind {
             TokenKind::And => write!(f, "and"),
             TokenKind::Or => write!(f, "or"),
             TokenKind::Not => write!(f, "not"),
+            TokenKind::Ampersand => write!(f, "&"),
+            TokenKind::Pipe => write!(f, "|"),
+            TokenKind::Caret => write!(f, "^"),
+            TokenKind::Tilde => write!(f, "~"),
+            TokenKind::LtLt => write!(f, "<<"),
+            TokenKind::GtGt => write!(f, ">>"),
+            TokenKind::Is => write!(f, "is"),
+            TokenKind::IsNot => write!(f, "is not"),
+            TokenKind::NotIn => write!(f, "not in"),
+            TokenKind::Question => write!(f, "?"),
             TokenKind::LParen => write!(f, "("),
             TokenKind::RParen => write!(f, ")"),
             TokenKind::LBracket => write!(f, "["),

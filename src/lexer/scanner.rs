@@ -248,14 +248,54 @@ impl<'a> Lexer<'a> {
                     if self.peek() == Some('=') {
                         self.advance();
                         TokenKind::GtEq
+                    } else if self.peek() == Some('>') {
+                        self.advance();
+                        TokenKind::GtGt
                     } else {
                         TokenKind::Gt
                     }
                 }
 
+                // Bitwise operators (Phase 2)
+                '&' => TokenKind::Ampersand,
+                '|' => TokenKind::Pipe,
+                '^' => TokenKind::Caret,
+                '~' => TokenKind::Tilde,
+
                 // String literals
                 '"' | '\'' => {
-                    let s = self.read_string(c)?;
+                    // Check for triple-quoted string (block comment/docstring)
+                    let quote_char = c;
+                    if self.peek() == Some(quote_char) {
+                        self.advance(); // consume second quote
+                        if self.peek() == Some(quote_char) {
+                            self.advance(); // consume third quote
+                            // Skip until closing triple quote
+                            let mut found_end = false;
+                            while let Some(ch) = self.chars.peek() {
+                                if *ch == quote_char {
+                                    self.advance();
+                                    // Check for two more quotes
+                                    if self.peek() == Some(quote_char) {
+                                        self.advance();
+                                        if self.peek() == Some(quote_char) {
+                                            self.advance();
+                                            found_end = true;
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    self.advance();
+                                }
+                            }
+                            if !found_end {
+                                return Err("Unterminated triple-quoted string".to_string());
+                            }
+                            // Triple-quoted strings are treated as comments (ignored)
+                            continue;
+                        }
+                    }
+                    let s = self.read_string(quote_char)?;
                     TokenKind::Str(s)
                 }
 
@@ -472,9 +512,14 @@ impl<'a> Lexer<'a> {
             "class" => TokenKind::Class,
             "import" => TokenKind::Import,
             "from" => TokenKind::From,
+            "is" => TokenKind::Is,
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
             "not" => TokenKind::Not,
+            "global" => TokenKind::Ident("global".to_string()),  // Reserved for Phase 3
+            "const" => TokenKind::Ident("const".to_string()),    // Reserved for Phase 2
+            "lambda" => TokenKind::Ident("lambda".to_string()),  // Phase 2
+            "yield" => TokenKind::Ident("yield".to_string()),    // Phase 3
             _ => TokenKind::Ident(ident),
         }
     }

@@ -1,0 +1,24 @@
+# Phase 2: Comprehensive List Tests
+# Test list literals, append, len, and index access
+
+def main():
+    # Test 1: List literal
+    nums = [1, 2, 3, 4, 5]
+    
+    # Test 2: List append
+    nums.append(6)
+    nums.append(7)
+    
+    # Test 3: Print list elements
+    i = 0
+    while i < 7:
+        print(i)
+        i = i + 1
+    
+    # Test 4: Empty list
+    empty = []
+    
+    # Test 5: List with single element
+    single = [42]
+    
+    print(999)  # Success marker

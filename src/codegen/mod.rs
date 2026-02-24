@@ -13,7 +13,15 @@ pub use dce::DeadCodeEliminator;
 /// Variable info: stores both the alloca pointer and its LLVM type
 struct VarInfo<'ctx> {
     alloca: PointerValue<'ctx>,
-    is_float: bool,
+    var_type: VarType,
+}
+
+/// Variable type for codegen
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum VarType {
+    Int,
+    Float,
+    Pointer,
 }
 
 /// Loop context for break/continue support
@@ -214,6 +222,27 @@ impl<'ctx> CodeGen<'ctx> {
             void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
         self.module.add_function("vp_list_set", list_set_type, None);
 
+        // vp_list_insert: void (ptr, i64, i64)
+        let list_insert_type =
+            void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+        self.module.add_function("vp_list_insert", list_insert_type, None);
+
+        // vp_list_remove: i64 (ptr, i64)
+        let list_remove_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module.add_function("vp_list_remove", list_remove_type, None);
+
+        // vp_list_pop: i64 (ptr)
+        let list_pop_type = i64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("vp_list_pop", list_pop_type, None);
+
+        // vp_list_clear: void (ptr)
+        let list_clear_type = void_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("vp_list_clear", list_clear_type, None);
+
+        // vp_list_contains: bool (ptr, i64)
+        let list_contains_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module.add_function("vp_list_contains", list_contains_type, None);
+
         // vp_retain: void (ptr)
         let retain_type = void_type.fn_type(&[ptr_type.into()], false);
         self.module.add_function("vp_retain", retain_type, None);
@@ -276,8 +305,14 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder
                 .build_store(alloca, param_value)
                 .expect("store");
-            let is_float = param_value.is_float_value();
-            self.variables.insert(param.name.clone(), VarInfo { alloca, is_float });
+            let var_type = if param_value.is_float_value() {
+                VarType::Float
+            } else if param_value.is_pointer_value() {
+                VarType::Pointer
+            } else {
+                VarType::Int
+            };
+            self.variables.insert(param.name.clone(), VarInfo { alloca, var_type });
         }
 
         // Generate body
@@ -393,8 +428,14 @@ impl<'ctx> CodeGen<'ctx> {
                                 let ty = val.get_type();
                                 let alloca = self.builder.build_alloca(ty, name).expect("alloca");
                                 self.builder.build_store(alloca, val).expect("store");
-                                let is_float = val.is_float_value();
-                                self.variables.insert(name.clone(), VarInfo { alloca, is_float });
+                                let var_type = if val.is_float_value() {
+                                    VarType::Float
+                                } else if val.is_pointer_value() {
+                                    VarType::Pointer
+                                } else {
+                                    VarType::Int
+                                };
+                                self.variables.insert(name.clone(), VarInfo { alloca, var_type });
                             }
                         }
                         Err(e) => {
@@ -430,15 +471,27 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Expr::Ident(name, _) = target.as_ref() {
                     if let Some(var_info) = self.variables.get(name) {
                         let alloca = var_info.alloca;
-                        let is_float = var_info.is_float;
-                        let current = self.builder.build_load(alloca.get_type(), alloca, name).expect("load");
+                        let var_type = var_info.var_type;
+                        let current = match var_type {
+                            VarType::Float => {
+                                let f64_type = self.context.f64_type();
+                                self.builder.build_load(f64_type, alloca, name).expect("load")
+                            }
+                            VarType::Int => {
+                                let i64_type = self.context.i64_type();
+                                self.builder.build_load(i64_type, alloca, name).expect("load")
+                            }
+                            VarType::Pointer => {
+                                return Err(format!("Cannot perform augmented assignment on pointer variable '{}'", name));
+                            }
+                        };
                         // var_info borrow ends here as we copied what we need
-                        
+
                         let new_val = self.generate_expr(value)?;
-                        
+
                         // Generate the operation result
-                        let result = self.generate_binop_result(current, new_val, op, is_float)?;
-                        
+                        let result = self.generate_binop_result(current, new_val, op, var_type == VarType::Float)?;
+
                         // Store back
                         self.builder.build_store(alloca, result).expect("store");
                     } else {
@@ -458,8 +511,14 @@ impl<'ctx> CodeGen<'ctx> {
                     let ty = val.get_type();
                     let alloca = self.builder.build_alloca(ty, name).expect("alloca");
                     self.builder.build_store(alloca, val).expect("store");
-                    let is_float = val.is_float_value();
-                    self.variables.insert(name.clone(), VarInfo { alloca, is_float });
+                    let var_type = if val.is_float_value() {
+                        VarType::Float
+                    } else if val.is_pointer_value() {
+                        VarType::Pointer
+                    } else {
+                        VarType::Int
+                    };
+                    self.variables.insert(name.clone(), VarInfo { alloca, var_type });
                 }
             }
             Stmt::Return { value, .. } => {
@@ -766,7 +825,7 @@ impl<'ctx> CodeGen<'ctx> {
                     // Body
                     self.builder.position_at_end(body_block);
                     if let Expr::Ident(target_name, _) = target {
-                        self.variables.insert(target_name.clone(), VarInfo { alloca: counter, is_float: false });
+                        self.variables.insert(target_name.clone(), VarInfo { alloca: counter, var_type: VarType::Int });
                     }
                     
                     // Push loop context for break/continue
@@ -822,12 +881,19 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::Str(s, _) => Ok(self.ir_builder.string_const(&self.module, s).into()),
             Expr::Ident(name, _span) => {
                 if let Some(var_info) = self.variables.get(name) {
-                    if var_info.is_float {
-                        let f64_type = self.context.f64_type();
-                        return Ok(self.builder.build_load(f64_type, var_info.alloca, name).expect("load"));
-                    } else {
-                        let i64_type = self.context.i64_type();
-                        return Ok(self.builder.build_load(i64_type, var_info.alloca, name).expect("load"));
+                    match var_info.var_type {
+                        VarType::Float => {
+                            let f64_type = self.context.f64_type();
+                            return Ok(self.builder.build_load(f64_type, var_info.alloca, name).expect("load"));
+                        }
+                        VarType::Pointer => {
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            return Ok(self.builder.build_load(ptr_type, var_info.alloca, name).expect("load"));
+                        }
+                        VarType::Int => {
+                            let i64_type = self.context.i64_type();
+                            return Ok(self.builder.build_load(i64_type, var_info.alloca, name).expect("load"));
+                        }
                     }
                 } else {
                     return Err(format!("Undefined variable: {}", name));
@@ -1005,6 +1071,23 @@ impl<'ctx> CodeGen<'ctx> {
                             .build_float_compare(inkwell::FloatPredicate::OGE, lhs, rhs, "fge")
                             .expect("fge")
                             .into(),
+                        BinOp::Is => {
+                            // is for floats: compare values
+                            self.builder
+                                .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, "f_is")
+                                .expect("f_is")
+                                .into()
+                        }
+                        BinOp::IsNot => {
+                            // is not for floats
+                            let eq = self.builder
+                                .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, "f_isnot")
+                                .expect("f_isnot");
+                            self.builder.build_not(eq, "f_isnot_result").expect("not").into()
+                        }
+                        BinOp::In | BinOp::NotIn => {
+                            return Err("Membership operators not supported for float types".to_string());
+                        }
                         BinOp::FloorDiv => {
                             // Floor division for floats: floor(a / b)
                             let div = self.builder.build_float_div(lhs, rhs, "fdiv").expect("fdiv");
@@ -1093,6 +1176,58 @@ impl<'ctx> CodeGen<'ctx> {
                             .build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "gte")
                             .expect("gte")
                             .into(),
+                        BinOp::Is => {
+                            // is: compare values (works for None which is 0)
+                            self.ir_builder
+                                .build_icmp_eq(&self.builder, lhs, rhs, "is_cmp")
+                                .into()
+                        }
+                        BinOp::IsNot => {
+                            // is not: negation of is
+                            let eq = self.ir_builder.build_icmp_eq(&self.builder, lhs, rhs, "isnot_cmp");
+                            self.builder.build_not(eq, "isnot_result").expect("not").into()
+                        }
+                        BinOp::In => {
+                            // in: check if value is in list (right operand is the list)
+                            let value_val = lhs;
+                            let list_val = rhs_val;
+                            
+                            let list_contains = self
+                                .module
+                                .get_function("vp_list_contains")
+                                .ok_or_else(|| "vp_list_contains not declared".to_string())?;
+                            
+                            let result = self.ir_builder.build_call(
+                                &self.builder,
+                                list_contains,
+                                &[list_val.into(), value_val.into()],
+                                "list_contains",
+                            );
+                            let contains_val: inkwell::values::BasicValueEnum = result.unwrap_or(self.ir_builder.i64_const(0).into());
+                            contains_val
+                        }
+                        BinOp::NotIn => {
+                            // not in: negation of in
+                            let value_val = lhs;
+                            let list_val = rhs_val;
+                            
+                            let list_contains = self
+                                .module
+                                .get_function("vp_list_contains")
+                                .ok_or_else(|| "vp_list_contains not declared".to_string())?;
+                            
+                            let result = self.ir_builder.build_call(
+                                &self.builder,
+                                list_contains,
+                                &[list_val.into(), value_val.into()],
+                                "not_in_contains",
+                            );
+                            let contains_val: inkwell::values::BasicValueEnum = result.unwrap_or(self.ir_builder.i64_const(0).into());
+                            self.builder.build_not(
+                                contains_val.into_int_value(),
+                                "not_in_result",
+                            ).expect("not").into()
+                        }
                         BinOp::Mod => self
                             .builder
                             .build_int_signed_rem(lhs, rhs, "mod")
@@ -1150,11 +1285,65 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => Err(format!("Unsupported unary operator: {:?}", op)),
                 }
             }
-            Expr::Call { func, args, .. } => {
+            Expr::Conditional { condition, then_expr, else_expr, span: _ } => {
+                // Ternary expression: then_expr if condition else else_expr
+                let func = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+                let cond_val = self.generate_expr(condition)?.into_int_value();
+                
+                let then_block = self.context.append_basic_block(func, "ternary_then");
+                let else_block = self.context.append_basic_block(func, "ternary_else");
+                let merge_block = self.context.append_basic_block(func, "ternary_end");
+                
+                // Convert condition to i1 if needed
+                let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
+                    cond_val
+                } else {
+                    self.builder
+                        .build_int_compare(
+                            inkwell::IntPredicate::NE,
+                            cond_val,
+                            self.context.i64_type().const_zero(),
+                            "ternary_cond",
+                        )
+                        .expect("ternary_cond")
+                };
+                
+                self.ir_builder.build_cond_branch(&self.builder, cond_i1, then_block, else_block);
+                
+                // Then block
+                self.builder.position_at_end(then_block);
+                let then_val = self.generate_expr(then_expr)?;
+                let then_block_end = self.builder.get_insert_block().unwrap();
+                self.ir_builder.build_branch(&self.builder, merge_block);
+                
+                // Else block
+                self.builder.position_at_end(else_block);
+                let else_val = self.generate_expr(else_expr)?;
+                let else_block_end = self.builder.get_insert_block().unwrap();
+                self.ir_builder.build_branch(&self.builder, merge_block);
+                
+                // Merge block with phi node
+                self.builder.position_at_end(merge_block);
+                let phi = self.builder.build_phi(then_val.get_type(), "ternary_result").expect("phi");
+                phi.add_incoming(&[(&then_val, then_block_end), (&else_val, else_block_end)]);
+                
+                Ok(phi.as_basic_value())
+            }
+            Expr::Call { func, args, span } => {
+                // Check for method calls on objects (e.g., list.append(6))
+                if let Expr::Attribute { obj, attr, .. } = func.as_ref() {
+                    return self.generate_method_call(obj, attr, args, *span);
+                }
+
                 if let Expr::Ident(name, _) = func.as_ref() {
                     // Check for built-in functions
                     if name == "print" {
                         return self.generate_print_call(args);
+                    }
+
+                    // Check for len() builtin
+                    if name == "len" {
+                        return self.generate_len_call(args);
                     }
 
                     // User-defined function
@@ -1171,7 +1360,6 @@ impl<'ctx> CodeGen<'ctx> {
                             "call",
                         );
                         return Ok(result.unwrap_or(self.ir_builder.i64_const(0).into()));
-                    } else {
                     }
                 }
 
@@ -1283,6 +1471,145 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         Err("print() argument evaluation failed".to_string())
+    }
+
+    /// Generate len() builtin call
+    fn generate_len_call(
+        &mut self,
+        args: &[Expr],
+    ) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+        if args.len() != 1 {
+            return Err(format!("len() takes exactly 1 argument, got {}", args.len()));
+        }
+
+        let obj_val = self.generate_expr(&args[0])?;
+        let list_len = self
+            .module
+            .get_function("vp_list_len")
+            .ok_or_else(|| "vp_list_len not declared".to_string())?;
+        let result = self.ir_builder.build_call(
+            &self.builder,
+            list_len,
+            &[obj_val.into()],
+            "list_len",
+        );
+        Ok(result.unwrap_or(self.ir_builder.i64_const(0).into()))
+    }
+
+    /// Generate method call (e.g., list.append(6), list.len())
+    fn generate_method_call(
+        &mut self,
+        obj: &Expr,
+        method_name: &str,
+        args: &[Expr],
+        _span: crate::utils::Span,
+    ) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+        // Generate code for the object expression
+        let obj_val = self.generate_expr(obj)?;
+
+        match method_name {
+            "append" => {
+                // list.append(value)
+                if args.len() != 1 {
+                    return Err(format!("append() takes exactly 1 argument, got {}", args.len()));
+                }
+                let val = self.generate_expr(&args[0])?.into_int_value();
+                let list_append = self
+                    .module
+                    .get_function("vp_list_append")
+                    .ok_or_else(|| "vp_list_append not declared".to_string())?;
+                self.ir_builder.build_call(
+                    &self.builder,
+                    list_append,
+                    &[obj_val.into(), val.into()],
+                    "list_append",
+                );
+                Ok(self.ir_builder.i64_const(0).into())
+            }
+            "insert" => {
+                // list.insert(index, value)
+                if args.len() != 2 {
+                    return Err(format!("insert() takes exactly 2 arguments, got {}", args.len()));
+                }
+                let index = self.generate_expr(&args[0])?.into_int_value();
+                let val = self.generate_expr(&args[1])?.into_int_value();
+                let list_insert = self
+                    .module
+                    .get_function("vp_list_insert")
+                    .ok_or_else(|| "vp_list_insert not declared".to_string())?;
+                self.ir_builder.build_call(
+                    &self.builder,
+                    list_insert,
+                    &[obj_val.into(), index.into(), val.into()],
+                    "list_insert",
+                );
+                Ok(self.ir_builder.i64_const(0).into())
+            }
+            "remove" => {
+                // list.remove(index) - removes and returns element at index
+                if args.len() != 1 {
+                    return Err(format!("remove() takes exactly 1 argument, got {}", args.len()));
+                }
+                let index = self.generate_expr(&args[0])?.into_int_value();
+                let list_remove = self
+                    .module
+                    .get_function("vp_list_remove")
+                    .ok_or_else(|| "vp_list_remove not declared".to_string())?;
+                let result = self.ir_builder.build_call(
+                    &self.builder,
+                    list_remove,
+                    &[obj_val.into(), index.into()],
+                    "list_remove",
+                );
+                Ok(result.unwrap_or(self.ir_builder.i64_const(0).into()))
+            }
+            "pop" => {
+                // list.pop() - removes and returns last element
+                if !args.is_empty() {
+                    return Err(format!("pop() takes no arguments, got {}", args.len()));
+                }
+                let list_pop = self
+                    .module
+                    .get_function("vp_list_pop")
+                    .ok_or_else(|| "vp_list_pop not declared".to_string())?;
+                let result = self.ir_builder.build_call(
+                    &self.builder,
+                    list_pop,
+                    &[obj_val.into()],
+                    "list_pop",
+                );
+                Ok(result.unwrap_or(self.ir_builder.i64_const(0).into()))
+            }
+            "clear" => {
+                // list.clear()
+                if !args.is_empty() {
+                    return Err(format!("clear() takes no arguments, got {}", args.len()));
+                }
+                let list_clear = self
+                    .module
+                    .get_function("vp_list_clear")
+                    .ok_or_else(|| "vp_list_clear not declared".to_string())?;
+                self.ir_builder.build_call(
+                    &self.builder,
+                    list_clear,
+                    &[obj_val.into()],
+                    "list_clear",
+                );
+                Ok(self.ir_builder.i64_const(0).into())
+            }
+            "len" => {
+                // This shouldn't happen - len(list) is a builtin, not a method
+                // But handle it just in case
+                Err("len() is a builtin function, not a method".to_string())
+            }
+            _ => Err(format!("Unknown method: {}.{}", 
+                match obj {
+                    Expr::Ident(name, _) => name.as_str(),
+                    _ => "object",
+                },
+                method_name
+            )),
+        }
     }
 
     /// Get the generated LLVM module

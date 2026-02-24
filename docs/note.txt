@@ -2,3 +2,6 @@
 Note: For mixed int/float operations, use explicit float types (e.g., 1.0
 
 instead of 1).
+
+
+if build failed show which line cause this issue with line number

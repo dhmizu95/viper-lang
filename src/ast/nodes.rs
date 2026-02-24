@@ -122,6 +122,12 @@ pub enum BinOp {
     BitXor,
     LShift,
     RShift,
+    // Identity (Phase 2)
+    Is,
+    IsNot,
+    // Membership (Phase 2)
+    In,
+    NotIn,
 }
 
 impl BinOp {
@@ -135,7 +141,7 @@ impl BinOp {
             BinOp::BitXor => 9,
             BinOp::BitOr => 8,
             BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => 7,
-            BinOp::Eq | BinOp::NotEq => 6,
+            BinOp::Eq | BinOp::NotEq | BinOp::Is | BinOp::IsNot | BinOp::In | BinOp::NotIn => 6,
             BinOp::And => 5,
             BinOp::Or => 4,
         }
