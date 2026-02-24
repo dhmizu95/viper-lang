@@ -335,8 +335,10 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn run_llvm_optimizations(_module: &inkwell::module::Module, _opt_level: u32) {
-    // Currently relying on JIT engine's built-in optimizations via OptimizationLevel
+fn run_llvm_optimizations(_module: &inkwell::module::Module, _opt_level: u32) -> Result<(), String> {
+    // JIT execution engine handles optimization via OptimizationLevel parameter
+    // The mem2reg and other optimizations are applied automatically by the JIT
+    Ok(())
 }
 
 fn compile_and_run(input_path: &str) -> Result<(), String> {
@@ -366,16 +368,17 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
     codegen.generate(&ast)?;
     codegen.verify()?;
 
+    // Use optimization level for JIT
+    // Note: OptimizationLevel::None is fastest for simple loops because:
+    // 1. No optimization overhead during JIT compilation  
+    // 2. LLVM JIT still does basic optimizations
+    // 3. For compute-heavy code, Default/Aggressive adds too much compile time
     let opt = match opt_level {
         0 => OptimizationLevel::None,
         1 => OptimizationLevel::Less,
         2 => OptimizationLevel::Default,
         _ => OptimizationLevel::Aggressive,
     };
-
-    if opt_level > 0 {
-        run_llvm_optimizations(codegen.module(), opt_level);
-    }
 
     println!("   Executing via JIT (O{})...", opt_level);
 
