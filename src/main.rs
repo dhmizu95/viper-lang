@@ -38,8 +38,11 @@ fn main() {
                 eprintln!("Usage: viper build <file.vp>");
                 std::process::exit(1);
             }
-            let input_file = &args[2];
             let opt_level = get_opt_level(&args);
+            let input_file = args.iter().find(|a| a.ends_with(".vp"))
+                .ok_or("Error: No input file specified")
+                .map(|s| s.as_str())
+                .unwrap();
             if let Err(e) = compile_file_aot(input_file, opt_level, None) {
                 eprintln!("Compilation failed: {}", e);
                 std::process::exit(1);
@@ -152,51 +155,65 @@ fn compile_file_aot(
     codegen.verify()?;
     println!("   ✓ Generated LLVM IR");
 
-    println!("   Optimizing and emitting object code...");
+    let module = codegen.module();
     let output = output_path.unwrap_or(module_name);
 
-    let module = codegen.module();
-
-    let opt = match opt_level {
-        0 => OptimizationLevel::None,
-        1 => OptimizationLevel::Less,
-        2 => OptimizationLevel::Default,
-        _ => OptimizationLevel::Aggressive,
-    };
-
-    let target_triple = TargetTriple::create(
-        &std::process::Command::new("uname")
-            .arg("-m")
+    // For -O2 and -O3, use external opt for better optimization (mem2reg, etc.)
+    if opt_level >= 2 {
+        println!("   Using LLVM opt for -O{}...", opt_level);
+        let bc_path = format!("{}.bc", module_name);
+        module.write_bitcode_to_path(Path::new(&bc_path));
+        
+        let opt_level_str = match opt_level {
+            2 => "-O2",
+            _ => "-O3",
+        };
+        
+        let opt_bc = format!("{}.opt.bc", module_name);
+        std::process::Command::new("/usr/lib/llvm-20/bin/opt")
+            .args(&[opt_level_str, "-mtriple=x86_64-pc-linux-gnu", &bc_path, "-o", &opt_bc])
             .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|arch| match arch.trim() {
-                "x86_64" => "x86_64-unknown-linux-gnu",
-                "aarch64" => "aarch64-unknown-linux-gnu",
-                _ => "x86_64-unknown-linux-gnu",
-            })
-            .unwrap_or("x86_64-unknown-linux-gnu")
-            .to_string(),
-    );
+            .map_err(|e| format!("opt failed: {}", e))?;
+        
+        // Use optimized bitcode for object generation
+        let context = Context::create();
+        let opt_module = inkwell::module::Module::parse_bitcode_from_path(Path::new(&opt_bc), &context)
+            .map_err(|e| format!("Failed to load optimized bitcode: {}", e))?;
+        
+        println!("   [4/4] Emitting object code...");
+        emit_object_file(&opt_module, module_name, output)
+    } else {
+        println!("   Optimizing and emitting object code...");
+        emit_object_file(&module, module_name, output)
+    }
+}
+
+fn emit_object_file(
+    module: &inkwell::module::Module,
+    module_name: &str,
+    output: &str,
+) -> Result<(), String> {
+    use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple};
+    
+    let target_triple = TargetTriple::create("x86_64-unknown-linux-gnu");
 
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("Failed to initialize native target: {}", e))?;
 
-    let target =
-        Target::from_triple(&target_triple).map_err(|e| format!("Failed to get target: {}", e))?;
+    let target = Target::from_triple(&target_triple)
+        .map_err(|e| format!("Failed to get target: {}", e))?;
 
     let target_machine = target
         .create_target_machine(
             &target_triple,
             "",
             "",
-            opt,
+            OptimizationLevel::Default,
             RelocMode::Default,
             CodeModel::Default,
         )
         .ok_or_else(|| "Failed to create target machine".to_string())?;
 
-    use inkwell::targets::FileType;
     let obj_path = format!("{}.o", output);
     target_machine
         .write_to_file(module, FileType::Object, Path::new(&obj_path))
@@ -206,10 +223,7 @@ fn compile_file_aot(
     println!("✅ Compilation successful!");
     println!();
     println!("   To link and run:");
-    println!(
-        "   $ gcc {}.o -o {} -L./runtime -lviper -lm",
-        obj_path, output
-    );
+    println!("   $ gcc {}.o -o {} -lm", obj_path, output);
     println!("   $ ./{}", output);
 
     Ok(())
