@@ -447,11 +447,55 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
 
         if let Some(func) = codegen.module().get_function("vp_list_create") {
             execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_create_stub as usize);
+                .add_global_mapping(&func.as_global_value(), vp_list_create_stub as *const () as usize);
         }
         if let Some(func) = codegen.module().get_function("vp_list_append") {
             execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_append_stub as usize);
+                .add_global_mapping(&func.as_global_value(), vp_list_append_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_free") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_free_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_get") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_get_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_len") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_len_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_set") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_set_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_insert") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_insert_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_remove") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_remove_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_pop") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_pop_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_clear") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_clear_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_contains") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_contains_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_retain") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_retain_stub as *const () as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_release") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_release_stub as *const () as usize);
         }
     }
 
@@ -489,10 +533,106 @@ extern "C" fn vp_print_newline() {
 }
 
 // Stub implementations for list functions (Phase 2 MVP)
+// Using Box<Vec<i64>> as the internal representation
 extern "C" fn vp_list_create_stub() -> *mut std::ffi::c_void {
-    std::ptr::null_mut()
+    let list = Box::new(Vec::<i64>::new());
+    Box::into_raw(list) as *mut std::ffi::c_void
 }
 
-extern "C" fn vp_list_append_stub(_list: *mut std::ffi::c_void, _val: i64) {
-    // Stub - do nothing for now
+extern "C" fn vp_list_append_stub(list: *mut std::ffi::c_void, val: i64) {
+    if list.is_null() { return; }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        vec.push(val);
+    }
+}
+
+extern "C" fn vp_list_free_stub(list: *mut std::ffi::c_void) {
+    if list.is_null() { return; }
+    unsafe {
+        let _ = Box::from_raw(list as *mut Vec<i64>);
+    }
+}
+
+extern "C" fn vp_list_get_stub(list: *mut std::ffi::c_void, index: i64) -> i64 {
+    if list.is_null() { return 0; }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        if index < 0 || index as usize >= vec.len() {
+            return 0;
+        }
+        vec[index as usize]
+    }
+}
+
+extern "C" fn vp_list_len_stub(list: *mut std::ffi::c_void) -> i64 {
+    if list.is_null() { return 0; }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        vec.len() as i64
+    }
+}
+
+extern "C" fn vp_list_set_stub(list: *mut std::ffi::c_void, index: i64, val: i64) {
+    if list.is_null() { return; }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        if index >= 0 && (index as usize) < vec.len() {
+            vec[index as usize] = val;
+        }
+    }
+}
+
+extern "C" fn vp_list_insert_stub(list: *mut std::ffi::c_void, index: i64, val: i64) {
+    if list.is_null() { return; }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        if index >= 0 && (index as usize) <= vec.len() {
+            vec.insert(index as usize, val);
+        }
+    }
+}
+
+extern "C" fn vp_list_remove_stub(list: *mut std::ffi::c_void, index: i64) -> i64 {
+    if list.is_null() { return 0; }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        if index >= 0 && (index as usize) < vec.len() {
+            vec.remove(index as usize)
+        } else {
+            0
+        }
+    }
+}
+
+extern "C" fn vp_list_pop_stub(list: *mut std::ffi::c_void) -> i64 {
+    if list.is_null() { return 0; }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        vec.pop().unwrap_or(0)
+    }
+}
+
+extern "C" fn vp_list_clear_stub(list: *mut std::ffi::c_void) {
+    if list.is_null() { return; }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        vec.clear();
+    }
+}
+
+extern "C" fn vp_list_contains_stub(list: *mut std::ffi::c_void, val: i64) -> bool {
+    if list.is_null() { return false; }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        vec.contains(&val)
+    }
+}
+
+extern "C" fn vp_retain_stub(_ptr: *mut std::ffi::c_void) {
+    // No-op for JIT
+}
+
+extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
+    // No-op for JIT
 }

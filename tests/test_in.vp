@@ -1,0 +1,11 @@
+# Test: Membership operators
+def main():
+    nums = [1, 2, 3, 4, 5]
+    
+    # 3 in nums
+    if 3 in nums:
+        print(300)
+    
+    # 10 not in nums
+    if 10 not in nums:
+        print(400)

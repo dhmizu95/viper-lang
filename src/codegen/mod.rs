@@ -1012,7 +1012,34 @@ impl<'ctx> CodeGen<'ctx> {
                     
                     return Ok(phi.as_basic_value());
                 }
-                
+
+                // Handle membership operators (In, NotIn) - they work with lists
+                if matches!(op, BinOp::In | BinOp::NotIn) {
+                    let value_val = self.generate_expr(left)?;
+                    let list_val = self.generate_expr(right)?;
+                    
+                    let list_contains = self
+                        .module
+                        .get_function("vp_list_contains")
+                        .ok_or_else(|| "vp_list_contains not declared".to_string())?;
+                    
+                    let result = self.ir_builder.build_call(
+                        &self.builder,
+                        list_contains,
+                        &[list_val.into(), value_val.into()],
+                        if matches!(op, BinOp::In) { "list_contains" } else { "not_in_contains" },
+                    );
+                    let contains_val: inkwell::values::BasicValueEnum = result.unwrap_or(self.ir_builder.i64_const(0).into());
+                    
+                    if matches!(op, BinOp::NotIn) {
+                        return Ok(self.builder.build_not(
+                            contains_val.into_int_value(),
+                            "not_in_result",
+                        ).expect("not").into());
+                    }
+                    return Ok(contains_val);
+                }
+
                 let lhs_val = self.generate_expr(left)?;
                 let rhs_val = self.generate_expr(right)?;
 
@@ -1186,47 +1213,6 @@ impl<'ctx> CodeGen<'ctx> {
                             // is not: negation of is
                             let eq = self.ir_builder.build_icmp_eq(&self.builder, lhs, rhs, "isnot_cmp");
                             self.builder.build_not(eq, "isnot_result").expect("not").into()
-                        }
-                        BinOp::In => {
-                            // in: check if value is in list (right operand is the list)
-                            let value_val = lhs;
-                            let list_val = rhs_val;
-                            
-                            let list_contains = self
-                                .module
-                                .get_function("vp_list_contains")
-                                .ok_or_else(|| "vp_list_contains not declared".to_string())?;
-                            
-                            let result = self.ir_builder.build_call(
-                                &self.builder,
-                                list_contains,
-                                &[list_val.into(), value_val.into()],
-                                "list_contains",
-                            );
-                            let contains_val: inkwell::values::BasicValueEnum = result.unwrap_or(self.ir_builder.i64_const(0).into());
-                            contains_val
-                        }
-                        BinOp::NotIn => {
-                            // not in: negation of in
-                            let value_val = lhs;
-                            let list_val = rhs_val;
-                            
-                            let list_contains = self
-                                .module
-                                .get_function("vp_list_contains")
-                                .ok_or_else(|| "vp_list_contains not declared".to_string())?;
-                            
-                            let result = self.ir_builder.build_call(
-                                &self.builder,
-                                list_contains,
-                                &[list_val.into(), value_val.into()],
-                                "not_in_contains",
-                            );
-                            let contains_val: inkwell::values::BasicValueEnum = result.unwrap_or(self.ir_builder.i64_const(0).into());
-                            self.builder.build_not(
-                                contains_val.into_int_value(),
-                                "not_in_result",
-                            ).expect("not").into()
                         }
                         BinOp::Mod => self
                             .builder

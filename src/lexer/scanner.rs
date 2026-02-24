@@ -486,7 +486,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn keyword_or_ident(&self, ident: String) -> TokenKind {
+    fn keyword_or_ident(&mut self, ident: String) -> TokenKind {
         match ident.as_str() {
             "def" => TokenKind::Def,
             "if" => TokenKind::If,
@@ -512,10 +512,61 @@ impl<'a> Lexer<'a> {
             "class" => TokenKind::Class,
             "import" => TokenKind::Import,
             "from" => TokenKind::From,
-            "is" => TokenKind::Is,
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
-            "not" => TokenKind::Not,
+            "is" => {
+                // Check for "is not" by looking at source string
+                // Look ahead in the source to see if next word is "not"
+                let source_bytes = self.source.as_bytes();
+                let mut idx = self.pos;
+                
+                // Skip single space
+                if idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                    idx += 1;
+                    // Skip additional whitespace
+                    while idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                        idx += 1;
+                    }
+                    // Check for "not"
+                    if idx + 3 <= source_bytes.len() && &source_bytes[idx..idx+3] == b"not" {
+                        // Make sure it's a complete word
+                        if idx + 3 >= source_bytes.len() || !source_bytes[idx+3].is_ascii_alphanumeric() {
+                            // Advance the lexer position and chars iterator
+                            while self.pos < idx + 3 {
+                                self.advance();
+                            }
+                            return TokenKind::IsNot;
+                        }
+                    }
+                }
+                TokenKind::Is
+            }
+            "not" => {
+                // Check for "not in" by looking at source string
+                let source_bytes = self.source.as_bytes();
+                let mut idx = self.pos;
+                
+                // Skip single space
+                if idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                    idx += 1;
+                    // Skip additional whitespace
+                    while idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                        idx += 1;
+                    }
+                    // Check for "in"
+                    if idx + 2 <= source_bytes.len() && &source_bytes[idx..idx+2] == b"in" {
+                        // Make sure it's a complete word
+                        if idx + 2 >= source_bytes.len() || !source_bytes[idx+2].is_ascii_alphanumeric() {
+                            // Advance the lexer position and chars iterator
+                            while self.pos < idx + 2 {
+                                self.advance();
+                            }
+                            return TokenKind::NotIn;
+                        }
+                    }
+                }
+                TokenKind::Not
+            }
             "global" => TokenKind::Ident("global".to_string()),  // Reserved for Phase 3
             "const" => TokenKind::Ident("const".to_string()),    // Reserved for Phase 2
             "lambda" => TokenKind::Ident("lambda".to_string()),  // Phase 2

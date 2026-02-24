@@ -664,8 +664,9 @@ impl<'a> StatementParser<'a> {
                                     break;
                                 }
                             }
+                            self.expect(&TokenKind::RParen)?;
                         }
-                        self.expect(&TokenKind::RParen)?;
+                        // RParen was already consumed by match_token if it matched
                         let call_span = span.merge(self.previous().span);
                         expr = Expr::Call {
                             func: Box::new(expr),
@@ -814,7 +815,14 @@ impl<'a> StatementParser<'a> {
         }
 
         let mut stmts = Vec::new();
-        while !self.match_token(&TokenKind::Dedent) && !self.is_at_end() {
+        loop {
+            // Check for dedent without consuming it
+            if matches!(self.current().kind, TokenKind::Dedent) {
+                break;
+            }
+            if self.is_at_end() {
+                break;
+            }
             if self.match_token(&TokenKind::Newline) {
                 continue;
             }
