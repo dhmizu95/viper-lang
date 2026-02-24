@@ -1,0 +1,43 @@
+# Benchmark: Mandelbrot set calculation
+# Counts points in the Mandelbrot set
+
+def main():
+    # Image size
+    width = 500
+    height = 500
+    max_iter = 100
+    
+    count = 0
+    py = 0
+    
+    while py < height:
+        px = 0
+        while px < width:
+            # Map pixel to complex plane
+            x0 = (px - width / 2) * 4 / width
+            y0 = (py - height / 2) * 4 / height
+            
+            # Mandelbrot iteration
+            x = 0
+            y = 0
+            iter = 0
+            escaped = 0
+            
+            while iter < max_iter:
+                dist_sq = x * x + y * y
+                if dist_sq >= 4:
+                    escaped = 1
+                if escaped == 1:
+                    break
+                xtemp = x * x - y * y + x0
+                y = 2 * x * y + y0
+                x = xtemp
+                iter = iter + 1
+            
+            if iter == max_iter:
+                count = count + 1
+            
+            px = px + 1
+        py = py + 1
+    
+    print(count)

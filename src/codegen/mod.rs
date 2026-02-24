@@ -199,7 +199,7 @@ impl<'ctx> CodeGen<'ctx> {
         let entry = self.context.append_basic_block(func, "entry");
         self.builder.position_at_end(entry);
 
-        // Set up parameters
+        // Set up parameters with alloca
         for (i, param) in params.iter().enumerate() {
             let param_value = func.get_nth_param(i as u32).unwrap();
             let alloca = self

@@ -151,7 +151,7 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
     codegen.verify()?;
 
     // Phase 4: JIT Execution
-    println!("   [4/4] Executing via JIT...");
+    println!("   Executing via JIT...");
 
     // We need to initialize native targets for JIT
     inkwell::targets::Target::initialize_native(&inkwell::targets::InitializationConfig::default())
