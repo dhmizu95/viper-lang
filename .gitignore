@@ -36,3 +36,7 @@ benchmark/sieve_rust
 benchmark/sieve_go
 benchmark/*.o
 
+# Runtime build artifacts
+runtime/libviper.a
+runtime/obj/*.o
+
