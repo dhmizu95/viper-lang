@@ -148,7 +148,11 @@ impl<'a> StatementParser<'a> {
         let token = self.current();
         let ty = match &token.kind {
             TokenKind::Ident(name) => match name.as_str() {
+                "i8" => Type::I8,
+                "i16" => Type::I16,
+                "i32" => Type::I32,
                 "i64" => Type::I64,
+                "f32" => Type::F32,
                 "f64" => Type::F64,
                 "bool" => Type::Bool,
                 "str" => Type::Str,

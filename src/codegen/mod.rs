@@ -1,6 +1,6 @@
 use crate::ast::{BinOp, Expr, Module, Stmt, Type};
 use inkwell::context::Context;
-use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
+use inkwell::values::{FunctionValue, PointerValue};
 use std::collections::HashMap;
 
 mod builder;
@@ -16,6 +16,12 @@ struct VarInfo<'ctx> {
     is_float: bool,
 }
 
+/// Loop context for break/continue support
+struct LoopContext<'ctx> {
+    break_block: inkwell::basic_block::BasicBlock<'ctx>,
+    continue_block: inkwell::basic_block::BasicBlock<'ctx>,
+}
+
 /// Main code generator that translates AST to LLVM IR
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
@@ -24,6 +30,7 @@ pub struct CodeGen<'ctx> {
     ir_builder: IRBuilder<'ctx>,
     variables: HashMap<String, VarInfo<'ctx>>,
     functions: HashMap<String, FunctionValue<'ctx>>,
+    loop_stack: Vec<LoopContext<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -39,6 +46,69 @@ impl<'ctx> CodeGen<'ctx> {
             ir_builder,
             variables: HashMap::new(),
             functions: HashMap::new(),
+            loop_stack: Vec::new(),
+        }
+    }
+
+    /// Convert Viper Type to LLVM type
+    fn llvm_type(&self, ty: &Type) -> inkwell::types::BasicTypeEnum<'ctx> {
+        match ty {
+            Type::I8 | Type::I16 | Type::I32 | Type::I64 => self.context.i64_type().into(),
+            Type::F32 | Type::F64 => self.context.f64_type().into(),
+            Type::Bool => self.context.bool_type().into(),
+            Type::Str => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            _ => self.context.i64_type().into(),
+        }
+    }
+
+    /// Get LLVM type for function return
+    fn llvm_return_type(&self, return_type: &Option<Type>) -> Option<inkwell::types::BasicTypeEnum<'ctx>> {
+        match return_type {
+            Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) => {
+                Some(self.context.i64_type().into())
+            }
+            Some(Type::F32) | Some(Type::F64) => Some(self.context.f64_type().into()),
+            Some(Type::Bool) => Some(self.context.bool_type().into()),
+            Some(Type::Str) => Some(
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
+            ),
+            Some(Type::None) | None => None,
+            _ => Some(self.context.i64_type().into()),
+        }
+    }
+
+    /// Generate binary operation result for augmented assignment
+    fn generate_binop_result(
+        &self,
+        lhs: inkwell::values::BasicValueEnum<'ctx>,
+        rhs: inkwell::values::BasicValueEnum<'ctx>,
+        op: &BinOp,
+        is_float: bool,
+    ) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+        if is_float {
+            let lhs = lhs.into_float_value();
+            let rhs = rhs.into_float_value();
+            match op {
+                BinOp::Add => Ok(self.builder.build_float_add(lhs, rhs, "fadd").expect("fadd").into()),
+                BinOp::Sub => Ok(self.builder.build_float_sub(lhs, rhs, "fsub").expect("fsub").into()),
+                BinOp::Mul => Ok(self.builder.build_float_mul(lhs, rhs, "fmul").expect("fmul").into()),
+                BinOp::Div => Ok(self.builder.build_float_div(lhs, rhs, "fdiv").expect("fdiv").into()),
+                _ => Err(format!("Unsupported augmented assignment operator for float: {:?}", op)),
+            }
+        } else {
+            let lhs = lhs.into_int_value();
+            let rhs = rhs.into_int_value();
+            match op {
+                BinOp::Add => Ok(self.ir_builder.build_add(&self.builder, lhs, rhs, "add").into()),
+                BinOp::Sub => Ok(self.ir_builder.build_sub(&self.builder, lhs, rhs, "sub").into()),
+                BinOp::Mul => Ok(self.ir_builder.build_mul(&self.builder, lhs, rhs, "mul").into()),
+                BinOp::Div => Ok(self.ir_builder.build_div(&self.builder, lhs, rhs, "div").into()),
+                BinOp::Mod => Ok(self.builder.build_int_signed_rem(lhs, rhs, "mod").expect("mod").into()),
+                BinOp::FloorDiv => Ok(self.ir_builder.build_div(&self.builder, lhs, rhs, "floordiv").into()),
+                _ => Err(format!("Unsupported augmented assignment operator for int: {:?}", op)),
+            }
         }
     }
 
@@ -161,30 +231,19 @@ impl<'ctx> CodeGen<'ctx> {
         params: &[crate::ast::Param],
         return_type: &Option<Type>,
     ) -> Result<(), String> {
+        use inkwell::types::BasicType;
+        
         let param_types: Vec<_> = params
             .iter()
-            .map(|p| match &p.type_ann {
-                Some(Type::I64) => self.context.i64_type().into(),
-                Some(Type::F64) => self.context.f64_type().into(),
-                Some(Type::Bool) => self.context.bool_type().into(),
-                Some(Type::Str) => self
-                    .context
-                    .ptr_type(inkwell::AddressSpace::default())
-                    .into(),
-                _ => self.context.i64_type().into(),
+            .map(|p| {
+                let ty = p.type_ann.clone().unwrap_or(Type::I64);
+                self.llvm_type(&ty).as_basic_type_enum().into()
             })
             .collect();
 
-        let fn_type = match return_type {
-            Some(Type::I64) => self.context.i64_type().fn_type(&param_types, false),
-            Some(Type::F64) => self.context.f64_type().fn_type(&param_types, false),
-            Some(Type::Bool) => self.context.bool_type().fn_type(&param_types, false),
-            Some(Type::Str) => self
-                .context
-                .ptr_type(inkwell::AddressSpace::default())
-                .fn_type(&param_types, false),
-            Some(Type::None) | None => self.context.void_type().fn_type(&param_types, false),
-            _ => self.context.void_type().fn_type(&param_types, false),
+        let fn_type = match self.llvm_return_type(return_type) {
+            Some(return_ty) => return_ty.fn_type(&param_types, false),
+            None => self.context.void_type().fn_type(&param_types, false),
         };
 
         let func = self.module.add_function(name, fn_type, None);
@@ -235,11 +294,11 @@ impl<'ctx> CodeGen<'ctx> {
             .is_none()
         {
             match return_type {
-                Some(Type::I64) => {
+                Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) => {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
                 }
-                Some(Type::F64) => {
+                Some(Type::F32) | Some(Type::F64) => {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.f64_const(0.0)));
                 }
@@ -365,6 +424,28 @@ impl<'ctx> CodeGen<'ctx> {
                     );
                 }
             }
+            Stmt::AugAssign { target, op, value, .. } => {
+                // Augmented assignment: target op= value
+                // Generate: target = target op value
+                if let Expr::Ident(name, _) = target.as_ref() {
+                    if let Some(var_info) = self.variables.get(name) {
+                        let alloca = var_info.alloca;
+                        let is_float = var_info.is_float;
+                        let current = self.builder.build_load(alloca.get_type(), alloca, name).expect("load");
+                        // var_info borrow ends here as we copied what we need
+                        
+                        let new_val = self.generate_expr(value)?;
+                        
+                        // Generate the operation result
+                        let result = self.generate_binop_result(current, new_val, op, is_float)?;
+                        
+                        // Store back
+                        self.builder.build_store(alloca, result).expect("store");
+                    } else {
+                        return Err(format!("Undefined variable in augmented assignment: {}", name));
+                    }
+                }
+            }
             Stmt::Declare {
                 name,
                 value,
@@ -411,8 +492,22 @@ impl<'ctx> CodeGen<'ctx> {
             Stmt::Function { .. } => {
                 // Already handled in first pass
             }
-            Stmt::Break(_) | Stmt::Continue(_) | Stmt::Pass(_) => {
-                // TODO: Implement control flow
+            Stmt::Break(_) => {
+                if let Some(loop_ctx) = self.loop_stack.last() {
+                    self.ir_builder.build_branch(&self.builder, loop_ctx.break_block);
+                } else {
+                    return Err("break statement outside of loop".to_string());
+                }
+            }
+            Stmt::Continue(_) => {
+                if let Some(loop_ctx) = self.loop_stack.last() {
+                    self.ir_builder.build_branch(&self.builder, loop_ctx.continue_block);
+                } else {
+                    return Err("continue statement outside of loop".to_string());
+                }
+            }
+            Stmt::Pass(_) => {
+                // No-op, just continue
             }
             _ => {}
         }
@@ -596,9 +691,20 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Body block
         self.builder.position_at_end(body_block);
+        
+        // Push loop context for break/continue
+        self.loop_stack.push(LoopContext {
+            break_block: exit_block,
+            continue_block: cond_block,
+        });
+        
         for stmt in body {
             self.generate_stmt(stmt)?;
         }
+        
+        // Pop loop context
+        self.loop_stack.pop();
+        
         self.ir_builder.build_branch(&self.builder, cond_block);
 
         // Exit block
@@ -662,9 +768,20 @@ impl<'ctx> CodeGen<'ctx> {
                     if let Expr::Ident(target_name, _) = target {
                         self.variables.insert(target_name.clone(), VarInfo { alloca: counter, is_float: false });
                     }
+                    
+                    // Push loop context for break/continue
+                    self.loop_stack.push(LoopContext {
+                        break_block: exit_block,
+                        continue_block: step_block,
+                    });
+                    
                     for stmt in body {
                         self.generate_stmt(stmt)?;
                     }
+                    
+                    // Pop loop context
+                    self.loop_stack.pop();
+                    
                     self.ir_builder.build_branch(&self.builder, step_block);
 
                     // Step
@@ -716,7 +833,7 @@ impl<'ctx> CodeGen<'ctx> {
                     return Err(format!("Undefined variable: {}", name));
                 }
             }
-            Expr::List { elements, span } => {
+            Expr::List { elements, span: _ } => {
                 // Generate code to create a list at runtime
                 // For Phase 2, we'll create a list and append elements
                 let list_func = self
@@ -747,7 +864,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(list_val)
             }
-            Expr::Tuple { elements, span } => {
+            Expr::Tuple { elements, span: _ } => {
                 // For Phase 2, tuples are not fully supported - return first element or 0
                 if elements.is_empty() {
                     Ok(self.ir_builder.i64_const(0).into())
@@ -755,7 +872,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.generate_expr(&elements[0])
                 }
             }
-            Expr::Dict { pairs, span } => {
+            Expr::Dict { pairs: _, span: _ } => {
                 // Dict not implemented for Phase 2
                 Err("Dictionary literals not yet implemented in Phase 2".to_string())
             }
@@ -787,9 +904,52 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::BinOp {
                 left, op, right, ..
             } => {
+                // Handle short-circuiting for logical operators
+                if matches!(op, BinOp::And | BinOp::Or) {
+                    let lhs_val = self.generate_expr(left)?;
+                    let lhs_int = lhs_val.into_int_value();
+                    
+                    let func = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+                    let then_block = self.context.append_basic_block(func, "logic_then");
+                    let end_block = self.context.append_basic_block(func, "logic_end");
+                    
+                    let is_and = *op == BinOp::And;
+                    
+                    // Branch based on left operand
+                    // For And: if left is false, result is false (skip right)
+                    // For Or: if left is true, result is true (skip right)
+                    self.builder.build_conditional_branch(
+                        lhs_int,
+                        if is_and { then_block } else { end_block },
+                        if is_and { end_block } else { then_block },
+                    ).expect("branch");
+                    
+                    // Then block: evaluate right operand
+                    self.builder.position_at_end(then_block);
+                    let rhs_val = self.generate_expr(right)?;
+                    let rhs_int = rhs_val.into_int_value();
+                    self.builder.build_unconditional_branch(end_block).expect("branch");
+                    let then_block_end = self.builder.get_insert_block().unwrap();
+                    
+                    // End block: phi node to select result
+                    self.builder.position_at_end(end_block);
+                    let phi = self.builder.build_phi(self.context.bool_type(), "logic_result").expect("phi");
+                    
+                    let cond_block = self.builder.get_insert_block().unwrap().get_previous_basic_block().unwrap();
+                    if is_and {
+                        // For And: if left is false, result is false; else result is right
+                        phi.add_incoming(&[(&lhs_int, cond_block), (&rhs_int, then_block_end)]);
+                    } else {
+                        // For Or: if left is true, result is true; else result is right
+                        phi.add_incoming(&[(&lhs_int, cond_block), (&rhs_int, then_block_end)]);
+                    }
+                    
+                    return Ok(phi.as_basic_value());
+                }
+                
                 let lhs_val = self.generate_expr(left)?;
                 let rhs_val = self.generate_expr(right)?;
-                
+
                 // Check if we're dealing with floats
                 let result: inkwell::values::BasicValueEnum = if lhs_val.is_float_value() {
                     let lhs = lhs_val.into_float_value();
@@ -845,6 +1005,45 @@ impl<'ctx> CodeGen<'ctx> {
                             .build_float_compare(inkwell::FloatPredicate::OGE, lhs, rhs, "fge")
                             .expect("fge")
                             .into(),
+                        BinOp::FloorDiv => {
+                            // Floor division for floats: floor(a / b)
+                            let div = self.builder.build_float_div(lhs, rhs, "fdiv").expect("fdiv");
+                            let floor_func = self.module.get_function("floor").unwrap_or_else(|| {
+                                let floor_type = self.context.f64_type().fn_type(
+                                    &[self.context.f64_type().into()],
+                                    false
+                                );
+                                self.module.add_function("floor", floor_type, None)
+                            });
+                            let result = self.builder.build_call(
+                                floor_func,
+                                &[div.into()],
+                                "floor"
+                            ).expect("floor call");
+                            match result.try_as_basic_value() {
+                                inkwell::values::ValueKind::Basic(inkwell::values::BasicValueEnum::FloatValue(fv)) => fv.into(),
+                                _ => return Err("floor() did not return float".to_string()),
+                            }
+                        }
+                        BinOp::Pow => {
+                            // Power for floats: use libm pow function
+                            let pow_func = self.module.get_function("pow").unwrap_or_else(|| {
+                                let pow_type = self.context.f64_type().fn_type(
+                                    &[self.context.f64_type().into(), self.context.f64_type().into()],
+                                    false
+                                );
+                                self.module.add_function("pow", pow_type, None)
+                            });
+                            let result = self.builder.build_call(
+                                pow_func,
+                                &[lhs.into(), rhs.into()],
+                                "pow"
+                            ).expect("pow call");
+                            match result.try_as_basic_value() {
+                                inkwell::values::ValueKind::Basic(inkwell::values::BasicValueEnum::FloatValue(fv)) => fv.into(),
+                                _ => return Err("pow() did not return float".to_string()),
+                            }
+                        }
                         _ => return Err(format!("Unsupported float operator: {:?}", op)),
                     }
                 } else {
@@ -899,6 +1098,39 @@ impl<'ctx> CodeGen<'ctx> {
                             .build_int_signed_rem(lhs, rhs, "mod")
                             .expect("mod")
                             .into(),
+                        BinOp::FloorDiv => {
+                            // Floor division: floor(a / b) for integers is just signed division
+                            self.ir_builder
+                                .build_div(&self.builder, lhs, rhs, "floordiv")
+                                .into()
+                        }
+                        BinOp::Pow => {
+                            // Power: use libm pow function for integers
+                            // Convert to double, call pow, convert back
+                            let pow_func = self.module.get_function("pow").unwrap_or_else(|| {
+                                let pow_type = self.context.f64_type().fn_type(
+                                    &[self.context.f64_type().into(), self.context.f64_type().into()],
+                                    false
+                                );
+                                self.module.add_function("pow", pow_type, None)
+                            });
+                            let lhs_double = self.builder.build_signed_int_to_float(lhs, self.context.f64_type(), "lhs_d").expect("int_to_float");
+                            let rhs_double = self.builder.build_signed_int_to_float(rhs, self.context.f64_type(), "rhs_d").expect("int_to_float");
+                            let result_double = self.builder.build_call(
+                                pow_func,
+                                &[lhs_double.into(), rhs_double.into()],
+                                "pow_result"
+                            ).expect("pow call");
+                            let float_val = match result_double.try_as_basic_value() {
+                                inkwell::values::ValueKind::Basic(inkwell::values::BasicValueEnum::FloatValue(fv)) => fv,
+                                _ => return Err("pow() did not return float".to_string()),
+                            };
+                            self.builder.build_float_to_signed_int(
+                                float_val,
+                                self.context.i64_type(),
+                                "pow_int"
+                            ).expect("pow cast").into()
+                        }
                         _ => return Err(format!("Unsupported int operator: {:?}", op)),
                     }
                 };

@@ -130,10 +130,62 @@ void vp_assert(bool condition, const char* message) {
 
 ViperList* vp_builtin_range_list(int64_t end) {
     ViperList* list = vp_list_create();
-    
+
     for (int64_t i = 0; i < end; i++) {
         vp_list_append(list, i);
     }
-    
+
     return list;
+}
+
+/* ============================================ */
+/* Type Conversion Functions                    */
+/* ============================================ */
+
+/* Convert i64 to string */
+char* vp_str_from_i64(int64_t val) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%ld", (long)val);
+    return vp_str_create(buffer);
+}
+
+/* Convert f64 to string */
+char* vp_str_from_f64(double val) {
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%g", val);
+    return vp_str_create(buffer);
+}
+
+/* Convert bool to string */
+char* vp_str_from_bool(bool val) {
+    return vp_str_create(val ? "True" : "False");
+}
+
+/* Convert string to i64 */
+int64_t vp_i64_from_str(const char* str) {
+    if (!str) return 0;
+    return strtoll(str, NULL, 10);
+}
+
+/* Convert string to f64 */
+double vp_f64_from_str(const char* str) {
+    if (!str) return 0.0;
+    return strtod(str, NULL);
+}
+
+/* Convert i64 to bool (non-zero = true) */
+bool vp_bool_from_i64(int64_t val) {
+    return val != 0;
+}
+
+/* Convert f64 to bool (non-zero = true) */
+bool vp_bool_from_f64(double val) {
+    return val != 0.0;
+}
+
+/* Convert string to bool */
+bool vp_bool_from_str(const char* str) {
+    if (!str) return false;
+    return (strcmp(str, "True") == 0 || strcmp(str, "true") == 0 || 
+            strcmp(str, "1") == 0);
 }

@@ -102,4 +102,17 @@ int64_t vp_builtin_range_start(int64_t start, int64_t end);
 int64_t vp_builtin_range_next(int64_t* state);
 ViperList* vp_builtin_range_list(int64_t end);
 
+/* ============================================ */
+/* Type Conversion Functions                    */
+/* ============================================ */
+
+char* vp_str_from_i64(int64_t val);
+char* vp_str_from_f64(double val);
+char* vp_str_from_bool(bool val);
+int64_t vp_i64_from_str(const char* str);
+double vp_f64_from_str(const char* str);
+bool vp_bool_from_i64(int64_t val);
+bool vp_bool_from_f64(double val);
+bool vp_bool_from_str(const char* str);
+
 #endif /* VIPER_STDLIB_H */

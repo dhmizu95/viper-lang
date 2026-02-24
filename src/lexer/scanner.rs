@@ -320,15 +320,36 @@ impl<'a> Lexer<'a> {
                 Some(&c) => {
                     let ch = c;
                     if escaped {
-                        s.push(match ch {
-                            'n' => '\n',
-                            't' => '\t',
-                            'r' => '\r',
-                            '\\' => '\\',
-                            '\'' => '\'',
-                            '"' => '"',
-                            _ => ch,
-                        });
+                        match ch {
+                            'n' => s.push('\n'),
+                            't' => s.push('\t'),
+                            'r' => s.push('\r'),
+                            '\\' => s.push('\\'),
+                            '\'' => s.push('\''),
+                            '"' => s.push('"'),
+                            'x' => {
+                                // Hex escape: \x41
+                                self.advance(); // consume 'x'
+                                let mut hex = String::new();
+                                for _ in 0..2 {
+                                    if let Some(h) = self.peek() {
+                                        if h.is_ascii_hexdigit() {
+                                            hex.push(self.advance());
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+                                if hex.len() == 2 {
+                                    let code = u8::from_str_radix(&hex, 16)
+                                        .map_err(|_| format!("Invalid hex escape: \\x{}", hex))?;
+                                    s.push(code as char);
+                                } else {
+                                    return Err(format!("Invalid hex escape: \\x{}", hex));
+                                }
+                            }
+                            _ => s.push(ch),
+                        }
                         escaped = false;
                         self.advance();
                     } else if ch == '\\' {
@@ -351,6 +372,24 @@ impl<'a> Lexer<'a> {
         let mut s = first.to_string();
         let mut is_float = false;
 
+        // Check for hex literal (0x, 0X)
+        if first == '0' && self.peek() == Some('x') || self.peek() == Some('X') {
+            s.push(self.advance()); // consume 'x' or 'X'
+            // Read hex digits
+            while let Some(c) = self.peek() {
+                if c.is_ascii_hexdigit() {
+                    s.push(self.advance());
+                } else {
+                    break;
+                }
+            }
+            // Parse as hex integer
+            let value = i64::from_str_radix(&s[2..], 16)
+                .map_err(|_| format!("Invalid hex literal: {}", s))?;
+            return Ok(TokenKind::Int(value));
+        }
+
+        // Read decimal number
         while let Some(c) = self.peek() {
             if c.is_ascii_digit() {
                 s.push(self.advance());
@@ -367,6 +406,34 @@ impl<'a> Lexer<'a> {
                     self.column -= 1;
                     break;
                 }
+            } else if (c == 'e' || c == 'E') && !is_float {
+                // Scientific notation: 1e10, 1E10, 1e-10, 1e+10
+                self.advance();
+                s.push('e');
+                
+                // Optional sign
+                if let Some(sign) = self.peek() {
+                    if sign == '+' || sign == '-' {
+                        s.push(self.advance());
+                    }
+                }
+                
+                // Exponent digits (required)
+                let mut has_exp_digits = false;
+                while let Some(c) = self.peek() {
+                    if c.is_ascii_digit() {
+                        s.push(self.advance());
+                        has_exp_digits = true;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if !has_exp_digits {
+                    return Err("Scientific notation requires exponent digits".to_string());
+                }
+                
+                is_float = true;
             } else {
                 break;
             }
