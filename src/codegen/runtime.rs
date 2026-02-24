@@ -12,6 +12,7 @@ pub fn declare_runtime_functions<'ctx>(
     declare_list_functions(context, module)?;
     declare_memory_functions(context, module)?;
     declare_math_functions(context, module)?;
+    declare_concurrency_functions(context, module)?;
     Ok(())
 }
 
@@ -73,10 +74,12 @@ fn declare_list_functions<'ctx>(
     let list_len_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_list_len", list_len_type, None);
 
-    let list_set_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    let list_set_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_list_set", list_set_type, None);
 
-    let list_insert_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    let list_insert_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_list_insert", list_insert_type, None);
 
     let list_remove_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
@@ -102,10 +105,12 @@ fn declare_memory_functions<'ctx>(
     let void_type = context.void_type();
     let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
 
+    // vp_retain(ptr) - increment reference count
     let retain_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_retain", retain_type, None);
 
-    let release_type = void_type.fn_type(&[ptr_type.into()], false);
+    // vp_release(ptr, destructor) - decrement reference count, call destructor if zero
+    let release_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_release", release_type, None);
 
     Ok(())
@@ -133,6 +138,54 @@ fn declare_math_functions<'ctx>(
     // floor(x) - floor function
     let floor_type = f64_type.fn_type(&[f64_type.into()], false);
     module.add_function("vp_math_floor", floor_type, None);
+
+    Ok(())
+}
+
+/// Declare concurrency runtime functions (Phase 3)
+fn declare_concurrency_functions<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> Result<(), String> {
+    let i64_type = context.i64_type();
+    let void_type = context.void_type();
+    let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+
+    // Channel functions
+    let chan_create_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_chan_create", chan_create_type, None);
+
+    let chan_destroy_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_chan_destroy", chan_destroy_type, None);
+
+    let chan_send_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_chan_send", chan_send_type, None);
+
+    let chan_recv_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_chan_recv", chan_recv_type, None);
+
+    // WaitGroup functions
+    let wg_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_waitgroup_create", wg_create_type, None);
+
+    let wg_destroy_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_waitgroup_destroy", wg_destroy_type, None);
+
+    let wg_add_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_waitgroup_add", wg_add_type, None);
+
+    let wg_done_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_waitgroup_done", wg_done_type, None);
+
+    let wg_wait_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_waitgroup_wait", wg_wait_type, None);
+
+    // Thread pool functions
+    let threadpool_init_type = void_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_init_threadpool", threadpool_init_type, None);
+
+    let threadpool_shutdown_type = void_type.fn_type(&[], false);
+    module.add_function("vp_shutdown_threadpool", threadpool_shutdown_type, None);
 
     Ok(())
 }

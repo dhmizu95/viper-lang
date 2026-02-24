@@ -7,7 +7,8 @@ use std::collections::HashMap;
 
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::types::TypeMapper;
-use crate::codegen::variables::{VarInfo, VarType, LoopContext};
+use crate::codegen::variables::{LoopContext, VarInfo, VarType};
+use crate::semantic::escape_analysis::EscapeAnalyzer;
 
 /// Main code generator that translates AST to LLVM IR
 pub struct CodeGen<'ctx> {
@@ -20,6 +21,8 @@ pub struct CodeGen<'ctx> {
     functions: HashMap<String, FunctionValue<'ctx>>,
     global_constants: HashMap<String, GlobalValue<'ctx>>,
     loop_stack: Vec<LoopContext<'ctx>>,
+    escape_analyzer: EscapeAnalyzer,
+    current_function: Option<String>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -39,11 +42,16 @@ impl<'ctx> CodeGen<'ctx> {
             functions: HashMap::new(),
             global_constants: HashMap::new(),
             loop_stack: Vec::new(),
+            escape_analyzer: EscapeAnalyzer::new(),
+            current_function: None,
         }
     }
 
     /// Generate code for a complete module
     pub fn generate(&mut self, module: &Module) -> Result<(), String> {
+        // Run escape analysis first
+        self.escape_analyzer.analyze_module(module);
+
         // Declare runtime functions first
         crate::codegen::runtime::declare_runtime_functions(self.context, &self.module)?;
 
@@ -74,10 +82,15 @@ impl<'ctx> CodeGen<'ctx> {
             if let Stmt::Assign { target, value, .. } = stmt {
                 if let Expr::Ident(name, _) = target.as_ref() {
                     // Check if it's a simple literal value (int, float, string, bool)
-                    let is_literal = matches!(value.as_ref(), 
-                        Expr::Int(..) | Expr::Float(..) | Expr::Str(..) | Expr::Bool(..) | Expr::None(..)
+                    let is_literal = matches!(
+                        value.as_ref(),
+                        Expr::Int(..)
+                            | Expr::Float(..)
+                            | Expr::Str(..)
+                            | Expr::Bool(..)
+                            | Expr::None(..)
                     );
-                    
+
                     if is_literal {
                         self.create_global_constant(name, value)?;
                     }
@@ -102,14 +115,20 @@ impl<'ctx> CodeGen<'ctx> {
                 let is_constant_assign = match stmt {
                     Stmt::Assign { target, value, .. } => {
                         if let Expr::Ident(name, _) = target.as_ref() {
-                            self.global_constants.contains_key(name) && matches!(value.as_ref(),
-                                Expr::Int(..) | Expr::Float(..) | Expr::Str(..) | Expr::Bool(..) | Expr::None(..)
-                            )
+                            self.global_constants.contains_key(name)
+                                && matches!(
+                                    value.as_ref(),
+                                    Expr::Int(..)
+                                        | Expr::Float(..)
+                                        | Expr::Str(..)
+                                        | Expr::Bool(..)
+                                        | Expr::None(..)
+                                )
                         } else {
                             false
                         }
                     }
-                    _ => false
+                    _ => false,
                 };
 
                 if !is_constant_assign {
@@ -135,14 +154,29 @@ impl<'ctx> CodeGen<'ctx> {
         // Save variables from previous function scope
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
+        let saved_current_function = self.current_function.clone();
+        self.current_function = Some(name.to_string());
 
         let func = self.functions.get(name).copied().unwrap();
         let entry = self.context.append_basic_block(func, "entry");
         self.builder.position_at_end(entry);
 
         // Set up parameters with alloca
+        // Use escape analysis to determine if parameter needs stack allocation
         for (i, param) in params.iter().enumerate() {
             let param_value = func.get_nth_param(i as u32).unwrap();
+
+            // Check escape analysis for this parameter
+            let _can_stack_alloc = self.escape_analyzer.can_stack_allocate(name, &param.name);
+
+            // Determine if parameter is a reference type (pointer)
+            let is_ref_type = param_value.is_pointer_value();
+            
+            // Mark parameter as reference type in escape analyzer
+            self.escape_analyzer.set_reference_type(name, &param.name, is_ref_type);
+
+            // Always allocate on stack for now (escape analysis informs optimization decisions)
+            // In a more advanced implementation, we might skip alloca for non-escaping params
             let alloca = self
                 .builder
                 .build_alloca(param_value.get_type(), &param.name)
@@ -157,12 +191,13 @@ impl<'ctx> CodeGen<'ctx> {
             } else {
                 VarType::Int
             };
-            self.variables.insert(param.name.clone(), VarInfo { alloca, var_type });
+            self.variables
+                .insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
         }
 
-        // Generate body
+        // Generate body using escape analysis
         for stmt in body {
-            crate::codegen::statements::generate_stmt(
+            crate::codegen::statements::generate_stmt_with_escape(
                 self.context,
                 &self.module,
                 &self.builder,
@@ -172,8 +207,13 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.global_constants,
                 &mut self.loop_stack,
                 stmt,
+                &mut self.escape_analyzer,
+                name,
             )?;
         }
+
+        // Generate ARC cleanup for local variables before return
+        self.generate_arc_cleanup(name);
 
         // Add implicit return if needed
         if self
@@ -205,6 +245,7 @@ impl<'ctx> CodeGen<'ctx> {
         // Restore variables for next function
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
+        self.current_function = saved_current_function;
 
         Ok(())
     }
@@ -222,8 +263,9 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(init_entry);
 
         // Generate top-level statements into init
+        // For top-level code, use a pseudo-function name
         for stmt in stmts {
-            crate::codegen::statements::generate_stmt(
+            crate::codegen::statements::generate_stmt_with_escape(
                 self.context,
                 &self.module,
                 &self.builder,
@@ -233,8 +275,14 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.global_constants,
                 &mut self.loop_stack,
                 stmt,
+                &mut self.escape_analyzer,
+                "__module_level__",
             )?;
         }
+
+        // Generate ARC cleanup for module-level variables
+        self.generate_arc_cleanup("__module_level__");
+
         self.ir_builder.build_return(&self.builder, None);
 
         // If user didn't define main, we define it
@@ -253,22 +301,63 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
+    /// Generate ARC cleanup code for local variables at function exit
+    fn generate_arc_cleanup(&mut self, function_name: &str) {
+        // Get all variables that need cleanup
+        let vars_to_cleanup = self.escape_analyzer.get_vars_needing_cleanup(function_name);
+        
+        for var_name in vars_to_cleanup {
+            if let Some(var_info) = self.variables.get(var_name) {
+                // Only cleanup stack-allocated reference types
+                if let Some(alloca) = var_info.get_alloca() {
+                    if var_info.var_type == VarType::Pointer {
+                        // Load the pointer value
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let ptr_val = self.builder.build_load(
+                            ptr_type,
+                            alloca,
+                            &format!("{}_ptr", var_name),
+                        ).expect("load pointer for cleanup");
+                        
+                        // Call vp_release with the pointer and a null destructor for now
+                        if let Some(release_func) = self.module.get_function("vp_release") {
+                            // For now, pass null as destructor (will be improved later)
+                            let null_ptr = ptr_type.const_null();
+                            self.builder.build_call(
+                                release_func,
+                                &[ptr_val.into(), null_ptr.into()],
+                                &format!("release_{}", var_name),
+                            ).expect("build release call");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Create a global constant from a literal expression
     fn create_global_constant(&mut self, name: &str, value: &Expr) -> Result<(), String> {
         let val = match value {
             Expr::Int(n, _) => self.ir_builder.i64_const(*n).as_basic_value_enum(),
             Expr::Float(n, _) => self.ir_builder.f64_const(*n).as_basic_value_enum(),
             Expr::Bool(b, _) => self.ir_builder.bool_const(*b).as_basic_value_enum(),
-            Expr::Str(s, _) => self.ir_builder.string_const(&self.module, s).as_basic_value_enum(),
+            Expr::Str(s, _) => self
+                .ir_builder
+                .string_const(&self.module, s)
+                .as_basic_value_enum(),
             Expr::None(_) => self.ir_builder.i64_const(0).as_basic_value_enum(),
-            _ => return Err(format!("Cannot create global constant from non-literal expression")),
+            _ => {
+                return Err(format!(
+                    "Cannot create global constant from non-literal expression"
+                ))
+            }
         };
 
         let global = self.module.add_global(val.get_type(), None, name);
         global.set_constant(true);
         global.set_initializer(&val);
         global.set_unnamed_addr(false);
-        
+
         self.global_constants.insert(name.to_string(), global);
         Ok(())
     }

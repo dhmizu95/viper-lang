@@ -16,16 +16,16 @@
 //! - `generator`: Main CodeGen struct
 
 mod builder;
+mod control_flow;
 pub mod dce;
+mod expressions;
+mod functions;
+mod generator;
+mod runtime;
+pub mod state;
+mod statements;
 pub mod types;
 pub mod variables;
-mod runtime;
-mod functions;
-mod control_flow;
-mod expressions;
-mod statements;
-pub mod state;
-mod generator;
 
 pub use dce::DeadCodeEliminator;
 pub use generator::CodeGen;

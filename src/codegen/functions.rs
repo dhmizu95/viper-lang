@@ -2,8 +2,8 @@
 
 use crate::ast::{Param, Type};
 use inkwell::context::Context;
-use inkwell::values::FunctionValue;
 use inkwell::types::BasicType;
+use inkwell::values::FunctionValue;
 use std::collections::HashMap;
 
 use crate::codegen::types::TypeMapper;

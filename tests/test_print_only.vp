@@ -1,0 +1,5 @@
+# Test print only
+
+def main():
+    print("Start")
+    print("End")

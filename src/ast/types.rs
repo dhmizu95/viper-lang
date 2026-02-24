@@ -20,14 +20,20 @@ pub enum Type {
     Str,
     /// Unit/None type
     None,
-    /// List of elements
+    /// List of elements (dynamic size)
     List(Box<Type>),
     /// Dictionary (key-value pairs)
     Dict(Box<Type>, Box<Type>),
     /// Tuple (fixed-size heterogeneous)
     Tuple(Vec<Type>),
+    /// Array (fixed-size homogeneous collection)
+    Array(Box<Type>, usize),
     /// Function type
     Fn(Vec<Type>, Box<Type>),
+    /// Channel type (for concurrency)
+    Chan(Box<Type>),
+    /// WaitGroup type (for synchronization)
+    WaitGroup,
     /// Type variable (for generics)
     Var(String),
     /// Unknown/to be inferred
@@ -38,7 +44,10 @@ pub enum Type {
 
 impl Type {
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64)
+        matches!(
+            self,
+            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64
+        )
     }
 
     pub fn is_integer(&self) -> bool {
@@ -82,6 +91,7 @@ impl std::fmt::Display for Type {
                 }
                 write!(f, ")")
             }
+            Type::Array(elem_type, size) => write!(f, "[{}; {}]", elem_type, size),
             Type::Fn(params, ret) => {
                 write!(f, "fn(")?;
                 for (i, p) in params.iter().enumerate() {
@@ -92,6 +102,8 @@ impl std::fmt::Display for Type {
                 }
                 write!(f, ") -> {}", ret)
             }
+            Type::Chan(t) => write!(f, "chan[{}]", t),
+            Type::WaitGroup => write!(f, "WaitGroup"),
             Type::Var(name) => write!(f, "{}", name),
             Type::Infer => write!(f, "_"),
             Type::Error => write!(f, "<error>"),

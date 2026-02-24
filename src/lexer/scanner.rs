@@ -184,6 +184,7 @@ impl<'a> Lexer<'a> {
                 '}' => TokenKind::RBrace,
                 ',' => TokenKind::Comma,
                 ':' => TokenKind::Colon,
+                ';' => TokenKind::Semi,
                 '.' => TokenKind::Dot,
                 '@' => TokenKind::At,
                 '+' => TokenKind::Plus,
@@ -270,7 +271,7 @@ impl<'a> Lexer<'a> {
                         self.advance(); // consume second quote
                         if self.peek() == Some(quote_char) {
                             self.advance(); // consume third quote
-                            // Skip until closing triple quote
+                                            // Skip until closing triple quote
                             let mut found_end = false;
                             while let Some(ch) = self.chars.peek() {
                                 if *ch == quote_char {
@@ -415,7 +416,7 @@ impl<'a> Lexer<'a> {
         // Check for hex literal (0x, 0X)
         if first == '0' && self.peek() == Some('x') || self.peek() == Some('X') {
             s.push(self.advance()); // consume 'x' or 'X'
-            // Read hex digits
+                                    // Read hex digits
             while let Some(c) = self.peek() {
                 if c.is_ascii_hexdigit() {
                     s.push(self.advance());
@@ -450,14 +451,14 @@ impl<'a> Lexer<'a> {
                 // Scientific notation: 1e10, 1E10, 1e-10, 1e+10
                 self.advance();
                 s.push('e');
-                
+
                 // Optional sign
                 if let Some(sign) = self.peek() {
                     if sign == '+' || sign == '-' {
                         s.push(self.advance());
                     }
                 }
-                
+
                 // Exponent digits (required)
                 let mut has_exp_digits = false;
                 while let Some(c) = self.peek() {
@@ -468,11 +469,11 @@ impl<'a> Lexer<'a> {
                         break;
                     }
                 }
-                
+
                 if !has_exp_digits {
                     return Err("Scientific notation requires exponent digits".to_string());
                 }
-                
+
                 is_float = true;
             } else {
                 break;
@@ -519,18 +520,24 @@ impl<'a> Lexer<'a> {
                 // Look ahead in the source to see if next word is "not"
                 let source_bytes = self.source.as_bytes();
                 let mut idx = self.pos;
-                
+
                 // Skip single space
-                if idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                if idx < source_bytes.len()
+                    && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t')
+                {
                     idx += 1;
                     // Skip additional whitespace
-                    while idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                    while idx < source_bytes.len()
+                        && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t')
+                    {
                         idx += 1;
                     }
                     // Check for "not"
-                    if idx + 3 <= source_bytes.len() && &source_bytes[idx..idx+3] == b"not" {
+                    if idx + 3 <= source_bytes.len() && &source_bytes[idx..idx + 3] == b"not" {
                         // Make sure it's a complete word
-                        if idx + 3 >= source_bytes.len() || !source_bytes[idx+3].is_ascii_alphanumeric() {
+                        if idx + 3 >= source_bytes.len()
+                            || !source_bytes[idx + 3].is_ascii_alphanumeric()
+                        {
                             // Advance the lexer position and chars iterator
                             while self.pos < idx + 3 {
                                 self.advance();
@@ -545,18 +552,24 @@ impl<'a> Lexer<'a> {
                 // Check for "not in" by looking at source string
                 let source_bytes = self.source.as_bytes();
                 let mut idx = self.pos;
-                
+
                 // Skip single space
-                if idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                if idx < source_bytes.len()
+                    && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t')
+                {
                     idx += 1;
                     // Skip additional whitespace
-                    while idx < source_bytes.len() && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t') {
+                    while idx < source_bytes.len()
+                        && (source_bytes[idx] == b' ' || source_bytes[idx] == b'\t')
+                    {
                         idx += 1;
                     }
                     // Check for "in"
-                    if idx + 2 <= source_bytes.len() && &source_bytes[idx..idx+2] == b"in" {
+                    if idx + 2 <= source_bytes.len() && &source_bytes[idx..idx + 2] == b"in" {
                         // Make sure it's a complete word
-                        if idx + 2 >= source_bytes.len() || !source_bytes[idx+2].is_ascii_alphanumeric() {
+                        if idx + 2 >= source_bytes.len()
+                            || !source_bytes[idx + 2].is_ascii_alphanumeric()
+                        {
                             // Advance the lexer position and chars iterator
                             while self.pos < idx + 2 {
                                 self.advance();
@@ -567,10 +580,10 @@ impl<'a> Lexer<'a> {
                 }
                 TokenKind::Not
             }
-            "global" => TokenKind::Ident("global".to_string()),  // Reserved for Phase 3
-            "const" => TokenKind::Ident("const".to_string()),    // Reserved for Phase 2
-            "lambda" => TokenKind::Ident("lambda".to_string()),  // Phase 2
-            "yield" => TokenKind::Ident("yield".to_string()),    // Phase 3
+            "global" => TokenKind::Ident("global".to_string()), // Reserved for Phase 3
+            "const" => TokenKind::Ident("const".to_string()),   // Reserved for Phase 2
+            "lambda" => TokenKind::Ident("lambda".to_string()), // Phase 2
+            "yield" => TokenKind::Ident("yield".to_string()),   // Phase 3
             _ => TokenKind::Ident(ident),
         }
     }

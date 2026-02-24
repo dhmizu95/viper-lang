@@ -1,6 +1,7 @@
 use crate::ast::{BinOp, ExceptHandler, Expr, Param, Stmt, Type};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::expressions::PrattParser;
+use crate::utils::Span;
 
 /// Statement parser for Viper
 pub struct StatementParser<'a> {
@@ -76,7 +77,17 @@ impl<'a> StatementParser<'a> {
             _ => {
                 // Try expression statement
                 let expr = self.parse_expression()?;
-                Ok(Stmt::Expr(expr))
+                
+                // Check if this is a concurrency builtin call that should be a statement
+                if let Expr::Call { func, args, span } = expr {
+                    if let Some(stmt) = self.transform_concurrency_call(&func, args.clone(), span) {
+                        return Ok(stmt);
+                    }
+                    // Otherwise, put it back as a Call expression
+                    Ok(Stmt::Expr(Expr::Call { func, args, span }))
+                } else {
+                    Ok(Stmt::Expr(expr))
+                }
             }
         }
     }
@@ -145,6 +156,25 @@ impl<'a> StatementParser<'a> {
     }
 
     fn parse_type_annotation(&mut self) -> Result<Type, String> {
+        // Handle array type: [type; size]
+        if self.match_token(&TokenKind::LBracket) {
+            let elem_type = self.parse_type_annotation()?;
+            self.expect(&TokenKind::Semi)?;
+            let size_token = self.current();
+            let size = match &size_token.kind {
+                TokenKind::Int(n) => *n as usize,
+                _ => {
+                    return Err(format!(
+                        "Expected integer size for array type, found {:?}",
+                        size_token.kind
+                    ))
+                }
+            };
+            self.advance();
+            self.expect(&TokenKind::RBracket)?;
+            return Ok(Type::Array(Box::new(elem_type), size));
+        }
+
         let token = self.current();
         let ty = match &token.kind {
             TokenKind::Ident(name) => match name.as_str() {
@@ -156,6 +186,20 @@ impl<'a> StatementParser<'a> {
                 "f64" => Type::F64,
                 "bool" => Type::Bool,
                 "str" => Type::Str,
+                "Chan" | "chan" => {
+                    // Handle Chan[T] syntax
+                    self.advance();
+                    if !self.match_token(&TokenKind::LBracket) {
+                        return Err("Expected '[' after Chan".to_string());
+                    }
+                    let elem_type = self.parse_type_annotation()?;
+                    self.expect(&TokenKind::RBracket)?;
+                    return Ok(Type::Chan(Box::new(elem_type)));
+                }
+                "WaitGroup" => {
+                    self.advance();
+                    return Ok(Type::WaitGroup);
+                }
                 _ => Type::Var(name.clone()),
             },
             _ => return Err(format!("Expected type name, found {:?}", token.kind)),
@@ -570,7 +614,7 @@ impl<'a> StatementParser<'a> {
         ) {
             return Ok(expr);
         }
-        
+
         // Special handling for 'if' - only treat as statement boundary if it's
         // at the start of a line (not part of a ternary)
         // For ternary: <value> if <cond> else <value>
@@ -725,20 +769,53 @@ impl<'a> StatementParser<'a> {
             TokenKind::LBracket => {
                 self.advance();
                 let mut elements = Vec::new();
+                let mut size: Option<usize> = None;
+                
                 // Check for empty list without consuming the RBracket
                 if !matches!(self.current().kind, TokenKind::RBracket) {
-                    loop {
-                        elements.push(self.parse_expression()?);
-                        if !self.match_token(&TokenKind::Comma) {
-                            break;
+                    // Parse first element
+                    elements.push(self.parse_expression()?);
+                    
+                    // Check for array repetition syntax: [value; size]
+                    if matches!(self.current().kind, TokenKind::Semi) {
+                        self.advance(); // consume the semicolon
+                        let size_token = self.current();
+                        match &size_token.kind {
+                            TokenKind::Int(n) => {
+                                size = Some(*n as usize);
+                                self.advance();
+                            }
+                            _ => return Err(format!("Expected integer size for array, found {:?}", size_token.kind)),
                         }
+                        self.expect(&TokenKind::RBracket)?;
+                    } else {
+                        // Regular list/array: parse remaining elements
+                        while self.match_token(&TokenKind::Comma) {
+                            if matches!(self.current().kind, TokenKind::RBracket) {
+                                break;
+                            }
+                            elements.push(self.parse_expression()?);
+                        }
+                        self.expect(&TokenKind::RBracket)?;
                     }
+                } else {
+                    self.expect(&TokenKind::RBracket)?;
                 }
-                self.expect(&TokenKind::RBracket)?;
+                
                 let list_span = span.merge(self.previous().span);
-                Expr::List {
-                    elements,
-                    span: list_span,
+                
+                // Use Array node for fixed-size arrays, List for dynamic lists
+                if size.is_some() || !elements.is_empty() {
+                    Expr::Array {
+                        elements,
+                        size,
+                        span: list_span,
+                    }
+                } else {
+                    Expr::List {
+                        elements,
+                        span: list_span,
+                    }
                 }
             }
             TokenKind::Minus => {
@@ -859,6 +936,61 @@ impl<'a> StatementParser<'a> {
         } else {
             false
         }
+    }
+
+    /// Transform concurrency builtin calls into appropriate AST nodes
+    fn transform_concurrency_call(&self, func: &Expr, args: Vec<Expr>, span: Span) -> Option<Stmt> {
+        if let Expr::Ident(name, _) = func {
+            match name.as_str() {
+                "chan" => {
+                    if args.len() == 1 {
+                        return Some(Stmt::Chan { size: args.into_iter().next().unwrap(), span });
+                    }
+                }
+                "send" => {
+                    if args.len() == 2 {
+                        let mut args_iter = args.into_iter();
+                        return Some(Stmt::Send {
+                            chan: Box::new(args_iter.next().unwrap()),
+                            value: Box::new(args_iter.next().unwrap()),
+                            span,
+                        });
+                    }
+                }
+                "recv" => {
+                    if args.len() == 1 {
+                        return Some(Stmt::Recv { chan: Box::new(args.into_iter().next().unwrap()), span });
+                    }
+                }
+                "WaitGroup" => {
+                    if args.is_empty() {
+                        return Some(Stmt::WaitGroup { span });
+                    }
+                }
+                "add" => {
+                    if args.len() == 2 {
+                        let mut args_iter = args.into_iter();
+                        return Some(Stmt::WgAdd {
+                            wg: Box::new(args_iter.next().unwrap()),
+                            n: Box::new(args_iter.next().unwrap()),
+                            span,
+                        });
+                    }
+                }
+                "done" => {
+                    if args.len() == 1 {
+                        return Some(Stmt::WgDone { wg: Box::new(args.into_iter().next().unwrap()), span });
+                    }
+                }
+                "wait" => {
+                    if args.len() == 1 {
+                        return Some(Stmt::WgWait { wg: Box::new(args.into_iter().next().unwrap()), span });
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     fn expect(&mut self, kind: &TokenKind) -> Result<(), String> {

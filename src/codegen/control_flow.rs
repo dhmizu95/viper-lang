@@ -3,7 +3,7 @@
 use crate::ast::{Expr, Stmt};
 
 use crate::codegen::state::CodeGenState;
-use crate::codegen::variables::{LoopContext, VarType};
+use crate::codegen::variables::{LoopContext, VarInfo, VarType};
 
 /// Generate an if statement
 pub fn generate_if<'ctx>(
@@ -253,7 +253,7 @@ pub fn generate_for<'ctx>(
 
                 state.builder.position_at_end(body_block);
                 if let Expr::Ident(target_name, _) = target {
-                    state.variables.insert(target_name.clone(), crate::codegen::variables::VarInfo { alloca: counter, var_type: VarType::Int });
+                    state.variables.insert(target_name.clone(), VarInfo::new_stack(counter, VarType::Int));
                 }
 
                 for stmt in body {

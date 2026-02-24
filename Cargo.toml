@@ -3,6 +3,39 @@ name = "viper-lang"
 version = "0.2.3"
 edition = "2021"
 
+[profile.release]
+# Enable Link-Time Optimization for better cross-crate optimization
+lto = "fat"
+# Enable all optimizations
+opt-level = 3
+# Use release debug assertions for better performance
+debug-assertions = false
+# Overflow checks can be disabled for maximum performance (optional)
+# overflow-checks = false
+
+# PGO-instrumented build profile
+# Build with: cargo build --profile pgo-instrument
+# Use with: LLVM_PROFILE_FILE="target/pgo-data/viper-%p-%m.profraw" cargo build --profile pgo-instrument
+[profile.pgo-instrument]
+inherits = "release"
+# Keep LTO disabled during instrumentation phase for faster builds
+lto = false
+# Disable overflow checks for profiling accuracy
+overflow-checks = false
+
+# PGO-optimized build profile (use after generating profiles)
+# Build with: RUSTFLAGS="-Cprofile-use=target/pgo-data/merged.profdata" cargo build --profile pgo
+[profile.pgo]
+inherits = "release"
+# Re-enable LTO for final optimized build
+lto = "fat"
+overflow-checks = false
+
+# Thin LTO profile (faster builds, slightly less optimization)
+[profile.release-thin]
+inherits = "release"
+lto = "thin"
+
 [dependencies]
 # LLVM Bindings (Using master branch for LLVM 20 support)
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm20-1", "no-libffi-linking"] }

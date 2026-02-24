@@ -115,16 +115,16 @@ impl<'a> PrattParser<'a> {
         if matches!(self.current().kind, TokenKind::If) {
             // Look ahead to see if this is a ternary
             let saved_pos = self.pos;
-            
+
             self.advance(); // consume 'if'
-            
+
             // Parse condition
             match self.parse_expr(Precedence::MIN) {
                 Ok(condition) => {
                     // Check for 'else'
                     if matches!(self.current().kind, TokenKind::Else) {
                         self.advance(); // consume 'else'
-                        // Parse else expression
+                                        // Parse else expression
                         match self.parse_expr(Precedence::MIN) {
                             Ok(else_expr) => {
                                 // This is a valid ternary!
@@ -236,23 +236,55 @@ impl<'a> PrattParser<'a> {
             TokenKind::LBracket => {
                 self.advance();
                 let mut elements = Vec::new();
+                let mut size: Option<usize> = None;
 
                 if !self.match_token(&TokenKind::RBracket) {
-                    loop {
-                        elements.push(self.parse_expr(Precedence::MIN)?);
-                        if !self.match_token(&TokenKind::Comma) {
-                            break;
+                    // Parse first element
+                    elements.push(self.parse_expr(Precedence::MIN)?);
+
+                    // Check for array repetition syntax: [value; size]
+                    let is_semi = matches!(self.current().kind, TokenKind::Semi);
+                    if is_semi {
+                        self.advance(); // consume the semicolon
+                        let size_token = self.current();
+                        match &size_token.kind {
+                            TokenKind::Int(n) => {
+                                size = Some(*n as usize);
+                                self.advance();
+                            }
+                            _ => return Err(format!("Expected integer size for array, found {:?}", size_token.kind)),
                         }
+                        self.expect(&TokenKind::RBracket)?;
+                    } else {
+                        // Regular list/array: parse remaining elements
+                        while self.match_token(&TokenKind::Comma) {
+                            if self.match_token(&TokenKind::RBracket) {
+                                break;
+                            }
+                            elements.push(self.parse_expr(Precedence::MIN)?);
+                        }
+                        self.expect(&TokenKind::RBracket)?;
                     }
+                } else {
+                    self.expect(&TokenKind::RBracket)?;
                 }
 
-                self.expect(&TokenKind::RBracket)?;
                 let last_span = self.previous().span;
                 let merged_span = span.merge(last_span);
-                Ok(Expr::List {
-                    elements,
-                    span: merged_span,
-                })
+
+                // Use Array node for fixed-size arrays, List for dynamic lists
+                if size.is_some() || !elements.is_empty() {
+                    Ok(Expr::Array {
+                        elements,
+                        size,
+                        span: merged_span,
+                    })
+                } else {
+                    Ok(Expr::List {
+                        elements,
+                        span: merged_span,
+                    })
+                }
             }
             TokenKind::Minus => {
                 self.advance();

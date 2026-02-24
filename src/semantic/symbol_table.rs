@@ -5,10 +5,20 @@ use std::collections::HashMap;
 /// Kind of symbol (variable, function, parameter)
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {
-    Variable { mutable: bool, type_ann: Option<Type> },
-    Function { params: Vec<Type>, return_type: Option<Type> },
-    Parameter { type_ann: Option<Type> },
-    Builtin { signature: BuiltinSignature },
+    Variable {
+        mutable: bool,
+        type_ann: Option<Type>,
+    },
+    Function {
+        params: Vec<Type>,
+        return_type: Option<Type>,
+    },
+    Parameter {
+        type_ann: Option<Type>,
+    },
+    Builtin {
+        signature: BuiltinSignature,
+    },
 }
 
 /// Built-in function signatures
@@ -28,6 +38,14 @@ pub enum BuiltinSignature {
     Pop,
     Clear,
     Index,
+    // Concurrency primitives (Phase 3)
+    ChanCreate,      // chan(capacity) -> Chan[T]
+    ChanSend,        // send(chan, value) -> None
+    ChanRecv,        // recv(chan) -> T
+    WaitGroupCreate, // WaitGroup() -> WaitGroup
+    WaitGroupAdd,    // add(wg, n) -> None
+    WaitGroupDone,   // done(wg) -> None
+    WaitGroupWait,   // wait(wg) -> None
 }
 
 /// A symbol in the symbol table
@@ -41,7 +59,12 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn new(name: String, kind: SymbolKind, span: Span, scope_id: usize) -> Self {
-        Self { name, kind, span, scope_id }
+        Self {
+            name,
+            kind,
+            span,
+            scope_id,
+        }
     }
 
     pub fn get_type(&self) -> Option<Type> {
@@ -49,24 +72,30 @@ impl Symbol {
             SymbolKind::Variable { type_ann, .. } => type_ann.clone(),
             SymbolKind::Function { return_type, .. } => return_type.clone(),
             SymbolKind::Parameter { type_ann } => type_ann.clone(),
-            SymbolKind::Builtin { signature } => {
-                match signature {
-                    BuiltinSignature::Print => Some(Type::None),
-                    BuiltinSignature::Range => Some(Type::List(Box::new(Type::I64))),
-                    BuiltinSignature::Len => Some(Type::I64),
-                    BuiltinSignature::Str => Some(Type::Str),
-                    BuiltinSignature::Int => Some(Type::I64),
-                    BuiltinSignature::Float => Some(Type::F64),
-                    BuiltinSignature::Bool => Some(Type::Bool),
-                    BuiltinSignature::List => Some(Type::List(Box::new(Type::Infer))),
-                    BuiltinSignature::Append => Some(Type::None),
-                    BuiltinSignature::Insert => Some(Type::None),
-                    BuiltinSignature::Remove => Some(Type::None),
-                    BuiltinSignature::Pop => Some(Type::Infer),
-                    BuiltinSignature::Clear => Some(Type::None),
-                    BuiltinSignature::Index => Some(Type::Infer),
-                }
-            }
+            SymbolKind::Builtin { signature } => match signature {
+                BuiltinSignature::Print => Some(Type::None),
+                BuiltinSignature::Range => Some(Type::List(Box::new(Type::I64))),
+                BuiltinSignature::Len => Some(Type::I64),
+                BuiltinSignature::Str => Some(Type::Str),
+                BuiltinSignature::Int => Some(Type::I64),
+                BuiltinSignature::Float => Some(Type::F64),
+                BuiltinSignature::Bool => Some(Type::Bool),
+                BuiltinSignature::List => Some(Type::List(Box::new(Type::Infer))),
+                BuiltinSignature::Append => Some(Type::None),
+                BuiltinSignature::Insert => Some(Type::None),
+                BuiltinSignature::Remove => Some(Type::None),
+                BuiltinSignature::Pop => Some(Type::Infer),
+                BuiltinSignature::Clear => Some(Type::None),
+                BuiltinSignature::Index => Some(Type::Infer),
+                // Concurrency primitives return pointer types
+                BuiltinSignature::ChanCreate => Some(Type::Infer), // Chan[T] - element type inferred from usage
+                BuiltinSignature::ChanSend => Some(Type::None),
+                BuiltinSignature::ChanRecv => Some(Type::Infer), // Returns channel element type
+                BuiltinSignature::WaitGroupCreate => Some(Type::WaitGroup),
+                BuiltinSignature::WaitGroupAdd => Some(Type::None),
+                BuiltinSignature::WaitGroupDone => Some(Type::None),
+                BuiltinSignature::WaitGroupWait => Some(Type::None),
+            },
         }
     }
 }
@@ -93,14 +122,97 @@ impl SymbolTable {
     /// Insert built-in functions
     fn insert_builtins(&mut self) {
         let builtins = vec![
-            ("print", SymbolKind::Builtin { signature: BuiltinSignature::Print }),
-            ("range", SymbolKind::Builtin { signature: BuiltinSignature::Range }),
-            ("len", SymbolKind::Builtin { signature: BuiltinSignature::Len }),
-            ("str", SymbolKind::Builtin { signature: BuiltinSignature::Str }),
-            ("int", SymbolKind::Builtin { signature: BuiltinSignature::Int }),
-            ("float", SymbolKind::Builtin { signature: BuiltinSignature::Float }),
-            ("bool", SymbolKind::Builtin { signature: BuiltinSignature::Bool }),
-            ("list", SymbolKind::Builtin { signature: BuiltinSignature::List }),
+            (
+                "print",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::Print,
+                },
+            ),
+            (
+                "range",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::Range,
+                },
+            ),
+            (
+                "len",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::Len,
+                },
+            ),
+            (
+                "str",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::Str,
+                },
+            ),
+            (
+                "int",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::Int,
+                },
+            ),
+            (
+                "float",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::Float,
+                },
+            ),
+            (
+                "bool",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::Bool,
+                },
+            ),
+            (
+                "list",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::List,
+                },
+            ),
+            // Concurrency builtins (Phase 3)
+            (
+                "chan",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::ChanCreate,
+                },
+            ),
+            (
+                "send",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::ChanSend,
+                },
+            ),
+            (
+                "recv",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::ChanRecv,
+                },
+            ),
+            (
+                "WaitGroup",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::WaitGroupCreate,
+                },
+            ),
+            (
+                "add",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::WaitGroupAdd,
+                },
+            ),
+            (
+                "done",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::WaitGroupDone,
+                },
+            ),
+            (
+                "wait",
+                SymbolKind::Builtin {
+                    signature: BuiltinSignature::WaitGroupWait,
+                },
+            ),
         ];
 
         let span = Span::empty(0, 0);

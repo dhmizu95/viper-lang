@@ -25,6 +25,14 @@ pub enum Commands {
         /// Optimization level (0, 1, 2, or 3)
         #[arg(short = 'O', default_value = "0", value_name = "LEVEL")]
         optimize: u32,
+
+        /// Enable Link-Time Optimization
+        #[arg(long)]
+        lto: bool,
+
+        /// Profile-Guided Optimization mode: "instrument" (phase 1) or "use" (phase 2)
+        #[arg(long, value_name = "MODE", value_parser = parse_pgo_mode)]
+        pgo: Option<String>,
     },
     /// Build and run a Viper source file
     Run {
@@ -35,6 +43,14 @@ pub enum Commands {
         /// Optimization level (0, 1, 2, or 3)
         #[arg(short = 'O', default_value = "0", value_name = "LEVEL")]
         optimize: u32,
+
+        /// Enable Link-Time Optimization
+        #[arg(long)]
+        lto: bool,
+
+        /// Profile-Guided Optimization mode: "instrument" (phase 1) or "use" (phase 2)
+        #[arg(long, value_name = "MODE", value_parser = parse_pgo_mode)]
+        pgo: Option<String>,
     },
     /// Initialize a new Viper project
     Init {
@@ -44,4 +60,11 @@ pub enum Commands {
     },
     /// Show compiler information
     Info,
+}
+
+fn parse_pgo_mode(s: &str) -> Result<String, String> {
+    match s {
+        "instrument" | "use" => Ok(s.to_string()),
+        _ => Err("PGO mode must be 'instrument' or 'use'".to_string()),
+    }
 }

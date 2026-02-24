@@ -56,18 +56,18 @@ pub enum TokenKind {
     Or,
     Not,
     // Bitwise operators (Phase 2)
-    Ampersand,    // &
-    Pipe,         // |
-    Caret,        // ^
-    Tilde,        // ~
-    LtLt,         // <<
-    GtGt,         // >>
+    Ampersand, // &
+    Pipe,      // |
+    Caret,     // ^
+    Tilde,     // ~
+    LtLt,      // <<
+    GtGt,      // >>
     // Identity and Membership (Phase 2)
     Is,
     IsNot,
     NotIn,
     // Ternary (Phase 2)
-    Question,     // ?
+    Question, // ?
 
     // Delimiters
     LParen,
@@ -78,6 +78,7 @@ pub enum TokenKind {
     RBrace,
     Comma,
     Colon,
+    Semi, // ;
     Dot,
     Arrow,
     At,
@@ -186,6 +187,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::RBrace => write!(f, "}}"),
             TokenKind::Comma => write!(f, ","),
             TokenKind::Colon => write!(f, ":"),
+            TokenKind::Semi => write!(f, ";"),
             TokenKind::Dot => write!(f, "."),
             TokenKind::Arrow => write!(f, "->"),
             TokenKind::At => write!(f, "@"),

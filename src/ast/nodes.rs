@@ -57,6 +57,8 @@ pub enum Expr {
         pairs: Vec<(Expr, Expr)>,
         span: Span,
     },
+    /// Array literal (fixed-size): [value; size] or [elements...]
+    Array { elements: Vec<Expr>, size: Option<usize>, span: Span },
     /// Lambda expression
     Lambda {
         params: Vec<String>,
@@ -89,8 +91,17 @@ impl Expr {
             Expr::List { span, .. } => *span,
             Expr::Tuple { span, .. } => *span,
             Expr::Dict { span, .. } => *span,
+            Expr::Array { span, .. } => *span,
             Expr::Lambda { span, .. } => *span,
             Expr::Conditional { span, .. } => *span,
+        }
+    }
+
+    /// Try to get the identifier name if this is an Ident expression
+    pub fn as_ident(&self) -> Option<&String> {
+        match self {
+            Expr::Ident(name, _) => Some(name),
+            _ => None,
         }
     }
 }
@@ -257,6 +268,20 @@ pub enum Stmt {
     Sync { body: Vec<Stmt>, span: Span },
     /// Task spawn
     Task { call: Expr, span: Span },
+    /// Channel creation: chan(size)
+    Chan { size: Expr, span: Span },
+    /// Channel send: send(chan, value)
+    Send { chan: Box<Expr>, value: Box<Expr>, span: Span },
+    /// Channel receive: recv(chan)
+    Recv { chan: Box<Expr>, span: Span },
+    /// WaitGroup creation
+    WaitGroup { span: Span },
+    /// WaitGroup add: add(wg, n)
+    WgAdd { wg: Box<Expr>, n: Box<Expr>, span: Span },
+    /// WaitGroup done: done(wg)
+    WgDone { wg: Box<Expr>, span: Span },
+    /// WaitGroup wait: wait(wg)
+    WgWait { wg: Box<Expr>, span: Span },
 }
 
 impl Stmt {
@@ -280,6 +305,13 @@ impl Stmt {
             Stmt::Try { span, .. } => *span,
             Stmt::Sync { span, .. } => *span,
             Stmt::Task { span, .. } => *span,
+            Stmt::Chan { span, .. } => *span,
+            Stmt::Send { span, .. } => *span,
+            Stmt::Recv { span, .. } => *span,
+            Stmt::WaitGroup { span } => *span,
+            Stmt::WgAdd { span, .. } => *span,
+            Stmt::WgDone { span, .. } => *span,
+            Stmt::WgWait { span, .. } => *span,
         }
     }
 }

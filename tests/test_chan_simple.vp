@@ -1,0 +1,17 @@
+# Simple channel test for Viper
+
+def main():
+    print("Creating channel...")
+    c = chan(10)
+    print("Channel created")
+    
+    print("Sending value...")
+    send(c, 42)
+    print("Value sent")
+    
+    print("Receiving value...")
+    v = recv(c)
+    print("Received:")
+    print(v)
+    
+    print("Test complete!")

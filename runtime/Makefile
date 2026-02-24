@@ -1,42 +1,35 @@
 # Viper Runtime Makefile
 # Builds the C runtime library for Viper language
-# OPTIMIZED: Using -O3 and aggressive optimization flags
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O3 -march=native -mtune=native -ffast-math -funroll-loops -finline-functions -fPIC -std=c11
+CFLAGS = -Wall -Wextra -O3 -fPIC -std=c11
 INCLUDE = -I./include
 
 # Source files
 SRC_DIR = src
+RUNTIME_SRC = $(SRC_DIR)/runtime.c
 MEMORY_SRC = $(SRC_DIR)/memory/arc.c
 DS_SRC = $(SRC_DIR)/data_structures/list.c
 DICT_SRC = $(SRC_DIR)/data_structures/dict.c
-RUNTIME_SRC = $(SRC_DIR)/runtime.c
+CONCURRENCY_SRC = $(SRC_DIR)/concurrency/concurrency.c
+CHANNEL_SRC = $(SRC_DIR)/concurrency/channel.c
+WAITGROUP_SRC = $(SRC_DIR)/concurrency/wait_group.c
+TASKQUEUE_SRC = $(SRC_DIR)/concurrency/task_queue.c
+THREADPOOL_SRC = $(SRC_DIR)/concurrency/thread_pool.c
 
 # Object files
 OBJ_DIR = obj
-MEMORY_OBJ = $(OBJ_DIR)/arc.o
-DS_OBJ = $(OBJ_DIR)/list.o
-DICT_OBJ = $(OBJ_DIR)/dict.o
-RUNTIME_OBJ = $(OBJ_DIR)/runtime.o
-
-# Output
-LIB_NAME = libviper.a
-LIB_PATH = $(LIB_NAME)
-
-# All source files
-ALL_SRC = $(RUNTIME_SRC) $(MEMORY_SRC) $(DS_SRC) $(DICT_SRC)
 
 .PHONY: all clean dirs
 
-all: dirs $(LIB_PATH)
+all: dirs $(OBJ_DIR)/libviper.a
 
 dirs:
 	@mkdir -p $(OBJ_DIR)
 
-$(LIB_PATH): $(RUNTIME_OBJ) $(MEMORY_OBJ) $(DS_OBJ) $(DICT_OBJ)
+$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/list.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o
 	ar rcs $@ $^
-	@echo "Built static library: $(LIB_PATH)"
+	@echo "Built static library: $(OBJ_DIR)/libviper.a"
 
 $(OBJ_DIR)/runtime.o: $(RUNTIME_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
@@ -50,17 +43,21 @@ $(OBJ_DIR)/list.o: $(DS_SRC)
 $(OBJ_DIR)/dict.o: $(DICT_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
+$(OBJ_DIR)/concurrency.o: $(CONCURRENCY_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -c $< -o $@
+
+$(OBJ_DIR)/channel.o: $(CHANNEL_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -c $< -o $@
+
+$(OBJ_DIR)/wait_group.o: $(WAITGROUP_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -c $< -o $@
+
+$(OBJ_DIR)/task_queue.o: $(TASKQUEUE_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -c $< -o $@
+
+$(OBJ_DIR)/thread_pool.o: $(THREADPOOL_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -pthread -c $< -o $@
+
 clean:
-	rm -rf $(OBJ_DIR) $(LIB_PATH)
+	rm -rf $(OBJ_DIR)
 	@echo "Cleaned runtime library"
-
-# Install to system library path (optional)
-install: $(LIB_PATH)
-	cp $(LIB_PATH) /usr/local/lib/
-	cp -r include/* /usr/local/include/
-	@echo "Installed Viper runtime to system"
-
-# Development install (local)
-install-local: $(LIB_PATH)
-	cp $(LIB_PATH) ../
-	@echo "Installed Viper runtime to project root"

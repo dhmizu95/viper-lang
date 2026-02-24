@@ -3,16 +3,12 @@ mod cli;
 mod codegen;
 mod lexer;
 mod parser;
-mod utils;
 mod semantic;
+mod utils;
 
-use cli::args::{Args, Commands};
 use clap::Parser;
+use cli::args::{Args, Commands};
 use inkwell::context::Context;
-use inkwell::passes::PassManager;
-use inkwell::targets::{
-    CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
-};
 use inkwell::OptimizationLevel;
 use std::fs;
 use std::path::Path;
@@ -36,13 +32,26 @@ fn main() {
     let args = Args::parse();
 
     match args.command {
-        Commands::Build { input, output, optimize } => {
-            if let Err(e) = compile_file_aot(&input, optimize, output.as_deref()) {
+        Commands::Build {
+            input,
+            output,
+            optimize,
+            lto,
+            pgo,
+        } => {
+            if let Err(e) =
+                compile_file_aot(&input, optimize, output.as_deref(), lto, pgo.as_deref())
+            {
                 eprintln!("Compilation failed: {}", e);
                 std::process::exit(1);
             }
         }
-        Commands::Run { input, optimize } => {
+        Commands::Run {
+            input,
+            optimize,
+            lto: _,
+            pgo: _,
+        } => {
             if let Err(e) = compile_and_run_jit(&input, optimize) {
                 eprintln!("Execution failed: {}", e);
                 std::process::exit(1);
@@ -76,17 +85,25 @@ fn get_opt_level(args: &[String]) -> u32 {
 }
 
 fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
-    compile_file_aot(input_path, 0, output_path)
+    compile_file_aot(input_path, 0, output_path, false, None)
 }
 
 fn compile_file_aot(
     input_path: &str,
     opt_level: u32,
     output_path: Option<&str>,
+    lto: bool,
+    pgo: Option<&str>,
 ) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.2.2 (AOT)");
+    println!("🐍 Viper Compiler 0.2.3 (AOT)");
     println!("   Compiling: {}", input_path);
     println!("   Optimization: -O{}", opt_level);
+    if lto {
+        println!("   LTO: enabled");
+    }
+    if let Some(pgo_mode) = &pgo {
+        println!("   PGO: {} mode", pgo_mode);
+    }
 
     let source = fs::read_to_string(input_path)
         .map_err(|e| format!("Failed to read '{}': {}", input_path, e))?;
@@ -106,7 +123,10 @@ fn compile_file_aot(
         println!("   [2.5/4] Running DCE optimization...");
         let mut dce = codegen::DeadCodeEliminator::new();
         ast = dce.optimize(&ast);
-        println!("   ✓ DCE complete, {} statements remaining", ast.statements.len());
+        println!(
+            "   ✓ DCE complete, {} statements remaining",
+            ast.statements.len()
+        );
     }
 
     println!("   [3/4] Generating LLVM IR...");
@@ -134,53 +154,52 @@ fn compile_file_aot(
 
         // Use more aggressive optimization passes
         let opt_level_str = match opt_level {
-            1 => "-O2",  // -O1 uses -O2 passes for better results
+            1 => "-O2", // -O1 uses -O2 passes for better results
             2 => "-O3",
             _ => "-O3",
         };
 
         let opt_bc = format!("{}.opt.bc", module_name);
-        
+
         // Add aggressive optimization passes for better performance
+        // LLVM 20 uses --passes= syntax for the new pass manager
         let mut opt_args = vec![
-            opt_level_str,
             "-mtriple=x86_64-pc-linux-gnu",
             "-mcpu=native",
             &bc_path,
             "-o",
             &opt_bc,
         ];
-        
-        // Add extra optimization passes for -O2 and -O3
+
+        // Build the passes string based on optimization level
         if opt_level >= 2 {
-            opt_args.extend_from_slice(&[
-                "-mem2reg",           // Promote memory to registers
-                "-instcombine",       // Combine instructions
-                "-simplifycfg",       // Simplify control flow
-                "-loop-unroll",       // Unroll loops
-                "-inline",            // Inline functions
-                "-gvn",               // Global value numbering
-                "-licm",              // Loop invariant code motion
-                "-slp-vectorize",     // SLP vectorization
-                "-loop-vectorize",    // Loop vectorization
-            ]);
+            // Use the default pipeline with extra passes
+            opt_args.push("--passes=default<O3>");
+        } else {
+            opt_args.push(opt_level_str);
         }
-        
-        std::process::Command::new("/usr/lib/llvm-20/bin/opt")
+
+        let opt_output = std::process::Command::new("/usr/lib/llvm-20/bin/opt")
             .args(&opt_args)
             .output()
             .map_err(|e| format!("opt failed: {}", e))?;
 
+        if !opt_output.status.success() {
+            eprintln!("   ⚠ opt stderr: {}", String::from_utf8_lossy(&opt_output.stderr));
+            return Err(format!("opt optimization failed"));
+        }
+
         // Use optimized bitcode for object generation
         let context = Context::create();
-        let opt_module = inkwell::module::Module::parse_bitcode_from_path(Path::new(&opt_bc), &context)
-            .map_err(|e| format!("Failed to load optimized bitcode: {}", e))?;
+        let opt_module =
+            inkwell::module::Module::parse_bitcode_from_path(Path::new(&opt_bc), &context)
+                .map_err(|e| format!("Failed to load optimized bitcode '{}': {}", opt_bc, e))?;
 
         println!("   [4/4] Emitting object code...");
-        emit_object_file(&opt_module, module_name, output, opt_level)
+        emit_object_file(&opt_module, module_name, output, opt_level, lto, pgo)
     } else {
         println!("   Optimizing and emitting object code...");
-        emit_object_file(&module, module_name, output, opt_level)
+        emit_object_file(&module, module_name, output, opt_level, lto, pgo)
     }
 }
 
@@ -189,16 +208,20 @@ fn emit_object_file(
     module_name: &str,
     output: &str,
     opt_level: u32,
+    lto: bool,
+    pgo: Option<&str>,
 ) -> Result<(), String> {
-    use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple};
+    use inkwell::targets::{
+        CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple,
+    };
 
     let target_triple = TargetTriple::create("x86_64-unknown-linux-gnu");
 
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("Failed to initialize native target: {}", e))?;
 
-    let target = Target::from_triple(&target_triple)
-        .map_err(|e| format!("Failed to get target: {}", e))?;
+    let target =
+        Target::from_triple(&target_triple).map_err(|e| format!("Failed to get target: {}", e))?;
 
     // Map optimization level to LLVM optimization
     let llvm_opt = match opt_level {
@@ -225,11 +248,100 @@ fn emit_object_file(
         .map_err(|e| format!("Failed to write object file: {}", e))?;
 
     println!("   ✓ Generated object: {}", obj_path);
+
+    // Build GCC link command with LTO and PGO support
+    let bin_path = format!("{}_bin", output);
+    link_with_gcc(&obj_path, &bin_path, lto, pgo, opt_level)?;
+
     println!("✅ Compilation successful!");
-    println!();
-    println!("   To link and run:");
-    println!("   $ gcc {} -o {}_bin -L./runtime -lviper -lm", obj_path, output);
-    println!("   $ ./{}_bin", output);
+    println!("   Binary: {}", bin_path);
+
+    Ok(())
+}
+
+/// Link object file with GCC, supporting LTO and PGO
+fn link_with_gcc(
+    obj_path: &str,
+    bin_path: &str,
+    lto: bool,
+    pgo: Option<&str>,
+    opt_level: u32,
+) -> Result<(), String> {
+    let mut args = vec![obj_path.to_string()];
+
+    // Add optimization flags
+    if opt_level > 0 {
+        args.push(format!("-O{}", opt_level));
+    }
+
+    // Add LTO flag
+    if lto {
+        args.push("-flto".to_string());
+        println!("   [LTO] Enabled link-time optimization");
+    }
+
+    // Add PGO flags based on mode
+    if let Some(pgo_mode) = pgo {
+        match pgo_mode {
+            "instrument" => {
+                // Phase 1: Generate instrumented binary for profile collection
+                args.push("-fprofile-generate".to_string());
+                println!("   [PGO] Instrumentation mode - run binary to collect profiles");
+            }
+            "use" => {
+                // Phase 2: Use collected profiles for optimization
+                args.push("-fprofile-use".to_string());
+                args.push("-fprofile-correction".to_string()); // Handle missing profiles gracefully
+                println!("   [PGO] Using collected profiles for optimization");
+            }
+            _ => {}
+        }
+    }
+
+    // Add output, library paths, and libraries
+    args.extend_from_slice(&[
+        "-o".to_string(),
+        bin_path.to_string(),
+        "-L./runtime".to_string(),
+        "-lviper".to_string(),
+        "-lm".to_string(),
+    ]);
+
+    println!("   Linking with GCC...");
+    let output = std::process::Command::new("gcc")
+        .args(&args)
+        .output()
+        .map_err(|e| format!("GCC linking failed: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "GCC linking failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    println!("   ✓ Linked binary: {}", bin_path);
+
+    // Print PGO instructions
+    if let Some(pgo_mode) = pgo {
+        match pgo_mode {
+            "instrument" => {
+                println!();
+                println!("   📊 PGO Phase 1: Profile Collection");
+                println!("   Run your binary with representative workloads:");
+                println!("   $ ./{}", bin_path);
+                println!("   Profiles will be saved to *.gcda files");
+                println!();
+                println!("   Then rebuild with --pgo=use to apply optimizations");
+            }
+            "use" => {
+                println!();
+                println!("   📊 PGO Phase 2: Profile-Guided Optimization Applied");
+                println!("   Binary is optimized based on collected profiles");
+            }
+            _ => {}
+        }
+    }
 
     Ok(())
 }
@@ -254,7 +366,10 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     println!("   [2.5/5] Running DCE optimization...");
     let mut dce = codegen::DeadCodeEliminator::new();
     ast = dce.optimize(&ast);
-    println!("   ✓ DCE complete, {} statements remaining", ast.statements.len());
+    println!(
+        "   ✓ DCE complete, {} statements remaining",
+        ast.statements.len()
+    );
 
     println!("   [3/5] Generating LLVM IR...");
     let context = Context::create();
@@ -275,7 +390,7 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
 
     println!("   [4/5] Running LLVM optimizations...");
     let opt_bc = format!("{}.opt.bc", module_name);
-    
+
     // Use aggressive optimization passes
     let opt_status = std::process::Command::new("/usr/lib/llvm-20/bin/opt")
         .args(&[
@@ -356,7 +471,10 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn run_llvm_optimizations(_module: &inkwell::module::Module, _opt_level: u32) -> Result<(), String> {
+fn run_llvm_optimizations(
+    _module: &inkwell::module::Module,
+    _opt_level: u32,
+) -> Result<(), String> {
     // JIT execution engine handles optimization via OptimizationLevel parameter
     // The mem2reg and other optimizations are applied automatically by the JIT
     Ok(())
@@ -367,6 +485,8 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
 }
 
 fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
+    use inkwell::targets::{InitializationConfig, Target};
+    
     println!("🐍 Viper Compiler 0.2.2 (JIT -O{})", opt_level);
     println!("   Running: {}", input_path);
 
@@ -391,7 +511,7 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
 
     // Use optimization level for JIT
     // Note: OptimizationLevel::None is fastest for simple loops because:
-    // 1. No optimization overhead during JIT compilation  
+    // 1. No optimization overhead during JIT compilation
     // 2. LLVM JIT still does basic optimizations
     // 3. For compute-heavy code, Default/Aggressive adds too much compile time
     let opt = match opt_level {
@@ -442,6 +562,14 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             print_bool_ptr as usize,
         );
 
+        let print_str_ptr = vp_print_str_stub as extern "C" fn(*mut std::ffi::c_void);
+        if let Some(func) = codegen.module().get_function("vp_print_str") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                print_str_ptr as usize,
+            );
+        }
+
         let print_newline_ptr = vp_print_newline as extern "C" fn();
         execution_engine.add_global_mapping(
             &codegen
@@ -453,60 +581,143 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
         );
 
         if let Some(func) = codegen.module().get_function("vp_list_create") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_create_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_create_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_append") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_append_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_append_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_free") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_free_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_free_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_get") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_get_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_get_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_len") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_len_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_len_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_set") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_set_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_set_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_insert") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_insert_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_insert_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_remove") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_remove_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_remove_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_pop") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_pop_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_pop_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_clear") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_clear_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_clear_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_list_contains") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_list_contains_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_list_contains_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_retain") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_retain_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_retain_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_release") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_release_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_release_stub as *const () as usize,
+            );
         }
         if let Some(func) = codegen.module().get_function("vp_str_concat") {
-            execution_engine
-                .add_global_mapping(&func.as_global_value(), vp_str_concat_stub as *const () as usize);
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_str_concat_stub as *const () as usize,
+            );
+        }
+        // Concurrency runtime functions (Phase 3)
+        if let Some(func) = codegen.module().get_function("vp_chan_create") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_chan_create as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_chan_destroy") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_chan_destroy as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_chan_send") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_chan_send as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_chan_recv") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_chan_recv as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_waitgroup_create") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_waitgroup_create as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_waitgroup_destroy") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_waitgroup_destroy as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_waitgroup_add") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_waitgroup_add as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_waitgroup_done") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_waitgroup_done as *const () as usize,
+            );
+        }
+        if let Some(func) = codegen.module().get_function("vp_waitgroup_wait") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_waitgroup_wait as *const () as usize,
+            );
         }
     }
 
@@ -543,6 +754,18 @@ extern "C" fn vp_print_newline() {
     // Newline is handled by println!
 }
 
+extern "C" fn vp_print_str_stub(s: *mut std::ffi::c_void) {
+    if s.is_null() {
+        return;
+    }
+    unsafe {
+        let c_str = std::ffi::CStr::from_ptr(s as *const std::ffi::c_char);
+        if let Ok(rust_str) = c_str.to_str() {
+            println!("{}", rust_str);
+        }
+    }
+}
+
 // Stub implementations for list functions (Phase 2 MVP)
 // Using Box<Vec<i64>> as the internal representation
 extern "C" fn vp_list_create_stub() -> *mut std::ffi::c_void {
@@ -551,7 +774,9 @@ extern "C" fn vp_list_create_stub() -> *mut std::ffi::c_void {
 }
 
 extern "C" fn vp_list_append_stub(list: *mut std::ffi::c_void, val: i64) {
-    if list.is_null() { return; }
+    if list.is_null() {
+        return;
+    }
     unsafe {
         let vec = &mut *(list as *mut Vec<i64>);
         vec.push(val);
@@ -559,14 +784,18 @@ extern "C" fn vp_list_append_stub(list: *mut std::ffi::c_void, val: i64) {
 }
 
 extern "C" fn vp_list_free_stub(list: *mut std::ffi::c_void) {
-    if list.is_null() { return; }
+    if list.is_null() {
+        return;
+    }
     unsafe {
         let _ = Box::from_raw(list as *mut Vec<i64>);
     }
 }
 
 extern "C" fn vp_list_get_stub(list: *mut std::ffi::c_void, index: i64) -> i64 {
-    if list.is_null() { return 0; }
+    if list.is_null() {
+        return 0;
+    }
     unsafe {
         let vec = &*(list as *mut Vec<i64>);
         if index < 0 || index as usize >= vec.len() {
@@ -577,7 +806,9 @@ extern "C" fn vp_list_get_stub(list: *mut std::ffi::c_void, index: i64) -> i64 {
 }
 
 extern "C" fn vp_list_len_stub(list: *mut std::ffi::c_void) -> i64 {
-    if list.is_null() { return 0; }
+    if list.is_null() {
+        return 0;
+    }
     unsafe {
         let vec = &*(list as *mut Vec<i64>);
         vec.len() as i64
@@ -585,7 +816,9 @@ extern "C" fn vp_list_len_stub(list: *mut std::ffi::c_void) -> i64 {
 }
 
 extern "C" fn vp_list_set_stub(list: *mut std::ffi::c_void, index: i64, val: i64) {
-    if list.is_null() { return; }
+    if list.is_null() {
+        return;
+    }
     unsafe {
         let vec = &mut *(list as *mut Vec<i64>);
         if index >= 0 && (index as usize) < vec.len() {
@@ -595,7 +828,9 @@ extern "C" fn vp_list_set_stub(list: *mut std::ffi::c_void, index: i64, val: i64
 }
 
 extern "C" fn vp_list_insert_stub(list: *mut std::ffi::c_void, index: i64, val: i64) {
-    if list.is_null() { return; }
+    if list.is_null() {
+        return;
+    }
     unsafe {
         let vec = &mut *(list as *mut Vec<i64>);
         if index >= 0 && (index as usize) <= vec.len() {
@@ -605,7 +840,9 @@ extern "C" fn vp_list_insert_stub(list: *mut std::ffi::c_void, index: i64, val: 
 }
 
 extern "C" fn vp_list_remove_stub(list: *mut std::ffi::c_void, index: i64) -> i64 {
-    if list.is_null() { return 0; }
+    if list.is_null() {
+        return 0;
+    }
     unsafe {
         let vec = &mut *(list as *mut Vec<i64>);
         if index >= 0 && (index as usize) < vec.len() {
@@ -617,7 +854,9 @@ extern "C" fn vp_list_remove_stub(list: *mut std::ffi::c_void, index: i64) -> i6
 }
 
 extern "C" fn vp_list_pop_stub(list: *mut std::ffi::c_void) -> i64 {
-    if list.is_null() { return 0; }
+    if list.is_null() {
+        return 0;
+    }
     unsafe {
         let vec = &mut *(list as *mut Vec<i64>);
         vec.pop().unwrap_or(0)
@@ -625,7 +864,9 @@ extern "C" fn vp_list_pop_stub(list: *mut std::ffi::c_void) -> i64 {
 }
 
 extern "C" fn vp_list_clear_stub(list: *mut std::ffi::c_void) {
-    if list.is_null() { return; }
+    if list.is_null() {
+        return;
+    }
     unsafe {
         let vec = &mut *(list as *mut Vec<i64>);
         vec.clear();
@@ -633,7 +874,9 @@ extern "C" fn vp_list_clear_stub(list: *mut std::ffi::c_void) {
 }
 
 extern "C" fn vp_list_contains_stub(list: *mut std::ffi::c_void, val: i64) -> bool {
-    if list.is_null() { return false; }
+    if list.is_null() {
+        return false;
+    }
     unsafe {
         let vec = &*(list as *mut Vec<i64>);
         vec.contains(&val)
@@ -650,18 +893,21 @@ extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
 
 /// String concatenation stub for JIT
 /// Uses a simple static buffer approach for JIT execution
-extern "C" fn vp_str_concat_stub(a: *const std::ffi::c_char, b: *const std::ffi::c_char) -> *const std::ffi::c_char {
+extern "C" fn vp_str_concat_stub(
+    a: *const std::ffi::c_char,
+    b: *const std::ffi::c_char,
+) -> *const std::ffi::c_char {
     use std::ffi::CStr;
-    
+
     if a.is_null() || b.is_null() {
         return std::ptr::null();
     }
-    
+
     unsafe {
         let str_a = CStr::from_ptr(a).to_string_lossy();
         let str_b = CStr::from_ptr(b).to_string_lossy();
         let concatenated = format!("{}{}", str_a, str_b);
-        
+
         // Leak the string to keep it alive for JIT execution
         // This is a memory leak but acceptable for short-lived JIT execution
         let boxed = Box::new(concatenated);
@@ -675,7 +921,7 @@ fn init_project(name: &str) -> Result<(), String> {
     // Create project directory
     std::fs::create_dir_all(format!("{}/src", name))
         .map_err(|e| format!("Failed to create project directory: {}", e))?;
-    
+
     // Create main.vp
     let main_vp = r#"# Viper Project
 
@@ -685,7 +931,7 @@ def main():
 "#;
     std::fs::write(format!("{}/src/main.vp", name), main_vp)
         .map_err(|e| format!("Failed to create main.vp: {}", e))?;
-    
+
     // Create Cargo.toml for the project
     let cargo_toml = r#"[package]
 name = "PROJECT_NAME"
@@ -693,13 +939,69 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-"#.replace("PROJECT_NAME", name);
+"#
+    .replace("PROJECT_NAME", name);
     std::fs::write(format!("{}/Cargo.toml", name), cargo_toml)
         .map_err(|e| format!("Failed to create Cargo.toml: {}", e))?;
 
     println!("Created Viper project: {}", name);
     println!("   cd {} && viper run src/main.vp", name);
     Ok(())
+}
+
+// Concurrency runtime stubs for JIT (Phase 3)
+// Simplified implementations using atomics for safety
+
+use std::sync::atomic::{AtomicUsize, AtomicI64, Ordering};
+
+static JIT_CHANNEL_COUNTER: AtomicUsize = AtomicUsize::new(0);
+static JIT_CHANNEL_VALUE: AtomicI64 = AtomicI64::new(0);
+static JIT_WG_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+extern "C" fn vp_chan_create(_capacity: i64) -> *mut std::ffi::c_void {
+    let id = JIT_CHANNEL_COUNTER.fetch_add(1, Ordering::SeqCst);
+    id as *mut std::ffi::c_void
+}
+
+extern "C" fn vp_chan_destroy(_chan: *mut std::ffi::c_void) {
+    // No-op for JIT
+}
+
+extern "C" fn vp_chan_send(_chan: *mut std::ffi::c_void, value: i64) {
+    JIT_CHANNEL_VALUE.store(value, Ordering::SeqCst);
+}
+
+extern "C" fn vp_chan_recv(_chan: *mut std::ffi::c_void) -> i64 {
+    JIT_CHANNEL_VALUE.load(Ordering::SeqCst)
+}
+
+extern "C" fn vp_waitgroup_create() -> *mut std::ffi::c_void {
+    let id = JIT_WG_COUNTER.fetch_add(1, Ordering::SeqCst);
+    id as *mut std::ffi::c_void
+}
+
+extern "C" fn vp_waitgroup_destroy(_wg: *mut std::ffi::c_void) {
+    // No-op for JIT
+}
+
+extern "C" fn vp_waitgroup_add(_wg: *mut std::ffi::c_void, _n: i64) {
+    // No-op for JIT stub
+}
+
+extern "C" fn vp_waitgroup_done(_wg: *mut std::ffi::c_void) {
+    // No-op for JIT stub
+}
+
+extern "C" fn vp_waitgroup_wait(_wg: *mut std::ffi::c_void) {
+    // No-op for JIT stub
+}
+
+extern "C" fn vp_init_threadpool(_num_threads: usize) {
+    // No-op for JIT
+}
+
+extern "C" fn vp_shutdown_threadpool() {
+    // No-op for JIT
 }
 
 /// Check that all prerequisites are available
@@ -710,18 +1012,18 @@ fn check_prerequisites() -> Result<(), String> {
         "../runtime/libviper.a",
         "../../runtime/libviper.a",
     ];
-    
+
     let runtime_found = runtime_paths.iter().any(|p| Path::new(p).exists());
-    
+
     if !runtime_found {
         return Err("Viper runtime library not found (runtime/libviper.a)".to_string());
     }
-    
+
     // Check GCC for AOT linking
     if !check_command_exists("gcc") {
         return Err("GCC compiler not found in PATH".to_string());
     }
-    
+
     Ok(())
 }
 
