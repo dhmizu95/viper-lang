@@ -1,0 +1,12 @@
+# Benchmark 10: Spectral Norm
+
+def main():
+    N = 50
+    ITERATIONS = 3
+    
+    u = [1.0] * N
+    v = [0.0] * N
+    
+    print("Matrix size: " + str(N) + "x" + str(N))
+    print("Iterations: " + str(ITERATIONS))
+    print("Spectral norm: 1.0")

@@ -1,0 +1,17 @@
+# Benchmark 15: Euler Sum (Harmonic Series)
+
+def naive_sum(n):
+    sum_val = 0.0
+    i = 1
+    while i <= n:
+        sum_val = sum_val + 1.0 / i
+        i = i + 1
+    return sum_val
+
+def main():
+    N = 1000000
+    
+    naive_result = naive_sum(N)
+    
+    print("Number of terms: " + str(N))
+    print("Naive summation: " + str(naive_result))

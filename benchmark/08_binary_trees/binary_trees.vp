@@ -1,0 +1,21 @@
+# Benchmark 08: Binary Trees
+
+def main():
+    TREE_DEPTH = 8
+    
+    tree_size = 1
+    i = 0
+    while i < TREE_DEPTH:
+        tree_size = tree_size * 2
+        i = i + 1
+    tree_size = tree_size - 1
+    
+    tree = [0] * tree_size
+    
+    i = 0
+    while i < tree_size:
+        tree[i] = 0
+        i = i + 1
+    
+    print("Tree depth: " + str(TREE_DEPTH))
+    print("Tree size: " + str(tree_size))

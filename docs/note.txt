@@ -2,6 +2,10 @@
 Note: For mixed int/float operations, use explicit float types (e.g., 1.0
 
 instead of 1).
+The Viper compiler has limitations:
 
+No support for global constants
+No support for comments with semicolons
+Limited array support
 test_quicksort.vp has a separate issue with list type handling (loading i64 from ptr and using as ptr) - this is a pre-existing bug unrelated to the current fixes
 if build failed show which line cause this issue with line number

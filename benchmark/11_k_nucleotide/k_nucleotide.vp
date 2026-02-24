@@ -1,0 +1,27 @@
+# Benchmark 11: K-Nucleotide
+
+def main():
+    SEQ_LEN = 1000
+    K = 4
+    
+    bases = "ACGT"
+    sequence = ""
+    i = 0
+    while i < SEQ_LEN:
+        sequence = sequence + bases[i % 4]
+        i = i + 1
+    
+    count_aaaa = 0
+    count_acgt = 0
+    i = 0
+    while i <= SEQ_LEN - K:
+        kmer = sequence[i:i+K]
+        if kmer == "AAAA":
+            count_aaaa = count_aaaa + 1
+        elif kmer == "ACGT":
+            count_acgt = count_acgt + 1
+        i = i + 1
+    
+    print("Sequence length: " + str(SEQ_LEN) + ", K: " + str(K))
+    print("Count of AAAA: " + str(count_aaaa))
+    print("Count of ACGT: " + str(count_acgt))

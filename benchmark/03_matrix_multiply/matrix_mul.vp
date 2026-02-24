@@ -1,0 +1,40 @@
+# Benchmark 03: Matrix Multiplication
+
+def main():
+    SIZE = 50
+    
+    # Initialize matrices (flattened 1D arrays)
+    A = [0.0] * (SIZE * SIZE)
+    B = [0.0] * (SIZE * SIZE)
+    C = [0.0] * (SIZE * SIZE)
+    
+    # Initialize matrices
+    i = 0
+    while i < SIZE * SIZE:
+        A[i] = (i % 100) / 100.0
+        B[i] = (i % 50) / 50.0
+        i = i + 1
+    
+    # Matrix multiplication C = A * B
+    row = 0
+    while row < SIZE:
+        col = 0
+        while col < SIZE:
+            sum_val = 0.0
+            k = 0
+            while k < SIZE:
+                sum_val = sum_val + A[row * SIZE + k] * B[k * SIZE + col]
+                k = k + 1
+            C[row * SIZE + col] = sum_val
+            col = col + 1
+        row = row + 1
+    
+    # Verify result (sum of first row)
+    verify = 0.0
+    j = 0
+    while j < SIZE:
+        verify = verify + C[j]
+        j = j + 1
+    
+    print("Matrix size: " + str(SIZE) + "x" + str(SIZE))
+    print("Verification sum: " + str(verify))

@@ -1,0 +1,32 @@
+# Benchmark 12: Reverse Complement
+
+def complement(c):
+    if c == "A":
+        return "T"
+    elif c == "T":
+        return "A"
+    elif c == "G":
+        return "C"
+    elif c == "C":
+        return "G"
+    else:
+        return "N"
+
+def main():
+    SEQ_LEN = 5000
+    
+    bases = "ATGC"
+    sequence = ""
+    i = 0
+    while i < SEQ_LEN:
+        sequence = sequence + bases[i % 4]
+        i = i + 1
+    
+    reverse_complement = ""
+    i = SEQ_LEN - 1
+    while i >= 0:
+        reverse_complement = reverse_complement + complement(sequence[i])
+        i = i - 1
+    
+    print("Sequence length: " + str(SEQ_LEN))
+    print("First 20 bases: " + reverse_complement[0:20])

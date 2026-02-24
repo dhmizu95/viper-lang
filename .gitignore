@@ -4,6 +4,7 @@
 *.o
 *.bc
 *.opt.bc
+*_rs
 
 # Executables
 *_opt
@@ -12,16 +13,16 @@
 *_rust
 
 # Generated source files
-*.c
-*.go
-*.rs
+# *.c
+# *.go
+# *.rs
 !build.rs
 !Cargo.toml
 !src/**/*.rs
 !runtime.c
 
 # Viper outputs
-*.vp
+# *.vp
 !tests/*.vp
 
 # Libraries
