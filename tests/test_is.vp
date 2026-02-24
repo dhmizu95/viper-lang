@@ -1,0 +1,14 @@
+# Test: Identity operators
+def main():
+    # Identity operators (is, is not)
+    x = None
+    y = None
+    z = 5
+    
+    # x is y (both None)
+    if x is y:
+        print(100)
+    
+    # x is not z
+    if x is not z:
+        print(200)

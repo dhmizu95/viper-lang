@@ -546,12 +546,12 @@ impl<'a> StatementParser<'a> {
         }
 
         // Also check for keywords that start new statements
+        // Note: We exclude 'Else' and 'Elif' here to allow ternary expressions
+        // The ternary pattern is: <expr> if <cond> else <expr>
+        // When parsing the value after '=', we need to allow 'if...else' for ternary
         if matches!(
             self.current().kind,
-            TokenKind::If
-                | TokenKind::Else
-                | TokenKind::Elif
-                | TokenKind::While
+            TokenKind::While
                 | TokenKind::For
                 | TokenKind::Def
                 | TokenKind::Return
@@ -570,6 +570,12 @@ impl<'a> StatementParser<'a> {
         ) {
             return Ok(expr);
         }
+        
+        // Special handling for 'if' - only treat as statement boundary if it's
+        // at the start of a line (not part of a ternary)
+        // For ternary: <value> if <cond> else <value>
+        // The 'if' comes after a value, not at statement start
+        // So we don't add 'if' to the boundary check here
 
         // Also check for identifiers that could start a new statement (like function calls as statements)
         // If the current token is an Ident and it's NOT followed by a postfix operator (paren/bracket/dot),

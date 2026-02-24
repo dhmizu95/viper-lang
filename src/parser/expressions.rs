@@ -111,19 +111,47 @@ impl<'a> PrattParser<'a> {
             }
         }
 
-        // Handle ternary expression: `a if cond else b`
-        if self.match_token(&TokenKind::If) {
-            // This is a ternary: left if condition else else_expr
-            let condition = self.parse_expr(Precedence::MIN)?;
-            self.expect(&TokenKind::Else)?;
-            let else_expr = self.parse_expr(Precedence::MIN)?;
-            let span = left.span().merge(else_expr.span());
-            left = Expr::Conditional {
-                condition: Box::new(condition),
-                then_expr: Box::new(left),
-                else_expr: Box::new(else_expr),
-                span,
-            };
+        // Handle ternary expression: `then_expr if cond else else_expr`
+        if matches!(self.current().kind, TokenKind::If) {
+            // Look ahead to see if this is a ternary
+            let saved_pos = self.pos;
+            
+            self.advance(); // consume 'if'
+            
+            // Parse condition
+            match self.parse_expr(Precedence::MIN) {
+                Ok(condition) => {
+                    // Check for 'else'
+                    if matches!(self.current().kind, TokenKind::Else) {
+                        self.advance(); // consume 'else'
+                        // Parse else expression
+                        match self.parse_expr(Precedence::MIN) {
+                            Ok(else_expr) => {
+                                // This is a valid ternary!
+                                let span = left.span().merge(else_expr.span());
+                                left = Expr::Conditional {
+                                    condition: Box::new(condition),
+                                    then_expr: Box::new(left),
+                                    else_expr: Box::new(else_expr),
+                                    span,
+                                };
+                                // Don't restore position - we successfully parsed a ternary
+                            }
+                            Err(_) => {
+                                // Failed to parse else expression, restore position
+                                self.pos = saved_pos;
+                            }
+                        }
+                    } else {
+                        // No 'else' found, this is an if statement, restore position
+                        self.pos = saved_pos;
+                    }
+                }
+                Err(_) => {
+                    // Failed to parse condition, restore position
+                    self.pos = saved_pos;
+                }
+            }
         }
 
         Ok(left)
