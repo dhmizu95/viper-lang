@@ -36,7 +36,6 @@ impl<'ctx> CodeGen<'ctx> {
 
     /// Generate code for a complete module
     pub fn generate(&mut self, module: &Module) -> Result<(), String> {
-        eprintln!("DEBUG: Module has {} statements", module.statements.len());
 
         // First pass: declare all functions
         for stmt in &module.statements {
@@ -67,7 +66,6 @@ impl<'ctx> CodeGen<'ctx> {
                 ..
             } = stmt
             {
-                eprintln!("DEBUG: Defining function {}", name);
                 self.define_function(name, params, return_type, body)?;
             } else {
                 top_level_stmts.push(stmt.clone());
@@ -220,7 +218,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder.position_at_end(entry);
             
             // Call viper_init
-            self.builder.build_call(init_func, &[], "call_init");
+            let _ = self.builder.build_call(init_func, &[], "call_init");
 
             self.ir_builder
                 .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
@@ -241,32 +239,22 @@ impl<'ctx> CodeGen<'ctx> {
     fn generate_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
         match stmt {
             Stmt::Expr(expr) => {
-                eprintln!("DEBUG: Stmt::Expr starting");
                 self.generate_expr(expr)?;
-                eprintln!("DEBUG: Stmt::Expr done");
             }
             Stmt::Assign { target, value, .. } => {
-                eprintln!("DEBUG: Processing assignment, target={:?}", target);
                 if let Expr::Ident(name, _) = target.as_ref() {
-                    eprintln!("DEBUG: Assigning to {}", name);
-                    eprintln!("DEBUG: About to generate value, value={:?}", value);
                     match self.generate_expr(value) {
                         Ok(val) => {
-                            eprintln!("DEBUG: Generated value for {}", name);
                             let ty = val.get_type();
-                            eprintln!("DEBUG: Type is {:?}", ty);
                             let alloca = self.builder.build_alloca(ty, name).expect("alloca");
                             self.builder.build_store(alloca, val).expect("store");
                             self.variables.insert(name.clone(), alloca);
-                            eprintln!("DEBUG: Inserted {} into variables", name);
                         }
                         Err(e) => {
-                            eprintln!("DEBUG ERROR generating value: {}", e);
                             return Err(e);
                         }
                     }
                 } else {
-                    eprintln!("DEBUG: Assignment target is not an Ident: {:?}", target);
                 }
             }
             Stmt::Declare {
@@ -536,13 +524,12 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         expr: &Expr,
     ) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
-        eprintln!("DEBUG generate_expr: {:?}", expr);
         match expr {
             Expr::Int(n, _) => Ok(self.ir_builder.i64_const(*n).into()),
             Expr::Float(n, _) => Ok(self.ir_builder.f64_const(*n).into()),
             Expr::Bool(b, _) => Ok(self.ir_builder.bool_const(*b).into()),
             Expr::Str(s, _) => Ok(self.ir_builder.string_const(&self.module, s).into()),
-            Expr::Ident(name, span) => {
+            Expr::Ident(name, _span) => {
                 if let Some(&alloca) = self.variables.get(name) {
                     // For i64 type, we know it's stored in an alloca
                     let i64_type = self.context.i64_type();
@@ -551,7 +538,6 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_load(i64_type, alloca, name)
                         .expect("load"))
                 } else {
-                    eprintln!("DEBUG generate_expr: Variable {} NOT found. Available variables: {:?}", name, self.variables.keys().collect::<Vec<_>>());
                     Err(format!("Undefined variable: {}", name))
                 }
             }
@@ -607,9 +593,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             Expr::Call { func, args, .. } => {
-                eprintln!("DEBUG: Generating call expression");
                 if let Expr::Ident(name, _) = func.as_ref() {
-                    eprintln!("DEBUG: Function name: {}", name);
                     eprintln!(
                         "DEBUG: Available functions: {:?}",
                         self.functions.keys().collect::<Vec<_>>()
@@ -622,7 +606,6 @@ impl<'ctx> CodeGen<'ctx> {
 
                     // User-defined function
                     if let Some(&func_val) = self.functions.get(name) {
-                        eprintln!("DEBUG: Found function {}", name);
                         let arg_values: Vec<_> = args
                             .iter()
                             .map(|a| self.generate_expr(a).map(|v| v.into()))
@@ -636,7 +619,6 @@ impl<'ctx> CodeGen<'ctx> {
                         );
                         return Ok(result.unwrap_or(self.ir_builder.i64_const(0).into()));
                     } else {
-                        eprintln!("DEBUG: Function {} NOT found in functions map", name);
                     }
                 }
 
@@ -697,6 +679,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Print the generated IR
+    #[allow(dead_code)]
     pub fn print_ir(&self) -> String {
         self.module.to_string().to_string()
     }

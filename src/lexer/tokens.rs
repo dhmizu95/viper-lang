@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::utils::Span;
 
 /// All token types in the Viper language

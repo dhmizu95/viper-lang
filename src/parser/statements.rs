@@ -625,80 +625,6 @@ impl<'a> StatementParser<'a> {
                             span: span.merge(attr_span),
                         };
                     } else if self.match_token(&TokenKind::LParen) {
-                        eprintln!("DEBUG PARSER: Found LParen, parsing function call args");
-                        let mut args = Vec::new();
-                        if !self.match_token(&TokenKind::RParen) {
-                            loop {
-                                args.push(self.parse_expression()?);
-                                if !self.match_token(&TokenKind::Comma) {
-                                    break;
-                                }
-                            }
-                        }
-                        self.expect(&TokenKind::RParen)?;
-                        let call_span = span.merge(self.previous().span);
-                        eprintln!("DEBUG PARSER: Finished parsing function call, now at pos {} token {:?}", self.pos, self.current().kind);
-                        expr = Expr::Call {
-                            func: Box::new(expr),
-                            args,
-                            span: call_span,
-                        };
-                    } else if self.match_token(&TokenKind::LBracket) {
-                        let index = self.parse_expression()?;
-                        self.expect(&TokenKind::RBracket)?;
-                        let index_span = span.merge(self.previous().span);
-                        expr = Expr::Index {
-                            obj: Box::new(expr),
-                            index: Box::new(index),
-                            span: index_span,
-                        };
-                    } else {
-                        break;
-                    }
-                }
-
-                expr
-            }
-            TokenKind::Float(n) => {
-                let n = *n;
-                self.advance();
-                Expr::Float(n, span)
-            }
-            TokenKind::Str(s) => {
-                let s = s.clone();
-                self.advance();
-                Expr::Str(s, span)
-            }
-            TokenKind::Bool(b) => {
-                let b = *b;
-                self.advance();
-                Expr::Bool(b, span)
-            }
-            TokenKind::True => {
-                self.advance();
-                Expr::Bool(true, span)
-            }
-            TokenKind::False => {
-                self.advance();
-                Expr::Bool(false, span)
-            }
-            TokenKind::Ident(name) => {
-                let name = name.clone();
-                self.advance();
-
-                // Check for attribute access or function call
-                let mut expr = Expr::Ident(name, span);
-
-                loop {
-                    if self.match_token(&TokenKind::Dot) {
-                        let attr = self.expect_ident()?;
-                        let attr_span = self.previous().span;
-                        expr = Expr::Attribute {
-                            obj: Box::new(expr),
-                            attr,
-                            span: span.merge(attr_span),
-                        };
-                    } else if self.match_token(&TokenKind::LParen) {
                         let mut args = Vec::new();
                         if !self.match_token(&TokenKind::RParen) {
                             loop {
@@ -731,6 +657,7 @@ impl<'a> StatementParser<'a> {
 
                 expr
             }
+
             TokenKind::LParen => {
                 self.advance();
                 let expr = self.parse_expression()?;

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Viper type system
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module as LLVMModule;

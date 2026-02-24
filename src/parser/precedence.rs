@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Operator precedence levels for Pratt parsing
 /// Higher numbers = higher precedence (bind tighter)
 

@@ -86,7 +86,6 @@ fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), Strin
     let mut parser = parser::Parser::new(tokens);
     let ast = parser.parse()?;
     println!("   ✓ Parsed {} statements", ast.statements.len());
-    eprintln!("DEBUG AST: {:#?}", ast);
 
     // Phase 3: Code Generation
     println!("   [3/4] Generating LLVM IR...");
@@ -161,7 +160,7 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
         .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
 
     unsafe {
-        if let Some(main) = codegen.module().get_function("main") {
+        if let Some(_main) = codegen.module().get_function("main") {
             let func = execution_engine.get_function_value("main")
                 .map_err(|e| format!("Failed to find main function in JIT: {}", e))?;
             
