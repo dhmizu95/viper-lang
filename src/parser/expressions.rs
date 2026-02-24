@@ -257,7 +257,7 @@ impl<'a> PrattParser<'a> {
             TokenKind::Percent => BinOp::Mod,
             TokenKind::DoubleSlash => BinOp::FloorDiv,
             TokenKind::DoubleStar => BinOp::Pow,
-            TokenKind::Eq => BinOp::Eq,
+            TokenKind::Eq | TokenKind::EqEq => BinOp::Eq,
             TokenKind::NotEq => BinOp::NotEq,
             TokenKind::Lt => BinOp::Lt,
             TokenKind::LtEq => BinOp::LtEq,
@@ -277,7 +277,7 @@ impl<'a> PrattParser<'a> {
         let prec = match &token.kind {
             TokenKind::Or => Precedence::OR,
             TokenKind::And => Precedence::AND,
-            TokenKind::Eq
+            TokenKind::Eq | TokenKind::EqEq
             | TokenKind::NotEq
             | TokenKind::Lt
             | TokenKind::LtEq

@@ -423,13 +423,22 @@ impl<'ctx> CodeGen<'ctx> {
             .get_parent()
             .unwrap();
         let cond_val = self.generate_expr(condition)?.into_int_value();
+        
+        // Convert to i1 for branch condition if needed (i64 non-zero = true, i1 already bool)
+        let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
+            cond_val
+        } else {
+            self.builder
+                .build_int_compare(inkwell::IntPredicate::NE, cond_val, self.context.i64_type().const_zero(), "cond_bool")
+                .expect("icmp")
+        };
 
         let then_block = self.context.append_basic_block(func, "then");
         let else_block = self.context.append_basic_block(func, "else");
         let merge_block = self.context.append_basic_block(func, "if_cont");
 
         self.ir_builder
-            .build_cond_branch(&self.builder, cond_val, then_block, else_block);
+            .build_cond_branch(&self.builder, cond_i1, then_block, else_block);
 
         // Then block
         self.builder.position_at_end(then_block);
@@ -554,8 +563,16 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(cond_block);
         let cond_expr = self.generate_expr(condition)?;
         let cond_val = cond_expr.into_int_value();
+        // Convert to i1 for branch condition if needed (i64 non-zero = true, i1 already bool)
+        let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
+            cond_val
+        } else {
+            self.builder
+                .build_int_compare(inkwell::IntPredicate::NE, cond_val, self.context.i64_type().const_zero(), "cond_bool")
+                .expect("icmp")
+        };
         self.ir_builder
-            .build_cond_branch(&self.builder, cond_val, body_block, exit_block);
+            .build_cond_branch(&self.builder, cond_i1, body_block, exit_block);
 
         // Body block
         self.builder.position_at_end(body_block);

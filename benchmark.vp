@@ -1,8 +1,8 @@
-# Benchmark: 10 million loop iterations
+# Benchmark: 1000 million (1 billion) loop iterations
 def main():
     sum = 0
     i = 0
-    while i < 10000000:
+    while i < 1000000000:
         sum = sum + i
         i = i + 1
     print(sum)
