@@ -11,6 +11,7 @@
 *_aot
 *_c
 *_rust
+*_go
 
 # Generated source files
 # *.c
@@ -24,7 +25,14 @@
 # Viper outputs
 # *.vp
 !tests/*.vp
+!benchmark/*.vp
 
 # Libraries
 *.a
+
+# Benchmark outputs
+benchmark/sieve_c
+benchmark/sieve_rust
+benchmark/sieve_go
+benchmark/*.o
 
