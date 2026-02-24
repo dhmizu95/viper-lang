@@ -485,7 +485,7 @@ impl<'a> StatementParser<'a> {
                 if self.is_at_end() {
                     return Ok(Stmt::Expr(expr));
                 }
-                
+
                 // Let parse_value_expr do the bounded checking
                 self.pos = self.expr_parser.pos(); // sync pos before value parse
                 let full_expr = self.parse_value_expr_with_left(expr)?;
@@ -496,16 +496,24 @@ impl<'a> StatementParser<'a> {
 
     fn parse_value_expr_with_left(&mut self, left: Expr) -> Result<Expr, String> {
         self.expr_parser.set_pos(self.pos);
-        
-        if matches!(self.current().kind, 
-            TokenKind::Newline | TokenKind::Dedent | TokenKind::Indent | TokenKind::Eof | 
-            TokenKind::RParen | TokenKind::Comma | TokenKind::Colon
+
+        if matches!(
+            self.current().kind,
+            TokenKind::Newline
+                | TokenKind::Dedent
+                | TokenKind::Indent
+                | TokenKind::Eof
+                | TokenKind::RParen
+                | TokenKind::Comma
+                | TokenKind::Colon
         ) {
             return Ok(left);
         }
 
         // Just let Pratt parse it with the given pos
-        let full_expr = self.expr_parser.parse_expr_with_left(left, crate::parser::precedence::Precedence::MIN)?;
+        let full_expr = self
+            .expr_parser
+            .parse_expr_with_left(left, crate::parser::precedence::Precedence::MIN)?;
         self.pos = self.expr_parser.pos();
         Ok(full_expr)
     }
@@ -513,38 +521,60 @@ impl<'a> StatementParser<'a> {
     fn parse_value_expr(&mut self) -> Result<Expr, String> {
         // Parse a value expression (primary + postfix operators + binary operators)
         let expr = self.parse_primary_expr()?;
-        
+
         // parse_primary_expr already handles function calls, so expr should be complete
         // Now check for binary operators
         self.expr_parser.set_pos(self.pos);
-        
+
         // Check if we're at a statement boundary
         // This includes: delimiters, keywords that start statements, or indentation changes
-        if matches!(self.current().kind, 
-            TokenKind::Newline | TokenKind::Dedent | TokenKind::Indent | TokenKind::Eof | 
-            TokenKind::RParen | TokenKind::Comma | TokenKind::Colon
+        if matches!(
+            self.current().kind,
+            TokenKind::Newline
+                | TokenKind::Dedent
+                | TokenKind::Indent
+                | TokenKind::Eof
+                | TokenKind::RParen
+                | TokenKind::Comma
+                | TokenKind::Colon
         ) {
             return Ok(expr);
         }
-        
+
         // Also check for keywords that start new statements
-        if matches!(self.current().kind, 
-            TokenKind::If | TokenKind::Else | TokenKind::Elif | TokenKind::While | TokenKind::For |
-            TokenKind::Def | TokenKind::Return | TokenKind::Break | TokenKind::Continue |
-            TokenKind::Pass | TokenKind::Import | TokenKind::From | TokenKind::Class |
-            TokenKind::Try | TokenKind::Except | TokenKind::Finally | TokenKind::Sync |
-            TokenKind::Task | TokenKind::Mut
+        if matches!(
+            self.current().kind,
+            TokenKind::If
+                | TokenKind::Else
+                | TokenKind::Elif
+                | TokenKind::While
+                | TokenKind::For
+                | TokenKind::Def
+                | TokenKind::Return
+                | TokenKind::Break
+                | TokenKind::Continue
+                | TokenKind::Pass
+                | TokenKind::Import
+                | TokenKind::From
+                | TokenKind::Class
+                | TokenKind::Try
+                | TokenKind::Except
+                | TokenKind::Finally
+                | TokenKind::Sync
+                | TokenKind::Task
+                | TokenKind::Mut
         ) {
             return Ok(expr);
         }
-        
+
         // Also check for identifiers that could start a new statement (like function calls as statements)
         // If the current token is an Ident and it's NOT followed by a postfix operator (paren/bracket/dot),
         // then it's likely the start of a new statement
         if matches!(self.current().kind, TokenKind::Ident(_)) {
             // Peek at the next token to see if this Ident is followed by a postfix operator
             if let Some(next_token) = self.tokens.get(self.pos + 1) {
-                let is_postfix = matches!(next_token.kind, 
+                let is_postfix = matches!(
+                    next_token.kind,
                     TokenKind::LParen | TokenKind::LBracket | TokenKind::Dot
                 );
                 if !is_postfix {
@@ -553,9 +583,11 @@ impl<'a> StatementParser<'a> {
                 }
             }
         }
-        
+
         // Try to parse binary operators using the already parsed left side
-        let full_expr = self.expr_parser.parse_expr_with_left(expr, crate::parser::precedence::Precedence::MIN)?;
+        let full_expr = self
+            .expr_parser
+            .parse_expr_with_left(expr, crate::parser::precedence::Precedence::MIN)?;
         self.pos = self.expr_parser.pos();
         Ok(full_expr)
     }
@@ -593,6 +625,10 @@ impl<'a> StatementParser<'a> {
             TokenKind::False => {
                 self.advance();
                 Expr::Bool(false, span)
+            }
+            TokenKind::None => {
+                self.advance();
+                Expr::None(span)
             }
             TokenKind::Ident(name) => {
                 let name = name.clone();
@@ -645,7 +681,33 @@ impl<'a> StatementParser<'a> {
 
             TokenKind::LParen => {
                 self.advance();
+
+                // Check for empty tuple or just parenthesized expression
+                if self.match_token(&TokenKind::RParen) {
+                    // Empty tuple - treat as None for now
+                    return Ok(Expr::None(span));
+                }
+
                 let expr = self.parse_expression()?;
+
+                // Check for tuple (has trailing comma)
+                if self.match_token(&TokenKind::Comma) {
+                    let mut elements = vec![expr];
+                    while !self.match_token(&TokenKind::RParen) {
+                        elements.push(self.parse_expression()?);
+                        if !self.match_token(&TokenKind::Comma) {
+                            break;
+                        }
+                    }
+                    self.expect(&TokenKind::RParen)?;
+                    let last_span = self.previous().span;
+                    let merged_span = span.merge(last_span);
+                    return Ok(Expr::Tuple {
+                        elements,
+                        span: merged_span,
+                    });
+                }
+
                 self.expect(&TokenKind::RParen)?;
                 expr
             }

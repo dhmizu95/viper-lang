@@ -1,0 +1,15 @@
+# Test: Mutable variables with 'mut' keyword
+def main():
+    # Immutable by default (cannot be reassigned without mut)
+    x = 10
+    print(x)
+    
+    # Mutable variable
+    mut counter = 0
+    counter = counter + 1
+    counter = counter + 5
+    print(counter)
+    
+    # None value
+    nothing = None
+    print(0)

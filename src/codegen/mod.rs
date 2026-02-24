@@ -36,6 +36,8 @@ impl<'ctx> CodeGen<'ctx> {
 
     /// Generate code for a complete module
     pub fn generate(&mut self, module: &Module) -> Result<(), String> {
+        // Declare runtime functions first
+        self.declare_runtime_functions()?;
 
         // First pass: declare all functions
         for stmt in &module.statements {
@@ -69,6 +71,78 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Generate main handling top-level statements
         self.generate_main_with_statements(&top_level_stmts)?;
+
+        Ok(())
+    }
+
+    /// Declare runtime library functions
+    fn declare_runtime_functions(&mut self) -> Result<(), String> {
+        let i64_type = self.context.i64_type();
+        let void_type = self.context.void_type();
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+
+        // vp_print_i64: void (i64)
+        let print_i64_type = void_type.fn_type(&[i64_type.into()], false);
+        self.module
+            .add_function("vp_print_i64", print_i64_type, None);
+
+        // vp_print_f64: void (f64)
+        let f64_type = self.context.f64_type();
+        let print_f64_type = void_type.fn_type(&[f64_type.into()], false);
+        self.module
+            .add_function("vp_print_f64", print_f64_type, None);
+
+        // vp_print_str: void (ptr)
+        let print_str_type = void_type.fn_type(&[ptr_type.into()], false);
+        self.module
+            .add_function("vp_print_str", print_str_type, None);
+
+        // vp_print_bool: void (i1)
+        let bool_type = self.context.bool_type();
+        let print_bool_type = void_type.fn_type(&[bool_type.into()], false);
+        self.module
+            .add_function("vp_print_bool", print_bool_type, None);
+
+        // vp_print_newline: void ()
+        let print_newline_type = void_type.fn_type(&[], false);
+        self.module
+            .add_function("vp_print_newline", print_newline_type, None);
+
+        // vp_list_create: ptr ()
+        let list_create_type = ptr_type.fn_type(&[], false);
+        self.module
+            .add_function("vp_list_create", list_create_type, None);
+
+        // vp_list_append: void (ptr, i64)
+        let list_append_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module
+            .add_function("vp_list_append", list_append_type, None);
+
+        // vp_list_free: void (ptr)
+        let list_free_type = void_type.fn_type(&[ptr_type.into()], false);
+        self.module
+            .add_function("vp_list_free", list_free_type, None);
+
+        // vp_list_get: i64 (ptr, i64)
+        let list_get_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module.add_function("vp_list_get", list_get_type, None);
+
+        // vp_list_len: i64 (ptr)
+        let list_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("vp_list_len", list_len_type, None);
+
+        // vp_list_set: void (ptr, i64, i64)
+        let list_set_type =
+            void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+        self.module.add_function("vp_list_set", list_set_type, None);
+
+        // vp_retain: void (ptr)
+        let retain_type = void_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("vp_retain", retain_type, None);
+
+        // vp_release: void (ptr)
+        let release_type = void_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("vp_release", release_type, None);
 
         Ok(())
     }
@@ -180,26 +254,26 @@ impl<'ctx> CodeGen<'ctx> {
         let main_type = self.context.i64_type().fn_type(&[], false);
         // Rename user's main to user_main if it exists to avoid collision
         // But our `declare_function` already added it to `self.module` as "main".
-        // Wait, LLVM requires the entry point to be `main`. 
+        // Wait, LLVM requires the entry point to be `main`.
         // If the user defined `main`, it's already generated. We shouldn't generate another `main`.
         // BUT `test_factorial` defines `main` and then doesn't call it, or maybe it DOES call it? No, wait!
         // `test_factorial.vp` defines `def main(): result = ... print(...)`. It doesn't have top-level code calling `main`.
         // Let's create a real `main` that simply calls the user's `main`, AND executes top-level code.
         // Let's rename user's `main`? No, if we generate our wrapper as `main`, we'd have a conflict.
-        
+
         let has_user_main = self.functions.contains_key("main");
-        
+
         // Let's generate a "viper_main" that executes top level, then the real C `main` calls it?
         // Actually, just generate `main` if it doesn't exist. If it DOES exist, we just hope it has the right signature?
-        // Wait, if user defined `main`, it IS the entry point. 
+        // Wait, if user defined `main`, it IS the entry point.
         // But what about top-level statements? We still need to run them.
-        
+
         // Let's define an init function for top-level statements:
         let init_type = self.context.void_type().fn_type(&[], false);
         let init_func = self.module.add_function("viper_init", init_type, None);
         let init_entry = self.context.append_basic_block(init_func, "entry");
         self.builder.position_at_end(init_entry);
-        
+
         // Generate top-level statements into init
         for stmt in stmts {
             self.generate_stmt(stmt)?;
@@ -211,7 +285,7 @@ impl<'ctx> CodeGen<'ctx> {
             let main_func = self.module.add_function("main", main_type, None);
             let entry = self.context.append_basic_block(main_func, "entry");
             self.builder.position_at_end(entry);
-            
+
             // Call viper_init
             let _ = self.builder.build_call(init_func, &[], "call_init");
 
@@ -219,8 +293,8 @@ impl<'ctx> CodeGen<'ctx> {
                 .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
         } else {
             // User defined `main`. We can't redefine it.
-            // But we need `viper_init` to be called! 
-            // In LLVM, we can add it to @llvm.global_ctors. For now, we'll just let the user's `main` run. 
+            // But we need `viper_init` to be called!
+            // In LLVM, we can add it to @llvm.global_ctors. For now, we'll just let the user's `main` run.
             // But wait, user's `main` won't call `viper_init` automatically in Phase 1 without a custom runtime.
             // To fix this simply for Phase 1 MVP, since we compile to a binary and link with a C runtime...
             // Wait, does the C runtime call `main` or do we generate `main`? We generate `main`.
@@ -240,16 +314,46 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Expr::Ident(name, _) = target.as_ref() {
                     match self.generate_expr(value) {
                         Ok(val) => {
-                            let ty = val.get_type();
-                            let alloca = self.builder.build_alloca(ty, name).expect("alloca");
-                            self.builder.build_store(alloca, val).expect("store");
-                            self.variables.insert(name.clone(), alloca);
+                            // Check if variable already exists
+                            if let Some(&existing_alloca) = self.variables.get(name) {
+                                // Reuse existing allocation
+                                self.builder
+                                    .build_store(existing_alloca, val)
+                                    .expect("store");
+                            } else {
+                                // Create new allocation for new variable
+                                let ty = val.get_type();
+                                let alloca = self.builder.build_alloca(ty, name).expect("alloca");
+                                self.builder.build_store(alloca, val).expect("store");
+                                self.variables.insert(name.clone(), alloca);
+                            }
                         }
                         Err(e) => {
                             return Err(e);
                         }
                     }
-                } else {
+                } else if let Expr::Index {
+                    obj,
+                    index,
+                    span: _,
+                } = target.as_ref()
+                {
+                    let list_val = self.generate_expr(obj)?;
+                    let index_val = self.generate_expr(index)?.into_int_value();
+                    let value_val = self.generate_expr(value)?.into_int_value();
+
+                    let list_set = self
+                        .module
+                        .get_function("vp_list_set")
+                        .ok_or_else(|| "vp_list_set not declared".to_string())?;
+
+                    self.ir_builder
+                        .build_call(
+                            &self.builder,
+                            list_set,
+                            &[list_val.into(), index_val.into(), value_val.into()],
+                            "list_set",
+                        );
                 }
             }
             Stmt::Declare {
@@ -332,7 +436,13 @@ impl<'ctx> CodeGen<'ctx> {
         for stmt in body {
             self.generate_stmt(stmt)?;
         }
-        if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+        if self
+            .builder
+            .get_insert_block()
+            .unwrap()
+            .get_terminator()
+            .is_none()
+        {
             self.ir_builder.build_branch(&self.builder, merge_block);
         }
 
@@ -359,7 +469,13 @@ impl<'ctx> CodeGen<'ctx> {
             for stmt in elif_body {
                 self.generate_stmt(stmt)?;
             }
-            if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            if self
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_terminator()
+                .is_none()
+            {
                 self.ir_builder.build_branch(&self.builder, merge_block);
             }
 
@@ -371,11 +487,23 @@ impl<'ctx> CodeGen<'ctx> {
                     for stmt in else_stmts {
                         self.generate_stmt(stmt)?;
                     }
-                    if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                    if self
+                        .builder
+                        .get_insert_block()
+                        .unwrap()
+                        .get_terminator()
+                        .is_none()
+                    {
                         self.ir_builder.build_branch(&self.builder, merge_block);
                     }
                 } else {
-                    if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                    if self
+                        .builder
+                        .get_insert_block()
+                        .unwrap()
+                        .get_terminator()
+                        .is_none()
+                    {
                         self.ir_builder.build_branch(&self.builder, merge_block);
                     }
                 }
@@ -384,11 +512,23 @@ impl<'ctx> CodeGen<'ctx> {
             for stmt in else_stmts {
                 self.generate_stmt(stmt)?;
             }
-            if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            if self
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_terminator()
+                .is_none()
+            {
                 self.ir_builder.build_branch(&self.builder, merge_block);
             }
         } else {
-            if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            if self
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_terminator()
+                .is_none()
+            {
                 self.ir_builder.build_branch(&self.builder, merge_block);
             }
         }
@@ -412,7 +552,8 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Condition block
         self.builder.position_at_end(cond_block);
-        let cond_val = self.generate_expr(condition)?.into_int_value();
+        let cond_expr = self.generate_expr(condition)?;
+        let cond_val = cond_expr.into_int_value();
         self.ir_builder
             .build_cond_branch(&self.builder, cond_val, body_block, exit_block);
 
@@ -523,6 +664,7 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::Int(n, _) => Ok(self.ir_builder.i64_const(*n).into()),
             Expr::Float(n, _) => Ok(self.ir_builder.f64_const(*n).into()),
             Expr::Bool(b, _) => Ok(self.ir_builder.bool_const(*b).into()),
+            Expr::None(_) => Ok(self.ir_builder.i64_const(0).into()),
             Expr::Str(s, _) => Ok(self.ir_builder.string_const(&self.module, s).into()),
             Expr::Ident(name, _span) => {
                 if let Some(&alloca) = self.variables.get(name) {
@@ -536,43 +678,133 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(format!("Undefined variable: {}", name))
                 }
             }
+            Expr::List { elements, span } => {
+                // Generate code to create a list at runtime
+                // For Phase 2, we'll create a list and append elements
+                let list_func = self
+                    .module
+                    .get_function("vp_list_create")
+                    .ok_or_else(|| "vp_list_create not declared".to_string())?;
+
+                let list_val = self
+                    .ir_builder
+                    .build_call(&self.builder, list_func, &[], "new_list")
+                    .unwrap();
+
+                // Append each element
+                let append_func = self
+                    .module
+                    .get_function("vp_list_append")
+                    .ok_or_else(|| "vp_list_append not declared".to_string())?;
+
+                for (i, elem) in elements.iter().enumerate() {
+                    let elem_val = self.generate_expr(elem)?;
+                    let _ = self.ir_builder.build_call(
+                        &self.builder,
+                        append_func,
+                        &[list_val.into(), elem_val.into()],
+                        &format!("list_append_{}", i),
+                    );
+                }
+
+                Ok(list_val)
+            }
+            Expr::Tuple { elements, span } => {
+                // For Phase 2, tuples are not fully supported - return first element or 0
+                if elements.is_empty() {
+                    Ok(self.ir_builder.i64_const(0).into())
+                } else {
+                    self.generate_expr(&elements[0])
+                }
+            }
+            Expr::Dict { pairs, span } => {
+                // Dict not implemented for Phase 2
+                Err("Dictionary literals not yet implemented in Phase 2".to_string())
+            }
+            Expr::Index {
+                obj,
+                index,
+                span: _,
+            } => {
+                let list_val = self.generate_expr(obj)?;
+                let index_val = self.generate_expr(index)?.into_int_value();
+
+                let list_get = self
+                    .module
+                    .get_function("vp_list_get")
+                    .ok_or_else(|| "vp_list_get not declared".to_string())?;
+
+                let result = self
+                    .ir_builder
+                    .build_call(
+                        &self.builder,
+                        list_get,
+                        &[list_val.into(), index_val.into()],
+                        "list_get",
+                    )
+                    .ok_or_else(|| "build call failed".to_string())?;
+
+                Ok(result)
+            }
             Expr::BinOp {
                 left, op, right, ..
             } => {
                 let lhs = self.generate_expr(left)?.into_int_value();
                 let rhs = self.generate_expr(right)?.into_int_value();
 
-                let result = match op {
-                    BinOp::Add => self.ir_builder.build_add(&self.builder, lhs, rhs, "add"),
-                    BinOp::Sub => self.ir_builder.build_sub(&self.builder, lhs, rhs, "sub"),
-                    BinOp::Mul => self.ir_builder.build_mul(&self.builder, lhs, rhs, "mul"),
-                    BinOp::Div => self.ir_builder.build_div(&self.builder, lhs, rhs, "div"),
-                    BinOp::Eq => self.ir_builder.build_icmp_eq(&self.builder, lhs, rhs, "eq"),
+                let result: inkwell::values::BasicValueEnum = match op {
+                    BinOp::Add => self
+                        .ir_builder
+                        .build_add(&self.builder, lhs, rhs, "add")
+                        .into(),
+                    BinOp::Sub => self
+                        .ir_builder
+                        .build_sub(&self.builder, lhs, rhs, "sub")
+                        .into(),
+                    BinOp::Mul => self
+                        .ir_builder
+                        .build_mul(&self.builder, lhs, rhs, "mul")
+                        .into(),
+                    BinOp::Div => self
+                        .ir_builder
+                        .build_div(&self.builder, lhs, rhs, "div")
+                        .into(),
+                    BinOp::Eq => self
+                        .ir_builder
+                        .build_icmp_eq(&self.builder, lhs, rhs, "eq")
+                        .into(),
                     BinOp::NotEq => {
                         let eq = self.ir_builder.build_icmp_eq(&self.builder, lhs, rhs, "eq");
-                        self.builder.build_not(eq, "neq").expect("not")
+                        self.builder.build_not(eq, "neq").expect("not").into()
                     }
-                    BinOp::Lt => self.ir_builder.build_icmp_lt(&self.builder, lhs, rhs, "lt"),
+                    BinOp::Lt => self
+                        .ir_builder
+                        .build_icmp_lt(&self.builder, lhs, rhs, "lt")
+                        .into(),
                     BinOp::Gt => self
                         .builder
                         .build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, "gt")
-                        .expect("gt"),
+                        .expect("gt")
+                        .into(),
                     BinOp::LtEq => self
                         .builder
                         .build_int_compare(inkwell::IntPredicate::SLE, lhs, rhs, "lte")
-                        .expect("lte"),
+                        .expect("lte")
+                        .into(),
                     BinOp::GtEq => self
                         .builder
                         .build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "gte")
-                        .expect("gte"),
+                        .expect("gte")
+                        .into(),
                     BinOp::Mod => self
                         .builder
                         .build_int_signed_rem(lhs, rhs, "mod")
-                        .expect("mod"),
+                        .expect("mod")
+                        .into(),
                     _ => return Err(format!("Unsupported binary operator: {:?}", op)),
                 };
 
-                Ok(result.into())
+                Ok(result)
             }
             Expr::UnaryOp { op, operand, .. } => {
                 let val = self.generate_expr(operand)?.into_int_value();
@@ -622,40 +854,104 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         args: &[Expr],
     ) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
-        // Declare printf if not already declared
-        let i8_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
-        let printf = self.module.get_function("printf").unwrap_or_else(|| {
-            let printf_type = self.context.i32_type().fn_type(&[i8_ptr.into()], true);
-            self.module.add_function("printf", printf_type, None)
-        });
-
         if args.is_empty() {
             return Ok(self.ir_builder.i64_const(0).into());
         }
 
-        // Evaluate the argument expression first
+        // Evaluate the argument expression
         let val_res = self.generate_expr(&args[0]);
         if let Ok(val) = val_res {
             if val.is_int_value() {
-                let fmt_str = self.ir_builder.string_const(&self.module, "%ld\n");
+                let print_func = self
+                    .module
+                    .get_function("vp_print_i64")
+                    .ok_or_else(|| "vp_print_i64 not declared".to_string())?;
                 let _result = self
                     .builder
-                    .build_call(printf, &[fmt_str.into(), val.into()], "printf_call")
-                    .expect("printf");
+                    .build_call(print_func, &[val.into()], "print_i64")
+                    .expect("vp_print_i64");
+
+                let newline_func = self
+                    .module
+                    .get_function("vp_print_newline")
+                    .ok_or_else(|| "vp_print_newline not declared".to_string())?;
+                let _result = self
+                    .builder
+                    .build_call(newline_func, &[], "print_newline")
+                    .expect("vp_print_newline");
+
                 return Ok(self.ir_builder.i64_const(0).into());
             } else if val.is_float_value() {
-                let fmt_str = self.ir_builder.string_const(&self.module, "%f\n");
+                let print_func = self
+                    .module
+                    .get_function("vp_print_f64")
+                    .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
                 let _result = self
                     .builder
-                    .build_call(printf, &[fmt_str.into(), val.into()], "printf_call")
-                    .expect("printf");
+                    .build_call(print_func, &[val.into()], "print_f64")
+                    .expect("vp_print_f64");
+
+                let newline_func = self
+                    .module
+                    .get_function("vp_print_newline")
+                    .ok_or_else(|| "vp_print_newline not declared".to_string())?;
+                let _result = self
+                    .builder
+                    .build_call(newline_func, &[], "print_newline")
+                    .expect("vp_print_newline");
+
+                return Ok(self.ir_builder.i64_const(0).into());
+            } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
+                // Boolean (i1)
+                let print_func = self
+                    .module
+                    .get_function("vp_print_bool")
+                    .ok_or_else(|| "vp_print_bool not declared".to_string())?;
+                let _result = self
+                    .builder
+                    .build_call(print_func, &[val.into()], "print_bool")
+                    .expect("vp_print_bool");
+
+                let newline_func = self
+                    .module
+                    .get_function("vp_print_newline")
+                    .ok_or_else(|| "vp_print_newline not declared".to_string())?;
+                let _result = self
+                    .builder
+                    .build_call(newline_func, &[], "print_newline")
+                    .expect("vp_print_newline");
+
+                return Ok(self.ir_builder.i64_const(0).into());
+            } else if val.is_pointer_value() {
+                // String
+                let print_func = self
+                    .module
+                    .get_function("vp_print_str")
+                    .ok_or_else(|| "vp_print_str not declared".to_string())?;
+                let _result = self
+                    .builder
+                    .build_call(print_func, &[val.into()], "print_str")
+                    .expect("vp_print_str");
+
+                let newline_func = self
+                    .module
+                    .get_function("vp_print_newline")
+                    .ok_or_else(|| "vp_print_newline not declared".to_string())?;
+                let _result = self
+                    .builder
+                    .build_call(newline_func, &[], "print_newline")
+                    .expect("vp_print_newline");
+
                 return Ok(self.ir_builder.i64_const(0).into());
             } else {
-                return Err("print() only supports numbers in Phase 1".to_string());
+                return Err(format!(
+                    "print() does not support type {:?}",
+                    val.get_type()
+                ));
             }
         }
 
-        Err("print() only supports integer literals in Phase 1".to_string())
+        Err("print() argument evaluation failed".to_string())
     }
 
     /// Get the generated LLVM module

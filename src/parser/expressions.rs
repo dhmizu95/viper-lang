@@ -1,16 +1,22 @@
 use crate::ast::{BinOp, Expr, UnaryOp};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::precedence::Precedence;
+use crate::utils::Span;
 
 /// Pratt parser for expression parsing with proper precedence
 pub struct PrattParser<'a> {
     tokens: &'a [Token],
     pos: usize,
+    eof_token: Token,
 }
 
 impl<'a> PrattParser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, pos: 0 }
+        Self {
+            tokens,
+            pos: 0,
+            eof_token: Token::new(TokenKind::Eof, Span::empty(0, 0)),
+        }
     }
 
     pub fn pos(&self) -> usize {
@@ -21,7 +27,11 @@ impl<'a> PrattParser<'a> {
         self.pos = pos;
     }
 
-    pub fn parse_expr_with_left(&mut self, mut left: Expr, min_prec: Precedence) -> Result<Expr, String> {
+    pub fn parse_expr_with_left(
+        &mut self,
+        mut left: Expr,
+        min_prec: Precedence,
+    ) -> Result<Expr, String> {
         // Handle postfix operators (function calls, indexing, attribute access)
         loop {
             if self.match_token(&TokenKind::LParen) {
@@ -137,6 +147,10 @@ impl<'a> PrattParser<'a> {
                 let b = *b;
                 self.advance();
                 Ok(Expr::Bool(b, span))
+            }
+            TokenKind::None => {
+                self.advance();
+                Ok(Expr::None(span))
             }
             TokenKind::Ident(name) => {
                 let name = name.clone();
@@ -281,11 +295,11 @@ impl<'a> PrattParser<'a> {
     }
 
     fn current(&self) -> &Token {
-        &self.tokens[self.pos]
+        self.tokens.get(self.pos).unwrap_or(&self.eof_token)
     }
 
     fn peek(&self) -> &Token {
-        &self.tokens[self.pos]
+        self.tokens.get(self.pos).unwrap_or(&self.eof_token)
     }
 
     fn previous(&self) -> &Token {
@@ -299,6 +313,9 @@ impl<'a> PrattParser<'a> {
     }
 
     fn match_token(&mut self, kind: &TokenKind) -> bool {
+        if self.pos >= self.tokens.len() {
+            return false;
+        }
         if std::mem::discriminant(&self.current().kind) == std::mem::discriminant(kind) {
             self.advance();
             true
@@ -308,6 +325,9 @@ impl<'a> PrattParser<'a> {
     }
 
     fn expect(&mut self, kind: &TokenKind) -> Result<(), String> {
+        if self.pos >= self.tokens.len() {
+            return Err(format!("Expected {:?}, but reached end of tokens", kind));
+        }
         if std::mem::discriminant(&self.current().kind) == std::mem::discriminant(kind) {
             self.advance();
             Ok(())

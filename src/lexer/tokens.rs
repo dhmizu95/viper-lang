@@ -25,6 +25,7 @@ pub enum TokenKind {
     Continue,
     True,
     False,
+    None,
     Mut,
     Sync,
     Task,
@@ -91,11 +92,17 @@ impl Token {
     }
 
     pub fn eof(span: Span) -> Self {
-        Self { kind: TokenKind::Eof, span }
+        Self {
+            kind: TokenKind::Eof,
+            span,
+        }
     }
 
     pub fn error(msg: String, span: Span) -> Self {
-        Self { kind: TokenKind::Error(msg), span }
+        Self {
+            kind: TokenKind::Error(msg),
+            span,
+        }
     }
 }
 
@@ -120,6 +127,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Continue => write!(f, "continue"),
             TokenKind::True => write!(f, "True"),
             TokenKind::False => write!(f, "False"),
+            TokenKind::None => write!(f, "None"),
             TokenKind::Mut => write!(f, "mut"),
             TokenKind::Sync => write!(f, "sync"),
             TokenKind::Task => write!(f, "task"),

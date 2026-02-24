@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use crate::utils::Span;
 use crate::ast::types::Type;
+use crate::utils::Span;
 
 /// Abstract Syntax Tree node for expressions
 #[derive(Debug, Clone)]
@@ -13,6 +13,8 @@ pub enum Expr {
     Str(String, Span),
     /// Boolean literal
     Bool(bool, Span),
+    /// None literal
+    None(Span),
     /// Identifier/variable reference
     Ident(String, Span),
     /// Binary operation
@@ -47,15 +49,9 @@ pub enum Expr {
         span: Span,
     },
     /// List literal
-    List {
-        elements: Vec<Expr>,
-        span: Span,
-    },
+    List { elements: Vec<Expr>, span: Span },
     /// Tuple literal
-    Tuple {
-        elements: Vec<Expr>,
-        span: Span,
-    },
+    Tuple { elements: Vec<Expr>, span: Span },
     /// Dictionary literal
     Dict {
         pairs: Vec<(Expr, Expr)>,
@@ -83,6 +79,7 @@ impl Expr {
             Expr::Float(_, s) => *s,
             Expr::Str(_, s) => *s,
             Expr::Bool(_, s) => *s,
+            Expr::None(s) => *s,
             Expr::Ident(_, s) => *s,
             Expr::BinOp { span, .. } => *span,
             Expr::UnaryOp { span, .. } => *span,
@@ -216,10 +213,7 @@ pub enum Stmt {
         span: Span,
     },
     /// Return statement
-    Return {
-        value: Option<Expr>,
-        span: Span,
-    },
+    Return { value: Option<Expr>, span: Span },
     /// Break statement
     Break(Span),
     /// Continue statement
@@ -254,15 +248,9 @@ pub enum Stmt {
         span: Span,
     },
     /// Sync block (concurrency)
-    Sync {
-        body: Vec<Stmt>,
-        span: Span,
-    },
+    Sync { body: Vec<Stmt>, span: Span },
     /// Task spawn
-    Task {
-        call: Expr,
-        span: Span,
-    },
+    Task { call: Expr, span: Span },
 }
 
 impl Stmt {

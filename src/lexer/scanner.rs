@@ -1,6 +1,6 @@
 #![allow(dead_code)]
+use crate::lexer::indent_stack::{IndentChange, IndentStack};
 use crate::lexer::tokens::{Token, TokenKind};
-use crate::lexer::indent_stack::{IndentStack, IndentChange};
 use crate::utils::Span;
 
 /// The lexer scans source code and produces a stream of tokens
@@ -62,12 +62,12 @@ impl<'a> Lexer<'a> {
             // Handle indentation at start of line BEFORE consuming whitespace
             if self.start_of_line {
                 self.start_of_line = false;
-                
+
                 // Count indentation (spaces/tabs at the start of line)
                 let indent_start_pos = self.pos;
                 let indent_start_line = self.line;
                 let indent_start_column = self.column;
-                
+
                 let mut indent = 0;
                 while let Some(&c) = self.chars.peek() {
                     if c == ' ' {
@@ -98,17 +98,32 @@ impl<'a> Lexer<'a> {
 
                 match self.indent_stack.process_indent(indent) {
                     IndentChange::Indent => {
-                        let span = Span::new(indent_start_pos, indent_start_pos, indent_start_line, indent_start_column);
+                        let span = Span::new(
+                            indent_start_pos,
+                            indent_start_pos,
+                            indent_start_line,
+                            indent_start_column,
+                        );
                         return Ok(Token::new(TokenKind::Indent, span));
                     }
                     IndentChange::DedentCount(count) => {
                         // Emit one dedent now, rest will be emitted on subsequent calls
                         self.pending_dedents = count - 1;
-                        let span = Span::new(indent_start_pos, indent_start_pos, indent_start_line, indent_start_column);
+                        let span = Span::new(
+                            indent_start_pos,
+                            indent_start_pos,
+                            indent_start_line,
+                            indent_start_column,
+                        );
                         return Ok(Token::new(TokenKind::Dedent, span));
                     }
                     IndentChange::Dedent => {
-                        let span = Span::new(indent_start_pos, indent_start_pos, indent_start_line, indent_start_column);
+                        let span = Span::new(
+                            indent_start_pos,
+                            indent_start_pos,
+                            indent_start_line,
+                            indent_start_column,
+                        );
                         return Ok(Token::new(TokenKind::Dedent, span));
                     }
                     IndentChange::Error(msg) => return Err(msg),
@@ -215,8 +230,10 @@ impl<'a> Lexer<'a> {
                         self.advance();
                         TokenKind::NotEq
                     } else {
-                        return Ok(Token::error("Expected '=' after '!'".to_string(),
-                            Span::new(start_pos, self.pos, start_line, start_column)));
+                        return Ok(Token::error(
+                            "Expected '=' after '!'".to_string(),
+                            Span::new(start_pos, self.pos, start_line, start_column),
+                        ));
                     }
                 }
                 '<' => {
@@ -377,6 +394,7 @@ impl<'a> Lexer<'a> {
             "continue" => TokenKind::Continue,
             "True" => TokenKind::True,
             "False" => TokenKind::False,
+            "None" => TokenKind::None,
             "mut" => TokenKind::Mut,
             "sync" => TokenKind::Sync,
             "task" => TokenKind::Task,

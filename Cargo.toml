@@ -1,6 +1,6 @@
 [package]
 name = "viper-lang"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -16,6 +16,7 @@ thiserror = "1.0"
 
 [build-dependencies]
 cc = "1.0"
+
 [[bin]]
 name = "viper"
 path = "src/main.rs"

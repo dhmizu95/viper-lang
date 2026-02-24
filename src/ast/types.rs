@@ -14,6 +14,10 @@ pub enum Type {
     None,
     /// List of elements
     List(Box<Type>),
+    /// Dictionary (key-value pairs)
+    Dict(Box<Type>, Box<Type>),
+    /// Tuple (fixed-size heterogeneous)
+    Tuple(Vec<Type>),
     /// Function type
     Fn(Vec<Type>, Box<Type>),
     /// Type variable (for generics)
@@ -47,10 +51,23 @@ impl std::fmt::Display for Type {
             Type::Str => write!(f, "str"),
             Type::None => write!(f, "None"),
             Type::List(t) => write!(f, "[{}]", t),
+            Type::Dict(k, v) => write!(f, "{{{}: {}}}", k, v),
+            Type::Tuple(types) => {
+                write!(f, "(")?;
+                for (i, t) in types.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", t)?;
+                }
+                write!(f, ")")
+            }
             Type::Fn(params, ret) => {
                 write!(f, "fn(")?;
                 for (i, p) in params.iter().enumerate() {
-                    if i > 0 { write!(f, ", ")?; }
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
                     write!(f, "{}", p)?;
                 }
                 write!(f, ") -> {}", ret)

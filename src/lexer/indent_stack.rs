@@ -25,7 +25,7 @@ impl IndentStack {
         } else if indent < current {
             // Count how many levels we need to pop
             let mut dedent_count = 0;
-            
+
             // Pop levels until we find matching indent
             while self.levels.len() > 1 && *self.levels.last().unwrap() > indent {
                 self.levels.pop();

@@ -1,17 +1,17 @@
+mod ast;
 mod cli;
+mod codegen;
 mod lexer;
 mod parser;
-mod ast;
-mod codegen;
 mod utils;
 
-use std::path::Path;
-use std::fs;
 use inkwell::context::Context;
+use std::fs;
+use std::path::Path;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    
+
     if args.len() < 2 {
         eprintln!("Viper Compiler 0.1.0");
         eprintln!("Usage: viper <command> [options]");
@@ -24,7 +24,7 @@ fn main() {
     }
 
     let command = &args[1];
-    
+
     match command.as_str() {
         "build" | "compile" => {
             if args.len() < 3 {
@@ -94,7 +94,7 @@ fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), Strin
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("main");
-    
+
     let mut codegen = codegen::CodeGen::new(&context, module_name);
     codegen.generate(&ast)?;
     codegen.verify()?;
@@ -103,12 +103,14 @@ fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), Strin
     // Phase 4: Emit object file
     println!("   [4/4] Emitting object code...");
     let output = output_path.unwrap_or(module_name);
-    
+
     // Emit LLVM bitcode
     let bitcode_path = format!("{}.bc", output);
-    
+
     // Write bitcode to file
-    codegen.module().write_bitcode_to_path(std::path::Path::new(&bitcode_path));
+    codegen
+        .module()
+        .write_bitcode_to_path(std::path::Path::new(&bitcode_path));
 
     println!("   ✓ Generated bitcode: {}", bitcode_path);
     println!("✅ Compilation successful!");
@@ -122,7 +124,7 @@ fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), Strin
 }
 
 fn compile_and_run(input_path: &str) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.1.0");
+    println!("🐍 Viper Compiler 0.2.0");
     println!("   Running: {}", input_path);
 
     // Read source file
@@ -143,29 +145,87 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("main");
-    
+
     let mut codegen = codegen::CodeGen::new(&context, module_name);
     codegen.generate(&ast)?;
     codegen.verify()?;
 
     // Phase 4: JIT Execution
     println!("   [4/4] Executing via JIT...");
-    
+
     // We need to initialize native targets for JIT
     inkwell::targets::Target::initialize_native(&inkwell::targets::InitializationConfig::default())
         .map_err(|e| format!("Failed to initialize native target: {}", e))?;
 
-    let execution_engine = codegen.module()
+    let execution_engine = codegen
+        .module()
         .create_jit_execution_engine(inkwell::OptimizationLevel::None)
         .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
 
+    // Register runtime function implementations for JIT
+    // For Phase 2, we use simple C function pointers
+    unsafe {
+        // Register vp_print_i64
+        let print_i64_ptr = vp_print_i64 as extern "C" fn(i64);
+        execution_engine.add_global_mapping(
+            &codegen
+                .module()
+                .get_function("vp_print_i64")
+                .unwrap()
+                .as_global_value(),
+            print_i64_ptr as usize,
+        );
+
+        // Register vp_print_f64
+        let print_f64_ptr = vp_print_f64 as extern "C" fn(f64);
+        execution_engine.add_global_mapping(
+            &codegen
+                .module()
+                .get_function("vp_print_f64")
+                .unwrap()
+                .as_global_value(),
+            print_f64_ptr as usize,
+        );
+
+        // Register vp_print_bool
+        let print_bool_ptr = vp_print_bool as extern "C" fn(bool);
+        execution_engine.add_global_mapping(
+            &codegen
+                .module()
+                .get_function("vp_print_bool")
+                .unwrap()
+                .as_global_value(),
+            print_bool_ptr as usize,
+        );
+
+        // Register vp_print_newline
+        let print_newline_ptr = vp_print_newline as extern "C" fn();
+        execution_engine.add_global_mapping(
+            &codegen
+                .module()
+                .get_function("vp_print_newline")
+                .unwrap()
+                .as_global_value(),
+            print_newline_ptr as usize,
+        );
+
+        // Register list functions (stubs for now)
+        if let Some(func) = codegen.module().get_function("vp_list_create") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_create_stub as usize);
+        }
+        if let Some(func) = codegen.module().get_function("vp_list_append") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_list_append_stub as usize);
+        }
+    }
+
     unsafe {
         if let Some(_main) = codegen.module().get_function("main") {
-            let func = execution_engine.get_function_value("main")
+            let func = execution_engine
+                .get_function_value("main")
                 .map_err(|e| format!("Failed to find main function in JIT: {}", e))?;
-            
-            // Assuming main takes 0 args and returns i64 or void (we compiled it as i64)
-            // But we can just use run_function
+
             execution_engine.run_function(func, &[]);
             println!("✅ Execution complete.");
         } else {
@@ -174,4 +234,30 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+// Runtime function implementations for JIT
+extern "C" fn vp_print_i64(val: i64) {
+    println!("{}", val);
+}
+
+extern "C" fn vp_print_f64(val: f64) {
+    println!("{}", val);
+}
+
+extern "C" fn vp_print_bool(val: bool) {
+    println!("{}", if val { "True" } else { "False" });
+}
+
+extern "C" fn vp_print_newline() {
+    // Newline is handled by println!
+}
+
+// Stub implementations for list functions (Phase 2 MVP)
+extern "C" fn vp_list_create_stub() -> *mut std::ffi::c_void {
+    std::ptr::null_mut()
+}
+
+extern "C" fn vp_list_append_stub(_list: *mut std::ffi::c_void, _val: i64) {
+    // Stub - do nothing for now
 }
