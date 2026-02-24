@@ -127,19 +127,47 @@ fn compile_file_aot(
     let output = output_path.unwrap_or(&default_output);
 
     // For -O2 and -O3, use external opt for better optimization (mem2reg, etc.)
-    if opt_level >= 2 {
+    if opt_level >= 1 {
         println!("   Using LLVM opt for -O{}...", opt_level);
         let bc_path = format!("{}.bc", module_name);
         module.write_bitcode_to_path(Path::new(&bc_path));
 
+        // Use more aggressive optimization passes
         let opt_level_str = match opt_level {
-            2 => "-O2",
+            1 => "-O2",  // -O1 uses -O2 passes for better results
+            2 => "-O3",
             _ => "-O3",
         };
 
         let opt_bc = format!("{}.opt.bc", module_name);
+        
+        // Add aggressive optimization passes for better performance
+        let mut opt_args = vec![
+            opt_level_str,
+            "-mtriple=x86_64-pc-linux-gnu",
+            "-mcpu=native",
+            &bc_path,
+            "-o",
+            &opt_bc,
+        ];
+        
+        // Add extra optimization passes for -O2 and -O3
+        if opt_level >= 2 {
+            opt_args.extend_from_slice(&[
+                "-mem2reg",           // Promote memory to registers
+                "-instcombine",       // Combine instructions
+                "-simplifycfg",       // Simplify control flow
+                "-loop-unroll",       // Unroll loops
+                "-inline",            // Inline functions
+                "-gvn",               // Global value numbering
+                "-licm",              // Loop invariant code motion
+                "-slp-vectorize",     // SLP vectorization
+                "-loop-vectorize",    // Loop vectorization
+            ]);
+        }
+        
         std::process::Command::new("/usr/lib/llvm-20/bin/opt")
-            .args(&[opt_level_str, "-mtriple=x86_64-pc-linux-gnu", &bc_path, "-o", &opt_bc])
+            .args(&opt_args)
             .output()
             .map_err(|e| format!("opt failed: {}", e))?;
 
@@ -247,14 +275,25 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
 
     println!("   [4/5] Running LLVM optimizations...");
     let opt_bc = format!("{}.opt.bc", module_name);
+    
+    // Use aggressive optimization passes
     let opt_status = std::process::Command::new("/usr/lib/llvm-20/bin/opt")
         .args(&[
             "-O3",
             "-mtriple=x86_64-pc-linux-gnu",
-            "-mcpu=tigerlake",
+            "-mcpu=native",
             &bc_path,
             "-o",
             &opt_bc,
+            "-mem2reg",
+            "-instcombine",
+            "-simplifycfg",
+            "-loop-unroll",
+            "-inline",
+            "-gvn",
+            "-licm",
+            "-slp-vectorize",
+            "-loop-vectorize",
         ])
         .output();
 
@@ -280,7 +319,7 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
             .args(&[
                 "-O3",
                 "-mtriple=x86_64-pc-linux-gnu",
-                "-mcpu=tigerlake",
+                "-mcpu=native",
                 "-filetype=obj",
                 &opt_bc,
                 "-o",

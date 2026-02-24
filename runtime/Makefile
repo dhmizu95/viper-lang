@@ -1,8 +1,9 @@
 # Viper Runtime Makefile
 # Builds the C runtime library for Viper language
+# OPTIMIZED: Using -O3 and aggressive optimization flags
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -fPIC -std=c11
+CFLAGS = -Wall -Wextra -O3 -march=native -mtune=native -ffast-math -funroll-loops -finline-functions -fPIC -std=c11
 INCLUDE = -I./include
 
 # Source files
