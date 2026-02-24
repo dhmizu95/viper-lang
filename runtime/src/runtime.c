@@ -42,7 +42,7 @@ void vp_print_newline(void) {
 
 char* vp_str_create(const char* str) {
     if (!str) return NULL;
-    
+
     size_t len = strlen(str);
     char* new_str = (char*)vp_arc_alloc(len + 1);
     strcpy(new_str, str);
@@ -57,15 +57,15 @@ void vp_str_free(char* str) {
 
 char* vp_str_concat(const char* a, const char* b) {
     if (!a || !b) return NULL;
-    
+
     size_t len_a = strlen(a);
     size_t len_b = strlen(b);
     size_t total = len_a + len_b + 1;
-    
+
     char* result = (char*)vp_arc_alloc(total);
     strcpy(result, a);
     strcat(result, b);
-    
+
     return result;
 }
 
@@ -76,24 +76,24 @@ int64_t vp_str_len(const char* str) {
 
 char* vp_str_slice(const char* str, int64_t start, int64_t end) {
     if (!str) return NULL;
-    
+
     int64_t len = (int64_t)strlen(str);
-    
+
     /* Handle negative indices */
     if (start < 0) start = len + start;
     if (end < 0) end = len + end;
-    
+
     /* Clamp to valid range */
     if (start < 0) start = 0;
     if (end > len) end = len;
     if (start >= end) return vp_str_create("");
-    
+
     size_t slice_len = end - start;
     char* result = (char*)vp_arc_alloc(slice_len + 1);
-    
+
     strncpy(result, str + start, slice_len);
     result[slice_len] = '\0';
-    
+
     return result;
 }
 

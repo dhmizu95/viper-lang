@@ -16,8 +16,23 @@ use inkwell::targets::{
 use inkwell::OptimizationLevel;
 use std::fs;
 use std::path::Path;
+use std::process;
 
 fn main() {
+    // Check prerequisites before parsing commands
+    if let Err(e) = check_prerequisites() {
+        eprintln!("Error: {}", e);
+        eprintln!();
+        eprintln!("Please ensure:");
+        eprintln!("  1. LLVM 20.x is installed and in PATH");
+        eprintln!("  2. Viper runtime library is built (runtime/libviper.a)");
+        eprintln!("  3. GCC is installed for linking AOT binaries");
+        eprintln!();
+        eprintln!("To build the runtime library:");
+        eprintln!("  cd runtime && make");
+        process::exit(1);
+    }
+
     let args = Args::parse();
 
     match args.command {
@@ -107,35 +122,37 @@ fn compile_file_aot(
     println!("   ✓ Generated LLVM IR");
 
     let module = codegen.module();
-    let output = output_path.unwrap_or(module_name);
+    // Default output name: source file stem + _vp suffix (e.g., sieve.vp -> sieve_vp.o)
+    let default_output = format!("{}_vp", module_name);
+    let output = output_path.unwrap_or(&default_output);
 
     // For -O2 and -O3, use external opt for better optimization (mem2reg, etc.)
     if opt_level >= 2 {
         println!("   Using LLVM opt for -O{}...", opt_level);
         let bc_path = format!("{}.bc", module_name);
         module.write_bitcode_to_path(Path::new(&bc_path));
-        
+
         let opt_level_str = match opt_level {
             2 => "-O2",
             _ => "-O3",
         };
-        
+
         let opt_bc = format!("{}.opt.bc", module_name);
         std::process::Command::new("/usr/lib/llvm-20/bin/opt")
             .args(&[opt_level_str, "-mtriple=x86_64-pc-linux-gnu", &bc_path, "-o", &opt_bc])
             .output()
             .map_err(|e| format!("opt failed: {}", e))?;
-        
+
         // Use optimized bitcode for object generation
         let context = Context::create();
         let opt_module = inkwell::module::Module::parse_bitcode_from_path(Path::new(&opt_bc), &context)
             .map_err(|e| format!("Failed to load optimized bitcode: {}", e))?;
-        
+
         println!("   [4/4] Emitting object code...");
-        emit_object_file(&opt_module, module_name, output)
+        emit_object_file(&opt_module, module_name, output, opt_level)
     } else {
         println!("   Optimizing and emitting object code...");
-        emit_object_file(&module, module_name, output)
+        emit_object_file(&module, module_name, output, opt_level)
     }
 }
 
@@ -143,9 +160,10 @@ fn emit_object_file(
     module: &inkwell::module::Module,
     module_name: &str,
     output: &str,
+    opt_level: u32,
 ) -> Result<(), String> {
     use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple};
-    
+
     let target_triple = TargetTriple::create("x86_64-unknown-linux-gnu");
 
     Target::initialize_native(&InitializationConfig::default())
@@ -154,13 +172,21 @@ fn emit_object_file(
     let target = Target::from_triple(&target_triple)
         .map_err(|e| format!("Failed to get target: {}", e))?;
 
+    // Map optimization level to LLVM optimization
+    let llvm_opt = match opt_level {
+        0 => OptimizationLevel::None,
+        1 => OptimizationLevel::Less,
+        2 => OptimizationLevel::Default,
+        _ => OptimizationLevel::Aggressive,
+    };
+
     let target_machine = target
         .create_target_machine(
             &target_triple,
             "",
             "",
-            OptimizationLevel::Default,
-            RelocMode::Default,
+            llvm_opt,
+            RelocMode::PIC,
             CodeModel::Default,
         )
         .ok_or_else(|| "Failed to create target machine".to_string())?;
@@ -174,8 +200,8 @@ fn emit_object_file(
     println!("✅ Compilation successful!");
     println!();
     println!("   To link and run:");
-    println!("   $ gcc {}.o -o {} -lm", obj_path, output);
-    println!("   $ ./{}", output);
+    println!("   $ gcc {} -o {}_bin -L./runtime -lviper -lm", obj_path, output);
+    println!("   $ ./{}_bin", output);
 
     Ok(())
 }
@@ -249,7 +275,7 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
 
     println!("   [5/5] Emitting object code...");
     if Path::new(&opt_bc).exists() {
-        let obj_path = format!("{}_opt.o", module_name);
+        let obj_path = format!("{}_vp.o", module_name);
         let llc_status = std::process::Command::new("/usr/lib/llvm-20/bin/llc")
             .args(&[
                 "-O3",
@@ -269,10 +295,10 @@ fn compile_file_optimized(input_path: &str) -> Result<(), String> {
                 println!();
                 println!("   To link and run:");
                 println!(
-                    "   $ gcc {} -o {} -L./runtime -lviper -lm",
+                    "   $ gcc {} -o {}_bin -L./runtime -lviper -lm",
                     obj_path, module_name
                 );
-                println!("   $ ./{}", module_name);
+                println!("   $ ./{}_bin", module_name);
             }
             Ok(output) => {
                 return Err(format!(
@@ -439,6 +465,10 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             execution_engine
                 .add_global_mapping(&func.as_global_value(), vp_release_stub as *const () as usize);
         }
+        if let Some(func) = codegen.module().get_function("vp_str_concat") {
+            execution_engine
+                .add_global_mapping(&func.as_global_value(), vp_str_concat_stub as *const () as usize);
+        }
     }
 
     unsafe {
@@ -579,6 +609,28 @@ extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
     // No-op for JIT
 }
 
+/// String concatenation stub for JIT
+/// Uses a simple static buffer approach for JIT execution
+extern "C" fn vp_str_concat_stub(a: *const std::ffi::c_char, b: *const std::ffi::c_char) -> *const std::ffi::c_char {
+    use std::ffi::CStr;
+    
+    if a.is_null() || b.is_null() {
+        return std::ptr::null();
+    }
+    
+    unsafe {
+        let str_a = CStr::from_ptr(a).to_string_lossy();
+        let str_b = CStr::from_ptr(b).to_string_lossy();
+        let concatenated = format!("{}{}", str_a, str_b);
+        
+        // Leak the string to keep it alive for JIT execution
+        // This is a memory leak but acceptable for short-lived JIT execution
+        let boxed = Box::new(concatenated);
+        let ptr = Box::into_raw(boxed) as *const std::ffi::c_char;
+        ptr
+    }
+}
+
 /// Initialize a new Viper project
 fn init_project(name: &str) -> Result<(), String> {
     // Create project directory
@@ -605,10 +657,38 @@ edition = "2021"
 "#.replace("PROJECT_NAME", name);
     std::fs::write(format!("{}/Cargo.toml", name), cargo_toml)
         .map_err(|e| format!("Failed to create Cargo.toml: {}", e))?;
-    
-    println!("✅ Created Viper project: {}", name);
+
+    println!("Created Viper project: {}", name);
     println!("   cd {} && viper run src/main.vp", name);
     Ok(())
+}
+
+/// Check that all prerequisites are available
+fn check_prerequisites() -> Result<(), String> {
+    // Check runtime library exists (only needed for AOT compilation)
+    let runtime_paths = [
+        "runtime/libviper.a",
+        "../runtime/libviper.a",
+        "../../runtime/libviper.a",
+    ];
+    
+    let runtime_found = runtime_paths.iter().any(|p| Path::new(p).exists());
+    
+    if !runtime_found {
+        return Err("Viper runtime library not found (runtime/libviper.a)".to_string());
+    }
+    
+    // Check GCC for AOT linking
+    if !check_command_exists("gcc") {
+        return Err("GCC compiler not found in PATH".to_string());
+    }
+    
+    Ok(())
+}
+
+/// Check if a command exists in PATH
+fn check_command_exists(cmd: &str) -> bool {
+    which::which(cmd).is_ok()
 }
 
 /// Show compiler information
@@ -618,12 +698,12 @@ fn show_info() {
     println!("LLVM-based compiler for the Viper programming language");
     println!();
     println!("Features:");
-    println!("  • AOT compilation to native binaries");
-    println!("  • JIT execution for rapid development");
-    println!("  • Python-like syntax");
-    println!("  • Static typing with type inference");
-    println!("  • List and dictionary data structures");
-    println!("  • Math builtins (sqrt, abs, ln, floor)");
+    println!("  - AOT compilation to native binaries");
+    println!("  - JIT execution for rapid development");
+    println!("  - Python-like syntax");
+    println!("  - Static typing with type inference");
+    println!("  - List and dictionary data structures");
+    println!("  - Math builtins (sqrt, abs, ln, floor)");
     println!();
     println!("Usage:");
     println!("  viper build <file.vp>     Compile to native binary");
