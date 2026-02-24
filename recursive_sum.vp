@@ -1,0 +1,10 @@
+# Calculate sum of n + (n-2) + (n-4) + ... until n-x <= 0
+def sum_step(n: i64) -> i64:
+    if n <= 0:
+        return 0
+    return n + sum_step(n - 2)
+
+def main():
+    # Test with larger value
+    result = sum_step(10000)
+    print(result)
