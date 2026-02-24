@@ -70,6 +70,12 @@ impl<'a> StatementParser<'a> {
             TokenKind::Sync => self.parse_sync_block(),
             TokenKind::Task => self.parse_task_spawn(),
             TokenKind::Mut => self.parse_mutable_decl(),
+            TokenKind::Async => self.parse_async_function_def(),
+            TokenKind::Await => {
+                // Await expression as statement
+                let expr = self.parse_expression()?;
+                Ok(Stmt::Expr(expr))
+            }
             TokenKind::Ident(_) => {
                 // Could be assignment or expression
                 self.parse_assignment_or_expr()
@@ -128,6 +134,48 @@ impl<'a> StatementParser<'a> {
             return_type,
             body,
             span,
+            is_async: false,
+        })
+    }
+
+    fn parse_async_function_def(&mut self) -> Result<Stmt, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::Async)?;
+        self.expect(&TokenKind::Def)?;
+
+        let name_token = self.expect_ident()?;
+        self.expect(&TokenKind::LParen)?;
+
+        let mut params = Vec::new();
+        if !matches!(self.current().kind, TokenKind::RParen) {
+            loop {
+                let param = self.parse_param()?;
+                params.push(param);
+                if !self.match_token(&TokenKind::Comma) {
+                    break;
+                }
+            }
+        }
+        self.expect(&TokenKind::RParen)?;
+
+        let return_type = if self.match_token(&TokenKind::Arrow) {
+            Some(self.parse_type_annotation()?)
+        } else {
+            None
+        };
+
+        self.expect(&TokenKind::Colon)?;
+        let body = self.parse_block()?;
+
+        let span = start_span.merge(self.previous().span);
+
+        Ok(Stmt::Function {
+            name: name_token,
+            params,
+            return_type,
+            body,
+            span,
+            is_async: true,
         })
     }
 
@@ -683,6 +731,14 @@ impl<'a> StatementParser<'a> {
             TokenKind::None => {
                 self.advance();
                 Expr::None(span)
+            }
+            TokenKind::Await => {
+                self.advance();
+                let future = self.parse_primary_expr()?;
+                Expr::Await {
+                    future: Box::new(future),
+                    span,
+                }
             }
             TokenKind::Ident(name) => {
                 let name = name.clone();

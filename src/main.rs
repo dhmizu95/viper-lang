@@ -719,6 +719,13 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
                 vp_waitgroup_wait as *const () as usize,
             );
         }
+        // Async/await runtime stub (Phase 3 - partial implementation)
+        if let Some(func) = codegen.module().get_function("vp_future_await") {
+            execution_engine.add_global_mapping(
+                &func.as_global_value(),
+                vp_future_await as *const () as usize,
+            );
+        }
     }
 
     unsafe {
@@ -1002,6 +1009,12 @@ extern "C" fn vp_init_threadpool(_num_threads: usize) {
 
 extern "C" fn vp_shutdown_threadpool() {
     // No-op for JIT
+}
+
+extern "C" fn vp_future_await(future: i64) -> i64 {
+    // Stub for async/await - just returns the future value as-is
+    // A full implementation would suspend and resume the coroutine
+    future
 }
 
 /// Check that all prerequisites are available

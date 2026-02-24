@@ -72,6 +72,11 @@ pub enum Expr {
         else_expr: Box<Expr>,
         span: Span,
     },
+    /// Await expression (await future)
+    Await {
+        future: Box<Expr>,
+        span: Span,
+    },
 }
 
 impl Expr {
@@ -94,6 +99,7 @@ impl Expr {
             Expr::Array { span, .. } => *span,
             Expr::Lambda { span, .. } => *span,
             Expr::Conditional { span, .. } => *span,
+            Expr::Await { span, .. } => *span,
         }
     }
 
@@ -228,6 +234,7 @@ pub enum Stmt {
         return_type: Option<Type>,
         body: Vec<Stmt>,
         span: Span,
+        is_async: bool,
     },
     /// Return statement
     Return { value: Option<Expr>, span: Span },

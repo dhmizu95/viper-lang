@@ -36,6 +36,8 @@ pub enum TokenKind {
     Class,
     Import,
     From,
+    Async,
+    Await,
 
     // Operators
     Plus,
@@ -152,6 +154,8 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Class => write!(f, "class"),
             TokenKind::Import => write!(f, "import"),
             TokenKind::From => write!(f, "from"),
+            TokenKind::Async => write!(f, "async"),
+            TokenKind::Await => write!(f, "await"),
             TokenKind::Plus => write!(f, "+"),
             TokenKind::Minus => write!(f, "-"),
             TokenKind::Star => write!(f, "*"),

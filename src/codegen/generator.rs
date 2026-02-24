@@ -106,9 +106,12 @@ impl<'ctx> CodeGen<'ctx> {
                 params,
                 return_type,
                 body,
+                is_async,
                 ..
             } = stmt
             {
+                // Async functions are not fully implemented yet - treat as regular functions
+                // TODO: Implement proper async/await with state machine transformation
                 self.define_function(name, params, return_type, body)?;
             } else {
                 // Skip constant assignments - they're already handled

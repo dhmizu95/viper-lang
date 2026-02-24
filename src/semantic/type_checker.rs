@@ -132,6 +132,10 @@ impl TypeChecker {
                 }
             }
             Expr::Dict { .. } => Some(Type::Var("dict".to_string())),
+            Expr::Await { future, .. } => {
+                // Await returns the type of the future
+                self.infer_expr_type(future)
+            }
             Expr::Call {
                 func,
                 args: _,
@@ -391,6 +395,7 @@ impl TypeChecker {
                 return_type,
                 body,
                 span: _,
+                is_async: _,
             } => {
                 // Enter function scope
                 self.symbol_table.enter_scope();

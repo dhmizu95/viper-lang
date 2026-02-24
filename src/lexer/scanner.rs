@@ -515,6 +515,8 @@ impl<'a> Lexer<'a> {
             "from" => TokenKind::From,
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
+            "async" => TokenKind::Async,
+            "await" => TokenKind::Await,
             "is" => {
                 // Check for "is not" by looking at source string
                 // Look ahead in the source to see if next word is "not"

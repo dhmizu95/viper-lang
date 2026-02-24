@@ -103,6 +103,7 @@ pub fn generate_expr<'ctx>(
             attr: _,
             span: _,
         } => generate_expr(state, obj),
+        Expr::Await { future, span: _ } => generate_await(state, future),
         _ => Err(format!("Unsupported expression: {:?}", expr)),
     }
 }
@@ -1219,4 +1220,26 @@ fn generate_waitgroup_wait<'ctx>(
         "wg_wait"
     );
     Ok(state.ir_builder.i64_const(0).into())
+}
+
+/// Generate await expression - suspend until future is ready
+fn generate_await<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    future: &Expr,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // For now, generate a simple call to vp_future_await
+    // A full implementation would transform the async function into a state machine
+    let future_val = generate_expr(state, future)?;
+    
+    let await_func = state.module.get_function("vp_future_await")
+        .ok_or_else(|| "vp_future_await not declared".to_string())?;
+
+    let result = state.ir_builder.build_call(
+        state.builder,
+        await_func,
+        &[future_val.into()],
+        "await_result"
+    );
+    
+    Ok(result.unwrap())
 }

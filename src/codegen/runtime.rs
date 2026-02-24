@@ -187,5 +187,11 @@ fn declare_concurrency_functions<'ctx>(
     let threadpool_shutdown_type = void_type.fn_type(&[], false);
     module.add_function("vp_shutdown_threadpool", threadpool_shutdown_type, None);
 
+    // Async/await runtime function (stub)
+    // For now, accepts i64 and returns i64 to work with simple types
+    // A full implementation would use Future[T] pointer types
+    let future_await_type = i64_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_future_await", future_await_type, None);
+
     Ok(())
 }

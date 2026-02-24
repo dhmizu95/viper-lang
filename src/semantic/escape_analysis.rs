@@ -414,6 +414,10 @@ impl EscapeAnalyzer {
             Expr::Attribute { obj, .. } => {
                 self.analyze_expr(obj, ctx, state);
             }
+            Expr::Await { future, .. } => {
+                // Await - the future escapes
+                self.analyze_expr(future, ctx, state);
+            }
             Expr::BinOp { left, right, op, .. } => {
                 // For membership operators, the container may be accessed
                 let container_state = if matches!(op, BinOp::In | BinOp::NotIn) {

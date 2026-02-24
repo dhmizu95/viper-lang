@@ -306,6 +306,15 @@ impl<'a> PrattParser<'a> {
                     span: merged_span,
                 })
             }
+            TokenKind::Await => {
+                self.advance();
+                let future = self.parse_expr(Precedence::UNARY)?;
+                let merged_span = span.merge(future.span());
+                Ok(Expr::Await {
+                    future: Box::new(future),
+                    span: merged_span,
+                })
+            }
             TokenKind::Plus => {
                 self.advance();
                 let operand = self.parse_expr(Precedence::UNARY)?;
