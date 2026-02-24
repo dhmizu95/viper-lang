@@ -18,7 +18,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Viper Compiler 0.1.0");
+        eprintln!("Viper Compiler 0.2.2");
         eprintln!("Usage: viper <command> [options]");
         eprintln!();
         eprintln!("Commands:");
@@ -83,7 +83,7 @@ fn main() {
             }
         }
         "help" | "--help" | "-h" => {
-            println!("Viper Compiler 0.2.0");
+            println!("Viper Compiler 0.2.2");
             println!("Usage: viper <command> [options]");
             println!();
             println!("Commands:");
@@ -123,7 +123,7 @@ fn compile_file_aot(
     opt_level: u32,
     output_path: Option<&str>,
 ) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.2.0 (AOT)");
+    println!("🐍 Viper Compiler 0.2.2 (AOT)");
     println!("   Compiling: {}", input_path);
     println!("   Optimization: -O{}", opt_level);
 
@@ -216,7 +216,7 @@ fn compile_file_aot(
 }
 
 fn compile_file_optimized(input_path: &str) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.2.0 (AOT + opt)");
+    println!("🐍 Viper Compiler 0.2.2 (AOT + opt)");
     println!("   Compiling: {}", input_path);
 
     let source = fs::read_to_string(input_path)
@@ -330,7 +330,7 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
 }
 
 fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.2.0 (JIT -O{})", opt_level);
+    println!("🐍 Viper Compiler 0.2.2 (JIT -O{})", opt_level);
     println!("   Running: {}", input_path);
 
     let source = std::fs::read_to_string(input_path)
