@@ -1,0 +1,12 @@
+# Benchmark: Harmonic series sum
+def harmonic_sum(n: f64) -> f64:
+    sum = 0.0
+    i = 1.0
+    while i <= n:
+        sum = sum + (1.0 / i)
+        i = i + 1.0
+    return sum
+
+def main():
+    result = harmonic_sum(10000000.0)
+    print(result)

@@ -1,0 +1,4 @@
+
+Note: For mixed int/float operations, use explicit float types (e.g., 1.0
+
+instead of 1).

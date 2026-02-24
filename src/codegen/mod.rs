@@ -1,6 +1,6 @@
 use crate::ast::{BinOp, Expr, Module, Stmt, Type};
 use inkwell::context::Context;
-use inkwell::values::{FunctionValue, PointerValue};
+use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
 use std::collections::HashMap;
 
 mod builder;
@@ -8,13 +8,19 @@ mod context;
 
 use builder::IRBuilder;
 
+/// Variable info: stores both the alloca pointer and its LLVM type
+struct VarInfo<'ctx> {
+    alloca: PointerValue<'ctx>,
+    is_float: bool,
+}
+
 /// Main code generator that translates AST to LLVM IR
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
     module: inkwell::module::Module<'ctx>,
     builder: inkwell::builder::Builder<'ctx>,
     ir_builder: IRBuilder<'ctx>,
-    variables: HashMap<String, PointerValue<'ctx>>,
+    variables: HashMap<String, VarInfo<'ctx>>,
     functions: HashMap<String, FunctionValue<'ctx>>,
 }
 
@@ -209,7 +215,8 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder
                 .build_store(alloca, param_value)
                 .expect("store");
-            self.variables.insert(param.name.clone(), alloca);
+            let is_float = param_value.is_float_value();
+            self.variables.insert(param.name.clone(), VarInfo { alloca, is_float });
         }
 
         // Generate body
@@ -315,17 +322,18 @@ impl<'ctx> CodeGen<'ctx> {
                     match self.generate_expr(value) {
                         Ok(val) => {
                             // Check if variable already exists
-                            if let Some(&existing_alloca) = self.variables.get(name) {
+                            if let Some(var_info) = self.variables.get(name) {
                                 // Reuse existing allocation
                                 self.builder
-                                    .build_store(existing_alloca, val)
+                                    .build_store(var_info.alloca, val)
                                     .expect("store");
                             } else {
                                 // Create new allocation for new variable
                                 let ty = val.get_type();
                                 let alloca = self.builder.build_alloca(ty, name).expect("alloca");
                                 self.builder.build_store(alloca, val).expect("store");
-                                self.variables.insert(name.clone(), alloca);
+                                let is_float = val.is_float_value();
+                                self.variables.insert(name.clone(), VarInfo { alloca, is_float });
                             }
                         }
                         Err(e) => {
@@ -367,7 +375,8 @@ impl<'ctx> CodeGen<'ctx> {
                     let ty = val.get_type();
                     let alloca = self.builder.build_alloca(ty, name).expect("alloca");
                     self.builder.build_store(alloca, val).expect("store");
-                    self.variables.insert(name.clone(), alloca);
+                    let is_float = val.is_float_value();
+                    self.variables.insert(name.clone(), VarInfo { alloca, is_float });
                 }
             }
             Stmt::Return { value, .. } => {
@@ -649,7 +658,7 @@ impl<'ctx> CodeGen<'ctx> {
                     // Body
                     self.builder.position_at_end(body_block);
                     if let Expr::Ident(target_name, _) = target {
-                        self.variables.insert(target_name.clone(), counter);
+                        self.variables.insert(target_name.clone(), VarInfo { alloca: counter, is_float: false });
                     }
                     for stmt in body {
                         self.generate_stmt(stmt)?;
@@ -693,15 +702,16 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::None(_) => Ok(self.ir_builder.i64_const(0).into()),
             Expr::Str(s, _) => Ok(self.ir_builder.string_const(&self.module, s).into()),
             Expr::Ident(name, _span) => {
-                if let Some(&alloca) = self.variables.get(name) {
-                    // For i64 type, we know it's stored in an alloca
-                    let i64_type = self.context.i64_type();
-                    Ok(self
-                        .builder
-                        .build_load(i64_type, alloca, name)
-                        .expect("load"))
+                if let Some(var_info) = self.variables.get(name) {
+                    if var_info.is_float {
+                        let f64_type = self.context.f64_type();
+                        return Ok(self.builder.build_load(f64_type, var_info.alloca, name).expect("load"));
+                    } else {
+                        let i64_type = self.context.i64_type();
+                        return Ok(self.builder.build_load(i64_type, var_info.alloca, name).expect("load"));
+                    }
                 } else {
-                    Err(format!("Undefined variable: {}", name))
+                    return Err(format!("Undefined variable: {}", name));
                 }
             }
             Expr::List { elements, span } => {
@@ -775,59 +785,120 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::BinOp {
                 left, op, right, ..
             } => {
-                let lhs = self.generate_expr(left)?.into_int_value();
-                let rhs = self.generate_expr(right)?.into_int_value();
-
-                let result: inkwell::values::BasicValueEnum = match op {
-                    BinOp::Add => self
-                        .ir_builder
-                        .build_add(&self.builder, lhs, rhs, "add")
-                        .into(),
-                    BinOp::Sub => self
-                        .ir_builder
-                        .build_sub(&self.builder, lhs, rhs, "sub")
-                        .into(),
-                    BinOp::Mul => self
-                        .ir_builder
-                        .build_mul(&self.builder, lhs, rhs, "mul")
-                        .into(),
-                    BinOp::Div => self
-                        .ir_builder
-                        .build_div(&self.builder, lhs, rhs, "div")
-                        .into(),
-                    BinOp::Eq => self
-                        .ir_builder
-                        .build_icmp_eq(&self.builder, lhs, rhs, "eq")
-                        .into(),
-                    BinOp::NotEq => {
-                        let eq = self.ir_builder.build_icmp_eq(&self.builder, lhs, rhs, "eq");
-                        self.builder.build_not(eq, "neq").expect("not").into()
+                let lhs_val = self.generate_expr(left)?;
+                let rhs_val = self.generate_expr(right)?;
+                
+                // Check if we're dealing with floats
+                let result: inkwell::values::BasicValueEnum = if lhs_val.is_float_value() {
+                    let lhs = lhs_val.into_float_value();
+                    let rhs = rhs_val.into_float_value();
+                    match op {
+                        BinOp::Add => self
+                            .builder
+                            .build_float_add(lhs, rhs, "fadd")
+                            .expect("fadd")
+                            .into(),
+                        BinOp::Sub => self
+                            .builder
+                            .build_float_sub(lhs, rhs, "fsub")
+                            .expect("fsub")
+                            .into(),
+                        BinOp::Mul => self
+                            .builder
+                            .build_float_mul(lhs, rhs, "fmul")
+                            .expect("fmul")
+                            .into(),
+                        BinOp::Div => self
+                            .builder
+                            .build_float_div(lhs, rhs, "fdiv")
+                            .expect("fdiv")
+                            .into(),
+                        BinOp::Eq => self
+                            .builder
+                            .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, "feq")
+                            .expect("feq")
+                            .into(),
+                        BinOp::NotEq => self
+                            .builder
+                            .build_float_compare(inkwell::FloatPredicate::ONE, lhs, rhs, "fne")
+                            .expect("fne")
+                            .into(),
+                        BinOp::Lt => self
+                            .builder
+                            .build_float_compare(inkwell::FloatPredicate::OLT, lhs, rhs, "flt")
+                            .expect("flt")
+                            .into(),
+                        BinOp::Gt => self
+                            .builder
+                            .build_float_compare(inkwell::FloatPredicate::OGT, lhs, rhs, "fgt")
+                            .expect("fgt")
+                            .into(),
+                        BinOp::LtEq => self
+                            .builder
+                            .build_float_compare(inkwell::FloatPredicate::OLE, lhs, rhs, "fle")
+                            .expect("fle")
+                            .into(),
+                        BinOp::GtEq => self
+                            .builder
+                            .build_float_compare(inkwell::FloatPredicate::OGE, lhs, rhs, "fge")
+                            .expect("fge")
+                            .into(),
+                        _ => return Err(format!("Unsupported float operator: {:?}", op)),
                     }
-                    BinOp::Lt => self
-                        .ir_builder
-                        .build_icmp_lt(&self.builder, lhs, rhs, "lt")
-                        .into(),
-                    BinOp::Gt => self
-                        .builder
-                        .build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, "gt")
-                        .expect("gt")
-                        .into(),
-                    BinOp::LtEq => self
-                        .builder
-                        .build_int_compare(inkwell::IntPredicate::SLE, lhs, rhs, "lte")
-                        .expect("lte")
-                        .into(),
-                    BinOp::GtEq => self
-                        .builder
-                        .build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "gte")
-                        .expect("gte")
-                        .into(),
-                    BinOp::Mod => self
-                        .builder
-                        .build_int_signed_rem(lhs, rhs, "mod")
-                        .expect("mod")
-                        .into(),
-                    _ => return Err(format!("Unsupported binary operator: {:?}", op)),
+                } else {
+                    let lhs = lhs_val.into_int_value();
+                    let rhs = rhs_val.into_int_value();
+                    match op {
+                        BinOp::Add => self
+                            .ir_builder
+                            .build_add(&self.builder, lhs, rhs, "add")
+                            .into(),
+                        BinOp::Sub => self
+                            .ir_builder
+                            .build_sub(&self.builder, lhs, rhs, "sub")
+                            .into(),
+                        BinOp::Mul => self
+                            .ir_builder
+                            .build_mul(&self.builder, lhs, rhs, "mul")
+                            .into(),
+                        BinOp::Div => self
+                            .ir_builder
+                            .build_div(&self.builder, lhs, rhs, "div")
+                            .into(),
+                        BinOp::Eq => self
+                            .ir_builder
+                            .build_icmp_eq(&self.builder, lhs, rhs, "eq")
+                            .into(),
+                        BinOp::NotEq => {
+                            let eq = self.ir_builder.build_icmp_eq(&self.builder, lhs, rhs, "eq");
+                            self.builder.build_not(eq, "neq").expect("not").into()
+                        }
+                        BinOp::Lt => self
+                            .ir_builder
+                            .build_icmp_lt(&self.builder, lhs, rhs, "lt")
+                            .into(),
+                        BinOp::Gt => self
+                            .builder
+                            .build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, "gt")
+                            .expect("gt")
+                            .into(),
+                        BinOp::LtEq => self
+                            .builder
+                            .build_int_compare(inkwell::IntPredicate::SLE, lhs, rhs, "lte")
+                            .expect("lte")
+                            .into(),
+                        BinOp::GtEq => self
+                            .builder
+                            .build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "gte")
+                            .expect("gte")
+                            .into(),
+                        BinOp::Mod => self
+                            .builder
+                            .build_int_signed_rem(lhs, rhs, "mod")
+                            .expect("mod")
+                            .into(),
+                        _ => return Err(format!("Unsupported int operator: {:?}", op)),
+                    }
                 };
 
                 Ok(result)
