@@ -277,7 +277,8 @@ impl<'a> PrattParser<'a> {
         let prec = match &token.kind {
             TokenKind::Or => Precedence::OR,
             TokenKind::And => Precedence::AND,
-            TokenKind::Eq | TokenKind::EqEq
+            TokenKind::Eq
+            | TokenKind::EqEq
             | TokenKind::NotEq
             | TokenKind::Lt
             | TokenKind::LtEq

@@ -347,13 +347,12 @@ impl<'ctx> CodeGen<'ctx> {
                         .get_function("vp_list_set")
                         .ok_or_else(|| "vp_list_set not declared".to_string())?;
 
-                    self.ir_builder
-                        .build_call(
-                            &self.builder,
-                            list_set,
-                            &[list_val.into(), index_val.into(), value_val.into()],
-                            "list_set",
-                        );
+                    self.ir_builder.build_call(
+                        &self.builder,
+                        list_set,
+                        &[list_val.into(), index_val.into(), value_val.into()],
+                        "list_set",
+                    );
                 }
             }
             Stmt::Declare {
@@ -423,13 +422,18 @@ impl<'ctx> CodeGen<'ctx> {
             .get_parent()
             .unwrap();
         let cond_val = self.generate_expr(condition)?.into_int_value();
-        
+
         // Convert to i1 for branch condition if needed (i64 non-zero = true, i1 already bool)
         let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
             cond_val
         } else {
             self.builder
-                .build_int_compare(inkwell::IntPredicate::NE, cond_val, self.context.i64_type().const_zero(), "cond_bool")
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond_val,
+                    self.context.i64_type().const_zero(),
+                    "cond_bool",
+                )
                 .expect("icmp")
         };
 
@@ -568,7 +572,12 @@ impl<'ctx> CodeGen<'ctx> {
             cond_val
         } else {
             self.builder
-                .build_int_compare(inkwell::IntPredicate::NE, cond_val, self.context.i64_type().const_zero(), "cond_bool")
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond_val,
+                    self.context.i64_type().const_zero(),
+                    "cond_bool",
+                )
                 .expect("icmp")
         };
         self.ir_builder

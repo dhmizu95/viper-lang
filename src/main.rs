@@ -6,6 +6,11 @@ mod parser;
 mod utils;
 
 use inkwell::context::Context;
+use inkwell::passes::PassManager;
+use inkwell::targets::{
+    CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
+};
+use inkwell::OptimizationLevel;
 use std::fs;
 use std::path::Path;
 
@@ -17,8 +22,9 @@ fn main() {
         eprintln!("Usage: viper <command> [options]");
         eprintln!();
         eprintln!("Commands:");
-        eprintln!("  build <file.vp>  Compile a Viper source file");
-        eprintln!("  run <file.vp>    Compile and run a Viper source file");
+        eprintln!("  build <file.vp>  Compile a Viper source file (AOT)");
+        eprintln!("  run <file.vp>    Compile and run a Viper source file (JIT)");
+        eprintln!("  run-opt <file.vp> Run with optimizations enabled");
         eprintln!("  help             Show this help message");
         std::process::exit(1);
     }
@@ -33,7 +39,20 @@ fn main() {
                 std::process::exit(1);
             }
             let input_file = &args[2];
-            if let Err(e) = compile_file(input_file, None) {
+            let opt_level = get_opt_level(&args);
+            if let Err(e) = compile_file_aot(input_file, opt_level, None) {
+                eprintln!("Compilation failed: {}", e);
+                std::process::exit(1);
+            }
+        }
+        "build-opt" => {
+            if args.len() < 3 {
+                eprintln!("Error: No input file specified");
+                eprintln!("Usage: viper build-opt <file.vp>");
+                std::process::exit(1);
+            }
+            let input_file = &args[2];
+            if let Err(e) = compile_file_optimized(input_file) {
                 eprintln!("Compilation failed: {}", e);
                 std::process::exit(1);
             }
@@ -45,19 +64,33 @@ fn main() {
                 std::process::exit(1);
             }
             let input_file = &args[2];
-            if let Err(e) = compile_and_run(input_file) {
+            let opt_level = get_opt_level(&args);
+            if let Err(e) = compile_and_run_jit(input_file, opt_level) {
+                eprintln!("Execution failed: {}", e);
+                std::process::exit(1);
+            }
+        }
+        "run-opt" => {
+            if args.len() < 3 {
+                eprintln!("Error: No input file specified");
+                eprintln!("Usage: viper run-opt <file.vp>");
+                std::process::exit(1);
+            }
+            let input_file = &args[2];
+            if let Err(e) = compile_and_run_jit(input_file, 3) {
                 eprintln!("Execution failed: {}", e);
                 std::process::exit(1);
             }
         }
         "help" | "--help" | "-h" => {
-            println!("Viper Compiler 0.1.0");
+            println!("Viper Compiler 0.2.0");
             println!("Usage: viper <command> [options]");
             println!();
             println!("Commands:");
-            println!("  build <file.vp>  Compile a Viper source file");
-            println!("  run <file.vp>    Compile and run a Viper source file");
-            println!("  help             Show this help message");
+            println!("  build <file.vp>       AOT compile to native binary");
+            println!("  run <file.vp>         JIT compile and run (no opt)");
+            println!("  run-opt <file.vp>     JIT compile and run (O3)");
+            println!("  help                  Show this help message");
         }
         _ => {
             eprintln!("Unknown command: {}", command);
@@ -67,27 +100,46 @@ fn main() {
     }
 }
 
-fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.1.0");
-    println!("   Compiling: {}", input_path);
+fn get_opt_level(args: &[String]) -> u32 {
+    for (i, arg) in args.iter().enumerate() {
+        if arg == "-O" || arg == "--opt" {
+            if let Some(level) = args.get(i + 1) {
+                return level.parse().unwrap_or(0);
+            }
+        }
+        if arg.starts_with("-O") && arg.len() > 2 {
+            return arg[2..].parse().unwrap_or(0);
+        }
+    }
+    0
+}
 
-    // Read source file
+fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
+    compile_file_aot(input_path, 0, output_path)
+}
+
+fn compile_file_aot(
+    input_path: &str,
+    opt_level: u32,
+    output_path: Option<&str>,
+) -> Result<(), String> {
+    println!("🐍 Viper Compiler 0.2.0 (AOT)");
+    println!("   Compiling: {}", input_path);
+    println!("   Optimization: -O{}", opt_level);
+
     let source = fs::read_to_string(input_path)
         .map_err(|e| format!("Failed to read '{}': {}", input_path, e))?;
 
-    // Phase 1: Lexing
     println!("   [1/4] Lexing...");
     let mut lexer = lexer::Lexer::new(&source);
     let tokens = lexer.tokenize()?;
     println!("   ✓ Generated {} tokens", tokens.len());
 
-    // Phase 2: Parsing
     println!("   [2/4] Parsing...");
     let mut parser = parser::Parser::new(tokens);
     let ast = parser.parse()?;
     println!("   ✓ Parsed {} statements", ast.statements.len());
 
-    // Phase 3: Code Generation
     println!("   [3/4] Generating LLVM IR...");
     let context = Context::create();
     let module_name = Path::new(input_path)
@@ -100,46 +152,196 @@ fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), Strin
     codegen.verify()?;
     println!("   ✓ Generated LLVM IR");
 
-    // Phase 4: Emit object file
-    println!("   [4/4] Emitting object code...");
+    println!("   Optimizing and emitting object code...");
     let output = output_path.unwrap_or(module_name);
 
-    // Emit LLVM bitcode
-    let bitcode_path = format!("{}.bc", output);
+    let module = codegen.module();
 
-    // Write bitcode to file
-    codegen
-        .module()
-        .write_bitcode_to_path(std::path::Path::new(&bitcode_path));
+    let opt = match opt_level {
+        0 => OptimizationLevel::None,
+        1 => OptimizationLevel::Less,
+        2 => OptimizationLevel::Default,
+        _ => OptimizationLevel::Aggressive,
+    };
 
-    println!("   ✓ Generated bitcode: {}", bitcode_path);
+    let target_triple = TargetTriple::create(
+        &std::process::Command::new("uname")
+            .arg("-m")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|arch| match arch.trim() {
+                "x86_64" => "x86_64-unknown-linux-gnu",
+                "aarch64" => "aarch64-unknown-linux-gnu",
+                _ => "x86_64-unknown-linux-gnu",
+            })
+            .unwrap_or("x86_64-unknown-linux-gnu")
+            .to_string(),
+    );
+
+    Target::initialize_native(&InitializationConfig::default())
+        .map_err(|e| format!("Failed to initialize native target: {}", e))?;
+
+    let target =
+        Target::from_triple(&target_triple).map_err(|e| format!("Failed to get target: {}", e))?;
+
+    let target_machine = target
+        .create_target_machine(
+            &target_triple,
+            "",
+            "",
+            opt,
+            RelocMode::Default,
+            CodeModel::Default,
+        )
+        .ok_or_else(|| "Failed to create target machine".to_string())?;
+
+    use inkwell::targets::FileType;
+    let obj_path = format!("{}.o", output);
+    target_machine
+        .write_to_file(module, FileType::Object, Path::new(&obj_path))
+        .map_err(|e| format!("Failed to write object file: {}", e))?;
+
+    println!("   ✓ Generated object: {}", obj_path);
     println!("✅ Compilation successful!");
     println!();
     println!("   To link and run:");
-    println!("   $ llc {} -filetype=obj -o {}.o", bitcode_path, output);
-    println!("   $ gcc {}.o -o {} -L./runtime -lviper", output, output);
+    println!(
+        "   $ gcc {}.o -o {} -L./runtime -lviper -lm",
+        obj_path, output
+    );
     println!("   $ ./{}", output);
 
     Ok(())
 }
 
+fn compile_file_optimized(input_path: &str) -> Result<(), String> {
+    println!("🐍 Viper Compiler 0.2.0 (AOT + opt)");
+    println!("   Compiling: {}", input_path);
+
+    let source = fs::read_to_string(input_path)
+        .map_err(|e| format!("Failed to read '{}': {}", input_path, e))?;
+
+    println!("   [1/5] Lexing...");
+    let mut lexer = lexer::Lexer::new(&source);
+    let tokens = lexer.tokenize()?;
+    println!("   ✓ Generated {} tokens", tokens.len());
+
+    println!("   [2/5] Parsing...");
+    let mut parser = parser::Parser::new(tokens);
+    let ast = parser.parse()?;
+    println!("   ✓ Parsed {} statements", ast.statements.len());
+
+    println!("   [3/5] Generating LLVM IR...");
+    let context = Context::create();
+    let module_name = Path::new(input_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("main");
+
+    let mut codegen = codegen::CodeGen::new(&context, module_name);
+    codegen.generate(&ast)?;
+    codegen.verify()?;
+    println!("   ✓ Generated LLVM IR");
+
+    let module = codegen.module();
+    let bc_path = format!("{}.bc", module_name);
+    module.write_bitcode_to_path(Path::new(&bc_path));
+    println!("   ✓ Generated bitcode: {}", bc_path);
+
+    println!("   [4/5] Running LLVM optimizations...");
+    let opt_bc = format!("{}.opt.bc", module_name);
+    let opt_status = std::process::Command::new("/usr/lib/llvm-20/bin/opt")
+        .args(&[
+            "-O3",
+            "-mtriple=x86_64-pc-linux-gnu",
+            "-mcpu=tigerlake",
+            &bc_path,
+            "-o",
+            &opt_bc,
+        ])
+        .output();
+
+    match opt_status {
+        Ok(output) if output.status.success() => {
+            println!("   ✓ LLVM optimizations complete");
+        }
+        Ok(output) => {
+            eprintln!(
+                "   ⚠ opt warnings: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        Err(e) => {
+            eprintln!("   ⚠ opt not found or failed: {}", e);
+        }
+    }
+
+    println!("   [5/5] Emitting object code...");
+    if Path::new(&opt_bc).exists() {
+        let obj_path = format!("{}_opt.o", module_name);
+        let llc_status = std::process::Command::new("/usr/lib/llvm-20/bin/llc")
+            .args(&[
+                "-O3",
+                "-mtriple=x86_64-pc-linux-gnu",
+                "-mcpu=tigerlake",
+                "-filetype=obj",
+                &opt_bc,
+                "-o",
+                &obj_path,
+            ])
+            .output();
+
+        match llc_status {
+            Ok(output) if output.status.success() => {
+                println!("   ✓ Generated object: {}", obj_path);
+                println!("✅ Compilation successful!");
+                println!();
+                println!("   To link and run:");
+                println!(
+                    "   $ gcc {} -o {} -L./runtime -lviper -lm",
+                    obj_path, module_name
+                );
+                println!("   $ ./{}", module_name);
+            }
+            Ok(output) => {
+                return Err(format!(
+                    "llc failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            }
+            Err(e) => {
+                return Err(format!("llc not found: {}", e));
+            }
+        }
+    } else {
+        return Err("Optimization failed - no output".to_string());
+    }
+
+    Ok(())
+}
+
+fn run_llvm_optimizations(_module: &inkwell::module::Module, _opt_level: u32) {
+    // Currently relying on JIT engine's built-in optimizations via OptimizationLevel
+}
+
 fn compile_and_run(input_path: &str) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.2.0");
+    compile_and_run_jit(input_path, 0)
+}
+
+fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
+    println!("🐍 Viper Compiler 0.2.0 (JIT -O{})", opt_level);
     println!("   Running: {}", input_path);
 
-    // Read source file
     let source = std::fs::read_to_string(input_path)
         .map_err(|e| format!("Failed to read '{}': {}", input_path, e))?;
 
-    // Phase 1: Lexing
     let mut lexer = lexer::Lexer::new(&source);
     let tokens = lexer.tokenize()?;
 
-    // Phase 2: Parsing
     let mut parser = parser::Parser::new(tokens);
     let ast = parser.parse()?;
 
-    // Phase 3: Code Generation
     let context = Context::create();
     let module_name = Path::new(input_path)
         .file_stem()
@@ -150,22 +352,28 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
     codegen.generate(&ast)?;
     codegen.verify()?;
 
-    // Phase 4: JIT Execution
-    println!("   Executing via JIT...");
+    let opt = match opt_level {
+        0 => OptimizationLevel::None,
+        1 => OptimizationLevel::Less,
+        2 => OptimizationLevel::Default,
+        _ => OptimizationLevel::Aggressive,
+    };
 
-    // We need to initialize native targets for JIT
-    inkwell::targets::Target::initialize_native(&inkwell::targets::InitializationConfig::default())
+    if opt_level > 0 {
+        run_llvm_optimizations(codegen.module(), opt_level);
+    }
+
+    println!("   Executing via JIT (O{})...", opt_level);
+
+    Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("Failed to initialize native target: {}", e))?;
 
     let execution_engine = codegen
         .module()
-        .create_jit_execution_engine(inkwell::OptimizationLevel::None)
+        .create_jit_execution_engine(opt)
         .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
 
-    // Register runtime function implementations for JIT
-    // For Phase 2, we use simple C function pointers
     unsafe {
-        // Register vp_print_i64
         let print_i64_ptr = vp_print_i64 as extern "C" fn(i64);
         execution_engine.add_global_mapping(
             &codegen
@@ -176,7 +384,6 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
             print_i64_ptr as usize,
         );
 
-        // Register vp_print_f64
         let print_f64_ptr = vp_print_f64 as extern "C" fn(f64);
         execution_engine.add_global_mapping(
             &codegen
@@ -187,7 +394,6 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
             print_f64_ptr as usize,
         );
 
-        // Register vp_print_bool
         let print_bool_ptr = vp_print_bool as extern "C" fn(bool);
         execution_engine.add_global_mapping(
             &codegen
@@ -198,7 +404,6 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
             print_bool_ptr as usize,
         );
 
-        // Register vp_print_newline
         let print_newline_ptr = vp_print_newline as extern "C" fn();
         execution_engine.add_global_mapping(
             &codegen
@@ -209,7 +414,6 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
             print_newline_ptr as usize,
         );
 
-        // Register list functions (stubs for now)
         if let Some(func) = codegen.module().get_function("vp_list_create") {
             execution_engine
                 .add_global_mapping(&func.as_global_value(), vp_list_create_stub as usize);
