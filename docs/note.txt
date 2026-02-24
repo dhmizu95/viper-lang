@@ -9,3 +9,32 @@ No support for comments with semicolons
 Limited array support
 test_quicksort.vp has a separate issue with list type handling (loading i64 from ptr and using as ptr) - this is a pre-existing bug unrelated to the current fixes
 if build failed show which line cause this issue with line number
+
+
+Final Viper Compiler Fix Plan
+Priority 1: Critical Bugs (Week 1)
+| # | Issue | File | Fix Approach | Est. |
+|---|-------|------|--------------|------|
+| 1 | List indexing returns PointerValue | expressions.rs:105-123 | Add load instruction to dereference list element pointer | 1 day |
+| 2 | Binary ops don't handle PointerValue | expressions.rs:143-147 | Add is_pointer_value() check, error or handle appropriately | 1 day |
+| 3 | Mixed int/float auto-conversion | expressions.rs:254-293 | In generate_binop: if one operand is float, convert int operand to float automatically | 2 days |
+Priority 2: Essential Library (Week 2)
+| # | Issue | File | Fix Approach | Est. |
+|---|-------|------|--------------|------|
+| 4 | Math builtins | runtime.rs + expressions.rs | Add sqrt(), abs(), ln(), floor() as builtin functions | 2-3 days |
+Priority 3: Language Features (Week 3)
+| # | Issue | File | Fix Approach | Est. |
+|---|-------|------|--------------|------|
+| 5 | Global constants | ast/nodes.rs, parser, codegen | Module-level assignments (PI = 3.14) treated as immutable constants | 2-3 days |
+| 6 | Semicolon comments | lexer/scanner.rs:84 | Add ; and // as comment starters alongside # | 1 day |
+Deferred (Later)
+- Error messages with line numbers
+- Structs
+- Dictionaries
+- Better array support
+---
+Quick Fix for Priority 1 (Before Full Implementation)
+For immediate relief, benchmark code can avoid these issues by:
+- Using only 1.0 not 1 for floats
+- Avoiding list comparisons in while conditions (use index instead)
+- Using explicit bounds checking

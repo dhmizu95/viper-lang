@@ -2,7 +2,7 @@
 
 use crate::ast::{BinOp, Expr, Stmt};
 use inkwell::context::Context;
-use inkwell::values::FunctionValue;
+use inkwell::values::{FunctionValue, GlobalValue};
 use std::collections::HashMap;
 
 use crate::codegen::builder::IRBuilder;
@@ -17,6 +17,7 @@ pub fn generate_stmt<'ctx>(
     ir_builder: &IRBuilder<'ctx>,
     variables: &mut HashMap<String, VarInfo<'ctx>>,
     functions: &HashMap<String, FunctionValue<'ctx>>,
+    global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
     loop_stack: &mut Vec<LoopContext<'ctx>>,
     stmt: &Stmt,
 ) -> Result<(), String> {
@@ -27,6 +28,7 @@ pub fn generate_stmt<'ctx>(
         ir_builder,
         variables,
         functions,
+        global_constants,
         loop_stack,
     );
     

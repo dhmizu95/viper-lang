@@ -45,7 +45,7 @@ pub fn generate_if<'ctx>(
     for stmt in body {
         crate::codegen::statements::generate_stmt(
             state.context, state.module, state.builder, state.ir_builder,
-            state.variables, state.functions, state.loop_stack, stmt
+            state.variables, state.functions, state.global_constants, state.loop_stack, stmt
         )?;
     }
     if state.builder
@@ -79,7 +79,7 @@ pub fn generate_if<'ctx>(
         for stmt in elif_body {
             crate::codegen::statements::generate_stmt(
                 state.context, state.module, state.builder, state.ir_builder,
-                state.variables, state.functions, state.loop_stack, stmt
+                state.variables, state.functions, state.global_constants, state.loop_stack, stmt
             )?;
         }
         if state.builder
@@ -97,7 +97,7 @@ pub fn generate_if<'ctx>(
                 for stmt in else_stmts {
                     crate::codegen::statements::generate_stmt(
                         state.context, state.module, state.builder, state.ir_builder,
-                        state.variables, state.functions, state.loop_stack, stmt
+                        state.variables, state.functions, state.global_constants, state.loop_stack, stmt
                     )?;
                 }
                 if state.builder
@@ -123,7 +123,7 @@ pub fn generate_if<'ctx>(
         for stmt in else_stmts {
             crate::codegen::statements::generate_stmt(
                 state.context, state.module, state.builder, state.ir_builder,
-                state.variables, state.functions, state.loop_stack, stmt
+                state.variables, state.functions, state.global_constants, state.loop_stack, stmt
             )?;
         }
         if state.builder
@@ -190,7 +190,7 @@ pub fn generate_while<'ctx>(
     for stmt in body {
         crate::codegen::statements::generate_stmt(
             state.context, state.module, state.builder, state.ir_builder,
-            state.variables, state.functions, state.loop_stack, stmt
+            state.variables, state.functions, state.global_constants, state.loop_stack, stmt
         )?;
     }
 
@@ -259,7 +259,7 @@ pub fn generate_for<'ctx>(
                 for stmt in body {
                     crate::codegen::statements::generate_stmt(
                         state.context, state.module, state.builder, state.ir_builder,
-                        state.variables, state.functions, state.loop_stack, stmt
+                        state.variables, state.functions, state.global_constants, state.loop_stack, stmt
                     )?;
                 }
 

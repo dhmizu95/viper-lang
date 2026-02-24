@@ -18,6 +18,17 @@ pub fn generate_expr<'ctx>(
         Expr::None(_) => Ok(state.ir_builder.i64_const(0).into()),
         Expr::Str(s, _) => Ok(state.ir_builder.string_const(state.module, s).into()),
         Expr::Ident(name, _span) => {
+            // First check if it's a global constant
+            if let Some(global) = state.global_constants.get(name) {
+                // Load the global constant value directly
+                let global_ptr = global.as_pointer_value();
+                // Build load without explicit type - let LLVM infer it
+                let loaded = state.builder.build_load(global_ptr.get_type(), global_ptr, name)
+                    .expect("load global constant");
+                return Ok(loaded);
+            }
+            
+            // Otherwise check local variables
             if let Some(var_info) = state.variables.get(name) {
                 match var_info.var_type {
                     VarType::Float => {
@@ -140,10 +151,28 @@ fn generate_binop<'ctx>(
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
 
-    if lhs_val.is_float_value() {
-        generate_float_binop(state.builder, lhs_val, rhs_val, op)
+    // Fix #2: Reject pointer values in binary operations
+    if lhs_val.is_pointer_value() || rhs_val.is_pointer_value() {
+        return Err("Binary operators cannot be applied to pointer values (lists)".to_string());
+    }
+
+    // Fix #3: Auto-convert int to float when one operand is float
+    if lhs_val.is_float_value() && !rhs_val.is_float_value() {
+        // Convert rhs (int) to float
+        let rhs_int = rhs_val.into_int_value();
+        let rhs_float = state.builder.build_signed_int_to_float(rhs_int, state.context.f64_type(), "int_to_float")
+            .expect("int to float conversion");
+        return generate_float_binop(state.builder, lhs_val, rhs_float.into(), op);
+    } else if !lhs_val.is_float_value() && rhs_val.is_float_value() {
+        // Convert lhs (int) to float
+        let lhs_int = lhs_val.into_int_value();
+        let lhs_float = state.builder.build_signed_int_to_float(lhs_int, state.context.f64_type(), "int_to_float")
+            .expect("int to float conversion");
+        return generate_float_binop(state.builder, lhs_float.into(), rhs_val, op);
+    } else if lhs_val.is_float_value() {
+        return generate_float_binop(state.builder, lhs_val, rhs_val, op);
     } else {
-        generate_int_binop(state, lhs_val, rhs_val, op)
+        return generate_int_binop(state, lhs_val, rhs_val, op);
     }
 }
 
@@ -298,12 +327,23 @@ fn generate_unary<'ctx>(
     op: &UnaryOp,
     operand: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    let val = generate_expr(state, operand)?.into_int_value();
-    match op {
-        UnaryOp::Neg => Ok(state.builder.build_int_neg(val, "neg").expect("neg").into()),
-        UnaryOp::Not => Ok(state.builder.build_not(val, "not").expect("not").into()),
-        UnaryOp::Pos => Ok(val.into()),
-        UnaryOp::Invert => Ok(state.builder.build_xor(val, state.context.i64_type().const_all_ones(), "invert").expect("invert").into()),
+    let val = generate_expr(state, operand)?;
+    
+    if val.is_float_value() {
+        let float_val = val.into_float_value();
+        match op {
+            UnaryOp::Neg => Ok(state.builder.build_float_neg(float_val, "fneg").expect("fneg").into()),
+            UnaryOp::Pos => Ok(val),
+            UnaryOp::Not | UnaryOp::Invert => Err(format!("Unary operator {:?} not supported for float types", op)),
+        }
+    } else {
+        let int_val = val.into_int_value();
+        match op {
+            UnaryOp::Neg => Ok(state.builder.build_int_neg(int_val, "neg").expect("neg").into()),
+            UnaryOp::Not => Ok(state.builder.build_not(int_val, "not").expect("not").into()),
+            UnaryOp::Pos => Ok(val),
+            UnaryOp::Invert => Ok(state.builder.build_xor(int_val, state.context.i64_type().const_all_ones(), "invert").expect("invert").into()),
+        }
     }
 }
 
@@ -371,6 +411,11 @@ fn generate_call<'ctx>(
 
         if name == "len" {
             return generate_len_call(state, args);
+        }
+
+        // Math builtins
+        if name == "sqrt" || name == "abs" || name == "ln" || name == "floor" {
+            return generate_math_builtin(state, name, args);
         }
 
         if let Some(&func_val) = state.functions.get(name) {
@@ -450,6 +495,42 @@ fn generate_len_call<'ctx>(
     let list_len = state.module.get_function("vp_list_len").ok_or_else(|| "vp_list_len not declared".to_string())?;
     let result = state.ir_builder.build_call(state.builder, list_len, &[obj_val.into()], "list_len");
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+}
+
+/// Generate math builtin function calls (sqrt, abs, ln, floor)
+fn generate_math_builtin<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    name: &str,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
+    }
+
+    let arg_val = generate_expr(state, &args[0])?;
+    
+    // Convert to float if necessary
+    let arg_float = if arg_val.is_float_value() {
+        arg_val.into_float_value()
+    } else {
+        let int_val = arg_val.into_int_value();
+        state.builder.build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
+            .expect("int to float conversion")
+    };
+
+    let func_name = match name {
+        "sqrt" => "vp_math_sqrt",
+        "abs" => "vp_math_abs",
+        "ln" => "vp_math_ln",
+        "floor" => "vp_math_floor",
+        _ => return Err(format!("Unknown math builtin: {}", name)),
+    };
+
+    let math_func = state.module.get_function(func_name)
+        .ok_or_else(|| format!("{} not declared", func_name))?;
+
+    let result = state.ir_builder.build_call(state.builder, math_func, &[arg_float.into()], "math_result");
+    Ok(result.unwrap_or(state.ir_builder.f64_const(0.0).into()))
 }
 
 /// Generate method call

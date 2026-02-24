@@ -11,6 +11,7 @@ pub fn declare_runtime_functions<'ctx>(
     declare_print_functions(context, module)?;
     declare_list_functions(context, module)?;
     declare_memory_functions(context, module)?;
+    declare_math_functions(context, module)?;
     Ok(())
 }
 
@@ -102,6 +103,32 @@ fn declare_memory_functions<'ctx>(
 
     let release_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_release", release_type, None);
+
+    Ok(())
+}
+
+/// Declare math builtin runtime functions
+fn declare_math_functions<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> Result<(), String> {
+    let f64_type = context.f64_type();
+
+    // sqrt(x) - square root
+    let sqrt_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_sqrt", sqrt_type, None);
+
+    // abs(x) - absolute value for floats
+    let abs_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_abs", abs_type, None);
+
+    // ln(x) - natural logarithm
+    let ln_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_ln", ln_type, None);
+
+    // floor(x) - floor function
+    let floor_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_floor", floor_type, None);
 
     Ok(())
 }

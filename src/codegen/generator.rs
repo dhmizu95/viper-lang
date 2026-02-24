@@ -1,8 +1,8 @@
 //! Main code generator that translates AST to LLVM IR
 
-use crate::ast::{Module, Stmt, Type};
+use crate::ast::{Expr, Module, Stmt, Type};
 use inkwell::context::Context;
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicValue, FunctionValue, GlobalValue};
 use std::collections::HashMap;
 
 use crate::codegen::builder::IRBuilder;
@@ -18,6 +18,7 @@ pub struct CodeGen<'ctx> {
     type_mapper: TypeMapper<'ctx>,
     variables: HashMap<String, VarInfo<'ctx>>,
     functions: HashMap<String, FunctionValue<'ctx>>,
+    global_constants: HashMap<String, GlobalValue<'ctx>>,
     loop_stack: Vec<LoopContext<'ctx>>,
 }
 
@@ -36,6 +37,7 @@ impl<'ctx> CodeGen<'ctx> {
             type_mapper,
             variables: HashMap::new(),
             functions: HashMap::new(),
+            global_constants: HashMap::new(),
             loop_stack: Vec::new(),
         }
     }
@@ -66,7 +68,24 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
-        // Second pass: define all functions
+        // Second pass: process module-level constant assignments first
+        // Module-level assignments like "PI = 3.14" are treated as immutable constants
+        for stmt in &module.statements {
+            if let Stmt::Assign { target, value, .. } = stmt {
+                if let Expr::Ident(name, _) = target.as_ref() {
+                    // Check if it's a simple literal value (int, float, string, bool)
+                    let is_literal = matches!(value.as_ref(), 
+                        Expr::Int(..) | Expr::Float(..) | Expr::Str(..) | Expr::Bool(..) | Expr::None(..)
+                    );
+                    
+                    if is_literal {
+                        self.create_global_constant(name, value)?;
+                    }
+                }
+            }
+        }
+
+        // Third pass: define all functions
         let mut top_level_stmts = Vec::new();
         for stmt in &module.statements {
             if let Stmt::Function {
@@ -79,7 +98,23 @@ impl<'ctx> CodeGen<'ctx> {
             {
                 self.define_function(name, params, return_type, body)?;
             } else {
-                top_level_stmts.push(stmt.clone());
+                // Skip constant assignments - they're already handled
+                let is_constant_assign = match stmt {
+                    Stmt::Assign { target, value, .. } => {
+                        if let Expr::Ident(name, _) = target.as_ref() {
+                            self.global_constants.contains_key(name) && matches!(value.as_ref(),
+                                Expr::Int(..) | Expr::Float(..) | Expr::Str(..) | Expr::Bool(..) | Expr::None(..)
+                            )
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false
+                };
+
+                if !is_constant_assign {
+                    top_level_stmts.push(stmt.clone());
+                }
             }
         }
 
@@ -134,6 +169,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &self.ir_builder,
                 &mut self.variables,
                 &self.functions,
+                &mut self.global_constants,
                 &mut self.loop_stack,
                 stmt,
             )?;
@@ -194,6 +230,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &self.ir_builder,
                 &mut self.variables,
                 &self.functions,
+                &mut self.global_constants,
                 &mut self.loop_stack,
                 stmt,
             )?;
@@ -213,6 +250,26 @@ impl<'ctx> CodeGen<'ctx> {
                 .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
         }
 
+        Ok(())
+    }
+
+    /// Create a global constant from a literal expression
+    fn create_global_constant(&mut self, name: &str, value: &Expr) -> Result<(), String> {
+        let val = match value {
+            Expr::Int(n, _) => self.ir_builder.i64_const(*n).as_basic_value_enum(),
+            Expr::Float(n, _) => self.ir_builder.f64_const(*n).as_basic_value_enum(),
+            Expr::Bool(b, _) => self.ir_builder.bool_const(*b).as_basic_value_enum(),
+            Expr::Str(s, _) => self.ir_builder.string_const(&self.module, s).as_basic_value_enum(),
+            Expr::None(_) => self.ir_builder.i64_const(0).as_basic_value_enum(),
+            _ => return Err(format!("Cannot create global constant from non-literal expression")),
+        };
+
+        let global = self.module.add_global(val.get_type(), None, name);
+        global.set_constant(true);
+        global.set_initializer(&val);
+        global.set_unnamed_addr(false);
+        
+        self.global_constants.insert(name.to_string(), global);
         Ok(())
     }
 

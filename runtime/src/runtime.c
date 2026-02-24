@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "viper_stdlib.h"
 
 /* ============================================ */
@@ -186,6 +187,26 @@ bool vp_bool_from_f64(double val) {
 /* Convert string to bool */
 bool vp_bool_from_str(const char* str) {
     if (!str) return false;
-    return (strcmp(str, "True") == 0 || strcmp(str, "true") == 0 || 
+    return (strcmp(str, "True") == 0 || strcmp(str, "true") == 0 ||
             strcmp(str, "1") == 0);
+}
+
+/* ============================================ */
+/* Math Functions                               */
+/* ============================================ */
+
+double vp_math_sqrt(double x) {
+    return sqrt(x);
+}
+
+double vp_math_abs(double x) {
+    return fabs(x);
+}
+
+double vp_math_ln(double x) {
+    return log(x);
+}
+
+double vp_math_floor(double x) {
+    return floor(x);
 }
