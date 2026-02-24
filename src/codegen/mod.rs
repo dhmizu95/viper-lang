@@ -1225,6 +1225,31 @@ impl<'ctx> CodeGen<'ctx> {
                                 .build_div(&self.builder, lhs, rhs, "floordiv")
                                 .into()
                         }
+                        BinOp::BitAnd => self
+                            .builder
+                            .build_and(lhs, rhs, "bitand")
+                            .expect("bitand")
+                            .into(),
+                        BinOp::BitOr => self
+                            .builder
+                            .build_or(lhs, rhs, "bitor")
+                            .expect("bitor")
+                            .into(),
+                        BinOp::BitXor => self
+                            .builder
+                            .build_xor(lhs, rhs, "bitxor")
+                            .expect("bitxor")
+                            .into(),
+                        BinOp::LShift => self
+                            .builder
+                            .build_left_shift(lhs, rhs, "lshift")
+                            .expect("lshift")
+                            .into(),
+                        BinOp::RShift => self
+                            .builder
+                            .build_right_shift(lhs, rhs, false, "rshift")
+                            .expect("rshift")
+                            .into(),
                         BinOp::Pow => {
                             // Power: use libm pow function for integers
                             // Convert to double, call pow, convert back
@@ -1268,6 +1293,9 @@ impl<'ctx> CodeGen<'ctx> {
                         Ok(self.builder.build_not(val, "not").expect("not").into())
                     }
                     crate::ast::UnaryOp::Pos => Ok(val.into()),
+                    crate::ast::UnaryOp::Invert => {
+                        Ok(self.builder.build_xor(val, self.context.i64_type().const_all_ones(), "invert").expect("invert").into())
+                    }
                     _ => Err(format!("Unsupported unary operator: {:?}", op)),
                 }
             }

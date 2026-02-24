@@ -818,6 +818,8 @@ impl<'a> StatementParser<'a> {
         loop {
             // Check for dedent without consuming it
             if matches!(self.current().kind, TokenKind::Dedent) {
+                // Consume the dedent
+                self.advance();
                 break;
             }
             if self.is_at_end() {
