@@ -1,0 +1,10 @@
+fn geometric_sum(n: i64, r: i64) -> i64 {
+    if n == 0 {
+        return 1;
+    }
+    return 1 + geometric_sum(n - 1, r).wrapping_mul(r);
+}
+
+fn main() {
+    println!("{}", geometric_sum(100000, 2));
+}

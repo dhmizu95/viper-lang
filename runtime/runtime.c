@@ -23,6 +23,11 @@ void vp_print_bool(int val) {
     printf("%s\n", val ? "True" : "False");
 }
 
+// Print newline
+void vp_print_newline(void) {
+    printf("\n");
+}
+
 // Read an i64 from stdin
 int64_t vp_read_i64(void) {
     int64_t val;
