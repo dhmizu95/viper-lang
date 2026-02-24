@@ -106,7 +106,7 @@ impl<'ctx> CodeGen<'ctx> {
                 params,
                 return_type,
                 body,
-                is_async,
+                is_async: _,
                 ..
             } = stmt
             {

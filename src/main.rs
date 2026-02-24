@@ -70,6 +70,7 @@ fn main() {
     }
 }
 
+#[allow(dead_code)]
 fn get_opt_level(args: &[String]) -> u32 {
     for (i, arg) in args.iter().enumerate() {
         if arg == "-O" || arg == "--opt" {
@@ -84,6 +85,7 @@ fn get_opt_level(args: &[String]) -> u32 {
     0
 }
 
+#[allow(dead_code)]
 fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
     compile_file_aot(input_path, 0, output_path, false, None)
 }
@@ -205,7 +207,7 @@ fn compile_file_aot(
 
 fn emit_object_file(
     module: &inkwell::module::Module,
-    module_name: &str,
+    _module_name: &str,
     output: &str,
     opt_level: u32,
     lto: bool,
@@ -531,201 +533,199 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
         .create_jit_execution_engine(opt)
         .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
 
-    unsafe {
-        let print_i64_ptr = vp_print_i64 as extern "C" fn(i64);
+    let print_i64_ptr = vp_print_i64 as extern "C" fn(i64);
+    execution_engine.add_global_mapping(
+        &codegen
+            .module()
+            .get_function("vp_print_i64")
+            .unwrap()
+            .as_global_value(),
+        print_i64_ptr as usize,
+    );
+
+    let print_f64_ptr = vp_print_f64 as extern "C" fn(f64);
+    execution_engine.add_global_mapping(
+        &codegen
+            .module()
+            .get_function("vp_print_f64")
+            .unwrap()
+            .as_global_value(),
+        print_f64_ptr as usize,
+    );
+
+    let print_bool_ptr = vp_print_bool as extern "C" fn(bool);
+    execution_engine.add_global_mapping(
+        &codegen
+            .module()
+            .get_function("vp_print_bool")
+            .unwrap()
+            .as_global_value(),
+        print_bool_ptr as usize,
+    );
+
+    let print_str_ptr = vp_print_str_stub as extern "C" fn(*mut std::ffi::c_void);
+    if let Some(func) = codegen.module().get_function("vp_print_str") {
         execution_engine.add_global_mapping(
-            &codegen
-                .module()
-                .get_function("vp_print_i64")
-                .unwrap()
-                .as_global_value(),
-            print_i64_ptr as usize,
+            &func.as_global_value(),
+            print_str_ptr as usize,
         );
+    }
 
-        let print_f64_ptr = vp_print_f64 as extern "C" fn(f64);
+    let print_newline_ptr = vp_print_newline as extern "C" fn();
+    execution_engine.add_global_mapping(
+        &codegen
+            .module()
+            .get_function("vp_print_newline")
+            .unwrap()
+            .as_global_value(),
+        print_newline_ptr as usize,
+    );
+
+    if let Some(func) = codegen.module().get_function("vp_list_create") {
         execution_engine.add_global_mapping(
-            &codegen
-                .module()
-                .get_function("vp_print_f64")
-                .unwrap()
-                .as_global_value(),
-            print_f64_ptr as usize,
+            &func.as_global_value(),
+            vp_list_create_stub as *const () as usize,
         );
-
-        let print_bool_ptr = vp_print_bool as extern "C" fn(bool);
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_append") {
         execution_engine.add_global_mapping(
-            &codegen
-                .module()
-                .get_function("vp_print_bool")
-                .unwrap()
-                .as_global_value(),
-            print_bool_ptr as usize,
+            &func.as_global_value(),
+            vp_list_append_stub as *const () as usize,
         );
-
-        let print_str_ptr = vp_print_str_stub as extern "C" fn(*mut std::ffi::c_void);
-        if let Some(func) = codegen.module().get_function("vp_print_str") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                print_str_ptr as usize,
-            );
-        }
-
-        let print_newline_ptr = vp_print_newline as extern "C" fn();
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_free") {
         execution_engine.add_global_mapping(
-            &codegen
-                .module()
-                .get_function("vp_print_newline")
-                .unwrap()
-                .as_global_value(),
-            print_newline_ptr as usize,
+            &func.as_global_value(),
+            vp_list_free_stub as *const () as usize,
         );
-
-        if let Some(func) = codegen.module().get_function("vp_list_create") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_create_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_append") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_append_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_free") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_free_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_get") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_get_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_len") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_len_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_set") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_set_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_insert") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_insert_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_remove") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_remove_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_pop") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_pop_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_clear") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_clear_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_list_contains") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_list_contains_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_retain") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_retain_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_release") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_release_stub as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_str_concat") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_str_concat_stub as *const () as usize,
-            );
-        }
-        // Concurrency runtime functions (Phase 3)
-        if let Some(func) = codegen.module().get_function("vp_chan_create") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_chan_create as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_chan_destroy") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_chan_destroy as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_chan_send") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_chan_send as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_chan_recv") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_chan_recv as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_waitgroup_create") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_waitgroup_create as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_waitgroup_destroy") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_waitgroup_destroy as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_waitgroup_add") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_waitgroup_add as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_waitgroup_done") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_waitgroup_done as *const () as usize,
-            );
-        }
-        if let Some(func) = codegen.module().get_function("vp_waitgroup_wait") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_waitgroup_wait as *const () as usize,
-            );
-        }
-        // Async/await runtime stub (Phase 3 - partial implementation)
-        if let Some(func) = codegen.module().get_function("vp_future_await") {
-            execution_engine.add_global_mapping(
-                &func.as_global_value(),
-                vp_future_await as *const () as usize,
-            );
-        }
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_get") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_get_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_len") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_len_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_set") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_set_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_insert") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_insert_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_remove") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_remove_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_pop") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_pop_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_clear") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_clear_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_contains") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_contains_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_retain") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_retain_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_release") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_release_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_str_concat") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_concat_stub as *const () as usize,
+        );
+    }
+    // Concurrency runtime functions (Phase 3)
+    if let Some(func) = codegen.module().get_function("vp_chan_create") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_chan_create as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_chan_destroy") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_chan_destroy as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_chan_send") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_chan_send as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_chan_recv") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_chan_recv as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_waitgroup_create") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_waitgroup_create as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_waitgroup_destroy") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_waitgroup_destroy as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_waitgroup_add") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_waitgroup_add as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_waitgroup_done") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_waitgroup_done as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_waitgroup_wait") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_waitgroup_wait as *const () as usize,
+        );
+    }
+    // Async/await runtime stub (Phase 3 - partial implementation)
+    if let Some(func) = codegen.module().get_function("vp_future_await") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_future_await as *const () as usize,
+        );
     }
 
     unsafe {
