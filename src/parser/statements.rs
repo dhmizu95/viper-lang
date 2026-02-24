@@ -563,10 +563,6 @@ impl<'a> StatementParser<'a> {
     fn parse_primary_expr(&mut self) -> Result<Expr, String> {
         // Parse only primary expressions (identifiers, literals, etc.) without operators
         let token = self.current();
-        eprintln!(
-            "DEBUG PARSER primary_expr: starting with token: {:?} at pos {}",
-            token.kind, self.pos
-        );
         let span = token.span;
 
         let expr = match &token.kind {
@@ -601,21 +597,10 @@ impl<'a> StatementParser<'a> {
             TokenKind::Ident(name) => {
                 let name = name.clone();
                 self.advance();
-                eprintln!(
-                    "DEBUG PARSER: Parsed Ident '{}', now at pos {} token {:?}",
-                    name,
-                    self.pos,
-                    self.current().kind
-                );
-
                 // Check for attribute access or function call
                 let mut expr = Expr::Ident(name, span);
 
                 loop {
-                    eprintln!(
-                        "DEBUG PARSER: In loop, current token: {:?}",
-                        self.current().kind
-                    );
                     if self.match_token(&TokenKind::Dot) {
                         let attr = self.expect_ident()?;
                         let attr_span = self.previous().span;

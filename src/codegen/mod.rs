@@ -50,11 +50,6 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
-        eprintln!(
-            "DEBUG: Declared functions: {:?}",
-            self.functions.keys().collect::<Vec<_>>()
-        );
-
         // Second pass: define all functions
         let mut top_level_stmts = Vec::new();
         for stmt in &module.statements {
@@ -594,11 +589,6 @@ impl<'ctx> CodeGen<'ctx> {
             }
             Expr::Call { func, args, .. } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
-                    eprintln!(
-                        "DEBUG: Available functions: {:?}",
-                        self.functions.keys().collect::<Vec<_>>()
-                    );
-
                     // Check for built-in functions
                     if name == "print" {
                         return self.generate_print_call(args);
