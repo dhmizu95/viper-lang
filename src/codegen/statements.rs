@@ -169,7 +169,8 @@ fn generate_stmt_internal<'ctx>(
                         }
 
                         // Create a struct type to pack all arguments
-                        let arg_types: Vec<_> = arg_values.iter().map(|v| v.get_type().into()).collect();
+                        let arg_types: Vec<_> =
+                            arg_values.iter().map(|v| v.get_type().into()).collect();
                         let struct_type = state.context.struct_type(&arg_types, false);
 
                         // Generate wrapper function: void wrapper(void* args)
@@ -177,7 +178,10 @@ fn generate_stmt_internal<'ctx>(
                         let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
                         let wrapper_fn_type = void_type.fn_type(&[ptr_type.into()], false);
                         let wrapper_name = format!("__task_wrapper_{}_{}", name, span.start);
-                        let wrapper_fn = state.module.add_function(&wrapper_name, wrapper_fn_type, None);
+                        let wrapper_fn =
+                            state
+                                .module
+                                .add_function(&wrapper_name, wrapper_fn_type, None);
 
                         // Generate wrapper body
                         let wrapper_entry = state.context.append_basic_block(wrapper_fn, "entry");
@@ -189,8 +193,14 @@ fn generate_stmt_internal<'ctx>(
                         // Unpack arguments from the struct
                         let mut call_args = Vec::new();
                         for (i, arg_val) in arg_values.iter().enumerate() {
-                            let gep = state.builder.build_struct_gep(struct_type, arg_ptr, i as u32, "struct_gep").unwrap();
-                            let val = state.builder.build_load(arg_val.get_type(), gep, "arg").unwrap();
+                            let gep = state
+                                .builder
+                                .build_struct_gep(struct_type, arg_ptr, i as u32, "struct_gep")
+                                .unwrap();
+                            let val = state
+                                .builder
+                                .build_load(arg_val.get_type(), gep, "arg")
+                                .unwrap();
                             call_args.push(val.into());
                         }
 
@@ -200,7 +210,9 @@ fn generate_stmt_internal<'ctx>(
 
                         // Free the args struct
                         let free_func = state.module.get_function("free").unwrap();
-                        let _ = state.builder.build_call(free_func, &[arg_ptr.into()], "free");
+                        let _ = state
+                            .builder
+                            .build_call(free_func, &[arg_ptr.into()], "free");
 
                         let _ = state.builder.build_return(None);
 
@@ -212,7 +224,10 @@ fn generate_stmt_internal<'ctx>(
                         // Call malloc to allocate struct on heap
                         let malloc_func = state.module.get_function("malloc").unwrap();
                         let struct_size = struct_type.size_of().unwrap();
-                        let malloc_call = state.builder.build_call(malloc_func, &[struct_size.into()], "malloc").unwrap();
+                        let malloc_call = state
+                            .builder
+                            .build_call(malloc_func, &[struct_size.into()], "malloc")
+                            .unwrap();
                         let heap_ptr = match malloc_call.try_as_basic_value() {
                             inkwell::values::ValueKind::Basic(val) => val.into_pointer_value(),
                             _ => panic!("Expected pointer from malloc"),
@@ -220,14 +235,21 @@ fn generate_stmt_internal<'ctx>(
 
                         // Pack arguments into heap struct
                         for (i, arg_val) in arg_values.iter().enumerate() {
-                            let gep = state.builder.build_struct_gep(struct_type, heap_ptr, i as u32, "struct_gep").unwrap();
+                            let gep = state
+                                .builder
+                                .build_struct_gep(struct_type, heap_ptr, i as u32, "struct_gep")
+                                .unwrap();
                             let _ = state.builder.build_store(gep, *arg_val);
                         }
 
                         // Submit task to thread pool
                         let submit_func = state.module.get_function("vp_submit_task").unwrap();
                         let wrapper_fn_ptr = wrapper_fn.as_global_value().as_pointer_value();
-                        let _ = state.builder.build_call(submit_func, &[wrapper_fn_ptr.into(), heap_ptr.into()], "submit");
+                        let _ = state.builder.build_call(
+                            submit_func,
+                            &[wrapper_fn_ptr.into(), heap_ptr.into()],
+                            "submit",
+                        );
                     } else {
                         return Err(format!("Unknown function for task: {}", name));
                     }

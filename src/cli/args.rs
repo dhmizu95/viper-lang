@@ -60,6 +60,48 @@ pub enum Commands {
     },
     /// Show compiler information
     Info,
+    /// Run benchmarks in benchmark/ directory
+    Bench {
+        /// Specific benchmark file to run
+        #[arg(value_name = "FILE")]
+        file: Option<String>,
+
+        /// Number of iterations
+        #[arg(short, long, default_value = "10")]
+        iterations: u32,
+    },
+    /// Format and pretty-print a Viper source file
+    Fmt {
+        /// Source file to format
+        #[arg(value_name = "FILE")]
+        input: String,
+
+        /// Output file (default: stdout)
+        #[arg(short, long, value_name = "OUTPUT")]
+        output: Option<String>,
+    },
+    /// Run semantic checks and print warnings
+    Lint {
+        /// Source file to lint
+        #[arg(value_name = "FILE")]
+        input: String,
+
+        /// Enable all warnings
+        #[arg(short, long)]
+        warnings: bool,
+    },
+    /// Start an interactive REPL
+    Repl,
+    /// Generate documentation from docstrings
+    Doc {
+        /// Source file or directory
+        #[arg(value_name = "FILE")]
+        input: String,
+
+        /// Output directory
+        #[arg(short, long, default_value = "docs/generated")]
+        output: String,
+    },
 }
 
 fn parse_pgo_mode(s: &str) -> Result<String, String> {

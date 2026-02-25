@@ -189,18 +189,18 @@ impl<'a> PrattParser<'a> {
             TokenKind::FString(s) => {
                 let s = s.clone();
                 self.advance();
-                
+
                 let mut elements = Vec::new();
                 let mut current_lit = String::new();
                 let mut chars = s.chars().peekable();
-                
+
                 while let Some(c) = chars.next() {
                     if c == '{' {
                         if !current_lit.is_empty() {
                             elements.push(Expr::Str(current_lit.clone(), span));
                             current_lit.clear();
                         }
-                        
+
                         let mut inner_expr_str = String::new();
                         while let Some(&next_c) = chars.peek() {
                             if next_c == '}' {
@@ -210,7 +210,7 @@ impl<'a> PrattParser<'a> {
                                 inner_expr_str.push(chars.next().unwrap());
                             }
                         }
-                        
+
                         // Tokenize and parse inner expression
                         let mut inner_lexer = crate::lexer::Lexer::new(&inner_expr_str);
                         if let Ok(tokens) = inner_lexer.tokenize() {
@@ -223,11 +223,11 @@ impl<'a> PrattParser<'a> {
                         current_lit.push(c);
                     }
                 }
-                
+
                 if !current_lit.is_empty() {
                     elements.push(Expr::Str(current_lit, span));
                 }
-                
+
                 Ok(Expr::FString(elements, span))
             }
             TokenKind::Bool(b) => {
@@ -239,7 +239,8 @@ impl<'a> PrattParser<'a> {
                 self.advance();
                 Ok(Expr::None(span))
             }
-            TokenKind::Lambda => { // Changed from TokenKind::Ident(name) if name == "lambda"
+            TokenKind::Lambda => {
+                // Changed from TokenKind::Ident(name) if name == "lambda"
                 self.advance();
                 let mut params = Vec::new();
                 if !matches!(self.current().kind, TokenKind::Colon) {

@@ -18,9 +18,12 @@ impl VarType {
     pub fn from_ast_type(ty: &Type) -> Self {
         match ty {
             Type::F32 | Type::F64 => VarType::Float,
-            Type::Str | Type::Chan(_) | Type::WaitGroup | Type::List(_) | Type::Dict(_, _) | Type::Fn(_, _) => {
-                VarType::Pointer
-            }
+            Type::Str
+            | Type::Chan(_)
+            | Type::WaitGroup
+            | Type::List(_)
+            | Type::Dict(_, _)
+            | Type::Fn(_, _) => VarType::Pointer,
             _ => VarType::Int,
         }
     }

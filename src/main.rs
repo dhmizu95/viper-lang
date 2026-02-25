@@ -67,6 +67,40 @@ fn main() {
         Commands::Info => {
             show_info();
         }
+        Commands::Bench { file, iterations } => {
+            let args = cli::bench::BenchArgs::new(file, iterations);
+            if let Err(e) = cli::bench::run_bench(&args) {
+                eprintln!("Bench failed: {}", e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Fmt { input, output } => {
+            let args = cli::fmt::FmtArgs::new(input, output);
+            if let Err(e) = cli::fmt::run_fmt(&args) {
+                eprintln!("Format failed: {}", e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Lint { input, warnings } => {
+            let args = cli::lint::LintArgs::new(input, warnings);
+            if let Err(e) = cli::lint::run_lint(&args) {
+                eprintln!("Lint failed: {}", e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Repl => {
+            if let Err(e) = cli::repl::run_repl() {
+                eprintln!("REPL error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Doc { input, output } => {
+            let args = cli::doc::DocArgs::new(input, output);
+            if let Err(e) = cli::doc::run_doc(&args) {
+                eprintln!("Doc generation failed: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 }
 
@@ -726,41 +760,74 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
         );
     }
     if let Some(func) = codegen.module().get_function("vp_str_create") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_create_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_create_stub as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_str_upper") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_upper_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_upper_stub as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_str_lower") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_lower_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_lower_stub as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_str_split") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_split_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_split_stub as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_str_replace") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_replace_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_replace_stub as *const () as usize,
+        );
     }
 
     // Math builtins JIT mappings
     if let Some(func) = codegen.module().get_function("vp_math_sqrt") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_sqrt_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_math_sqrt_stub as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_math_abs") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_abs_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_math_abs_stub as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_math_ln") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_ln_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_math_ln_stub as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_math_floor") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_floor_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_math_floor_stub as *const () as usize,
+        );
     }
 
     // Struct module JIT mappings
     if let Some(func) = codegen.module().get_function("vp_struct_pack") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_struct_pack as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_struct_pack as *const () as usize,
+        );
     }
     if let Some(func) = codegen.module().get_function("vp_struct_unpack") {
-        execution_engine.add_global_mapping(&func.as_global_value(), vp_struct_unpack as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_struct_unpack as *const () as usize,
+        );
     }
 
     // Concurrency runtime functions (Phase 3)
@@ -1128,7 +1195,9 @@ extern "C" fn vp_str_len_stub(s: *const std::ffi::c_char) -> i64 {
 }
 
 extern "C" fn vp_str_create_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
-    if s.is_null() { return std::ptr::null(); }
+    if s.is_null() {
+        return std::ptr::null();
+    }
     unsafe {
         let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
         let c_str = std::ffi::CString::new(str.into_owned()).unwrap();
@@ -1137,7 +1206,9 @@ extern "C" fn vp_str_create_stub(s: *const std::ffi::c_char) -> *const std::ffi:
 }
 
 extern "C" fn vp_str_upper_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
-    if s.is_null() { return std::ptr::null(); }
+    if s.is_null() {
+        return std::ptr::null();
+    }
     unsafe {
         let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
         let upper = str.to_uppercase();
@@ -1147,7 +1218,9 @@ extern "C" fn vp_str_upper_stub(s: *const std::ffi::c_char) -> *const std::ffi::
 }
 
 extern "C" fn vp_str_lower_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
-    if s.is_null() { return std::ptr::null(); }
+    if s.is_null() {
+        return std::ptr::null();
+    }
     unsafe {
         let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
         let lower = str.to_lowercase();
@@ -1156,7 +1229,10 @@ extern "C" fn vp_str_lower_stub(s: *const std::ffi::c_char) -> *const std::ffi::
     }
 }
 
-extern "C" fn vp_str_split_stub(s: *const std::ffi::c_char, delim_ptr: *const std::ffi::c_char) -> *mut std::ffi::c_void {
+extern "C" fn vp_str_split_stub(
+    s: *const std::ffi::c_char,
+    delim_ptr: *const std::ffi::c_char,
+) -> *mut std::ffi::c_void {
     let list = Box::new(Vec::<i64>::new());
     if s.is_null() || delim_ptr.is_null() {
         return Box::into_raw(list) as *mut std::ffi::c_void;
@@ -1174,8 +1250,14 @@ extern "C" fn vp_str_split_stub(s: *const std::ffi::c_char, delim_ptr: *const st
     }
 }
 
-extern "C" fn vp_str_replace_stub(s: *const std::ffi::c_char, old_sub: *const std::ffi::c_char, new_sub: *const std::ffi::c_char) -> *const std::ffi::c_char {
-    if s.is_null() || old_sub.is_null() || new_sub.is_null() { return std::ptr::null(); }
+extern "C" fn vp_str_replace_stub(
+    s: *const std::ffi::c_char,
+    old_sub: *const std::ffi::c_char,
+    new_sub: *const std::ffi::c_char,
+) -> *const std::ffi::c_char {
+    if s.is_null() || old_sub.is_null() || new_sub.is_null() {
+        return std::ptr::null();
+    }
     unsafe {
         let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
         let old_str = std::ffi::CStr::from_ptr(old_sub).to_string_lossy();
@@ -1298,7 +1380,10 @@ extern "C" fn vp_math_floor(x: f64) -> f64 {
 }
 
 // Struct module stubs for JIT
-extern "C" fn vp_struct_pack(_format: *const std::ffi::c_char, value: i64) -> *mut std::ffi::c_void {
+extern "C" fn vp_struct_pack(
+    _format: *const std::ffi::c_char,
+    value: i64,
+) -> *mut std::ffi::c_void {
     // Simplified implementation - pack a single i64 value
     // In production, this would use proper format string parsing
     let ptr = Box::into_raw(Box::new(value)) as *mut std::ffi::c_void;
@@ -1317,12 +1402,18 @@ extern "C" fn vp_struct_unpack(
     unsafe { *(data as *const i64) }
 }
 
-
-
-extern "C" fn vp_math_sqrt_stub(x: f64) -> f64 { x.sqrt() }
-extern "C" fn vp_math_abs_stub(x: f64) -> f64 { x.abs() }
-extern "C" fn vp_math_ln_stub(x: f64) -> f64 { x.ln() }
-extern "C" fn vp_math_floor_stub(x: f64) -> f64 { x.floor() }
+extern "C" fn vp_math_sqrt_stub(x: f64) -> f64 {
+    x.sqrt()
+}
+extern "C" fn vp_math_abs_stub(x: f64) -> f64 {
+    x.abs()
+}
+extern "C" fn vp_math_ln_stub(x: f64) -> f64 {
+    x.ln()
+}
+extern "C" fn vp_math_floor_stub(x: f64) -> f64 {
+    x.floor()
+}
 
 /// Check that all prerequisites are available
 fn check_prerequisites() -> Result<(), String> {

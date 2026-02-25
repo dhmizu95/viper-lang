@@ -103,7 +103,7 @@ pub fn generate_if<'ctx>(
                 state.functions,
                 state.global_constants,
                 state.loop_stack,
-            state.list_vars,
+                state.list_vars,
                 stmt,
             )?;
         }
@@ -130,7 +130,7 @@ pub fn generate_if<'ctx>(
                         state.functions,
                         state.global_constants,
                         state.loop_stack,
-            state.list_vars,
+                        state.list_vars,
                         stmt,
                     )?;
                 }
@@ -166,7 +166,7 @@ pub fn generate_if<'ctx>(
                 state.functions,
                 state.global_constants,
                 state.loop_stack,
-            state.list_vars,
+                state.list_vars,
                 stmt,
             )?;
         }
@@ -288,11 +288,14 @@ pub fn generate_for<'ctx>(
                     0 => return Err("range expected at least 1 argument, got 0".to_string()),
                     1 => (
                         state.ir_builder.i64_const(0),
-                        crate::codegen::expressions::generate_expr(state, &args[0])?.into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[0])?
+                            .into_int_value(),
                     ),
                     _ => (
-                        crate::codegen::expressions::generate_expr(state, &args[0])?.into_int_value(),
-                        crate::codegen::expressions::generate_expr(state, &args[1])?.into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[0])?
+                            .into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[1])?
+                            .into_int_value(),
                     ),
                 };
 
@@ -346,7 +349,7 @@ pub fn generate_for<'ctx>(
                     .build_cond_branch(state.builder, cond, body_block, exit_block);
 
                 state.builder.position_at_end(body_block);
-                
+
                 let old_var = if let Expr::Ident(target_name, _) = target {
                     // Try to construct a new VarInfo. Use state.variables.insert which returns the old value
                     state.variables.insert(
@@ -370,7 +373,7 @@ pub fn generate_for<'ctx>(
                         state.functions,
                         state.global_constants,
                         state.loop_stack,
-            state.list_vars,
+                        state.list_vars,
                         stmt,
                     )?;
                 }
@@ -409,7 +412,7 @@ pub fn generate_for<'ctx>(
                 }
 
                 state.builder.position_at_end(exit_block);
-                
+
                 // Restore the original shadowed variable, if any
                 if let Expr::Ident(target_name, _) = target {
                     if let Some(old) = old_var {
@@ -418,7 +421,7 @@ pub fn generate_for<'ctx>(
                         state.variables.remove(target_name);
                     }
                 }
-                
+
                 return Ok(());
             }
         }

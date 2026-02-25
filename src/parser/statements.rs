@@ -808,18 +808,18 @@ impl<'a> StatementParser<'a> {
             TokenKind::FString(s) => {
                 let s = s.clone();
                 self.advance();
-                
+
                 let mut elements = Vec::new();
                 let mut current_lit = String::new();
                 let mut chars = s.chars().peekable();
-                
+
                 while let Some(c) = chars.next() {
                     if c == '{' {
                         if !current_lit.is_empty() {
                             elements.push(Expr::Str(current_lit.clone(), span));
                             current_lit.clear();
                         }
-                        
+
                         let mut inner_expr_str = String::new();
                         while let Some(&next_c) = chars.peek() {
                             if next_c == '}' {
@@ -829,12 +829,15 @@ impl<'a> StatementParser<'a> {
                                 inner_expr_str.push(chars.next().unwrap());
                             }
                         }
-                        
+
                         // Tokenize and parse inner expression
                         let mut inner_lexer = crate::lexer::Lexer::new(&inner_expr_str);
                         if let Ok(tokens) = inner_lexer.tokenize() {
-                            let mut inner_parser = crate::parser::expressions::PrattParser::new(&tokens);
-                            if let Ok(expr) = inner_parser.parse_expr(crate::parser::precedence::Precedence::MIN) {
+                            let mut inner_parser =
+                                crate::parser::expressions::PrattParser::new(&tokens);
+                            if let Ok(expr) =
+                                inner_parser.parse_expr(crate::parser::precedence::Precedence::MIN)
+                            {
                                 elements.push(expr);
                             }
                         }
@@ -842,11 +845,11 @@ impl<'a> StatementParser<'a> {
                         current_lit.push(c);
                     }
                 }
-                
+
                 if !current_lit.is_empty() {
                     elements.push(Expr::Str(current_lit, span));
                 }
-                
+
                 Expr::FString(elements, span)
             }
             TokenKind::Bool(b) => {

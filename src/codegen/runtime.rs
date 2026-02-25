@@ -73,7 +73,8 @@ fn declare_print_functions<'ctx>(
     let str_split_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_split", str_split_type, None);
 
-    let str_replace_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+    let str_replace_type =
+        ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_replace", str_replace_type, None);
 
     Ok(())

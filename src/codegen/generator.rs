@@ -155,12 +155,15 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if !is_constant_assign {
-                // Skip type declarations (Class, Struct) and Externs
-                let is_type_or_extern_decl = matches!(stmt, Stmt::Class { .. } | Stmt::Struct { .. } | Stmt::Extern { .. });
+                    // Skip type declarations (Class, Struct) and Externs
+                    let is_type_or_extern_decl = matches!(
+                        stmt,
+                        Stmt::Class { .. } | Stmt::Struct { .. } | Stmt::Extern { .. }
+                    );
 
-                if !is_type_or_extern_decl {
-                    top_level_stmts.push(stmt.clone());
-                }
+                    if !is_type_or_extern_decl {
+                        top_level_stmts.push(stmt.clone());
+                    }
                 }
             }
         }
