@@ -10,6 +10,7 @@ Limited array support
 test_quicksort.vp has a separate issue with list type handling (loading i64 from ptr and using as ptr) - this is a pre-existing bug unrelated to the current fixes
 if build failed show which line cause this issue with line number
 
+background job running mechanism
 
 Final Viper Compiler Fix Plan
 Priority 1: Critical Bugs (Week 1)
