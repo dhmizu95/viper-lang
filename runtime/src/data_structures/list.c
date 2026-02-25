@@ -98,8 +98,8 @@ void vp_list_append(ViperList* list, int64_t value) {
  * Use this when the compiler can inline for better performance
  * The alwaysinline attribute encourages inlining even at lower optimization levels
  */
-__attribute__((always_inline)) 
-static inline void vp_list_append_inline(ViperList* list, int64_t value) {
+__attribute__((always_inline))
+inline void vp_list_append_inline(ViperList* list, int64_t value) {
     if (list->length >= list->capacity) {
         vp_list_grow(list);
     }
@@ -215,4 +215,22 @@ ViperList* vp_list_copy(ViperList* list) {
     }
 
     return copy;
+}
+
+/**
+ * Create a list by repeating an element count times
+ * Used for list comprehension: [elem] * count
+ */
+ViperList* vp_list_repeat(int64_t elem, int64_t count) {
+    if (count <= 0) {
+        return vp_list_create();
+    }
+
+    ViperList* list = vp_list_create_with_capacity(count);
+
+    for (int64_t i = 0; i < count; i++) {
+        vp_list_append(list, elem);
+    }
+
+    return list;
 }

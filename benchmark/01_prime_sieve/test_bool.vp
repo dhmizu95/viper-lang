@@ -1,0 +1,4 @@
+def main():
+    x = [True] * 10
+    print(len(x))
+

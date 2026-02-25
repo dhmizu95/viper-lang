@@ -1,0 +1,52 @@
+# Prime Sieve of Eratosthenes - Viper Implementation
+# Counts primes up to N using Sieve of Eratosthenes
+# Matches C/Rust/Go implementations
+
+def sieve(n: i64) -> i64:
+    # Create sieve array using list comprehension pattern
+    is_prime = []
+    i = 0
+    while i <= n:
+        is_prime.append(1)
+        i = i + 1
+
+    is_prime[0] = 0
+    is_prime[1] = 0
+
+    # Sieve of Eratosthenes
+    i = 2
+    while i * i <= n:
+        if is_prime[i] == 1:
+            # Mark multiples as composite
+            j = i * i
+            while j <= n:
+                is_prime[j] = 0
+                j = j + i
+        i = i + 1
+
+    # Count primes
+    count = 0
+    i = 2
+    while i <= n:
+        if is_prime[i] == 1:
+            count = count + 1
+        i = i + 1
+
+    return count
+
+def main():
+    print("Prime Sieve Benchmark")
+    print("=====================")
+
+    # Single benchmark run
+    n = 10000000
+    print("Sieving up to:", n)
+    
+    start_time = time.time()
+    count = sieve(n)
+    elapsed = (time.time() - start_time) * 1000
+    
+    print("Primes found:", count)
+    print("Time:", elapsed, "ms")
+    print("")
+    print("Benchmark complete!")
