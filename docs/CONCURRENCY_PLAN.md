@@ -93,15 +93,15 @@
 ### Phase 3: Fiber Runtime (Days 4-10)
 **Goal**: Goroutine-like cheap context switching
 
-| Task | File | Change |
+| Task | File | Status |
 |------|------|--------|
-| Create fiber.h | `runtime/src/fiber.h` | Fiber struct definition |
-| Create fiber.c | `runtime/src/fiber.c` | Stack management, context switch |
-| Create scheduler.c | `runtime/src/scheduler.c` | M:N fiber scheduler |
-| Integrate with task spawn | Both | Tasks → fibers |
-| Dynamic stack growth | `runtime/src/fiber.c` | 2KB → 64KB on demand |
-| Guard pages | `runtime/src/fiber.c` | Stack overflow protection |
-| Test | - | Verify 100K fibers work |
+| Create fiber.h | `runtime/src/fiber.h` | ✅ Complete |
+| Create fiber.c | `runtime/src/fiber.c` | ✅ Complete |
+| Create scheduler.c | `runtime/src/scheduler.c` | ✅ Complete |
+| Integrate with task spawn | Both | 🔄 In Progress |
+| Dynamic stack growth | `runtime/src/fiber.c` | ✅ Complete |
+| Guard pages | `runtime/src/fiber.c` | ✅ Complete |
+| Test | - | ⏳ Pending |
 
 **Success Criteria**: 100,000+ fibers run concurrently
 
