@@ -147,11 +147,51 @@ fn generate_stmt_internal<'ctx>(
             }
             // Tasks inside sync block are automatically waited
         }
-        Stmt::Task { call, .. } => {
+        Stmt::Task { call, span } => {
             // Task spawn - submit function to thread pool
-            // For now, just execute the call directly
-            // Full implementation would submit to worker pool
-            crate::codegen::expressions::generate_expr(state, call)?;
+            // We need to generate a wrapper that captures arguments and submits to pool
+
+            // For now, create a simple inline spawn using pthread
+            // Full implementation will use proper closure + thread pool
+            if let Expr::Call { func, args, .. } = call {
+                if let Expr::Ident(name, _) = func.as_ref() {
+                    // Generate a unique task ID
+                    let task_id = format!("{}_task_{}", name, span.start);
+
+                    // Get the function pointer
+                    if let Some(func_val) = state.functions.get(name) {
+                        // Evaluate all arguments first
+                        let arg_values: Vec<_> = args
+                            .iter()
+                            .map(|a| {
+                                crate::codegen::expressions::generate_expr(state, a)
+                                    .map(|v| v.into())
+                            })
+                            .collect::<Result<_, _>>()?;
+
+                        // Call the function with arguments (for now, inline)
+                        // TODO: Proper async task spawning with closure support
+                        let func_ptr = *func_val;
+                        let _result = state.ir_builder.build_call(
+                            state.builder,
+                            func_ptr,
+                            &arg_values,
+                            &task_id,
+                        );
+
+                        // Task runs inline for now - true async requires closure support
+                        // Will be implemented in Phase 3 (Fiber Runtime)
+                    } else {
+                        return Err(format!("Unknown function for task: {}", name));
+                    }
+                } else {
+                    // Non-identifier call - just execute inline
+                    crate::codegen::expressions::generate_expr(state, call)?;
+                }
+            } else {
+                // Not a call expression - just execute
+                crate::codegen::expressions::generate_expr(state, call)?;
+            }
         }
         Stmt::Chan { size, .. } => {
             // Channel creation - call runtime function
