@@ -19,7 +19,7 @@
 /* ============================================ */
 
 #define VIPER_DEFAULT_THREAD_COUNT 4
-#define VIPER_MAX_THREAD_COUNT 64
+#define VIPER_MAX_THREAD_COUNT 512
 
 /* ============================================ */
 /* Internal Structures                          */

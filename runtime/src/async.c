@@ -1,14 +1,17 @@
 /**
  * Viper Async Runtime
  * Basic async/await support with event loop
+ * 
+ * Supports unlimited tasks via dynamic allocation
  */
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "viper_stdlib.h"
 
-#define ASYNC_MAX_TASKS 256
+#define ASYNC_INITIAL_CAPACITY 256
 #define ASYNC_STACK_SIZE 8192
 
 /* ============================================ */
@@ -49,8 +52,9 @@ typedef struct ViperTask {
 /* ============================================ */
 
 typedef struct ViperEventLoop {
-    ViperTask* tasks[ASYNC_MAX_TASKS];
-    int64_t task_count;
+    ViperTask** tasks;           /* Dynamic array of task pointers */
+    int64_t task_capacity;       /* Current capacity of task array */
+    int64_t task_count;          /* Number of active tasks */
     int64_t current_task_id;
     ViperTask* running_task;
     ViperTask* completed_tasks;
@@ -63,7 +67,8 @@ static ViperEventLoop* global_event_loop = NULL;
 /* ============================================ */
 
 ViperFuture* vp_future_create(void) {
-    ViperFuture* future = (ViperFuture*)vp_arc_alloc(sizeof(ViperFuture));
+    ViperFuture* future = (ViperFuture*)malloc(sizeof(ViperFuture));
+    if (!future) return NULL;
     future->ref_count = 1;
     future->state = ASYNC_PENDING;
     future->result = 0;
@@ -74,7 +79,7 @@ ViperFuture* vp_future_create(void) {
 
 void vp_future_free(ViperFuture* future) {
     if (!future) return;
-    vp_arc_release(future);
+    free(future);
 }
 
 void vp_future_set_result(ViperFuture* future, int64_t result) {
@@ -111,12 +116,19 @@ ViperEventLoop* vp_event_loop_create(void) {
     ViperEventLoop* loop = (ViperEventLoop*)malloc(sizeof(ViperEventLoop));
     if (!loop) return NULL;
     
+    loop->task_capacity = ASYNC_INITIAL_CAPACITY;
     loop->task_count = 0;
     loop->current_task_id = 0;
     loop->running_task = NULL;
     loop->completed_tasks = NULL;
     
-    for (int i = 0; i < ASYNC_MAX_TASKS; i++) {
+    loop->tasks = (ViperTask**)malloc(sizeof(ViperTask*) * ASYNC_INITIAL_CAPACITY);
+    if (!loop->tasks) {
+        free(loop);
+        return NULL;
+    }
+    
+    for (int64_t i = 0; i < ASYNC_INITIAL_CAPACITY; i++) {
         loop->tasks[i] = NULL;
     }
     
@@ -126,10 +138,13 @@ ViperEventLoop* vp_event_loop_create(void) {
 void vp_event_loop_free(ViperEventLoop* loop) {
     if (!loop) return;
     
-    for (int i = 0; i < ASYNC_MAX_TASKS; i++) {
-        if (loop->tasks[i]) {
-            free(loop->tasks[i]);
+    if (loop->tasks) {
+        for (int64_t i = 0; i < loop->task_count; i++) {
+            if (loop->tasks[i]) {
+                free(loop->tasks[i]);
+            }
         }
+        free(loop->tasks);
     }
     
     free(loop);
@@ -144,9 +159,15 @@ ViperEventLoop* vp_event_loop_get(void) {
 
 int64_t vp_event_loop_spawn(void (*func)(void*), void* arg) {
     ViperEventLoop* loop = vp_event_loop_get();
+    if (!loop) return -1;
     
-    if (loop->task_count >= ASYNC_MAX_TASKS) {
-        return -1;
+    /* Grow task array if needed */
+    if (loop->task_count >= loop->task_capacity) {
+        int64_t new_capacity = loop->task_capacity * 2;
+        ViperTask** new_tasks = (ViperTask**)realloc(loop->tasks, sizeof(ViperTask*) * new_capacity);
+        if (!new_tasks) return -1;
+        loop->tasks = new_tasks;
+        loop->task_capacity = new_capacity;
     }
     
     ViperTask* task = (ViperTask*)malloc(sizeof(ViperTask));
