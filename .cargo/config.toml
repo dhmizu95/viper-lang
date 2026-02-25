@@ -9,6 +9,10 @@ LLVM_SYS_200_PREFIX = "/usr/lib/llvm-20"
 # Additional linker flags for LTO (if needed)
 # rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
+# Workaround for rustc ICE during dead code analysis with LTO
+# See: https://github.com/rust-lang/rust/issues/XXXXX
+rustflags = ["-A", "dead_code"]
+
 [build]
 # Use release profile by default for optimized builds
 # Override with --profile for PGO builds

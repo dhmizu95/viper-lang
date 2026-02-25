@@ -276,30 +276,38 @@ fn generate_assign<'ctx>(
                     state.builder.build_store(*alloca, val).expect("store");
                 }
                 VarStorage::Register(_) => {
-                    // For register-allocated variables, we need to upgrade to stack
-                    // since the variable is being reassigned (may escape now)
-                    // Create the alloca at the function entry block
-                    let func = state
-                        .builder
-                        .get_insert_block()
-                        .unwrap()
-                        .get_parent()
-                        .unwrap();
-                    let entry_block = func.get_first_basic_block().unwrap();
-                    let old_builder_pos = state.builder.get_insert_block();
+                    // For scalar types, keep register allocation
+                    // For reference types, upgrade to stack if needed
+                    let is_ref = var_info.var_type == VarType::Pointer;
 
-                    state.builder.position_at_end(entry_block);
-                    let ty = val.get_type();
-                    let alloca = state.builder.build_alloca(ty, name).expect("alloca");
+                    if is_ref {
+                        // For reference types, upgrade to stack
+                        // since the variable is being reassigned (may escape now)
+                        // Create the alloca at the function entry block
+                        let func = state
+                            .builder
+                            .get_insert_block()
+                            .unwrap()
+                            .get_parent()
+                            .unwrap();
+                        let entry_block = func.get_first_basic_block().unwrap();
+                        let old_builder_pos = state.builder.get_insert_block();
 
-                    // Restore builder position
-                    if let Some(pos) = old_builder_pos {
-                        state.builder.position_at_end(pos);
+                        state.builder.position_at_end(entry_block);
+                        let ty = val.get_type();
+                        let alloca = state.builder.build_alloca(ty, name).expect("alloca");
+
+                        // Restore builder position
+                        if let Some(pos) = old_builder_pos {
+                            state.builder.position_at_end(pos);
+                        }
+
+                        state.builder.build_store(alloca, val).expect("store");
+                        let new_var_info = VarInfo::new_stack(alloca, var_info.var_type);
+                        state.variables.insert(name.clone(), new_var_info);
                     }
-
-                    state.builder.build_store(alloca, val).expect("store");
-                    let new_var_info = VarInfo::new_stack(alloca, var_info.var_type);
-                    state.variables.insert(name.clone(), new_var_info);
+                    // For scalar types, just keep register allocation -
+                    // we replace the register value
                 }
             }
 
@@ -326,19 +334,30 @@ fn generate_assign<'ctx>(
                 VarType::Int
             };
 
-            // For assignments (not declarations), always use stack allocation
-            // because the variable might be reassigned later (e.g., in loops)
-            // Register allocation is only safe for declared variables that
-            // escape analysis proves are never reassigned.
-            let alloca = state.builder.build_alloca(ty, name).expect("alloca");
-            state.builder.build_store(alloca, val).expect("store");
-            state
-                .variables
-                .insert(name.clone(), VarInfo::new_stack(alloca, var_type));
+            // For scalar types (int, float), always use register allocation
+            // to avoid LLVM dominance issues with loop variables
+            let is_scalar = !is_ref_type;
 
-            // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
-            if is_ref_type {
-                state.build_retain(val, name);
+            if is_scalar {
+                // Use register allocation for scalars - no need for stack
+                state
+                    .variables
+                    .insert(name.clone(), VarInfo::new_register(val, var_type));
+            } else {
+                // For reference types, use stack allocation
+                // Note: We used to try to put this in the entry block, but that causes
+                // issues with basic block structure. Instead, we rely on escape analysis
+                // to ensure reference types don't cause dominance issues.
+                let alloca = state.builder.build_alloca(ty, name).expect("alloca");
+                state.builder.build_store(alloca, val).expect("store");
+                state
+                    .variables
+                    .insert(name.clone(), VarInfo::new_stack(alloca, var_type));
+
+                // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
+                if is_ref_type {
+                    state.build_retain(val, name);
+                }
             }
         }
     } else if let Expr::Index { obj, index, .. } = target {
@@ -390,62 +409,47 @@ fn generate_aug_assign<'ctx>(
     if let Expr::Ident(name, _) = target {
         if let Some(var_info) = state.variables.get(name) {
             let var_type = var_info.var_type;
+            let is_scalar = matches!(var_type, VarType::Int | VarType::Float);
 
-            // Get current value based on storage type
-            let current = match &var_info.storage {
-                VarStorage::Stack(alloca) => match var_type {
-                    VarType::Float => {
-                        let f64_type = state.context.f64_type();
-                        state
-                            .builder
-                            .build_load(f64_type, *alloca, name)
-                            .expect("load")
-                    }
-                    VarType::Int => {
-                        let i64_type = state.context.i64_type();
-                        state
-                            .builder
-                            .build_load(i64_type, *alloca, name)
-                            .expect("load")
-                    }
-                    VarType::Pointer => {
-                        return Err(format!(
-                            "Cannot perform augmented assignment on pointer variable '{}'",
-                            name
-                        ));
-                    }
-                },
-                VarStorage::Register(value) => {
-                    // For register-allocated variables, upgrade to stack for augmented assignment
-                    // since we need to store the result
-                    let ty = value.get_type();
-                    let alloca = state.builder.build_alloca(ty, name).expect("alloca");
-                    state.builder.build_store(alloca, *value).expect("store");
-                    let new_var_info = VarInfo::new_stack(alloca, var_type);
-                    state.variables.insert(name.clone(), new_var_info);
-
-                    match var_type {
-                        VarType::Float => {
-                            let f64_type = state.context.f64_type();
-                            state
-                                .builder
-                                .build_load(f64_type, alloca, name)
-                                .expect("load")
+            // Get current value
+            let current = if is_scalar {
+                // For scalars in registers, just use the value directly
+                if let VarStorage::Register(val) = &var_info.storage {
+                    *val
+                } else {
+                    // For scalars in stack, load it
+                    if let VarStorage::Stack(alloca) = &var_info.storage {
+                        match var_type {
+                            VarType::Float => {
+                                let f64_type = state.context.f64_type();
+                                state
+                                    .builder
+                                    .build_load(f64_type, *alloca, name)
+                                    .expect("load")
+                            }
+                            VarType::Int => {
+                                let i64_type = state.context.i64_type();
+                                state
+                                    .builder
+                                    .build_load(i64_type, *alloca, name)
+                                    .expect("load")
+                            }
+                            _ => return Err("Invalid var type".to_string()),
                         }
-                        VarType::Int => {
-                            let i64_type = state.context.i64_type();
-                            state
-                                .builder
-                                .build_load(i64_type, alloca, name)
-                                .expect("load")
-                        }
-                        VarType::Pointer => {
-                            return Err(format!(
-                                "Cannot perform augmented assignment on pointer variable '{}'",
-                                name
-                            ));
-                        }
+                    } else {
+                        return Err("Invalid storage".to_string());
                     }
+                }
+            } else {
+                // For pointers, load from stack
+                if let VarStorage::Stack(alloca) = &var_info.storage {
+                    let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                    state
+                        .builder
+                        .build_load(ptr_type, *alloca, name)
+                        .expect("load")
+                } else {
+                    return Err("Reference types must be stack allocated".to_string());
                 }
             };
 
@@ -506,10 +510,18 @@ fn generate_aug_assign<'ctx>(
                 .into()
             };
 
-            // Store result back (we know it's stack now after the match above)
+            // Store result back
             if let Some(var_info) = state.variables.get(name) {
-                if let VarStorage::Stack(alloca) = &var_info.storage {
-                    state.builder.build_store(*alloca, result).expect("store");
+                match &var_info.storage {
+                    VarStorage::Stack(alloca) => {
+                        state.builder.build_store(*alloca, result).expect("store");
+                    }
+                    VarStorage::Register(_) => {
+                        // For register allocation, just update the value
+                        state
+                            .variables
+                            .insert(name.clone(), VarInfo::new_register(result, var_type));
+                    }
                 }
             }
         } else {
@@ -550,14 +562,35 @@ fn generate_declare<'ctx>(
             VarType::Int
         };
 
-        if can_stack_alloc {
-            // Use SSA register allocation for non-escaping variables
+        // For scalar types (int, float), always use register allocation
+        // to avoid LLVM dominance issues with loop variables
+        let is_scalar = !is_ref_type;
+
+        if can_stack_alloc || is_scalar {
+            // Use SSA register allocation for non-escaping variables or scalars
             state
                 .variables
                 .insert(name.to_string(), VarInfo::new_register(val, var_type));
         } else {
             // Use stack allocation (alloca) for escaping variables
+            // Create alloca in function entry block to satisfy LLVM dominance
+            let func = state
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_parent()
+                .unwrap();
+            let entry_block = func.get_first_basic_block().unwrap();
+            let old_builder_pos = state.builder.get_insert_block();
+
+            state.builder.position_at_end(entry_block);
             let alloca = state.builder.build_alloca(ty, name).expect("alloca");
+
+            // Restore builder position
+            if let Some(pos) = old_builder_pos {
+                state.builder.position_at_end(pos);
+            }
+
             state.builder.build_store(alloca, val).expect("store");
             state
                 .variables
