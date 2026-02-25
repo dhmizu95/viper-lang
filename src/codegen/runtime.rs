@@ -182,6 +182,14 @@ fn declare_memory_functions<'ctx>(
     let release_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_release", release_type, None);
 
+    // malloc and free for heap allocations (used for task closures)
+    let i64_type = context.i64_type();
+    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("malloc", malloc_type, None);
+
+    let free_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("free", free_type, None);
+
     Ok(())
 }
 
@@ -261,6 +269,10 @@ fn declare_concurrency_functions<'ctx>(
     // vp_submit_task(func, data) - submits a task to run asynchronously
     let submit_task_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_submit_task", submit_task_type, None);
+
+    // Wait for all tasks to finish
+    let wait_all_tasks_type = void_type.fn_type(&[], false);
+    module.add_function("vp_wait_all_tasks", wait_all_tasks_type, None);
 
     // Thread spawning - creates a new OS thread for the task
     let spawn_thread_type = i64_type.fn_type(&[ptr_type.into()], false);

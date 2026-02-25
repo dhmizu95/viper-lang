@@ -146,6 +146,11 @@ fn generate_stmt_internal<'ctx>(
                 generate_stmt_internal(state, stmt)?;
             }
             // Tasks inside sync block are automatically waited
+            if let Some(wait_func) = state.module.get_function("vp_wait_all_tasks") {
+                let _ = state.builder.build_call(wait_func, &[], "wait_all");
+            } else {
+                return Err("vp_wait_all_tasks not declared".to_string());
+            }
         }
         Stmt::Task { call, span } => {
             // Task spawn - submit function to thread pool for parallel execution
@@ -153,29 +158,72 @@ fn generate_stmt_internal<'ctx>(
                 if let Expr::Ident(name, _) = func.as_ref() {
                     if let Some(func_val) = state.functions.get(name) {
                         // Evaluate all arguments first
-                        let arg_values: Vec<_> = args
-                            .iter()
-                            .map(|a| {
-                                crate::codegen::expressions::generate_expr(state, a)
-                                    .map(|v| v.into())
-                            })
-                            .collect::<Result<_, _>>()?;
+                        let mut arg_values = Vec::new();
+                        for a in args {
+                            let v = crate::codegen::expressions::generate_expr(state, a)?;
+                            arg_values.push(v);
+                        }
 
-                        // For parallel execution, we need to:
-                        // 1. Create a wrapper that captures the arguments
-                        // 2. Submit it to the thread pool
-                        //
-                        // For simplicity, we'll call vp_submit_task with a wrapper
-                        // The wrapper will call the actual function with captured args
-                        //
-                        // For now, run inline but note this is where parallel spawn goes
+                        // Create a struct type to pack all arguments
+                        let arg_types: Vec<_> = arg_values.iter().map(|v| v.get_type().into()).collect();
+                        let struct_type = state.context.struct_type(&arg_types, false);
+
+                        // Generate wrapper function: void wrapper(void* args)
+                        let void_type = state.context.void_type();
+                        let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                        let wrapper_fn_type = void_type.fn_type(&[ptr_type.into()], false);
+                        let wrapper_name = format!("__task_wrapper_{}_{}", name, span.start);
+                        let wrapper_fn = state.module.add_function(&wrapper_name, wrapper_fn_type, None);
+
+                        // Generate wrapper body
+                        let wrapper_entry = state.context.append_basic_block(wrapper_fn, "entry");
+                        let old_block = state.builder.get_insert_block();
+
+                        state.builder.position_at_end(wrapper_entry);
+                        let arg_ptr = wrapper_fn.get_first_param().unwrap().into_pointer_value();
+
+                        // Unpack arguments from the struct
+                        let mut call_args = Vec::new();
+                        for (i, arg_val) in arg_values.iter().enumerate() {
+                            let gep = state.builder.build_struct_gep(struct_type, arg_ptr, i as u32, "struct_gep").unwrap();
+                            let val = state.builder.build_load(arg_val.get_type(), gep, "arg").unwrap();
+                            call_args.push(val.into());
+                        }
+
+                        // Call actual function
                         let func_ptr = *func_val;
-                        let _result = state.ir_builder.build_call(
-                            state.builder,
-                            func_ptr,
-                            &arg_values,
-                            &format!("task_{}", span.start),
-                        );
+                        let _ = state.builder.build_call(func_ptr, &call_args, "call");
+
+                        // Free the args struct
+                        let free_func = state.module.get_function("free").unwrap();
+                        let _ = state.builder.build_call(free_func, &[arg_ptr.into()], "free");
+
+                        let _ = state.builder.build_return(None);
+
+                        // Restore builder
+                        if let Some(ob) = old_block {
+                            state.builder.position_at_end(ob);
+                        }
+
+                        // Call malloc to allocate struct on heap
+                        let malloc_func = state.module.get_function("malloc").unwrap();
+                        let struct_size = struct_type.size_of().unwrap();
+                        let malloc_call = state.builder.build_call(malloc_func, &[struct_size.into()], "malloc").unwrap();
+                        let heap_ptr = match malloc_call.try_as_basic_value() {
+                            inkwell::values::ValueKind::Basic(val) => val.into_pointer_value(),
+                            _ => panic!("Expected pointer from malloc"),
+                        };
+
+                        // Pack arguments into heap struct
+                        for (i, arg_val) in arg_values.iter().enumerate() {
+                            let gep = state.builder.build_struct_gep(struct_type, heap_ptr, i as u32, "struct_gep").unwrap();
+                            let _ = state.builder.build_store(gep, *arg_val);
+                        }
+
+                        // Submit task to thread pool
+                        let submit_func = state.module.get_function("vp_submit_task").unwrap();
+                        let wrapper_fn_ptr = wrapper_fn.as_global_value().as_pointer_value();
+                        let _ = state.builder.build_call(submit_func, &[wrapper_fn_ptr.into(), heap_ptr.into()], "submit");
                     } else {
                         return Err(format!("Unknown function for task: {}", name));
                     }
@@ -344,30 +392,34 @@ fn generate_assign<'ctx>(
                 VarType::Int
             };
 
-            // For scalar types (int, float), always use register allocation
-            // to avoid LLVM dominance issues with loop variables
-            let is_scalar = !is_ref_type;
+            // Always use stack allocation (alloca) for new variables.
+            // This is critical for correctness across loop basic blocks:
+            // SSA register values are frozen in the block they are defined in,
+            // so mutations like `i = i + 1` would not be visible to `while_cond`
+            // if the variable is register-allocated. Stack alloca + store/load
+            // is the correct approach; LLVM `mem2reg` will promote them back to
+            // registers during optimization.
+            let func = state
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_parent()
+                .unwrap();
+            let entry_block = func.get_first_basic_block().unwrap();
+            let old_pos = state.builder.get_insert_block();
+            state.builder.position_at_end(entry_block);
+            let alloca = state.builder.build_alloca(ty, name).expect("alloca");
+            if let Some(pos) = old_pos {
+                state.builder.position_at_end(pos);
+            }
+            state.builder.build_store(alloca, val).expect("store");
+            state
+                .variables
+                .insert(name.clone(), VarInfo::new_stack(alloca, var_type));
 
-            if is_scalar {
-                // Use register allocation for scalars - no need for stack
-                state
-                    .variables
-                    .insert(name.clone(), VarInfo::new_register(val, var_type));
-            } else {
-                // For reference types, use stack allocation
-                // Note: We used to try to put this in the entry block, but that causes
-                // issues with basic block structure. Instead, we rely on escape analysis
-                // to ensure reference types don't cause dominance issues.
-                let alloca = state.builder.build_alloca(ty, name).expect("alloca");
-                state.builder.build_store(alloca, val).expect("store");
-                state
-                    .variables
-                    .insert(name.clone(), VarInfo::new_stack(alloca, var_type));
-
-                // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
-                if is_ref_type {
-                    state.build_retain(val, name);
-                }
+            // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
+            if is_ref_type {
+                state.build_retain(val, name);
             }
         }
     } else if let Expr::Index { obj, index, .. } = target {
@@ -520,14 +572,17 @@ fn generate_aug_assign<'ctx>(
                 .into()
             };
 
-            // Store result back
+            // Store result back - for stack-allocated vars (the default), store to alloca.
+            // Register vars are updated in-place in the HashMap (legacy path, kept for safety).
             if let Some(var_info) = state.variables.get(name) {
                 match &var_info.storage {
                     VarStorage::Stack(alloca) => {
                         state.builder.build_store(*alloca, result).expect("store");
                     }
                     VarStorage::Register(_) => {
-                        // For register allocation, just update the value
+                        // Fallback: update the register value in the HashMap.
+                        // This path should not be hit for mutable scalars after the
+                        // generate_assign fix, but is kept for safety.
                         state
                             .variables
                             .insert(name.clone(), VarInfo::new_register(result, var_type));

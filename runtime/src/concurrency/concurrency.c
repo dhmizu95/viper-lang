@@ -93,6 +93,13 @@ void vp_submit_task(void (*func)(void*), void* data) {
     }
 }
 
+void vp_wait_all_tasks(void) {
+    ViperThreadPool* pool = atomic_load(&g_thread_pool);
+    if (pool) {
+        vp_threadpool_wait(pool);
+    }
+}
+
 /* ============================================ */
 /* Task Execution Helper                        */
 /* ============================================ */
