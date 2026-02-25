@@ -1,6 +1,7 @@
 //! Function declaration for Viper code generation
 
 use crate::ast::{Param, Type};
+use crate::utils::mangle_function_name;
 use inkwell::context::Context;
 use inkwell::types::BasicType;
 use inkwell::values::FunctionValue;
@@ -18,21 +19,24 @@ pub fn declare_function<'ctx>(
     params: &[Param],
     return_type: &Option<Type>,
 ) -> Result<(), String> {
-    let param_types: Vec<_> = params
+    let param_types: Vec<Type> = params
         .iter()
-        .map(|p| {
-            let ty = p.type_ann.clone().unwrap_or(Type::I64);
-            type_mapper.llvm_type(&ty).as_basic_type_enum().into()
-        })
+        .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
+        .collect();
+
+    let param_llvm_types: Vec<_> = param_types
+        .iter()
+        .map(|ty| type_mapper.llvm_type(ty).as_basic_type_enum().into())
         .collect();
 
     let fn_type = match type_mapper.llvm_return_type(return_type) {
-        Some(return_ty) => return_ty.fn_type(&param_types, false),
-        None => context.void_type().fn_type(&param_types, false),
+        Some(return_ty) => return_ty.fn_type(&param_llvm_types, false),
+        None => context.void_type().fn_type(&param_llvm_types, false),
     };
 
-    let func = module.add_function(name, fn_type, None);
-    functions.insert(name.to_string(), func);
+    let mangled_name = mangle_function_name(name, &param_types);
+    let func = module.add_function(&mangled_name, fn_type, None);
+    functions.insert(mangled_name, func);
 
     Ok(())
 }

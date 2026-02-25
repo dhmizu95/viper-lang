@@ -234,6 +234,7 @@ pub enum Stmt {
     /// Function definition
     Function {
         name: String,
+        type_params: Vec<String>,
         params: Vec<Param>,
         return_type: Option<Type>,
         body: Vec<Stmt>,
@@ -314,6 +315,73 @@ pub enum Stmt {
     WgDone { wg: Box<Expr>, span: Span },
     /// WaitGroup wait: wait(wg)
     WgWait { wg: Box<Expr>, span: Span },
+    /// Match statement: match value { case pattern: ... }
+    Match {
+        subject: Box<Expr>,
+        cases: Vec<MatchCase>,
+        span: Span,
+    },
+    /// Select statement for channels: select { case recv(c1): ... case send(c2, v): ... }
+    Select { cases: Vec<SelectCase>, span: Span },
+}
+
+/// A single case in a match statement
+#[derive(Debug, Clone)]
+pub struct MatchCase {
+    pub pattern: MatchPattern,
+    pub guard: Option<Expr>,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+/// Patterns for match statement
+#[derive(Debug, Clone)]
+pub enum MatchPattern {
+    /// Wildcard pattern: _
+    Wildcard,
+    /// Constant value: 42, "hello", True
+    Constant(Expr),
+    /// Variable binding: x
+    Variable(String),
+    /// Tuple pattern: (a, b)
+    Tuple(Vec<MatchPattern>),
+    /// List pattern: [a, b, ...rest]
+    List {
+        elements: Vec<MatchPattern>,
+        rest: Option<String>,
+    },
+    /// Type check pattern: Type(value)
+    TypeCheck {
+        type_name: String,
+        binding: Option<String>,
+    },
+    /// Range pattern: 1..5
+    Range {
+        start: Option<i64>,
+        end: Option<i64>,
+    },
+}
+
+/// A single case in a select statement
+#[derive(Debug, Clone)]
+pub struct SelectCase {
+    pub kind: SelectCaseKind,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+/// Kind of select case
+#[derive(Debug, Clone)]
+pub enum SelectCaseKind {
+    /// Receive from channel: case x = recv(chan):
+    Recv {
+        chan: Box<Expr>,
+        var: Option<String>,
+    },
+    /// Send to channel: case send(chan, value):
+    Send { chan: Box<Expr>, value: Box<Expr> },
+    /// Default case: case default:
+    Default,
 }
 
 impl Stmt {
@@ -346,6 +414,8 @@ impl Stmt {
             Stmt::WgAdd { span, .. } => *span,
             Stmt::WgDone { span, .. } => *span,
             Stmt::WgWait { span, .. } => *span,
+            Stmt::Match { span, .. } => *span,
+            Stmt::Select { span, .. } => *span,
         }
     }
 }

@@ -1,6 +1,7 @@
 //! Main code generator that translates AST to LLVM IR
 
 use crate::ast::{Expr, Module, Stmt, Type};
+use crate::utils::mangle_function_name;
 use inkwell::context::Context;
 use inkwell::values::{BasicValue, FunctionValue, GlobalValue};
 use std::collections::{HashMap, HashSet};
@@ -82,12 +83,17 @@ impl<'ctx> CodeGen<'ctx> {
                     return_type,
                     ..
                 } => {
+                    let param_types: Vec<Type> = params
+                        .iter()
+                        .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
+                        .collect();
+                    let mangled_name = mangle_function_name(name, &param_types);
                     crate::codegen::functions::declare_function(
                         self.context,
                         &mut self.module,
                         &self.type_mapper,
                         &mut self.functions,
-                        name,
+                        &mangled_name,
                         params,
                         return_type,
                     )?;
@@ -130,9 +136,12 @@ impl<'ctx> CodeGen<'ctx> {
                 ..
             } = stmt
             {
-                // Async functions are not fully implemented yet - treat as regular functions
-                // TODO: Implement proper async/await with state machine transformation
-                self.define_function(name, params, return_type, body)?;
+                let param_types: Vec<Type> = params
+                    .iter()
+                    .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
+                    .collect();
+                let mangled_name = mangle_function_name(name, &param_types);
+                self.define_function(&mangled_name, params, return_type, body)?;
             } else {
                 // Skip constant assignments - they're already handled
                 let is_constant_assign = match stmt {

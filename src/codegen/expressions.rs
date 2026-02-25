@@ -1,11 +1,66 @@
 //! Expression code generation for Viper
 
-use crate::ast::{BinOp, Expr, UnaryOp};
+use crate::ast::{BinOp, Expr, Type, UnaryOp};
+use crate::utils::mangle_function_name;
 
 use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarStorage, VarType};
+
+fn infer_expr_type(expr: &Expr) -> Type {
+    match expr {
+        Expr::Int(_, _) => Type::I64,
+        Expr::Float(_, _) => Type::F64,
+        Expr::Bool(_, _) => Type::Bool,
+        Expr::Str(_, _) => Type::Str,
+        Expr::None(_) => Type::None,
+        Expr::Ident(_, _) => Type::Infer,
+        Expr::Call { func, args, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
+                let mangled = mangle_function_name(name, &arg_types);
+                Type::Fn(arg_types, Box::new(Type::Infer))
+            } else {
+                Type::Infer
+            }
+        }
+        Expr::List { elements, .. } => {
+            if let Some(first) = elements.first() {
+                Type::List(Box::new(infer_expr_type(first)))
+            } else {
+                Type::List(Box::new(Type::Infer))
+            }
+        }
+        Expr::Array { elements, size, .. } => {
+            if let Some(first) = elements.first() {
+                Type::Array(Box::new(infer_expr_type(first)), size.unwrap_or(0))
+            } else {
+                Type::Array(Box::new(Type::Infer), size.unwrap_or(0))
+            }
+        }
+        Expr::Tuple { elements, .. } => Type::Tuple(elements.iter().map(infer_expr_type).collect()),
+        Expr::Dict { .. } => Type::Var("dict".to_string()),
+        Expr::BinOp {
+            op: _, left, right, ..
+        } => {
+            let lt = infer_expr_type(left);
+            let rt = infer_expr_type(right);
+            if lt == Type::F64 || rt == Type::F64 {
+                Type::F64
+            } else {
+                Type::I64
+            }
+        }
+        Expr::UnaryOp { op: _, operand, .. } => infer_expr_type(operand),
+        Expr::Attribute { .. } => Type::Infer,
+        Expr::Index { .. } => Type::Infer,
+        Expr::FString { .. } => Type::Str,
+        Expr::Await { .. } => Type::Infer,
+        Expr::Lambda { .. } => Type::Fn(vec![], Box::new(Type::Infer)),
+        Expr::Conditional { .. } => Type::Infer,
+    }
+}
 
 /// Generate code for an expression
 pub fn generate_expr<'ctx>(
@@ -1018,9 +1073,6 @@ fn generate_call<'ctx>(
         if name == "WaitGroup" {
             return generate_waitgroup_create(state, args);
         }
-        if name == "add" {
-            return generate_waitgroup_add(state, args);
-        }
         if name == "done" {
             return generate_waitgroup_done(state, args);
         }
@@ -1036,16 +1088,29 @@ fn generate_call<'ctx>(
             return generate_struct_unpack(state, args);
         }
 
-        if let Some(&func_val) = state.functions.get(name) {
-            let arg_values: Vec<_> = args
-                .iter()
-                .map(|a| generate_expr(state, a).map(|v| v.into()))
-                .collect::<Result<_, _>>()?;
+        // Check for user-defined functions BEFORE builtins (to support overloading)
+        let arg_types: Vec<Type> = args.iter().map(|a| infer_expr_type(a)).collect();
+        let mangled_name = mangle_function_name(name, &arg_types);
 
-            let result = state
-                .ir_builder
-                .build_call(state.builder, func_val, &arg_values, "call");
-            return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+        // Check if it's a user-defined function first
+        if state.functions.contains_key(&mangled_name) {
+            if let Some(&func_val) = state.functions.get(&mangled_name) {
+                let arg_values: Vec<_> = args
+                    .iter()
+                    .map(|a| generate_expr(state, a).map(|v| v.into()))
+                    .collect::<Result<_, _>>()?;
+
+                let result =
+                    state
+                        .ir_builder
+                        .build_call(state.builder, func_val, &arg_values, "call");
+                return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+            }
+        }
+
+        // Fall back to builtins if not a user-defined function
+        if name == "add" {
+            return generate_waitgroup_add(state, args);
         }
     }
 

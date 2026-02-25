@@ -1,11 +1,19 @@
 # Unimplemented Features - Viper Language
 
-## Phase 3 - Still Missing (~40%)
+## Phase 3 - Completed
+
+### Features Implemented:
+- Pattern matching (`match`/`case`) - with constant patterns, wildcard, variable binding
+- Select statement for channels - with recv, send, and default cases
+- Guard clauses (`unless`) - parsed as negated if statements
+- Pipeline operator (`|>`) - transforms to `right(left)` call syntax
+
+### Still Missing (~10%)
+(These require significant runtime changes)
 
 ### Concurrency - Channels
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Select statement | `select { case recv(c1): ... case recv(c2): ... }` | High |
 | Channel closing | `close(chan)` | High |
 | Range over channel | `for x in chan:` | Medium |
 
@@ -25,12 +33,12 @@
 ### Operators
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Pipeline operator | `data \|> transform` | Low |
+| Pipeline operator | `data |> transform` | Done |
 
 ### Control Flow
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Guard clauses | `unless condition:` | Medium |
+| Guard clauses | `unless condition:` | Done |
 
 ### Type System
 | Feature | Description | Priority |
@@ -41,7 +49,7 @@
 
 ---
 
-## Phase 4 - Not Started (~80 features)
+## Phase 4 - Not Started (~75 features)
 
 ### Type System
 | Feature | Description | Priority |
@@ -52,8 +60,8 @@
 ### Control Flow
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Pattern matching | `match/case` with patterns | High |
-| Guard clauses | `unless condition:` | Medium |
+| Pattern matching | `match/case` with patterns | Done |
+| Guard clauses | `unless condition:` | Done |
 
 ### Data Structures
 | Feature | Description | Priority |

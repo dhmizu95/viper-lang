@@ -1,4 +1,7 @@
-use crate::ast::{BinOp, ExceptHandler, Expr, Param, Stmt, Type};
+use crate::ast::{
+    BinOp, ExceptHandler, Expr, MatchCase, MatchPattern, Param, SelectCase, SelectCaseKind, Stmt,
+    Type, UnaryOp,
+};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::expressions::PrattParser;
 use crate::utils::Span;
@@ -73,6 +76,9 @@ impl<'a> StatementParser<'a> {
             TokenKind::Task => self.parse_task_spawn(),
             TokenKind::Mut => self.parse_mutable_decl(),
             TokenKind::Async => self.parse_async_function_def(),
+            TokenKind::Match => self.parse_match_stmt(),
+            TokenKind::Select => self.parse_select_stmt(),
+            TokenKind::Unless => self.parse_unless_stmt(),
             TokenKind::Await => {
                 // Await expression as statement
                 let expr = self.parse_expression()?;
@@ -105,6 +111,23 @@ impl<'a> StatementParser<'a> {
         self.expect(&TokenKind::Def)?;
 
         let name_token = self.expect_ident()?;
+
+        // Parse generic type parameters: [T, U, ...]
+        let mut type_params = Vec::new();
+        if self.match_token(&TokenKind::LBracket) {
+            loop {
+                if matches!(self.current().kind, TokenKind::Ident(_)) {
+                    type_params.push(self.expect_ident()?);
+                } else {
+                    break;
+                }
+                if !self.match_token(&TokenKind::Comma) {
+                    break;
+                }
+            }
+            self.expect(&TokenKind::RBracket)?;
+        }
+
         self.expect(&TokenKind::LParen)?;
 
         let mut params = Vec::new();
@@ -132,6 +155,7 @@ impl<'a> StatementParser<'a> {
 
         Ok(Stmt::Function {
             name: name_token,
+            type_params,
             params,
             return_type,
             body,
@@ -214,6 +238,7 @@ impl<'a> StatementParser<'a> {
 
         Ok(Stmt::Function {
             name: name_token,
+            type_params: vec![],
             params,
             return_type,
             body,
@@ -301,6 +326,34 @@ impl<'a> StatementParser<'a> {
         };
         self.advance();
         Ok(ty)
+    }
+
+    fn parse_unless_stmt(&mut self) -> Result<Stmt, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::Unless)?;
+
+        let condition = self.parse_expression()?;
+
+        // Negate the condition
+        let negated_condition = Expr::UnaryOp {
+            op: UnaryOp::Not,
+            operand: Box::new(condition),
+            span: start_span,
+        };
+
+        self.expect(&TokenKind::Colon)?;
+
+        let body = self.parse_block()?;
+
+        let span = start_span.merge(self.previous().span);
+
+        Ok(Stmt::If {
+            condition: negated_condition,
+            body,
+            elif_blocks: vec![],
+            else_body: None,
+            span,
+        })
     }
 
     fn parse_if_stmt(&mut self) -> Result<Stmt, String> {
@@ -1239,6 +1292,288 @@ impl<'a> StatementParser<'a> {
             }
         }
         None
+    }
+
+    fn parse_match_stmt(&mut self) -> Result<Stmt, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::Match)?;
+
+        let subject = self.parse_expression()?;
+
+        self.expect(&TokenKind::Colon)?;
+
+        // Allow either newline or immediate case
+        let mut cases = Vec::new();
+
+        // Check if we have case directly or need newline/indent
+        if !matches!(self.current().kind, TokenKind::Case) {
+            self.expect(&TokenKind::Newline)?;
+
+            // Skip optional indent
+            if matches!(self.current().kind, TokenKind::Indent) {
+                self.expect(&TokenKind::Indent)?;
+            }
+        }
+
+        while matches!(self.current().kind, TokenKind::Case) {
+            let case_span = self.current().span;
+            self.expect(&TokenKind::Case)?;
+
+            let pattern = self.parse_match_pattern()?;
+
+            let guard = if self.match_token(&TokenKind::If) {
+                Some(self.parse_expression()?)
+            } else {
+                None
+            };
+
+            self.expect(&TokenKind::Colon)?;
+
+            // Parse case body - can be single statement or indented block
+            let mut body = Vec::new();
+
+            // Skip optional newline after colon
+            self.match_token(&TokenKind::Newline);
+
+            // Check for indented block
+            if matches!(self.current().kind, TokenKind::Indent) {
+                self.expect(&TokenKind::Indent)?;
+                loop {
+                    if matches!(self.current().kind, TokenKind::Dedent) {
+                        self.advance();
+                        break;
+                    }
+                    if matches!(self.current().kind, TokenKind::Case) {
+                        break;
+                    }
+                    if self.is_at_end() {
+                        break;
+                    }
+                    if self.match_token(&TokenKind::Newline) {
+                        continue;
+                    }
+                    body.push(self.parse_statement()?);
+                }
+            } else if !matches!(self.current().kind, TokenKind::Case) {
+                // Single statement on same line
+                body.push(self.parse_statement()?);
+            }
+
+            cases.push(MatchCase {
+                pattern,
+                guard,
+                body,
+                span: case_span.merge(self.previous().span),
+            });
+        }
+
+        let span = start_span.merge(self.previous().span);
+
+        Ok(Stmt::Match {
+            subject: Box::new(subject),
+            cases,
+            span,
+        })
+    }
+
+    fn parse_select_stmt(&mut self) -> Result<Stmt, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::Select)?;
+        self.expect(&TokenKind::Colon)?;
+
+        let mut cases = Vec::new();
+
+        // Handle optional newline
+        if matches!(self.current().kind, TokenKind::Newline) {
+            self.expect(&TokenKind::Newline)?;
+            if matches!(self.current().kind, TokenKind::Indent) {
+                self.expect(&TokenKind::Indent)?;
+            }
+        }
+
+        while matches!(self.current().kind, TokenKind::Case) {
+            let case_span = self.current().span;
+            self.expect(&TokenKind::Case)?;
+
+            // Parse the case kind: recv, send, or default
+            let kind = if self.match_token(&TokenKind::Recv) {
+                self.expect(&TokenKind::LParen)?;
+                let chan = self.parse_expression()?;
+                self.expect(&TokenKind::RParen)?;
+                let var = if self.match_token(&TokenKind::Eq) {
+                    Some(self.expect_ident()?)
+                } else {
+                    None
+                };
+                SelectCaseKind::Recv {
+                    chan: Box::new(chan),
+                    var,
+                }
+            } else if self.match_token(&TokenKind::Send) {
+                self.expect(&TokenKind::LParen)?;
+                let chan = self.parse_expression()?;
+                self.expect(&TokenKind::Comma)?;
+                let value = self.parse_expression()?;
+                self.expect(&TokenKind::RParen)?;
+                SelectCaseKind::Send {
+                    chan: Box::new(chan),
+                    value: Box::new(value),
+                }
+            } else if let TokenKind::Ident(name) = &self.current().kind {
+                if name == "default" {
+                    self.advance();
+                    SelectCaseKind::Default
+                } else {
+                    return Err("Expected 'recv', 'send', or 'default' in select case".to_string());
+                }
+            } else {
+                return Err("Expected 'recv', 'send', or 'default' in select case".to_string());
+            };
+
+            self.expect(&TokenKind::Colon)?;
+
+            // Parse body
+            self.match_token(&TokenKind::Newline);
+            let mut body = Vec::new();
+            if matches!(self.current().kind, TokenKind::Indent) {
+                self.expect(&TokenKind::Indent)?;
+                loop {
+                    if matches!(self.current().kind, TokenKind::Dedent) {
+                        self.advance();
+                        break;
+                    }
+                    if matches!(self.current().kind, TokenKind::Case) {
+                        break;
+                    }
+                    if self.is_at_end() {
+                        break;
+                    }
+                    if self.match_token(&TokenKind::Newline) {
+                        continue;
+                    }
+                    body.push(self.parse_statement()?);
+                }
+            } else if !matches!(self.current().kind, TokenKind::Case) {
+                body.push(self.parse_statement()?);
+            }
+
+            cases.push(SelectCase {
+                kind,
+                body,
+                span: case_span,
+            });
+        }
+
+        let span = start_span.merge(self.previous().span);
+        Ok(Stmt::Select { cases, span })
+    }
+
+    fn parse_match_pattern(&mut self) -> Result<MatchPattern, String> {
+        let token = self.current().clone();
+
+        match token.kind {
+            TokenKind::Underscore => {
+                self.advance();
+                Ok(MatchPattern::Wildcard)
+            }
+            TokenKind::Int(n) => {
+                let span = token.span;
+                self.advance();
+                Ok(MatchPattern::Constant(Expr::Int(n, span)))
+            }
+            TokenKind::Str(s) => {
+                let span = token.span;
+                self.advance();
+                Ok(MatchPattern::Constant(Expr::Str(s, span)))
+            }
+            TokenKind::Bool(b) => {
+                let span = token.span;
+                self.advance();
+                Ok(MatchPattern::Constant(Expr::Bool(b, span)))
+            }
+            TokenKind::None => {
+                let span = token.span;
+                self.advance();
+                Ok(MatchPattern::Constant(Expr::None(span)))
+            }
+            TokenKind::LBracket => self.parse_match_list_pattern(),
+            TokenKind::LParen => self.parse_match_tuple_pattern(),
+            TokenKind::Ident(name) => {
+                self.advance();
+                let next_token = self.current();
+                if matches!(next_token.kind, TokenKind::LParen) {
+                    self.parse_match_type_pattern(&name)
+                } else {
+                    Ok(MatchPattern::Variable(name))
+                }
+            }
+            _ => Err(format!("Unexpected token in pattern: {:?}", token.kind)),
+        }
+    }
+
+    fn parse_match_list_pattern(&mut self) -> Result<MatchPattern, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::LBracket)?;
+
+        let mut elements = Vec::new();
+        let mut rest = None;
+
+        if !matches!(self.current().kind, TokenKind::RBracket) {
+            loop {
+                if matches!(self.current().kind, TokenKind::DotDot) {
+                    self.expect(&TokenKind::DotDot)?;
+                    rest = Some(self.expect_ident()?);
+                    break;
+                }
+                elements.push(self.parse_match_pattern()?);
+                if !self.match_token(&TokenKind::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.expect(&TokenKind::RBracket)?;
+
+        Ok(MatchPattern::List { elements, rest })
+    }
+
+    fn parse_match_tuple_pattern(&mut self) -> Result<MatchPattern, String> {
+        self.expect(&TokenKind::LParen)?;
+
+        let mut elements = Vec::new();
+        if !matches!(self.current().kind, TokenKind::RParen) {
+            loop {
+                elements.push(self.parse_match_pattern()?);
+                if !self.match_token(&TokenKind::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.expect(&TokenKind::RParen)?;
+
+        Ok(MatchPattern::Tuple(elements))
+    }
+
+    fn parse_match_type_pattern(&mut self, type_name: &str) -> Result<MatchPattern, String> {
+        self.expect(&TokenKind::LParen)?;
+
+        let binding = if matches!(self.current().kind, TokenKind::Ident(_))
+            && !matches!(
+                self.peek().map(|t| &t.kind),
+                Some(TokenKind::Comma) | Some(TokenKind::RParen)
+            ) {
+            Some(self.expect_ident()?)
+        } else {
+            None
+        };
+
+        self.expect(&TokenKind::RParen)?;
+
+        Ok(MatchPattern::TypeCheck {
+            type_name: type_name.to_string(),
+            binding,
+        })
     }
 
     fn expect(&mut self, kind: &TokenKind) -> Result<(), String> {

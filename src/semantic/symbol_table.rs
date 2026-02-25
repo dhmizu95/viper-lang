@@ -1,4 +1,5 @@
 use crate::ast::Type;
+use crate::utils::mangle_function_name;
 use crate::utils::Span;
 use std::collections::HashMap;
 
@@ -12,6 +13,7 @@ pub enum SymbolKind {
     Function {
         params: Vec<Type>,
         return_type: Option<Type>,
+        mangled_name: String,
     },
     Parameter {
         type_ann: Option<Type>,
@@ -62,6 +64,26 @@ impl Symbol {
         Self {
             name,
             kind,
+            span,
+            scope_id,
+        }
+    }
+
+    pub fn new_function(
+        name: String,
+        params: Vec<Type>,
+        return_type: Option<Type>,
+        span: Span,
+        scope_id: usize,
+    ) -> Self {
+        let mangled_name = mangle_function_name(&name, &params);
+        Self {
+            name,
+            kind: SymbolKind::Function {
+                params,
+                return_type,
+                mangled_name,
+            },
             span,
             scope_id,
         }
@@ -240,12 +262,19 @@ impl SymbolTable {
     }
 
     /// Insert a symbol into current scope
+    /// For functions, allows overloading by using mangled name
     pub fn insert(&mut self, symbol: Symbol) -> Result<(), String> {
         let scope = &mut self.scopes[self.current_scope];
-        if scope.contains_key(&symbol.name) {
-            return Err(format!("'{}' is already defined", symbol.name));
+
+        if let SymbolKind::Function { mangled_name, .. } = &symbol.kind {
+            let key = mangled_name.clone();
+            scope.insert(key, symbol);
+        } else {
+            if scope.contains_key(&symbol.name) {
+                return Err(format!("'{}' is already defined", symbol.name));
+            }
+            scope.insert(symbol.name.clone(), symbol);
         }
-        scope.insert(symbol.name.clone(), symbol);
         Ok(())
     }
 
@@ -253,6 +282,16 @@ impl SymbolTable {
     pub fn lookup(&self, name: &str) -> Option<&Symbol> {
         for &scope_id in self.scope_chain.iter().rev() {
             if let Some(symbol) = self.scopes[scope_id].get(name) {
+                return Some(symbol);
+            }
+        }
+        None
+    }
+
+    /// Look up a function by its mangled name
+    pub fn lookup_mangled(&self, mangled_name: &str) -> Option<&Symbol> {
+        for &scope_id in self.scope_chain.iter().rev() {
+            if let Some(symbol) = self.scopes[scope_id].get(mangled_name) {
                 return Some(symbol);
             }
         }

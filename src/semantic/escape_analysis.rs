@@ -303,7 +303,9 @@ impl EscapeAnalyzer {
             | Stmt::WaitGroup { .. }
             | Stmt::WgAdd { .. }
             | Stmt::WgDone { .. }
-            | Stmt::WgWait { .. } => {
+            | Stmt::WgWait { .. }
+            | Stmt::Match { .. }
+            | Stmt::Select { .. } => {
                 // Conservative: assume may escape for concurrency operations
             }
         }

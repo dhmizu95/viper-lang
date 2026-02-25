@@ -7,6 +7,7 @@ pub struct Precedence(pub u8);
 
 impl Precedence {
     pub const MIN: Precedence = Precedence(0);
+    pub const PIPELINE: Precedence = Precedence(0);
     pub const ASSIGNMENT: Precedence = Precedence(1);
     pub const OR: Precedence = Precedence(2);
     pub const AND: Precedence = Precedence(3);

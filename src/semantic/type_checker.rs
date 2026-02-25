@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Expr, Module, Stmt, Type, UnaryOp};
+use crate::ast::{BinOp, Expr, MatchPattern, Module, SelectCaseKind, Stmt, Type, UnaryOp};
 use crate::semantic::symbol_table::{Symbol, SymbolKind, SymbolTable};
 use std::collections::HashMap;
 
@@ -55,14 +55,10 @@ impl TypeChecker {
                     .map(|p| p.type_ann.clone().unwrap_or(Type::Infer))
                     .collect();
 
-                let kind = SymbolKind::Function {
-                    params: param_types,
-                    return_type: return_type.clone(),
-                };
-
-                let symbol = Symbol::new(
+                let symbol = Symbol::new_function(
                     name.clone(),
-                    kind,
+                    param_types,
+                    return_type.clone(),
                     *span,
                     self.symbol_table.current_scope_id(),
                 );
@@ -391,6 +387,7 @@ impl TypeChecker {
             }
             Stmt::Function {
                 name: _,
+                type_params: _,
                 params,
                 return_type,
                 body,
@@ -521,6 +518,67 @@ impl TypeChecker {
                             *span,
                         ));
                     }
+                }
+            }
+            Stmt::Match {
+                subject,
+                cases,
+                span,
+            } => {
+                let subject_type = self.check_expr(subject);
+
+                for case in cases {
+                    if let Some(guard) = &case.guard {
+                        let guard_type = self.check_expr(guard);
+                        if let Some(gt) = guard_type {
+                            if gt != Type::Bool {
+                                self.errors.push(TypeError::new(
+                                    format!("Match guard must be bool, got {}", gt),
+                                    guard.span(),
+                                ));
+                            }
+                        }
+                    }
+
+                    self.symbol_table.enter_scope();
+                    for stmt in &case.body {
+                        self.check_stmt(stmt);
+                    }
+                    self.symbol_table.exit_scope();
+                }
+
+                if cases.is_empty() {
+                    self.errors.push(TypeError::new(
+                        "Match statement must have at least one case".to_string(),
+                        *span,
+                    ));
+                }
+            }
+            Stmt::Select { cases, span } => {
+                for case in cases {
+                    match &case.kind {
+                        SelectCaseKind::Recv { chan, var: _ } => {
+                            let _ = self.check_expr(chan);
+                        }
+                        SelectCaseKind::Send { chan, value } => {
+                            let _ = self.check_expr(chan);
+                            let _ = self.check_expr(value);
+                        }
+                        SelectCaseKind::Default => {}
+                    }
+
+                    self.symbol_table.enter_scope();
+                    for stmt in &case.body {
+                        self.check_stmt(stmt);
+                    }
+                    self.symbol_table.exit_scope();
+                }
+
+                if cases.is_empty() {
+                    self.errors.push(TypeError::new(
+                        "Select statement must have at least one case".to_string(),
+                        *span,
+                    ));
                 }
             }
             _ => {

@@ -89,6 +89,21 @@ impl<'a> PrattParser<'a> {
                     break;
                 }
 
+                // Check for pipeline operator specially
+                if matches!(self.peek().kind, TokenKind::Pipeline) {
+                    self.advance(); // consume |>
+                                    // Use one higher precedence for left-associativity
+                    let right = self.parse_expr(Precedence(Precedence::PIPELINE.0 + 1))?;
+                    // Transform: left |> right  =>  right(left)
+                    let span = left.span().merge(right.span());
+                    left = Expr::Call {
+                        func: Box::new(right),
+                        args: vec![left],
+                        span,
+                    };
+                    continue;
+                }
+
                 // Handle right associativity
                 let next_min_prec = if Precedence::EXPONENT.0 == op_prec.0 {
                     op_prec
@@ -478,6 +493,7 @@ impl<'a> PrattParser<'a> {
                 Precedence::PRODUCT
             }
             TokenKind::DoubleStar => Precedence::EXPONENT,
+            TokenKind::Pipeline => Precedence::PIPELINE,
             _ => return None,
         };
 

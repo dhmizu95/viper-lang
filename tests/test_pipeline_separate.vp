@@ -1,0 +1,10 @@
+def add_one(x: i64) -> i64:
+    return x + 1
+
+def double(x: i64) -> i64:
+    return x * 2
+
+def main():
+    a = 5 |> add_one
+    b = a |> double
+    print(b)

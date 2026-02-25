@@ -259,7 +259,15 @@ impl<'a> Lexer<'a> {
 
                 // Bitwise operators (Phase 2)
                 '&' => TokenKind::Ampersand,
-                '|' => TokenKind::Pipe,
+                '|' => {
+                    // Check for |> (pipeline) or just | (bitwise OR)
+                    if self.peek() == Some('>') {
+                        self.advance();
+                        TokenKind::Pipeline // Pipeline operator |>
+                    } else {
+                        TokenKind::Pipe // Bitwise OR |
+                    }
+                }
                 '^' => TokenKind::Caret,
                 '~' => TokenKind::Tilde,
 
@@ -525,6 +533,12 @@ impl<'a> Lexer<'a> {
             "async" => TokenKind::Async,
             "await" => TokenKind::Await,
             "extern" => TokenKind::Extern,
+            "match" => TokenKind::Match,
+            "case" => TokenKind::Case,
+            "select" => TokenKind::Select,
+            "recv" => TokenKind::Recv,
+            "send" => TokenKind::Send,
+            "unless" => TokenKind::Unless,
             "is" => {
                 // Check for "is not" by looking at source string
                 // Look ahead in the source to see if next word is "not"

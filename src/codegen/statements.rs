@@ -350,6 +350,65 @@ fn generate_stmt_internal<'ctx>(
                 .build_call(wait_func, &[wg_val.into()], "")
                 .expect("call vp_waitgroup_wait");
         }
+        Stmt::Match {
+            subject,
+            cases,
+            span: _,
+        } => {
+            let subject_val = crate::codegen::expressions::generate_expr(state, subject)?;
+
+            // Generate each case as a simple if statement
+            for case in cases {
+                let matches = generate_match_pattern(state, &case.pattern, subject_val)?;
+
+                // Create blocks for then and else
+                let func = state
+                    .builder
+                    .get_insert_block()
+                    .unwrap()
+                    .get_parent()
+                    .unwrap();
+                let then_bb = state.context.append_basic_block(func, "match_then");
+                let else_bb = state.context.append_basic_block(func, "match_else");
+
+                // Generate the conditional branch
+                state
+                    .builder
+                    .build_conditional_branch(matches, then_bb, else_bb)
+                    .unwrap();
+
+                // Generate then block (case body)
+                state.builder.position_at_end(then_bb);
+                for stmt in &case.body {
+                    crate::codegen::statements::generate_stmt(
+                        state.context,
+                        state.module,
+                        state.builder,
+                        state.ir_builder,
+                        state.variables,
+                        state.functions,
+                        state.global_constants,
+                        state.loop_stack,
+                        state.list_vars,
+                        stmt,
+                    )?;
+                }
+
+                // If no terminator, add one to else
+                if state
+                    .builder
+                    .get_insert_block()
+                    .unwrap()
+                    .get_terminator()
+                    .is_none()
+                {
+                    state.builder.build_unconditional_branch(else_bb).unwrap();
+                }
+
+                // Position at else for next case
+                state.builder.position_at_end(else_bb);
+            }
+        }
         _ => {}
     }
     Ok(())
@@ -730,4 +789,46 @@ fn generate_declare<'ctx>(
         }
     }
     Ok(())
+}
+
+use crate::ast::MatchPattern;
+
+fn generate_match_pattern<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    pattern: &MatchPattern,
+    subject_val: inkwell::values::BasicValueEnum<'ctx>,
+) -> Result<inkwell::values::IntValue<'ctx>, String> {
+    match pattern {
+        MatchPattern::Wildcard => Ok(state.context.bool_type().const_int(1, false)),
+        MatchPattern::Constant(expr) => {
+            let const_val = crate::codegen::expressions::generate_expr(state, expr)?;
+            let subject_int = subject_val.into_int_value();
+            let const_int = const_val.into_int_value();
+            let cmp = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    subject_int,
+                    const_int,
+                    "pattern_eq",
+                )
+                .unwrap();
+            Ok(cmp)
+        }
+        MatchPattern::Variable(name) => {
+            let alloca = state
+                .builder
+                .build_alloca(subject_val.get_type(), name)
+                .unwrap();
+            state.builder.build_store(alloca, subject_val).unwrap();
+            state
+                .variables
+                .insert(name.clone(), VarInfo::new_stack(alloca, VarType::Pointer));
+            Ok(state.context.bool_type().const_int(1, false))
+        }
+        MatchPattern::Tuple(_) => Ok(state.context.bool_type().const_int(1, false)),
+        MatchPattern::List { .. } => Ok(state.context.bool_type().const_int(1, false)),
+        MatchPattern::TypeCheck { .. } => Ok(state.context.bool_type().const_int(1, false)),
+        MatchPattern::Range { .. } => Ok(state.context.bool_type().const_int(1, false)),
+    }
 }
