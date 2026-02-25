@@ -4,6 +4,9 @@ use crate::ast::{Expr, Stmt};
 
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{LoopContext, VarInfo, VarType};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static WHILE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// Generate an if statement
 pub fn generate_if<'ctx>(
@@ -200,9 +203,16 @@ pub fn generate_while<'ctx>(
         .unwrap()
         .get_parent()
         .unwrap();
-    let cond_block = state.context.append_basic_block(func, "while_cond");
-    let body_block = state.context.append_basic_block(func, "while_body");
-    let exit_block = state.context.append_basic_block(func, "while_exit");
+    let while_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let cond_block = state
+        .context
+        .append_basic_block(func, &format!("while_cond{}", while_num));
+    let body_block = state
+        .context
+        .append_basic_block(func, &format!("while_body{}", while_num));
+    let exit_block = state
+        .context
+        .append_basic_block(func, &format!("while_exit{}", while_num));
 
     state.ir_builder.build_branch(state.builder, cond_block);
 
@@ -246,7 +256,15 @@ pub fn generate_while<'ctx>(
     }
 
     state.loop_stack.pop();
-    state.ir_builder.build_branch(state.builder, cond_block);
+    if state
+        .builder
+        .get_insert_block()
+        .unwrap()
+        .get_terminator()
+        .is_none()
+    {
+        state.ir_builder.build_branch(state.builder, cond_block);
+    }
     state.builder.position_at_end(exit_block);
     Ok(())
 }
@@ -273,11 +291,22 @@ pub fn generate_for<'ctx>(
                     .unwrap()
                     .get_parent()
                     .unwrap();
-                let init_block = state.context.append_basic_block(func_ctx, "for_init");
-                let cond_block = state.context.append_basic_block(func_ctx, "for_cond");
-                let body_block = state.context.append_basic_block(func_ctx, "for_body");
-                let step_block = state.context.append_basic_block(func_ctx, "for_step");
-                let exit_block = state.context.append_basic_block(func_ctx, "for_exit");
+                let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+                let init_block = state
+                    .context
+                    .append_basic_block(func_ctx, &format!("for_init{}", for_num));
+                let cond_block = state
+                    .context
+                    .append_basic_block(func_ctx, &format!("for_cond{}", for_num));
+                let body_block = state
+                    .context
+                    .append_basic_block(func_ctx, &format!("for_body{}", for_num));
+                let step_block = state
+                    .context
+                    .append_basic_block(func_ctx, &format!("for_step{}", for_num));
+                let exit_block = state
+                    .context
+                    .append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
                 state.ir_builder.build_branch(state.builder, init_block);
                 state.builder.position_at_end(init_block);
@@ -327,7 +356,15 @@ pub fn generate_for<'ctx>(
                     )?;
                 }
 
-                state.ir_builder.build_branch(state.builder, step_block);
+                if state
+                    .builder
+                    .get_insert_block()
+                    .unwrap()
+                    .get_terminator()
+                    .is_none()
+                {
+                    state.ir_builder.build_branch(state.builder, step_block);
+                }
 
                 state.builder.position_at_end(step_block);
                 let counter_val = state
@@ -342,7 +379,15 @@ pub fn generate_for<'ctx>(
                     "next_counter",
                 );
                 state.builder.build_store(counter, next_val).expect("store");
-                state.ir_builder.build_branch(state.builder, cond_block);
+                if state
+                    .builder
+                    .get_insert_block()
+                    .unwrap()
+                    .get_terminator()
+                    .is_none()
+                {
+                    state.ir_builder.build_branch(state.builder, cond_block);
+                }
 
                 state.builder.position_at_end(exit_block);
                 return Ok(());

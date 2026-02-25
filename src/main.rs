@@ -272,6 +272,12 @@ fn link_with_gcc(
     pgo: Option<&str>,
     opt_level: u32,
 ) -> Result<(), String> {
+    let runtime_paths = ["runtime/obj", "../runtime/obj", "../../runtime/obj"];
+    let runtime_path = runtime_paths
+        .iter()
+        .find(|p| Path::new(p).exists())
+        .ok_or_else(|| "Runtime object files not found".to_string())?;
+
     let mut args = vec![obj_path.to_string()];
 
     // Add optimization flags
@@ -303,11 +309,15 @@ fn link_with_gcc(
         }
     }
 
-    // Add output, library paths, and libraries
+    // Add output
+    args.extend_from_slice(&["-o".to_string(), bin_path.to_string()]);
+
+    // Add runtime.o for additional runtime functions
+    args.push(format!("{}/runtime.o", runtime_path));
+
+    // Add library path and libraries
     args.extend_from_slice(&[
-        "-o".to_string(),
-        bin_path.to_string(),
-        "-L./runtime".to_string(),
+        format!("-L{}", runtime_path),
         "-lviper".to_string(),
         "-lm".to_string(),
     ]);
