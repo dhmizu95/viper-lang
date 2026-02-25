@@ -5,7 +5,7 @@ use crate::utils::Span;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     // Literals
-    Int(i64),
+    Int(i128),
     Float(f64),
     Str(String),
     FString(String),

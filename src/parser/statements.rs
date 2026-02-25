@@ -285,7 +285,12 @@ impl<'a> StatementParser<'a> {
             self.expect(&TokenKind::Semi)?;
             let size_token = self.current();
             let size = match &size_token.kind {
-                TokenKind::Int(n) => *n as usize,
+                TokenKind::Int(n) => {
+                    if *n < 0 || *n > usize::MAX as i128 {
+                        return Err(format!("Array size must be a positive usize: {}", n));
+                    }
+                    *n as usize
+                }
                 _ => {
                     return Err(format!(
                         "Expected integer size for array type, found {:?}",
@@ -891,7 +896,11 @@ impl<'a> StatementParser<'a> {
             TokenKind::Int(n) => {
                 let n = *n;
                 self.advance();
-                Expr::Int(n, span)
+                // Check if the integer fits in i64
+                if n > i64::MAX as i128 || n < i64::MIN as i128 {
+                    return Err(format!("Integer literal too large for i64: {}", n));
+                }
+                Expr::Int(n as i64, span)
             }
             TokenKind::Float(n) => {
                 let n = *n;
@@ -1073,6 +1082,9 @@ impl<'a> StatementParser<'a> {
                         let size_token = self.current();
                         match &size_token.kind {
                             TokenKind::Int(n) => {
+                                if *n < 0 || *n > usize::MAX as i128 {
+                                    return Err(format!("Array size must be a positive usize: {}", n));
+                                }
                                 size = Some(*n as usize);
                                 self.advance();
                             }
@@ -1523,10 +1535,14 @@ impl<'a> StatementParser<'a> {
                 self.advance();
                 Ok(MatchPattern::Wildcard)
             }
-            TokenKind::Int(n) => {
+            TokenKind::Int(ref n) => {
                 let span = token.span;
                 self.advance();
-                Ok(MatchPattern::Constant(Expr::Int(n, span)))
+                // Check if the integer fits in i64
+                if *n > i64::MAX as i128 || *n < i64::MIN as i128 {
+                    return Err(format!("Integer literal too large for i64: {}", n));
+                }
+                Ok(MatchPattern::Constant(Expr::Int(*n as i64, span)))
             }
             TokenKind::Str(s) => {
                 let span = token.span;

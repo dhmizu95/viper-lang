@@ -189,7 +189,11 @@ impl<'a> PrattParser<'a> {
             TokenKind::Int(n) => {
                 let n = *n;
                 self.advance();
-                Ok(Expr::Int(n, span))
+                // Check if the integer fits in i64
+                if n > i64::MAX as i128 || n < i64::MIN as i128 {
+                    return Err(format!("Integer literal too large for i64: {}", n));
+                }
+                Ok(Expr::Int(n as i64, span))
             }
             TokenKind::Float(n) => {
                 let n = *n;

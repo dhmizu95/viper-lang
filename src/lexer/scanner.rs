@@ -439,7 +439,7 @@ impl<'a> Lexer<'a> {
                 }
             }
             // Parse as hex integer
-            let value = i64::from_str_radix(&s[2..], 16)
+            let value = i128::from_str_radix(&s[2..], 16)
                 .map_err(|_| format!("Invalid hex literal: {}", s))?;
             return Ok(TokenKind::Int(value));
         }
@@ -497,7 +497,10 @@ impl<'a> Lexer<'a> {
         if is_float {
             Ok(TokenKind::Float(s.parse().unwrap()))
         } else {
-            Ok(TokenKind::Int(s.parse().unwrap()))
+            Ok(TokenKind::Int(
+                s.parse::<i128>()
+                    .map_err(|_| format!("Integer literal too large: {}", s))?,
+            ))
         }
     }
 
