@@ -1,0 +1,24 @@
+def worker(id: i64, result_chan: Chan[i64]):
+    send(result_chan, id)
+
+def main():
+    print("Testing concurrent task capacity...")
+    
+    c = chan(100)
+    
+    task worker(1, c)
+    task worker(2, c)
+    task worker(3, c)
+    task worker(4, c)
+    task worker(5, c)
+    
+    sync:
+        pass
+    
+    print("All tasks spawned, collecting results...")
+    
+    for i in range(5):
+        v = recv(c)
+        print(v)
+    
+    print("Done!")

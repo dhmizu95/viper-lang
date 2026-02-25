@@ -16,6 +16,9 @@ CHANNEL_SRC = $(SRC_DIR)/concurrency/channel.c
 WAITGROUP_SRC = $(SRC_DIR)/concurrency/wait_group.c
 TASKQUEUE_SRC = $(SRC_DIR)/concurrency/task_queue.c
 THREADPOOL_SRC = $(SRC_DIR)/concurrency/thread_pool.c
+ASYNC_SRC = $(SRC_DIR)/async.c
+FIBER_SRC = $(SRC_DIR)/fiber.c
+SCHEDULER_SRC = $(SRC_DIR)/scheduler.c
 
 # Object files
 OBJ_DIR = obj
@@ -27,7 +30,7 @@ all: dirs $(OBJ_DIR)/libviper.a
 dirs:
 	@mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/list.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o
+$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/list.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o
 	ar rcs $@ $^
 	@echo "Built static library: $(OBJ_DIR)/libviper.a"
 
@@ -57,6 +60,15 @@ $(OBJ_DIR)/task_queue.o: $(TASKQUEUE_SRC)
 
 $(OBJ_DIR)/thread_pool.o: $(THREADPOOL_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -pthread -c $< -o $@
+
+$(OBJ_DIR)/async.o: $(ASYNC_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
+
+$(OBJ_DIR)/fiber.o: $(FIBER_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -pthread -c $< -o $@
+
+$(OBJ_DIR)/scheduler.o: $(SCHEDULER_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -pthread -c $< -o $@
 
 clean:
 	rm -rf $(OBJ_DIR)

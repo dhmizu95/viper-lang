@@ -262,6 +262,16 @@ fn declare_concurrency_functions<'ctx>(
     let submit_task_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_submit_task", submit_task_type, None);
 
+    // Fiber scheduler functions (Phase 3)
+    let scheduler_init_type = void_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_scheduler_init", scheduler_init_type, None);
+
+    let scheduler_shutdown_type = void_type.fn_type(&[], false);
+    module.add_function("vp_scheduler_shutdown", scheduler_shutdown_type, None);
+
+    let scheduler_spawn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_scheduler_spawn", scheduler_spawn_type, None);
+
     // Async/await runtime function (stub)
     // For now, accepts i64 and returns i64 to work with simple types
     // A full implementation would use Future[T] pointer types

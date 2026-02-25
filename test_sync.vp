@@ -1,0 +1,18 @@
+def worker(id: i64, out_chan: Chan[i64]):
+    result = id * id
+    send(out_chan, result)
+
+def main():
+    c = chan(10)
+    wg = WaitGroup()
+    add(wg, 3)
+
+    sync:
+        task worker(1, c)
+        task worker(2, c)
+        task worker(3, c)
+
+    done(wg)
+
+    for _ in range(3):
+        print(recv(c))
