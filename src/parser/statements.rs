@@ -1559,7 +1559,6 @@ impl<'a> StatementParser<'a> {
     }
 
     fn parse_match_list_pattern(&mut self) -> Result<MatchPattern, String> {
-        let start_span = self.current().span;
         self.expect(&TokenKind::LBracket)?;
 
         let mut elements = Vec::new();

@@ -440,10 +440,9 @@ pub fn generate_for<'ctx>(
 ///     body
 ///
 /// This generates code that:
-/// 1. Calls __aiter__(async_iter) to get the async iterator
-/// 2. In a loop, calls __anext__(iterator) to get the next item (returns a future)
-/// 3. Awaits the future to get the actual value
-/// 4. Breaks when StopAsyncIteration is raised
+/// 1. Calls vp_async_iter(async_iter) to get the async iterator
+/// 2. In a loop, calls vp_async_next(iterator) to get the next item
+/// 3. Breaks when -1 (StopAsyncIteration) is returned
 pub fn generate_async_for<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     target: &Expr,
@@ -477,25 +476,108 @@ pub fn generate_async_for<'ctx>(
     // Branch to init block
     state.ir_builder.build_branch(state.builder, init_block);
 
-    // Init block: get the async iterator
+    // Init block: create the async iterator
     state.builder.position_at_end(init_block);
-    let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
 
-    // Call __aiter__ on the iterator
-    let aiter_func = state
-        .module
-        .get_function("vp_async_iter")
-        .ok_or_else(|| "vp_async_iter not declared".to_string())?;
-    let iterator = state
-        .ir_builder
-        .build_call(
-            state.builder,
-            aiter_func,
-            &[iter_val.into()],
-            "async_iterator",
-        )
-        .unwrap();
-    let iterator = iterator.into_pointer_value();
+    // Check if iter is a call to async_range(...)
+    let iterator = if let Expr::Call { func, args, .. } = iter {
+        if let Expr::Ident(name, _) = func.as_ref() {
+            if name == "async_range" {
+                // Call vp_async_range_create(start, end, step)
+                let range_create_func = state
+                    .module
+                    .get_function("vp_async_range_create")
+                    .ok_or_else(|| "vp_async_range_create not declared".to_string())?;
+
+                let (start_val, end_val, step_val) = match args.len() {
+                    1 => (
+                        state.ir_builder.i64_const(0),
+                        crate::codegen::expressions::generate_expr(state, &args[0])?
+                            .into_int_value(),
+                        state.ir_builder.i64_const(1),
+                    ),
+                    2 => (
+                        crate::codegen::expressions::generate_expr(state, &args[0])?
+                            .into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[1])?
+                            .into_int_value(),
+                        state.ir_builder.i64_const(1),
+                    ),
+                    3 => (
+                        crate::codegen::expressions::generate_expr(state, &args[0])?
+                            .into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[1])?
+                            .into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[2])?
+                            .into_int_value(),
+                    ),
+                    _ => return Err("async_range expects 1-3 arguments".to_string()),
+                };
+
+                let iter_ptr = state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        range_create_func,
+                        &[start_val.into(), end_val.into(), step_val.into()],
+                        "async_range_iter",
+                    )
+                    .ok_or_else(|| "async_range_create failed".to_string())?;
+                iter_ptr.into_pointer_value()
+            } else {
+                // Not async_range, call vp_async_iter on the expression result
+                let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
+                let aiter_func = state
+                    .module
+                    .get_function("vp_async_iter")
+                    .ok_or_else(|| "vp_async_iter not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        aiter_func,
+                        &[iter_val.into()],
+                        "async_iterator",
+                    )
+                    .ok_or_else(|| "vp_async_iter failed".to_string())?
+                    .into_pointer_value()
+            }
+        } else {
+            // Not an identifier, call vp_async_iter on the expression result
+            let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
+            let aiter_func = state
+                .module
+                .get_function("vp_async_iter")
+                .ok_or_else(|| "vp_async_iter not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    aiter_func,
+                    &[iter_val.into()],
+                    "async_iterator",
+                )
+                .ok_or_else(|| "vp_async_iter failed".to_string())?
+                .into_pointer_value()
+        }
+    } else {
+        // Not a call expression, call vp_async_iter on the expression result
+        let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
+        let aiter_func = state
+            .module
+            .get_function("vp_async_iter")
+            .ok_or_else(|| "vp_async_iter not declared".to_string())?;
+        state
+            .ir_builder
+            .build_call(
+                state.builder,
+                aiter_func,
+                &[iter_val.into()],
+                "async_iterator",
+            )
+            .ok_or_else(|| "vp_async_iter failed".to_string())?
+            .into_pointer_value()
+    };
 
     // Store iterator in alloca
     let iterator_ptr = state
@@ -535,13 +617,13 @@ pub fn generate_async_for<'ctx>(
     // We don't need to await since vp_async_next returns directly
     let item = next_future;
 
-    // Check if item is 0 (StopAsyncIteration)
+    // Check if item is -1 (StopAsyncIteration)
     let is_not_done = state
         .builder
         .build_int_compare(
             inkwell::IntPredicate::NE,
             item.into_int_value(),
-            state.ir_builder.i64_const(0),
+            state.ir_builder.i64_const(-1),
             "is_not_done",
         )
         .expect("icmp");

@@ -85,10 +85,16 @@ void vp_arc_set_destructor(void* ptr, void (*destructor)(void*));
 /* Get object pointer from header */
 #define VP_GET_OBJECT(header) ((void*)((ViperHeader*)(header) + 1))
 
-/* Atomic increment */
-#define VP_ATOMIC_INC(ptr) atomic_fetch_add((ptr), 1)
+/* Atomic increment with relaxed ordering */
+#define VP_ATOMIC_INC(ptr) atomic_fetch_add_explicit((ptr), 1, memory_order_relaxed)
 
-/* Atomic decrement */
-#define VP_ATOMIC_DEC(ptr) atomic_fetch_sub((ptr), 1)
+/* Atomic decrement with release ordering */
+#define VP_ATOMIC_DEC(ptr) atomic_fetch_sub_explicit((ptr), 1, memory_order_release)
+
+/* Atomic load with relaxed ordering */
+#define VP_ATOMIC_LOAD(ptr) atomic_load_explicit((ptr), memory_order_relaxed)
+
+/* Atomic store with relaxed ordering */
+#define VP_ATOMIC_STORE(ptr, val) atomic_store_explicit((ptr), (val), memory_order_relaxed)
 
 #endif /* VIPER_ARC_H */

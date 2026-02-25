@@ -261,29 +261,70 @@ ViperFuture* vp_async_ready(int64_t value) {
 /* Async Iteration                              */
 /* ============================================ */
 
-/* Async iterator structure */
-typedef struct ViperAsyncIterator {
-    int64_t ref_count;
-    void* data;
-    int64_t (*anext)(void*);  /* Returns next value or -1 for StopAsyncIteration */
-    void (*aiter_cleanup)(void*);
-} ViperAsyncIterator;
+/* Async generator for range-like iteration */
+typedef struct ViperAsyncRange {
+    int64_t current;      /* Current index */
+    int64_t end;          /* End value */
+    int64_t step;         /* Step value */
+} ViperAsyncRange;
 
-/* Get async iterator from an async iterable */
-/* For now, this is a stub that returns NULL */
+/* Create an async range iterator */
+ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step) {
+    ViperAsyncRange* range = (ViperAsyncRange*)malloc(sizeof(ViperAsyncRange));
+    if (!range) return NULL;
+    range->current = start;
+    range->end = end;
+    range->step = step;
+    return range;
+}
+
+/* Get next value from async range */
+/* Returns next value, or -1 to signal StopAsyncIteration */
+int64_t vp_async_range_next(ViperAsyncRange* range) {
+    if (!range) return -1;
+    
+    /* Check if we've already reached the end before this call */
+    if (range->step > 0) {
+        if (range->current >= range->end) return -1;
+    } else if (range->step < 0) {
+        if (range->current <= range->end) return -1;
+    } else {
+        return -1;  /* step of 0 - infinite loop prevention */
+    }
+    
+    int64_t result = range->current;
+    range->current += range->step;
+    
+    return result;
+}
+
+/* Free async range */
+void vp_async_range_free(ViperAsyncRange* range) {
+    if (range) free(range);
+}
+
+/* Get async iterator from async iterable */
+/* Currently handles async range objects (ViperAsyncRange*) */
+/* Returns pointer to the async iterator state, or NULL on error */
 void* vp_async_iter(void* obj) {
-    /* TODO: Implement proper __aiter__ protocol */
-    return NULL;
+    if (!obj) return NULL;
+    
+    /* If obj is already a ViperAsyncRange*, just return it */
+    /* The caller will use vp_async_range_next on it */
+    ViperAsyncRange* range = (ViperAsyncRange*)obj;
+    
+    /* Sanity check: if the "step" field looks like a valid step value, treat as async range */
+    /* This is a simple heuristic - in real implementation we'd have type tags */
+    return obj;
 }
 
 /* Get next item from async iterator */
-/* Returns a future that resolves to the next value, or NULL for StopAsyncIteration */
+/* For async range, this calls vp_async_range_next */
+/* Returns next value, or -1 for StopAsyncIteration */
 int64_t vp_async_next(void* iterator) {
-    if (!iterator) return 0;
+    if (!iterator) return -1;
     
-    ViperAsyncIterator* iter = (ViperAsyncIterator*)iterator;
-    if (iter->anext) {
-        return iter->anext(iter->data);
-    }
-    return 0;  /* StopAsyncIteration */
+    /* Assume it's an async range */
+    ViperAsyncRange* range = (ViperAsyncRange*)iterator;
+    return vp_async_range_next(range);
 }

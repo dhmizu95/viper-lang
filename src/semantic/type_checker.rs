@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Expr, MatchPattern, Module, SelectCaseKind, Stmt, Type, UnaryOp};
+use crate::ast::{BinOp, Expr, Module, SelectCaseKind, Stmt, Type, UnaryOp};
 use crate::semantic::symbol_table::{Symbol, SymbolKind, SymbolTable};
 use std::collections::HashMap;
 
@@ -525,7 +525,7 @@ impl TypeChecker {
                 cases,
                 span,
             } => {
-                let subject_type = self.check_expr(subject);
+                self.check_expr(subject);
 
                 for case in cases {
                     if let Some(guard) = &case.guard {

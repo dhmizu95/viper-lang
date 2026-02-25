@@ -19,7 +19,7 @@ fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
-                let mangled = mangle_function_name(name, &arg_types);
+                let _mangled = mangle_function_name(name, &arg_types);
                 Type::Fn(arg_types, Box::new(Type::Infer))
             } else {
                 Type::Infer
@@ -1093,19 +1093,28 @@ fn generate_call<'ctx>(
         let mangled_name = mangle_function_name(name, &arg_types);
 
         // Check if it's a user-defined function first
-        if state.functions.contains_key(&mangled_name) {
-            if let Some(&func_val) = state.functions.get(&mangled_name) {
-                let arg_values: Vec<_> = args
-                    .iter()
-                    .map(|a| generate_expr(state, a).map(|v| v.into()))
-                    .collect::<Result<_, _>>()?;
+        // Try exact match first, then fallback to any function that starts with the name
+        let func_val = if let Some(&f) = state.functions.get(&mangled_name) {
+            Some(f)
+        } else {
+            // Fallback: find any function that starts with the name (ignoring type info)
+            state
+                .functions
+                .iter()
+                .find(|(k, _)| k.starts_with(&format!("{}_", name)))
+                .map(|(_, v)| *v)
+        };
 
-                let result =
-                    state
-                        .ir_builder
-                        .build_call(state.builder, func_val, &arg_values, "call");
-                return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
-            }
+        if let Some(func_val) = func_val {
+            let arg_values: Vec<_> = args
+                .iter()
+                .map(|a| generate_expr(state, a).map(|v| v.into()))
+                .collect::<Result<_, _>>()?;
+
+            let result = state
+                .ir_builder
+                .build_call(state.builder, func_val, &arg_values, "call");
+            return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
         }
 
         // Fall back to builtins if not a user-defined function

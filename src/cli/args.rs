@@ -30,6 +30,10 @@ pub enum Commands {
         #[arg(long)]
         lto: bool,
 
+        /// Emit LLVM IR to .ll file for inspection
+        #[arg(long)]
+        emit_llvm: bool,
+
         /// Profile-Guided Optimization mode: "instrument" (phase 1) or "use" (phase 2)
         #[arg(long, value_name = "MODE", value_parser = parse_pgo_mode)]
         pgo: Option<String>,
@@ -47,6 +51,10 @@ pub enum Commands {
         /// Enable Link-Time Optimization
         #[arg(long)]
         lto: bool,
+
+        /// Emit LLVM IR to .ll file for inspection
+        #[arg(long)]
+        emit_llvm: bool,
 
         /// Profile-Guided Optimization mode: "instrument" (phase 1) or "use" (phase 2)
         #[arg(long, value_name = "MODE", value_parser = parse_pgo_mode)]

@@ -37,10 +37,11 @@ fn main() {
             output,
             optimize,
             lto,
+            emit_llvm,
             pgo,
         } => {
             if let Err(e) =
-                compile_file_aot(&input, optimize, output.as_deref(), lto, pgo.as_deref())
+                compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
             {
                 eprintln!("Compilation failed: {}", e);
                 std::process::exit(1);
@@ -50,6 +51,7 @@ fn main() {
             input,
             optimize,
             lto: _,
+            emit_llvm: _,
             pgo: _,
         } => {
             if let Err(e) = compile_and_run_jit(&input, optimize) {
@@ -121,7 +123,7 @@ fn get_opt_level(args: &[String]) -> u32 {
 
 #[allow(dead_code)]
 fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
-    compile_file_aot(input_path, 0, output_path, false, None)
+    compile_file_aot(input_path, 0, output_path, false, false, None)
 }
 
 fn compile_file_aot(
@@ -129,6 +131,7 @@ fn compile_file_aot(
     opt_level: u32,
     output_path: Option<&str>,
     lto: bool,
+    emit_llvm: bool,
     pgo: Option<&str>,
 ) -> Result<(), String> {
     println!("🐍 Viper Compiler 0.2.3 (AOT)");
@@ -136,6 +139,9 @@ fn compile_file_aot(
     println!("   Optimization: -O{}", opt_level);
     if lto {
         println!("   LTO: enabled");
+    }
+    if emit_llvm {
+        println!("   Emit LLVM: enabled");
     }
     if let Some(pgo_mode) = &pgo {
         println!("   PGO: {} mode", pgo_mode);
@@ -178,22 +184,24 @@ fn compile_file_aot(
     println!("   ✓ Generated LLVM IR");
 
     let module = codegen.module();
+    
+    /* Emit LLVM IR to .ll file if requested */
+    if emit_llvm {
+        let ll_path = format!("{}.ll", module_name);
+        module.print_to_file(&ll_path)
+            .map_err(|e| format!("Failed to write LLVM IR to '{}': {}", ll_path, e))?;
+        println!("   ✓ Emitted LLVM IR: {}", ll_path);
+    }
+
     // Default output name: source file stem + _vp suffix (e.g., sieve.vp -> sieve_vp.o)
     let default_output = format!("{}_vp", module_name);
     let output = output_path.unwrap_or(&default_output);
 
-    // For -O2 and -O3, use external opt for better optimization (mem2reg, etc.)
+    // For -O1 and above, use external opt for better optimization (mem2reg, etc.)
     if opt_level >= 1 {
         println!("   Using LLVM opt for -O{}...", opt_level);
         let bc_path = format!("{}.bc", module_name);
         module.write_bitcode_to_path(Path::new(&bc_path));
-
-        // Use more aggressive optimization passes
-        let opt_level_str = match opt_level {
-            1 => "-O2", // -O1 uses -O2 passes for better results
-            2 => "-O3",
-            _ => "-O3",
-        };
 
         let opt_bc = format!("{}.opt.bc", module_name);
 
@@ -208,12 +216,18 @@ fn compile_file_aot(
         ];
 
         // Build the passes string based on optimization level
-        if opt_level >= 2 {
-            // Use the default pipeline with extra passes
-            opt_args.push("--passes=default<O3>");
-        } else {
-            opt_args.push(opt_level_str);
-        }
+        // -O1: Basic optimizations with mem2reg for stack-to-register promotion
+        // -O2: Adds vectorization
+        // -O3: Adds aggressive vectorization and loop optimizations
+        let passes = match opt_level {
+            1 => "default<O1>,mem2reg,instcombine,simplifycfg",
+            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize",
+            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize,loop-unroll",
+            _ => "default<O1>,mem2reg,instcombine,simplifycfg",
+        };
+
+        opt_args.push("--passes");
+        opt_args.push(passes);
 
         let opt_output = std::process::Command::new("/usr/lib/llvm-20/bin/opt")
             .args(&opt_args)
@@ -233,6 +247,14 @@ fn compile_file_aot(
         let opt_module =
             inkwell::module::Module::parse_bitcode_from_path(Path::new(&opt_bc), &context)
                 .map_err(|e| format!("Failed to load optimized bitcode '{}': {}", opt_bc, e))?;
+
+        // Emit optimized LLVM IR to .ll file if requested (shows optimized IR, not raw)
+        if emit_llvm {
+            let opt_ll_path = format!("{}.opt.ll", module_name);
+            opt_module.print_to_file(&opt_ll_path)
+                .map_err(|e| format!("Failed to write optimized LLVM IR to '{}': {}", opt_ll_path, e))?;
+            println!("   ✓ Emitted optimized LLVM IR: {}", opt_ll_path);
+        }
 
         println!("   [4/4] Emitting object code...");
         emit_object_file(&opt_module, module_name, output, opt_level, lto, pgo)

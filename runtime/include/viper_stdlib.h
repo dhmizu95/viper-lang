@@ -37,8 +37,10 @@ int64_t vp_ref_count(void* ptr);
 /* ============================================ */
 
 ViperList* vp_list_create(void);
+ViperList* vp_list_create_with_capacity(int64_t cap);
 void vp_list_free(ViperList* list);
 void vp_list_append(ViperList* list, int64_t value);
+void vp_list_append_inline(ViperList* list, int64_t value);
 void vp_list_insert(ViperList* list, int64_t index, int64_t value);
 int64_t vp_list_remove(ViperList* list, int64_t index);
 int64_t vp_list_pop(ViperList* list);
@@ -54,6 +56,7 @@ ViperList* vp_list_copy(ViperList* list);
 /* ============================================ */
 
 ViperDict* vp_dict_create(void);
+ViperDict* vp_dict_create_with_capacity(int64_t initial_cap);
 void vp_dict_free(ViperDict* dict);
 void vp_dict_set(ViperDict* dict, const char* key, ViperValue value);
 ViperValue vp_dict_get(ViperDict* dict, const char* key);
@@ -106,6 +109,16 @@ void vp_assert(bool condition, const char* message);
 int64_t vp_builtin_range_start(int64_t start, int64_t end);
 int64_t vp_builtin_range_next(int64_t* state);
 ViperList* vp_builtin_range_list(int64_t end);
+
+/* Async iteration types */
+typedef struct ViperAsyncRange ViperAsyncRange;
+
+/* Async iteration functions */
+ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step);
+int64_t vp_async_range_next(ViperAsyncRange* range);
+void vp_async_range_free(ViperAsyncRange* range);
+void* vp_async_iter(void* obj);
+int64_t vp_async_next(void* iterator);
 
 /* ============================================ */
 /* Type Conversion Functions                    */

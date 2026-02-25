@@ -112,7 +112,6 @@ fn collect_used_variables(
 }
 
 fn collect_stmt_usage(stmt: &crate::ast::Stmt, vars: &mut std::collections::HashSet<String>) {
-    use crate::ast::Expr;
     use crate::ast::Stmt;
 
     match stmt {

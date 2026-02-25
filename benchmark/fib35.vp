@@ -1,0 +1,12 @@
+# Benchmark: Recursive Fibonacci(35)
+# Tests recursive function call performance
+
+def fib(n: i64) -> i64:
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    n = 35
+    result = fib(n)
+    print("fib(" + str(n) + ") = " + str(result))

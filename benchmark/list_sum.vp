@@ -1,0 +1,21 @@
+# Benchmark: Sum 1M list elements
+# Tests list performance with large datasets
+
+def main():
+    # Create list with 1 million elements
+    lst = []
+    i = 0
+    
+    # Append 1 million elements
+    while i < 1000000:
+        lst.append(i)
+        i = i + 1
+    
+    # Sum all elements
+    total = 0
+    j = 0
+    while j < len(lst):
+        total = total + lst[j]
+        j = j + 1
+    
+    print("Sum of 1M elements: " + str(total))

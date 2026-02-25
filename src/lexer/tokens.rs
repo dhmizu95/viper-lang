@@ -200,7 +200,6 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Or => write!(f, "or"),
             TokenKind::Not => write!(f, "not"),
             TokenKind::Ampersand => write!(f, "&"),
-            TokenKind::Pipe => write!(f, "|"),
             TokenKind::Caret => write!(f, "^"),
             TokenKind::Tilde => write!(f, "~"),
             TokenKind::LtLt => write!(f, "<<"),

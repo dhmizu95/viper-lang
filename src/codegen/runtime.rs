@@ -93,8 +93,17 @@ fn declare_list_functions<'ctx>(
     let list_create_type = ptr_type.fn_type(&[], false);
     module.add_function("vp_list_create", list_create_type, None);
 
+    // List with pre-allocated capacity
+    let list_create_cap_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_list_create_with_capacity", list_create_cap_type, None);
+
     let list_append_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
-    module.add_function("vp_list_append", list_append_type, None);
+    let list_append = module.add_function("vp_list_append", list_append_type, None);
+    // Add alwaysinline hint for better performance on hot path
+    list_append.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
 
     let list_free_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_list_free", list_free_type, None);
@@ -331,11 +340,16 @@ fn declare_concurrency_functions<'ctx>(
     module.add_function("vp_async_run_loop", async_run_loop_type, None);
 
     // Async iteration runtime functions
+    // vp_async_range_create(start, end, step) - creates async range iterator
+    let async_range_create_type =
+        ptr_type.fn_type(&[i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_async_range_create", async_range_create_type, None);
+
     // vp_async_iter(obj) - calls __aiter__ on obj, returns iterator
     let async_iter_type = ptr_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_async_iter", async_iter_type, None);
 
-    // vp_async_next(iterator) - calls __anext__ on iterator, returns future
+    // vp_async_next(iterator) - calls __anext__ on iterator, returns next value or -1
     let async_next_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_async_next", async_next_type, None);
 

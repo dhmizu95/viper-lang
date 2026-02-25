@@ -143,6 +143,30 @@ ViperDict* vp_dict_create(void) {
     return dict;
 }
 
+ViperDict* vp_dict_create_with_capacity(int64_t initial_cap) {
+    ViperDict* dict = (ViperDict*)vp_arc_alloc(sizeof(ViperDict));
+
+    dict->ref_count = 1;
+    
+    /* Calculate appropriate bucket size (power of 2 >= initial_cap) */
+    int64_t bucket_size = DICT_INITIAL_BUCKETS;
+    while (bucket_size < initial_cap) {
+        bucket_size *= 2;
+    }
+    
+    dict->size = bucket_size;
+    dict->count = 0;
+    dict->buckets = (DictEntry**)calloc(dict->size, sizeof(DictEntry*));
+
+    if (!dict->buckets) {
+        vp_panic("Failed to allocate dict buckets");
+    }
+
+    vp_arc_set_destructor(dict, vp_dict_destroy);
+
+    return dict;
+}
+
 void vp_dict_free(ViperDict* dict) {
     if (!dict) return;
     vp_arc_release(dict);

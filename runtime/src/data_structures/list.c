@@ -42,6 +42,27 @@ static void vp_list_destroy(void* ptr) {
 /* List Public Functions - HOT PATH OPTIMIZED   */
 /* ============================================ */
 
+/**
+ * Create a list with a specific initial capacity
+ * Useful when the expected size is known in advance
+ */
+ViperList* vp_list_create_with_capacity(int64_t cap) {
+    ViperList* list = (ViperList*)vp_arc_alloc(sizeof(ViperList));
+
+    list->ref_count = 1;
+    list->length = 0;
+    list->capacity = cap > 0 ? cap : LIST_INITIAL_CAPACITY;
+    list->data = (int64_t*)malloc(list->capacity * sizeof(int64_t));
+
+    if (!list->data) {
+        vp_panic("Failed to allocate list data");
+    }
+
+    vp_arc_set_destructor(list, vp_list_destroy);
+
+    return list;
+}
+
 ViperList* vp_list_create(void) {
     ViperList* list = (ViperList*)vp_arc_alloc(sizeof(ViperList));
 
@@ -66,6 +87,19 @@ void vp_list_free(ViperList* list) {
 
 /* OPTIMIZED: Minimal checks for hot path */
 void vp_list_append(ViperList* list, int64_t value) {
+    if (list->length >= list->capacity) {
+        vp_list_grow(list);
+    }
+    list->data[list->length++] = value;
+}
+
+/**
+ * FAST-PATH: Inline-friendly append with compiler hint
+ * Use this when the compiler can inline for better performance
+ * The alwaysinline attribute encourages inlining even at lower optimization levels
+ */
+__attribute__((always_inline)) 
+static inline void vp_list_append_inline(ViperList* list, int64_t value) {
     if (list->length >= list->capacity) {
         vp_list_grow(list);
     }
