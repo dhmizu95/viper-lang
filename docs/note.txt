@@ -12,30 +12,35 @@ if build failed show which line cause this issue with line number
 
 background job running mechanism
 
-Final Viper Compiler Fix Plan
-Priority 1: Critical Bugs (Week 1)
-| # | Issue | File | Fix Approach | Est. |
-|---|-------|------|--------------|------|
-| 1 | List indexing returns PointerValue | expressions.rs:105-123 | Add load instruction to dereference list element pointer | 1 day |
-| 2 | Binary ops don't handle PointerValue | expressions.rs:143-147 | Add is_pointer_value() check, error or handle appropriately | 1 day |
-| 3 | Mixed int/float auto-conversion | expressions.rs:254-293 | In generate_binop: if one operand is float, convert int operand to float automatically | 2 days |
-Priority 2: Essential Library (Week 2)
-| # | Issue | File | Fix Approach | Est. |
-|---|-------|------|--------------|------|
-| 4 | Math builtins | runtime.rs + expressions.rs | Add sqrt(), abs(), ln(), floor() as builtin functions | 2-3 days |
-Priority 3: Language Features (Week 3)
-| # | Issue | File | Fix Approach | Est. |
-|---|-------|------|--------------|------|
-| 5 | Global constants | ast/nodes.rs, parser, codegen | Module-level assignments (PI = 3.14) treated as immutable constants | 2-3 days |
-| 6 | Semicolon comments | lexer/scanner.rs:84 | Add ; and // as comment starters alongside # | 1 day |
-Deferred (Later)
-- Error messages with line numbers
-- Structs
-- Dictionaries
-- Better array support
----
-Quick Fix for Priority 1 (Before Full Implementation)
-For immediate relief, benchmark code can avoid these issues by:
-- Using only 1.0 not 1 for floats
-- Avoiding list comparisons in while conditions (use index instead)
-- Using explicit bounds checking
+
+Issue:
+
+Prime Sieve Benchmark Results
+| Language | 100K | 500K | 1M | 5M | 10M |
+|----------|------|------|----|----|-----|
+| C | 0.19ms | 1.12ms | 2.31ms | 35.8ms | 110ms |
+| Go | 0.25ms | 1.36ms | 2.57ms | 26.3ms | 119ms |
+| Rust | 0.18ms | 1.02ms | 2.14ms | 100.6ms | 206ms |
+| Viper AOT | 3ms | 16ms | 49ms | 243ms | 440ms |
+| Viper JIT | 47ms | 85ms | 108ms | 470ms | 934ms |
+Summary:
+- Fastest: C (110ms for 10M)
+- Go slightly slower than C (119ms)
+- Rust surprisingly slow (206ms) - possibly due to bounds checking
+- Viper AOT 4x slower than C (440ms)
+- Viper JIT 8.5x slower than C (934ms)
+All implementations produce correct results (664,579 primes for 10M).
+
+Here's the root-cause analysis. TL;DR — 4 stacked bottlenecks:
+
+8× memory waste — ViperList stores int64_t (8 bytes) per element; C uses uint8_t (1 byte). For N=10M that's 80 MB vs 10 MB → L3 cache thrash on every inner-loop write. This is the single biggest cause.
+
+10M append calls for init — the while i <= n: is_prime.append(1) loop compiles to 10M vp_list_append calls. C does one calloc + memset. Fix: make [1] * n emit vp_list_repeat (already parsed by codegen, but vp_list_repeat is not implemented in the C runtime — it only has a JIT stub).
+
+Every is_prime[i] is a function call — vp_list_get / vp_list_set are not inlined across the AOT boundary. LLVM can't vectorize the inner loop. Fix: __attribute__((always_inline)) + -flto on the runtime.
+
+ARC overhead — the list pointer may get vp_retain/vp_release even when it never escapes.
+
+Fastest win with zero language changes: add vp_list_repeat to the runtime + write is_prime = [1] * (n + 1). Expected: 3–5× faster init. Combined with inlining: Viper AOT should reach ~1.5–2× C.
+
+To fully close the gap to C: need a byte-list type (uint8_t[]) — a bigger feature.
