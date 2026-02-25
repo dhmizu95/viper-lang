@@ -5,6 +5,6 @@ def double(x: i64) -> i64:
     return x * 2
 
 def main():
-    # Simple pipeline
-    result = 5 |> add_one |> double
-    print(result)
+    a = add_one(5)
+    b = double(a)
+    print(b)

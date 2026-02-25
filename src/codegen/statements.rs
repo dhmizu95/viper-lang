@@ -119,9 +119,16 @@ fn generate_stmt_internal<'ctx>(
             return crate::codegen::control_flow::generate_while(state, condition, body);
         }
         Stmt::For {
-            target, iter, body, ..
+            target,
+            iter,
+            body,
+            is_async,
+            ..
         } => {
-            return crate::codegen::control_flow::generate_for(state, target, iter, body);
+            if *is_async {
+                return crate::codegen::control_flow::generate_async_for(state, target, iter, body);
+            }
+            return crate::codegen::control_flow::generate_for(state, target, iter, body, false);
         }
         Stmt::Function { .. } => {
             // Already handled in first pass
@@ -802,8 +809,40 @@ fn generate_match_pattern<'ctx>(
         MatchPattern::Wildcard => Ok(state.context.bool_type().const_int(1, false)),
         MatchPattern::Constant(expr) => {
             let const_val = crate::codegen::expressions::generate_expr(state, expr)?;
-            let subject_int = subject_val.into_int_value();
-            let const_int = const_val.into_int_value();
+
+            // If subject is a pointer, load the value (handle multiple levels of indirection)
+            let subject_int = if subject_val.is_pointer_value() {
+                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                // Keep loading until we get a non-pointer value
+                let mut current = subject_val;
+                let mut count = 0;
+                while current.is_pointer_value() && count < 10 {
+                    current = state
+                        .builder
+                        .build_load(
+                            ptr_type,
+                            current.into_pointer_value(),
+                            &format!("load_subject_{}", count),
+                        )
+                        .unwrap();
+                    count += 1;
+                }
+                current.into_int_value()
+            } else {
+                subject_val.into_int_value()
+            };
+
+            let const_int = if const_val.is_pointer_value() {
+                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                let loaded = state
+                    .builder
+                    .build_load(ptr_type, const_val.into_pointer_value(), "load_const")
+                    .unwrap();
+                loaded.into_int_value()
+            } else {
+                const_val.into_int_value()
+            };
+
             let cmp = state
                 .builder
                 .build_int_compare(

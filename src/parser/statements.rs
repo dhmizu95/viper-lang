@@ -75,7 +75,14 @@ impl<'a> StatementParser<'a> {
             TokenKind::Sync => self.parse_sync_block(),
             TokenKind::Task => self.parse_task_spawn(),
             TokenKind::Mut => self.parse_mutable_decl(),
-            TokenKind::Async => self.parse_async_function_def(),
+            TokenKind::Async => {
+                // Check if this is async for or async def
+                if matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::For)) {
+                    self.parse_async_for_stmt()
+                } else {
+                    self.parse_async_function_def()
+                }
+            }
             TokenKind::Match => self.parse_match_stmt(),
             TokenKind::Select => self.parse_select_stmt(),
             TokenKind::Unless => self.parse_unless_stmt(),
@@ -446,6 +453,44 @@ impl<'a> StatementParser<'a> {
             iter: Box::new(iter),
             body,
             else_body,
+            is_async: false,
+            span,
+        })
+    }
+
+    fn parse_async_for_stmt(&mut self) -> Result<Stmt, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::Async)?;
+        self.expect(&TokenKind::For)?;
+
+        let target = if matches!(self.current().kind, TokenKind::Ident(_))
+            && matches!(self.peek().map(|t| &t.kind), Some(TokenKind::In))
+        {
+            let name = self.expect_ident()?;
+            Ok(Expr::Ident(name, start_span.merge(self.previous().span)))
+        } else {
+            self.parse_expression()
+        }?;
+        self.expect(&TokenKind::In)?;
+        let iter = self.parse_expression()?;
+        self.expect(&TokenKind::Colon)?;
+        let body = self.parse_block()?;
+
+        let else_body = if self.match_token(&TokenKind::Else) {
+            self.expect(&TokenKind::Colon)?;
+            Some(self.parse_block()?)
+        } else {
+            None
+        };
+
+        let span = start_span.merge(self.previous().span);
+
+        Ok(Stmt::For {
+            target: Box::new(target),
+            iter: Box::new(iter),
+            body,
+            else_body,
+            is_async: true,
             span,
         })
     }
@@ -1307,8 +1352,10 @@ impl<'a> StatementParser<'a> {
 
         // Check if we have case directly or need newline/indent
         if !matches!(self.current().kind, TokenKind::Case) {
-            self.expect(&TokenKind::Newline)?;
-
+            // Allow Newline or Indent
+            if matches!(self.current().kind, TokenKind::Newline) {
+                self.advance();
+            }
             // Skip optional indent
             if matches!(self.current().kind, TokenKind::Indent) {
                 self.expect(&TokenKind::Indent)?;

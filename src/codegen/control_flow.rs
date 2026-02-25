@@ -280,7 +280,12 @@ pub fn generate_for<'ctx>(
     target: &Expr,
     iter: &Expr,
     body: &[Stmt],
+    is_async: bool,
 ) -> Result<(), String> {
+    if is_async {
+        return generate_async_for(state, target, iter, body);
+    }
+
     if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
@@ -424,6 +429,196 @@ pub fn generate_for<'ctx>(
 
                 return Ok(());
             }
+        }
+    }
+
+    Ok(())
+}
+
+/// Generate an async for loop
+/// async for x in async_iter:
+///     body
+///
+/// This generates code that:
+/// 1. Calls __aiter__(async_iter) to get the async iterator
+/// 2. In a loop, calls __anext__(iterator) to get the next item (returns a future)
+/// 3. Awaits the future to get the actual value
+/// 4. Breaks when StopAsyncIteration is raised
+pub fn generate_async_for<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    target: &Expr,
+    iter: &Expr,
+    body: &[Stmt],
+) -> Result<(), String> {
+    let func_ctx = state
+        .builder
+        .get_insert_block()
+        .unwrap()
+        .get_parent()
+        .unwrap();
+    let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let init_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("async_for_init{}", for_num));
+    let cond_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("async_for_cond{}", for_num));
+    let body_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("async_for_body{}", for_num));
+    let step_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("async_for_step{}", for_num));
+    let exit_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("async_for_exit{}", for_num));
+
+    // Branch to init block
+    state.ir_builder.build_branch(state.builder, init_block);
+
+    // Init block: get the async iterator
+    state.builder.position_at_end(init_block);
+    let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
+
+    // Call __aiter__ on the iterator
+    let aiter_func = state
+        .module
+        .get_function("vp_async_iter")
+        .ok_or_else(|| "vp_async_iter not declared".to_string())?;
+    let iterator = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            aiter_func,
+            &[iter_val.into()],
+            "async_iterator",
+        )
+        .unwrap();
+    let iterator = iterator.into_pointer_value();
+
+    // Store iterator in alloca
+    let iterator_ptr = state
+        .builder
+        .build_alloca(iterator.get_type(), "iterator_ptr")
+        .expect("alloca");
+    state
+        .builder
+        .build_store(iterator_ptr, iterator)
+        .expect("store");
+
+    state.ir_builder.build_branch(state.builder, cond_block);
+
+    // Cond block: call __anext__ and check for StopAsyncIteration
+    state.builder.position_at_end(cond_block);
+    let iterator_val = state
+        .builder
+        .build_load(iterator.get_type(), iterator_ptr, "iterator_val")
+        .expect("load");
+
+    // Call __anext__ on the iterator
+    let anext_func = state
+        .module
+        .get_function("vp_async_next")
+        .ok_or_else(|| "vp_async_next not declared".to_string())?;
+    let next_future = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            anext_func,
+            &[iterator_val.into()],
+            "anext_future",
+        )
+        .ok_or_else(|| "async for: anext failed".to_string())?;
+
+    // The result is directly the next value (or 0 for StopAsyncIteration)
+    // We don't need to await since vp_async_next returns directly
+    let item = next_future;
+
+    // Check if item is 0 (StopAsyncIteration)
+    let is_not_done = state
+        .builder
+        .build_int_compare(
+            inkwell::IntPredicate::NE,
+            item.into_int_value(),
+            state.ir_builder.i64_const(0),
+            "is_not_done",
+        )
+        .expect("icmp");
+
+    state
+        .ir_builder
+        .build_cond_branch(state.builder, is_not_done, body_block, exit_block);
+
+    // Body block: execute the loop body with the item
+    state.builder.position_at_end(body_block);
+
+    // Allocate storage for the iteration variable and store the value
+    let item_alloca = if let Expr::Ident(target_name, _) = target {
+        let alloca = state
+            .builder
+            .build_alloca(state.context.i64_type(), &target_name)
+            .expect("alloca");
+        state
+            .builder
+            .build_store(alloca, item.into_int_value())
+            .expect("store");
+        Some((target_name.clone(), alloca))
+    } else {
+        None
+    };
+
+    // Bind the target variable to the item
+    let old_var = if let Some((target_name, alloca)) = &item_alloca {
+        state.variables.insert(
+            target_name.clone(),
+            VarInfo {
+                storage: crate::codegen::variables::VarStorage::Stack(*alloca),
+                var_type: VarType::Int,
+            },
+        )
+    } else {
+        None
+    };
+
+    for stmt in body {
+        crate::codegen::statements::generate_stmt(
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            state.list_vars,
+            stmt,
+        )?;
+    }
+
+    if state
+        .builder
+        .get_insert_block()
+        .unwrap()
+        .get_terminator()
+        .is_none()
+    {
+        state.ir_builder.build_branch(state.builder, step_block);
+    }
+
+    // Step block: continue to next iteration
+    state.builder.position_at_end(step_block);
+    state.ir_builder.build_branch(state.builder, cond_block);
+
+    // Exit block
+    state.builder.position_at_end(exit_block);
+
+    // Restore the original shadowed variable, if any
+    if let Expr::Ident(target_name, _) = target {
+        if let Some(old) = old_var {
+            state.variables.insert(target_name.clone(), old);
+        } else {
+            state.variables.remove(target_name);
         }
     }
 

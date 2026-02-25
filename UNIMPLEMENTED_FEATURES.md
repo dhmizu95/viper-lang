@@ -26,7 +26,7 @@
 ### Async/Await
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Async iteration | `async for` | Medium |
+| Async iteration | `async for` | Done |
 | Async context managers | `async with` | Medium |
 | `gather()` | Run multiple async tasks | Medium |
 

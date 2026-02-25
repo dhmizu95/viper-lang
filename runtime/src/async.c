@@ -256,3 +256,34 @@ ViperFuture* vp_async_ready(int64_t value) {
     future->result = value;
     return future;
 }
+
+/* ============================================ */
+/* Async Iteration                              */
+/* ============================================ */
+
+/* Async iterator structure */
+typedef struct ViperAsyncIterator {
+    int64_t ref_count;
+    void* data;
+    int64_t (*anext)(void*);  /* Returns next value or -1 for StopAsyncIteration */
+    void (*aiter_cleanup)(void*);
+} ViperAsyncIterator;
+
+/* Get async iterator from an async iterable */
+/* For now, this is a stub that returns NULL */
+void* vp_async_iter(void* obj) {
+    /* TODO: Implement proper __aiter__ protocol */
+    return NULL;
+}
+
+/* Get next item from async iterator */
+/* Returns a future that resolves to the next value, or NULL for StopAsyncIteration */
+int64_t vp_async_next(void* iterator) {
+    if (!iterator) return 0;
+    
+    ViperAsyncIterator* iter = (ViperAsyncIterator*)iterator;
+    if (iter->anext) {
+        return iter->anext(iter->data);
+    }
+    return 0;  /* StopAsyncIteration */
+}

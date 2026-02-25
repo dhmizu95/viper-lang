@@ -330,6 +330,15 @@ fn declare_concurrency_functions<'ctx>(
     let async_run_loop_type = void_type.fn_type(&[], false);
     module.add_function("vp_async_run_loop", async_run_loop_type, None);
 
+    // Async iteration runtime functions
+    // vp_async_iter(obj) - calls __aiter__ on obj, returns iterator
+    let async_iter_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_async_iter", async_iter_type, None);
+
+    // vp_async_next(iterator) - calls __anext__ on iterator, returns future
+    let async_next_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_async_next", async_next_type, None);
+
     // Struct module functions (pack/unpack)
     // struct.pack(format, value) - returns pointer to packed data
     let struct_pack_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);

@@ -229,6 +229,7 @@ pub enum Stmt {
         iter: Box<Expr>,
         body: Vec<Stmt>,
         else_body: Option<Vec<Stmt>>,
+        is_async: bool,
         span: Span,
     },
     /// Function definition
