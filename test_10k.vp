@@ -1,0 +1,26 @@
+# Test spawning many tasks
+def worker(id: i64, result_chan: Chan[i64]):
+    send(result_chan, id)
+
+def main():
+    print("Testing concurrent task capacity...")
+    
+    n = 1000
+    c = chan(n)
+    
+    for i in range(n):
+        task worker(i, c)
+    
+    sync:
+        pass
+    
+    print("All tasks spawned, collecting results...")
+    
+    received = 0
+    for _ in range(n):
+        v = recv(c)
+        received = received + 1
+    
+    print("Received:")
+    print(received)
+    print("Done!")
