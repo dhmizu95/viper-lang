@@ -739,10 +739,33 @@ impl<'a> StatementParser<'a> {
         // Parse the left-hand side (should be an identifier or attribute access)
         let expr = self.parse_primary_expr()?;
 
+        let mut type_ann = None;
+        let is_ident = matches!(expr, Expr::Ident(_, _));
+
+        // If it's an identifier, we can have a type annotation
+        if is_ident {
+            if self.match_token(&TokenKind::Colon) {
+                type_ann = Some(self.parse_type_annotation()?);
+            }
+        }
+
         if self.match_token(&TokenKind::Eq) {
             // For the value, we need to parse a full expression including function calls
             let value = self.parse_value_expr()?;
             let span = expr.span().merge(value.span());
+
+            if type_ann.is_some() {
+                if let Expr::Ident(name, _) = expr {
+                    return Ok(Stmt::Declare {
+                        name,
+                        type_ann,
+                        value: Some(value),
+                        mutable: false, // Default is immutable unless `mut` is used
+                        span,
+                    });
+                }
+            }
+
             Ok(Stmt::Assign {
                 target: Box::new(expr),
                 value: Box::new(value),
@@ -752,6 +775,9 @@ impl<'a> StatementParser<'a> {
             let op = self.get_aug_assign_op();
             let value = self.parse_value_expr()?;
             let span = expr.span().merge(value.span());
+            if type_ann.is_some() {
+                return Err("Cannot use type annotation with augmented assignment".to_string());
+            }
             Ok(Stmt::AugAssign {
                 target: Box::new(expr),
                 op,
@@ -759,6 +785,20 @@ impl<'a> StatementParser<'a> {
                 span,
             })
         } else {
+            // If we parsed a type annotation but no assignment, it's just a declaration
+            if let Some(ann) = type_ann {
+                let expr_span = expr.span();
+                if let Expr::Ident(name, _) = expr {
+                    return Ok(Stmt::Declare {
+                        name,
+                        type_ann: Some(ann),
+                        value: None,
+                        mutable: false,
+                        span: expr_span,
+                    });
+                }
+            }
+
             // Continue parsing the rest of the expression using the Pratt parser
             // But stop at statement delimiters (Newline, Dedent, etc.)
             self.expr_parser.set_pos(self.pos);
@@ -1152,7 +1192,7 @@ impl<'a> StatementParser<'a> {
                 let list_span = span.merge(self.previous().span);
 
                 // Use Array node for fixed-size arrays, List for dynamic lists
-                if size.is_some() || !elements.is_empty() {
+                if size.is_some() {
                     Expr::Array {
                         elements,
                         size,
@@ -1220,6 +1260,16 @@ impl<'a> StatementParser<'a> {
                                 break;
                             }
                             continue;
+                        } else if paren_params && self.match_token(&TokenKind::Colon) {
+                            // Shorthand syntax: fn(x, y: body)
+                            let body = self.parse_expression()?;
+                            self.expect(&TokenKind::RParen)?;
+                            let merged_span = span.merge(body.span());
+                            return Ok(Expr::Lambda {
+                                params,
+                                body: Box::new(body),
+                                span: merged_span,
+                            });
                         } else {
                             break;
                         }
@@ -1700,7 +1750,7 @@ impl<'a> StatementParser<'a> {
             Ok(())
         } else {
             Err(format!(
-                "Expected {:?}, found {:?}",
+                "Statements: Expected {:?}, found {:?}",
                 kind,
                 self.current().kind
             ))

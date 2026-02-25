@@ -432,6 +432,173 @@ pub fn generate_for<'ctx>(
         }
     }
 
+    // Default to list/iterable iteration
+    let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
+    
+    // Call vp_list_len to get length
+    let list_len_func = state
+        .module
+        .get_function("vp_list_len")
+        .ok_or_else(|| "vp_list_len not declared".to_string())?;
+    
+    let end_val = state
+        .ir_builder
+        .build_call(state.builder, list_len_func, &[iter_val.into()], "len")
+        .unwrap()
+        .into_int_value();
+        
+    let start_val = state.ir_builder.i64_const(0);
+    
+    let func_ctx = state
+        .builder
+        .get_insert_block()
+        .unwrap()
+        .get_parent()
+        .unwrap();
+    let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let init_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("for_init{}", for_num));
+    let cond_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("for_cond{}", for_num));
+    let body_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("for_body{}", for_num));
+    let step_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("for_step{}", for_num));
+    let exit_block = state
+        .context
+        .append_basic_block(func_ctx, &format!("for_exit{}", for_num));
+
+    state.ir_builder.build_branch(state.builder, init_block);
+    state.builder.position_at_end(init_block);
+    let counter = state
+        .builder
+        .build_alloca(state.context.i64_type(), "for_counter")
+        .expect("alloca");
+    state
+        .builder
+        .build_store(counter, start_val)
+        .expect("store");
+    state.ir_builder.build_branch(state.builder, cond_block);
+
+    state.builder.position_at_end(cond_block);
+    let counter_val = state
+        .builder
+        .build_load(state.context.i64_type(), counter, "counter_val")
+        .expect("load")
+        .into_int_value();
+    let cond =
+        state
+            .ir_builder
+            .build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
+    state
+        .ir_builder
+        .build_cond_branch(state.builder, cond, body_block, exit_block);
+
+    state.builder.position_at_end(body_block);
+
+    // Call vp_list_get(iter_val, counter_val)
+    let list_get_func = state
+        .module
+        .get_function("vp_list_get")
+        .ok_or_else(|| "vp_list_get not declared".to_string())?;
+    let item_val = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            list_get_func,
+            &[iter_val.into(), counter_val.into()],
+            "item_val",
+        )
+        .unwrap()
+        .into_int_value();
+
+    // Bind item_val to target (like 'val')
+    let old_var = if let Expr::Ident(target_name, _) = target {
+        // Allocate space for the element value
+        let val_alloca = state
+            .builder
+            .build_alloca(state.context.i64_type(), &target_name)
+            .expect("alloca");
+        state
+            .builder
+            .build_store(val_alloca, item_val)
+            .expect("store");
+            
+        // Use state.variables.insert which returns the old value
+        state.variables.insert(
+            target_name.clone(),
+            VarInfo {
+                storage: crate::codegen::variables::VarStorage::Stack(val_alloca),
+                var_type: VarType::Int,
+            },
+        )
+    } else {
+        None
+    };
+
+    for stmt in body {
+        crate::codegen::statements::generate_stmt(
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            state.list_vars,
+            stmt,
+        )?;
+    }
+
+    if state
+        .builder
+        .get_insert_block()
+        .unwrap()
+        .get_terminator()
+        .is_none()
+    {
+        state.ir_builder.build_branch(state.builder, step_block);
+    }
+
+    state.builder.position_at_end(step_block);
+    let counter_val = state
+        .builder
+        .build_load(state.context.i64_type(), counter, "counter_val")
+        .expect("load")
+        .into_int_value();
+    let next_val = state.ir_builder.build_add(
+        state.builder,
+        counter_val,
+        state.ir_builder.i64_const(1),
+        "next_counter",
+    );
+    state.builder.build_store(counter, next_val).expect("store");
+    if state
+        .builder
+        .get_insert_block()
+        .unwrap()
+        .get_terminator()
+        .is_none()
+    {
+        state.ir_builder.build_branch(state.builder, cond_block);
+    }
+
+    state.builder.position_at_end(exit_block);
+
+    // Restore the original shadowed variable, if any
+    if let Expr::Ident(target_name, _) = target {
+        if let Some(old) = old_var {
+            state.variables.insert(target_name.clone(), old);
+        } else {
+            state.variables.remove(target_name);
+        }
+    }
+
     Ok(())
 }
 

@@ -283,6 +283,16 @@ impl<'a> PrattParser<'a> {
                                 break;
                             }
                             continue;
+                        } else if paren_params && self.match_token(&TokenKind::Colon) {
+                            // Shorthand syntax: fn(x, y: body)
+                            let body = self.parse_expr(Precedence::MIN)?;
+                            self.expect(&TokenKind::RParen)?;
+                            let merged_span = span.merge(body.span());
+                            return Ok(Expr::Lambda {
+                                params,
+                                body: Box::new(body),
+                                span: merged_span,
+                            });
                         } else {
                             break;
                         }
@@ -423,7 +433,7 @@ impl<'a> PrattParser<'a> {
                 let merged_span = span.merge(last_span);
 
                 // Use Array node for fixed-size arrays, List for dynamic lists
-                if size.is_some() || !elements.is_empty() {
+                if size.is_some() {
                     Ok(Expr::Array {
                         elements,
                         size,
@@ -596,7 +606,7 @@ impl<'a> PrattParser<'a> {
             Ok(())
         } else {
             Err(format!(
-                "Expected {:?}, found {:?}",
+                "Expressions: Expected {:?}, found {:?}",
                 kind,
                 self.current().kind
             ))

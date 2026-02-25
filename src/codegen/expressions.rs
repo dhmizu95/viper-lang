@@ -1580,7 +1580,7 @@ fn generate_len_call<'ctx>(
 
     // Check if it's a list (literal or variable)
     let is_list = match obj_expr {
-        Expr::List { .. } => true,
+        Expr::List { .. } | Expr::Array { .. } | Expr::ListComprehension { .. } => true,
         Expr::Ident(name, _) => state.is_list(name),
         _ => false,
     };
