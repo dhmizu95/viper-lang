@@ -29,9 +29,15 @@ pub fn declare_function<'ctx>(
         .map(|ty| type_mapper.llvm_type(ty).as_basic_type_enum().into())
         .collect();
 
-    let fn_type = match type_mapper.llvm_return_type(return_type) {
-        Some(return_ty) => return_ty.fn_type(&param_llvm_types, false),
-        None => context.void_type().fn_type(&param_llvm_types, false),
+    // Special case: main() always returns i64 for proper exit code
+    let fn_type = if name == "main" && return_type.is_none() {
+        let i64_type = context.i64_type();
+        i64_type.fn_type(&param_llvm_types, false)
+    } else {
+        match type_mapper.llvm_return_type(return_type) {
+            Some(return_ty) => return_ty.fn_type(&param_llvm_types, false),
+            None => context.void_type().fn_type(&param_llvm_types, false),
+        }
     };
 
     let mangled_name = mangle_function_name(name, &param_types);
