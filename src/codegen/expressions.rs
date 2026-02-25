@@ -1155,103 +1155,105 @@ fn generate_call<'ctx>(
     return Err(format!("Call target is not a function: {:?}", func));
 }
 
-/// Generate print call
+/// Generate print call - handles multiple arguments
 fn generate_print_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.is_empty() {
+        let newline_func = state
+            .module
+            .get_function("vp_print_newline")
+            .ok_or_else(|| "vp_print_newline not declared".to_string())?;
+        state
+            .builder
+            .build_call(newline_func, &[], "print_newline")
+            .expect("vp_print_newline");
         return Ok(state.ir_builder.i64_const(0).into());
     }
 
-    let val = generate_expr(state, &args[0])?;
+    // Print each argument
+    for (i, arg) in args.iter().enumerate() {
+        let val = generate_expr(state, arg)?;
 
-    if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 64 {
-        let print_func = state
-            .module
-            .get_function("vp_print_i64")
-            .ok_or_else(|| "vp_print_i64 not declared".to_string())?;
-        state
-            .builder
-            .build_call(print_func, &[val.into()], "print_i64")
-            .expect("vp_print_i64");
+        if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 64 {
+            let print_func = state
+                .module
+                .get_function("vp_print_i64")
+                .ok_or_else(|| "vp_print_i64 not declared".to_string())?;
+            state
+                .builder
+                .build_call(print_func, &[val.into()], "print_i64")
+                .expect("vp_print_i64");
+        } else if val.is_float_value() {
+            let print_func = state
+                .module
+                .get_function("vp_print_f64")
+                .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
+            state
+                .builder
+                .build_call(print_func, &[val.into()], "print_f64")
+                .expect("vp_print_f64");
+        } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
+            let print_func = state
+                .module
+                .get_function("vp_print_bool")
+                .ok_or_else(|| "vp_print_bool not declared".to_string())?;
+            state
+                .builder
+                .build_call(print_func, &[val.into()], "print_bool")
+                .expect("vp_print_bool");
+        } else if val.is_pointer_value() {
+            let print_func = state
+                .module
+                .get_function("vp_print_str")
+                .ok_or_else(|| "vp_print_str not declared".to_string())?;
+            state
+                .builder
+                .build_call(print_func, &[val.into()], "print_str")
+                .expect("vp_print_str");
+        } else {
+            return Err(format!(
+                "print() does not support type {:?}",
+                val.get_type()
+            ));
+        }
 
-        let newline_func = state
-            .module
-            .get_function("vp_print_newline")
-            .ok_or_else(|| "vp_print_newline not declared".to_string())?;
-        state
-            .builder
-            .build_call(newline_func, &[], "print_newline")
-            .expect("vp_print_newline");
-
-        return Ok(state.ir_builder.i64_const(0).into());
-    } else if val.is_float_value() {
-        let print_func = state
-            .module
-            .get_function("vp_print_f64")
-            .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
-        state
-            .builder
-            .build_call(print_func, &[val.into()], "print_f64")
-            .expect("vp_print_f64");
-
-        let newline_func = state
-            .module
-            .get_function("vp_print_newline")
-            .ok_or_else(|| "vp_print_newline not declared".to_string())?;
-        state
-            .builder
-            .build_call(newline_func, &[], "print_newline")
-            .expect("vp_print_newline");
-
-        return Ok(state.ir_builder.i64_const(0).into());
-    } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
-        let print_func = state
-            .module
-            .get_function("vp_print_bool")
-            .ok_or_else(|| "vp_print_bool not declared".to_string())?;
-        state
-            .builder
-            .build_call(print_func, &[val.into()], "print_bool")
-            .expect("vp_print_bool");
-
-        let newline_func = state
-            .module
-            .get_function("vp_print_newline")
-            .ok_or_else(|| "vp_print_newline not declared".to_string())?;
-        state
-            .builder
-            .build_call(newline_func, &[], "print_newline")
-            .expect("vp_print_newline");
-
-        return Ok(state.ir_builder.i64_const(0).into());
-    } else if val.is_pointer_value() {
-        let print_func = state
-            .module
-            .get_function("vp_print_str")
-            .ok_or_else(|| "vp_print_str not declared".to_string())?;
-        state
-            .builder
-            .build_call(print_func, &[val.into()], "print_str")
-            .expect("vp_print_str");
-
-        let newline_func = state
-            .module
-            .get_function("vp_print_newline")
-            .ok_or_else(|| "vp_print_newline not declared".to_string())?;
-        state
-            .builder
-            .build_call(newline_func, &[], "print_newline")
-            .expect("vp_print_newline");
-
-        return Ok(state.ir_builder.i64_const(0).into());
-    } else {
-        return Err(format!(
-            "print() does not support type {:?}",
-            val.get_type()
-        ));
+        // Add space between arguments (but not after the last one)
+        if i < args.len() - 1 {
+            let print_func = state
+                .module
+                .get_function("vp_print_str")
+                .ok_or_else(|| "vp_print_str not declared".to_string())?;
+            let space_str_const = state
+                .ir_builder
+                .string_const(state.module, " ");
+            let create_func = state
+                .module
+                .get_function("vp_str_create")
+                .ok_or_else(|| "vp_str_create not declared".to_string())?;
+            let space_val = state
+                .ir_builder
+                .build_call(state.builder, create_func, &[space_str_const.into()], "space_create")
+                .unwrap();
+            state
+                .builder
+                .build_call(print_func, &[space_val.into()], "print_space")
+                .expect("vp_print_str");
+        }
     }
+
+    // Print newline at the end
+    let newline_func = state
+        .module
+        .get_function("vp_print_newline")
+        .ok_or_else(|| "vp_print_newline not declared".to_string())?;
+    state
+        .builder
+        .build_call(newline_func, &[], "print_newline")
+        .expect("vp_print_newline");
+
+    return Ok(state.ir_builder.i64_const(0).into());
 }
 
 /// Generate len() call
