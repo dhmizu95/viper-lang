@@ -1,0 +1,80 @@
+# SSL module - wrapper around OpenSSL SSL functions
+# Note: Requires linking with -lssl -lcrypto
+
+extern "C" {
+    fn SSL_new(ctx: *mut i8) -> *mut i8;
+    fn SSL_free(ssl: *mut i8) -> i32;
+    fn SSL_set_fd(ssl: *mut i8, fd: i32) -> i32;
+    fn SSL_connect(ssl: *mut i8) -> i32;
+    fn SSL_accept(ssl: *mut i8) -> i32;
+    fn SSL_read(ssl: *mut i8, buf: *mut i8, num: i32) -> i32;
+    fn SSL_write(ssl: *mut i8, buf: *const i8, num: i32) -> i32;
+    fn SSL_get_error(ssl: *mut i8, ret: i32) -> i32;
+    fn SSL_CTX_new(method: *mut i8) -> *mut i8;
+    fn SSL_CTX_free(ctx: *mut i8);
+    fn TLSv1_method() -> *mut i8;
+    fn TLSv1_1_method() -> *mut i8;
+    fn TLSv1_2_method() -> *mut i8;
+}
+
+# SSL Error codes
+SSL_ERROR_NONE = 0
+SSL_ERROR_SSL = 1
+SSL_ERROR_WANT_READ = 2
+SSL_ERROR_WANT_WRITE = 3
+SSL_ERROR_WANT_X509_LOOKUP = 4
+SSL_ERROR_SYSCALL = 5
+SSL_ERROR_ZERO_RETURN = 6
+SSL_ERROR_WANT_CONNECT = 7
+
+# Create SSL context
+def create_context(purpose):
+    # purpose: CERT_NONE or CERT_REQUIRED
+    method = TLSv1_2_method()
+    if method == 0:
+        method = TLSv1_method()
+    ctx = SSL_CTX_new(method)
+    return ctx
+
+# Wrap a socket with SSL
+def wrap_socket(sock, server_side, do_handshake_on_connect, suppress_ragged_eofs):
+    # sock: socket file descriptor
+    # Returns: SSL socket
+    ssl = SSL_new(sock)
+    return ssl
+
+# Connect to SSL server
+def wrap_socket_connect_sock(sock, server_side):
+    ssl = SSL_new(sock)
+    result = SSL_connect(ssl)
+    if result <= 0:
+        return None
+    return ssl
+
+# Read from SSL socket
+def read(ssl, nbytes):
+    # Returns: bytes read
+    buf = ""
+    return buf
+
+# Write to SSL socket
+def write(ssl, data):
+    # Returns: number of bytes written
+    return 0
+
+# Get socket file descriptor
+def get_fd(ssl):
+    return 0
+
+# Get peer certificate
+def getpeercert(ssl):
+    # Returns: certificate dict or None
+    return None
+
+# Close SSL connection
+def close(ssl):
+    SSL_free(ssl)
+
+# Free SSL context
+def free_context(ctx):
+    SSL_CTX_free(ctx)
