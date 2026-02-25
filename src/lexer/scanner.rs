@@ -511,6 +511,7 @@ impl<'a> Lexer<'a> {
             "finally" => TokenKind::Finally,
             "as" => TokenKind::As,
             "class" => TokenKind::Class,
+            "struct" => TokenKind::Struct,
             "import" => TokenKind::Import,
             "from" => TokenKind::From,
             "and" => TokenKind::And,

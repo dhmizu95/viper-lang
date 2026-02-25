@@ -34,6 +34,13 @@ pub enum Type {
     Chan(Box<Type>),
     /// WaitGroup type (for synchronization)
     WaitGroup,
+    /// Struct type
+    Struct {
+        name: String,
+        fields: Vec<(String, Type)>,
+    },
+    /// Future type (for async/await)
+    Future(Box<Type>),
     /// Type variable (for generics)
     Var(String),
     /// Unknown/to be inferred
@@ -104,6 +111,17 @@ impl std::fmt::Display for Type {
             }
             Type::Chan(t) => write!(f, "chan[{}]", t),
             Type::WaitGroup => write!(f, "WaitGroup"),
+            Type::Struct { name, fields } => {
+                write!(f, "struct {} {{ ", name)?;
+                for (i, (field_name, field_type)) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {}", field_name, field_type)?;
+                }
+                write!(f, " }}")
+            }
+            Type::Future(t) => write!(f, "Future[{}]", t),
             Type::Var(name) => write!(f, "{}", name),
             Type::Infer => write!(f, "_"),
             Type::Error => write!(f, "<error>"),

@@ -66,6 +66,7 @@ impl<'a> StatementParser<'a> {
             TokenKind::Import => self.parse_import(),
             TokenKind::From => self.parse_from_import(),
             TokenKind::Class => self.parse_class_def(),
+            TokenKind::Struct => self.parse_struct_def(),
             TokenKind::Try => self.parse_try_stmt(),
             TokenKind::Sync => self.parse_sync_block(),
             TokenKind::Task => self.parse_task_spawn(),
@@ -83,7 +84,7 @@ impl<'a> StatementParser<'a> {
             _ => {
                 // Try expression statement
                 let expr = self.parse_expression()?;
-                
+
                 // Check if this is a concurrency builtin call that should be a statement
                 if let Expr::Call { func, args, span } = expr {
                     if let Some(stmt) = self.transform_concurrency_call(&func, args.clone(), span) {
@@ -436,6 +437,43 @@ impl<'a> StatementParser<'a> {
             body,
             span,
         })
+    }
+
+    fn parse_struct_def(&mut self) -> Result<Stmt, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::Struct)?;
+
+        let name = self.expect_ident()?;
+
+        self.expect(&TokenKind::Colon)?;
+
+        let mut fields = Vec::new();
+        if self.match_token(&TokenKind::Indent) {
+            loop {
+                if matches!(self.current().kind, TokenKind::Dedent) {
+                    self.advance();
+                    break;
+                }
+                if self.is_at_end() {
+                    break;
+                }
+                if self.match_token(&TokenKind::Newline) {
+                    continue;
+                }
+
+                let field_name = self.expect_ident()?;
+                self.expect(&TokenKind::Colon)?;
+                let field_type = self.parse_type_annotation()?;
+
+                fields.push((field_name, field_type));
+
+                self.match_token(&TokenKind::Newline);
+            }
+        }
+
+        let span = start_span.merge(self.previous().span);
+
+        Ok(Stmt::Struct { name, fields, span })
     }
 
     fn parse_try_stmt(&mut self) -> Result<Stmt, String> {
@@ -826,12 +864,12 @@ impl<'a> StatementParser<'a> {
                 self.advance();
                 let mut elements = Vec::new();
                 let mut size: Option<usize> = None;
-                
+
                 // Check for empty list without consuming the RBracket
                 if !matches!(self.current().kind, TokenKind::RBracket) {
                     // Parse first element
                     elements.push(self.parse_expression()?);
-                    
+
                     // Check for array repetition syntax: [value; size]
                     if matches!(self.current().kind, TokenKind::Semi) {
                         self.advance(); // consume the semicolon
@@ -841,7 +879,12 @@ impl<'a> StatementParser<'a> {
                                 size = Some(*n as usize);
                                 self.advance();
                             }
-                            _ => return Err(format!("Expected integer size for array, found {:?}", size_token.kind)),
+                            _ => {
+                                return Err(format!(
+                                    "Expected integer size for array, found {:?}",
+                                    size_token.kind
+                                ))
+                            }
                         }
                         self.expect(&TokenKind::RBracket)?;
                     } else {
@@ -857,9 +900,9 @@ impl<'a> StatementParser<'a> {
                 } else {
                     self.expect(&TokenKind::RBracket)?;
                 }
-                
+
                 let list_span = span.merge(self.previous().span);
-                
+
                 // Use Array node for fixed-size arrays, List for dynamic lists
                 if size.is_some() || !elements.is_empty() {
                     Expr::Array {
@@ -1000,7 +1043,10 @@ impl<'a> StatementParser<'a> {
             match name.as_str() {
                 "chan" => {
                     if args.len() == 1 {
-                        return Some(Stmt::Chan { size: args.into_iter().next().unwrap(), span });
+                        return Some(Stmt::Chan {
+                            size: args.into_iter().next().unwrap(),
+                            span,
+                        });
                     }
                 }
                 "send" => {
@@ -1015,7 +1061,10 @@ impl<'a> StatementParser<'a> {
                 }
                 "recv" => {
                     if args.len() == 1 {
-                        return Some(Stmt::Recv { chan: Box::new(args.into_iter().next().unwrap()), span });
+                        return Some(Stmt::Recv {
+                            chan: Box::new(args.into_iter().next().unwrap()),
+                            span,
+                        });
                     }
                 }
                 "WaitGroup" => {
@@ -1035,12 +1084,18 @@ impl<'a> StatementParser<'a> {
                 }
                 "done" => {
                     if args.len() == 1 {
-                        return Some(Stmt::WgDone { wg: Box::new(args.into_iter().next().unwrap()), span });
+                        return Some(Stmt::WgDone {
+                            wg: Box::new(args.into_iter().next().unwrap()),
+                            span,
+                        });
                     }
                 }
                 "wait" => {
                     if args.len() == 1 {
-                        return Some(Stmt::WgWait { wg: Box::new(args.into_iter().next().unwrap()), span });
+                        return Some(Stmt::WgWait {
+                            wg: Box::new(args.into_iter().next().unwrap()),
+                            span,
+                        });
                     }
                 }
                 _ => {}

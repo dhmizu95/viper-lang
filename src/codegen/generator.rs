@@ -135,7 +135,12 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if !is_constant_assign {
-                    top_level_stmts.push(stmt.clone());
+                    // Skip type declarations (Class, Struct)
+                    let is_type_decl = matches!(stmt, Stmt::Class { .. } | Stmt::Struct { .. });
+
+                    if !is_type_decl {
+                        top_level_stmts.push(stmt.clone());
+                    }
                 }
             }
         }
@@ -174,9 +179,10 @@ impl<'ctx> CodeGen<'ctx> {
 
             // Determine if parameter is a reference type (pointer)
             let is_ref_type = param_value.is_pointer_value();
-            
+
             // Mark parameter as reference type in escape analyzer
-            self.escape_analyzer.set_reference_type(name, &param.name, is_ref_type);
+            self.escape_analyzer
+                .set_reference_type(name, &param.name, is_ref_type);
 
             // Always allocate on stack for now (escape analysis informs optimization decisions)
             // In a more advanced implementation, we might skip alloca for non-escaping params
@@ -308,7 +314,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn generate_arc_cleanup(&mut self, function_name: &str) {
         // Get all variables that need cleanup
         let vars_to_cleanup = self.escape_analyzer.get_vars_needing_cleanup(function_name);
-        
+
         for var_name in vars_to_cleanup {
             if let Some(var_info) = self.variables.get(var_name) {
                 // Only cleanup stack-allocated reference types
@@ -316,21 +322,22 @@ impl<'ctx> CodeGen<'ctx> {
                     if var_info.var_type == VarType::Pointer {
                         // Load the pointer value
                         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                        let ptr_val = self.builder.build_load(
-                            ptr_type,
-                            alloca,
-                            &format!("{}_ptr", var_name),
-                        ).expect("load pointer for cleanup");
-                        
+                        let ptr_val = self
+                            .builder
+                            .build_load(ptr_type, alloca, &format!("{}_ptr", var_name))
+                            .expect("load pointer for cleanup");
+
                         // Call vp_release with the pointer and a null destructor for now
                         if let Some(release_func) = self.module.get_function("vp_release") {
                             // For now, pass null as destructor (will be improved later)
                             let null_ptr = ptr_type.const_null();
-                            self.builder.build_call(
-                                release_func,
-                                &[ptr_val.into(), null_ptr.into()],
-                                &format!("release_{}", var_name),
-                            ).expect("build release call");
+                            self.builder
+                                .build_call(
+                                    release_func,
+                                    &[ptr_val.into(), null_ptr.into()],
+                                    &format!("release_{}", var_name),
+                                )
+                                .expect("build release call");
                         }
                     }
                 }

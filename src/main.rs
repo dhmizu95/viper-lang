@@ -187,7 +187,10 @@ fn compile_file_aot(
             .map_err(|e| format!("opt failed: {}", e))?;
 
         if !opt_output.status.success() {
-            eprintln!("   ⚠ opt stderr: {}", String::from_utf8_lossy(&opt_output.stderr));
+            eprintln!(
+                "   ⚠ opt stderr: {}",
+                String::from_utf8_lossy(&opt_output.stderr)
+            );
             return Err(format!("opt optimization failed"));
         }
 
@@ -488,7 +491,7 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
 
 fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
     use inkwell::targets::{InitializationConfig, Target};
-    
+
     println!("🐍 Viper Compiler 0.2.2 (JIT -O{})", opt_level);
     println!("   Running: {}", input_path);
 
@@ -565,10 +568,7 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
 
     let print_str_ptr = vp_print_str_stub as extern "C" fn(*mut std::ffi::c_void);
     if let Some(func) = codegen.module().get_function("vp_print_str") {
-        execution_engine.add_global_mapping(
-            &func.as_global_value(),
-            print_str_ptr as usize,
-        );
+        execution_engine.add_global_mapping(&func.as_global_value(), print_str_ptr as usize);
     }
 
     let print_newline_ptr = vp_print_newline as extern "C" fn();
@@ -647,6 +647,38 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             vp_list_contains_stub as *const () as usize,
         );
     }
+    // Float list functions (f64)
+    if let Some(func) = codegen.module().get_function("vp_list_create_f64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_create_f64_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_append_f64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_append_f64_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_get_f64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_get_f64_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_set_f64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_set_f64_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_repeat") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_repeat_stub as *const () as usize,
+        );
+    }
+
     if let Some(func) = codegen.module().get_function("vp_retain") {
         execution_engine.add_global_mapping(
             &func.as_global_value(),
@@ -665,6 +697,24 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             vp_str_concat_stub as *const () as usize,
         );
     }
+    if let Some(func) = codegen.module().get_function("vp_str_from_i64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_from_i64_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_str_from_f64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_from_f64_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_str_len") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_len_stub as *const () as usize,
+        );
+    }
     // Concurrency runtime functions (Phase 3)
     if let Some(func) = codegen.module().get_function("vp_chan_create") {
         execution_engine.add_global_mapping(
@@ -679,16 +729,12 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
         );
     }
     if let Some(func) = codegen.module().get_function("vp_chan_send") {
-        execution_engine.add_global_mapping(
-            &func.as_global_value(),
-            vp_chan_send as *const () as usize,
-        );
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_chan_send as *const () as usize);
     }
     if let Some(func) = codegen.module().get_function("vp_chan_recv") {
-        execution_engine.add_global_mapping(
-            &func.as_global_value(),
-            vp_chan_recv as *const () as usize,
-        );
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_chan_recv as *const () as usize);
     }
     if let Some(func) = codegen.module().get_function("vp_waitgroup_create") {
         execution_engine.add_global_mapping(
@@ -725,6 +771,38 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
         execution_engine.add_global_mapping(
             &func.as_global_value(),
             vp_future_await as *const () as usize,
+        );
+    }
+
+    // Math builtins JIT mappings
+    if let Some(func) = codegen.module().get_function("vp_math_sqrt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_sqrt as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_math_abs") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_abs as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_math_ln") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_ln as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_math_floor") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_floor as *const () as usize);
+    }
+
+    // Struct module JIT mappings
+    if let Some(func) = codegen.module().get_function("vp_struct_pack") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_struct_pack as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_struct_unpack") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_struct_unpack as *const () as usize,
         );
     }
 
@@ -890,6 +968,57 @@ extern "C" fn vp_list_contains_stub(list: *mut std::ffi::c_void, val: i64) -> bo
     }
 }
 
+// Float list stubs (f64)
+extern "C" fn vp_list_create_f64_stub() -> *mut std::ffi::c_void {
+    let list = Box::new(Vec::<f64>::new());
+    Box::into_raw(list) as *mut std::ffi::c_void
+}
+
+extern "C" fn vp_list_append_f64_stub(list: *mut std::ffi::c_void, val: f64) {
+    if list.is_null() {
+        return;
+    }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<f64>);
+        vec.push(val);
+    }
+}
+
+extern "C" fn vp_list_get_f64_stub(list: *mut std::ffi::c_void, index: i64) -> f64 {
+    if list.is_null() {
+        return 0.0;
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<f64>);
+        if index < 0 || index as usize >= vec.len() {
+            return 0.0;
+        }
+        vec[index as usize]
+    }
+}
+
+extern "C" fn vp_list_set_f64_stub(list: *mut std::ffi::c_void, index: i64, val: f64) {
+    if list.is_null() {
+        return;
+    }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<f64>);
+        if index >= 0 && (index as usize) < vec.len() {
+            vec[index as usize] = val;
+        }
+    }
+}
+
+// List repeat stub - creates a new list with element repeated n times
+extern "C" fn vp_list_repeat_stub(elem: i64, count: i64) -> *mut std::ffi::c_void {
+    let mut result = Vec::<i64>::new();
+    for _ in 0..count {
+        result.push(elem);
+    }
+    let boxed = Box::new(result);
+    Box::into_raw(boxed) as *mut std::ffi::c_void
+}
+
 extern "C" fn vp_retain_stub(_ptr: *mut std::ffi::c_void) {
     // No-op for JIT
 }
@@ -920,6 +1049,33 @@ extern "C" fn vp_str_concat_stub(
         let boxed = Box::new(concatenated);
         let ptr = Box::into_raw(boxed) as *const std::ffi::c_char;
         ptr
+    }
+}
+
+/// Convert i64 to string stub for JIT
+extern "C" fn vp_str_from_i64_stub(val: i64) -> *const std::ffi::c_char {
+    let s = val.to_string();
+    let boxed = Box::new(s);
+    let ptr = Box::into_raw(boxed) as *const std::ffi::c_char;
+    ptr
+}
+
+/// Convert f64 to string stub for JIT
+extern "C" fn vp_str_from_f64_stub(val: f64) -> *const std::ffi::c_char {
+    let s = val.to_string();
+    let boxed = Box::new(s);
+    let ptr = Box::into_raw(boxed) as *const std::ffi::c_char;
+    ptr
+}
+
+/// Get string length stub for JIT
+extern "C" fn vp_str_len_stub(s: *const std::ffi::c_char) -> i64 {
+    if s.is_null() {
+        return 0;
+    }
+    unsafe {
+        let c_str = std::ffi::CStr::from_ptr(s);
+        c_str.to_str().map(|s| s.len() as i64).unwrap_or(0)
     }
 }
 
@@ -959,7 +1115,7 @@ edition = "2021"
 // Concurrency runtime stubs for JIT (Phase 3)
 // Simplified implementations using atomics for safety
 
-use std::sync::atomic::{AtomicUsize, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 
 static JIT_CHANNEL_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static JIT_CHANNEL_VALUE: AtomicI64 = AtomicI64::new(0);
@@ -1015,6 +1171,43 @@ extern "C" fn vp_future_await(future: i64) -> i64 {
     // Stub for async/await - just returns the future value as-is
     // A full implementation would suspend and resume the coroutine
     future
+}
+
+// Math builtins stubs for JIT
+extern "C" fn vp_math_sqrt(x: f64) -> f64 {
+    x.sqrt()
+}
+
+extern "C" fn vp_math_abs(x: f64) -> f64 {
+    x.abs()
+}
+
+extern "C" fn vp_math_ln(x: f64) -> f64 {
+    x.ln()
+}
+
+extern "C" fn vp_math_floor(x: f64) -> f64 {
+    x.floor()
+}
+
+// Struct module stubs for JIT
+extern "C" fn vp_struct_pack(format: *const std::ffi::c_char, value: i64) -> *mut std::ffi::c_void {
+    // Simplified implementation - pack a single i64 value
+    // In production, this would use proper format string parsing
+    let ptr = Box::into_raw(Box::new(value)) as *mut std::ffi::c_void;
+    ptr
+}
+
+extern "C" fn vp_struct_unpack(
+    format: *const std::ffi::c_char,
+    data: *const std::ffi::c_void,
+    _len: i64,
+) -> i64 {
+    // Simplified implementation - read i64 from pointer
+    if data.is_null() {
+        return 0;
+    }
+    unsafe { *(data as *const i64) }
 }
 
 /// Check that all prerequisites are available

@@ -459,7 +459,11 @@ impl TypeChecker {
                 // Channel creation - type will be inferred from send/recv usage
                 // For now, mark as Chan[Infer]
             }
-            Stmt::Send { chan, value, span: _ } => {
+            Stmt::Send {
+                chan,
+                value,
+                span: _,
+            } => {
                 let _chan_type = self.check_expr(chan);
                 let _value_type = self.check_expr(value);
                 // Type checking for send is deferred to runtime
@@ -474,7 +478,7 @@ impl TypeChecker {
             Stmt::WgAdd { wg, n, span } => {
                 let wg_type = self.check_expr(wg);
                 let n_type = self.check_expr(n);
-                
+
                 // Type check: wg must be WaitGroup, n must be i64
                 if let Some(wt) = wg_type {
                     if wt != Type::WaitGroup {
@@ -495,7 +499,7 @@ impl TypeChecker {
             }
             Stmt::WgDone { wg, span } => {
                 let wg_type = self.check_expr(wg);
-                
+
                 // Type check: wg must be WaitGroup
                 if let Some(wt) = wg_type {
                     if wt != Type::WaitGroup {
@@ -508,7 +512,7 @@ impl TypeChecker {
             }
             Stmt::WgWait { wg, span } => {
                 let wg_type = self.check_expr(wg);
-                
+
                 // Type check: wg must be WaitGroup
                 if let Some(wt) = wg_type {
                     if wt != Type::WaitGroup {
@@ -731,9 +735,7 @@ impl TypeChecker {
             (Type::Str, Type::Str) => true,
             (Type::None, Type::None) => true,
             (Type::List(a), Type::List(b)) => self.is_compatible(a, b),
-            (Type::Array(a1, s1), Type::Array(a2, s2)) => {
-                s1 == s2 && self.is_compatible(a1, a2)
-            }
+            (Type::Array(a1, s1), Type::Array(a2, s2)) => s1 == s2 && self.is_compatible(a1, a2),
             // Channel types: Chan[T] is compatible with Chan[U] if T is compatible with U
             (Type::Chan(elem_expected), Type::Chan(elem_actual)) => {
                 self.is_compatible(elem_expected, elem_actual)

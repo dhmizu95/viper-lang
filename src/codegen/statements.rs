@@ -151,9 +151,13 @@ fn generate_stmt_internal<'ctx>(
         Stmt::Chan { size, .. } => {
             // Channel creation - call runtime function
             let size_val = crate::codegen::expressions::generate_expr(state, size)?;
-            let chan_func = state.module.get_function("vp_chan_create")
+            let chan_func = state
+                .module
+                .get_function("vp_chan_create")
                 .ok_or("vp_chan_create not declared")?;
-            state.builder.build_call(chan_func, &[size_val.into()], "chan")
+            state
+                .builder
+                .build_call(chan_func, &[size_val.into()], "chan")
                 .expect("call vp_chan_create");
             // Channel is a pointer type - the result is already a pointer value
         }
@@ -161,25 +165,37 @@ fn generate_stmt_internal<'ctx>(
             // Channel send
             let chan_val = crate::codegen::expressions::generate_expr(state, chan)?;
             let val_val = crate::codegen::expressions::generate_expr(state, value)?;
-            let send_func = state.module.get_function("vp_chan_send")
+            let send_func = state
+                .module
+                .get_function("vp_chan_send")
                 .ok_or("vp_chan_send not declared")?;
-            state.builder.build_call(send_func, &[chan_val.into(), val_val.into()], "")
+            state
+                .builder
+                .build_call(send_func, &[chan_val.into(), val_val.into()], "")
                 .expect("call vp_chan_send");
         }
         Stmt::Recv { chan, .. } => {
             // Channel receive - returns value from channel
             let chan_val = crate::codegen::expressions::generate_expr(state, chan)?;
-            let recv_func = state.module.get_function("vp_chan_recv")
+            let recv_func = state
+                .module
+                .get_function("vp_chan_recv")
                 .ok_or("vp_chan_recv not declared")?;
-            state.builder.build_call(recv_func, &[chan_val.into()], "recv_val")
+            state
+                .builder
+                .build_call(recv_func, &[chan_val.into()], "recv_val")
                 .expect("call vp_chan_recv");
             // Return value type depends on channel element type (handled by type checker)
         }
         Stmt::WaitGroup { .. } => {
             // WaitGroup creation - returns a pointer to WaitGroup struct
-            let wg_func = state.module.get_function("vp_waitgroup_create")
+            let wg_func = state
+                .module
+                .get_function("vp_waitgroup_create")
                 .ok_or("vp_waitgroup_create not declared")?;
-            state.builder.build_call(wg_func, &[], "wg")
+            state
+                .builder
+                .build_call(wg_func, &[], "wg")
                 .expect("call vp_waitgroup_create");
             // WaitGroup is a pointer type
         }
@@ -187,25 +203,37 @@ fn generate_stmt_internal<'ctx>(
             // WaitGroup add
             let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
             let n_val = crate::codegen::expressions::generate_expr(state, n)?;
-            let add_func = state.module.get_function("vp_waitgroup_add")
+            let add_func = state
+                .module
+                .get_function("vp_waitgroup_add")
                 .ok_or("vp_waitgroup_add not declared")?;
-            state.builder.build_call(add_func, &[wg_val.into(), n_val.into()], "")
+            state
+                .builder
+                .build_call(add_func, &[wg_val.into(), n_val.into()], "")
                 .expect("call vp_waitgroup_add");
         }
         Stmt::WgDone { wg, .. } => {
             // WaitGroup done
             let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
-            let done_func = state.module.get_function("vp_waitgroup_done")
+            let done_func = state
+                .module
+                .get_function("vp_waitgroup_done")
                 .ok_or("vp_waitgroup_done not declared")?;
-            state.builder.build_call(done_func, &[wg_val.into()], "")
+            state
+                .builder
+                .build_call(done_func, &[wg_val.into()], "")
                 .expect("call vp_waitgroup_done");
         }
         Stmt::WgWait { wg, .. } => {
             // WaitGroup wait
             let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
-            let wait_func = state.module.get_function("vp_waitgroup_wait")
+            let wait_func = state
+                .module
+                .get_function("vp_waitgroup_wait")
                 .ok_or("vp_waitgroup_wait not declared")?;
-            state.builder.build_call(wait_func, &[wg_val.into()], "")
+            state
+                .builder
+                .build_call(wait_func, &[wg_val.into()], "")
                 .expect("call vp_waitgroup_wait");
         }
         _ => {}
@@ -235,11 +263,14 @@ fn generate_assign<'ctx>(
                 VarStorage::Stack(alloca) => {
                     // Release old value if it was a reference type needing ARC
                     if old_is_ref && old_needs_arc {
-                        let old_val = state.builder.build_load(
-                            state.context.ptr_type(inkwell::AddressSpace::default()),
-                            *alloca,
-                            &format!("{}_old", name),
-                        ).expect("load old value");
+                        let old_val = state
+                            .builder
+                            .build_load(
+                                state.context.ptr_type(inkwell::AddressSpace::default()),
+                                *alloca,
+                                &format!("{}_old", name),
+                            )
+                            .expect("load old value");
                         state.build_release(old_val, &format!("{}_old", name));
                     }
                     state.builder.build_store(*alloca, val).expect("store");
@@ -248,19 +279,24 @@ fn generate_assign<'ctx>(
                     // For register-allocated variables, we need to upgrade to stack
                     // since the variable is being reassigned (may escape now)
                     // Create the alloca at the function entry block
-                    let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+                    let func = state
+                        .builder
+                        .get_insert_block()
+                        .unwrap()
+                        .get_parent()
+                        .unwrap();
                     let entry_block = func.get_first_basic_block().unwrap();
                     let old_builder_pos = state.builder.get_insert_block();
-                    
+
                     state.builder.position_at_end(entry_block);
                     let ty = val.get_type();
                     let alloca = state.builder.build_alloca(ty, name).expect("alloca");
-                    
+
                     // Restore builder position
                     if let Some(pos) = old_builder_pos {
                         state.builder.position_at_end(pos);
                     }
-                    
+
                     state.builder.build_store(alloca, val).expect("store");
                     let new_var_info = VarInfo::new_stack(alloca, var_info.var_type);
                     state.variables.insert(name.clone(), new_var_info);
@@ -315,17 +351,17 @@ fn generate_assign<'ctx>(
             // Array index assignment using GEP and store
             let obj_ptr = obj_val.into_pointer_value();
             let elem_type = value_val.get_type();
-            
+
             let elem_ptr = unsafe {
-                state.builder.build_in_bounds_gep(
-                    elem_type,
-                    obj_ptr,
-                    &[index_val],
-                    "array_elem",
-                )
-            }.map_err(|e| format!("Failed to build array index GEP: {:?}", e))?;
-            
-            state.builder.build_store(elem_ptr, value_val)
+                state
+                    .builder
+                    .build_in_bounds_gep(elem_type, obj_ptr, &[index_val], "array_elem")
+            }
+            .map_err(|e| format!("Failed to build array index GEP: {:?}", e))?;
+
+            state
+                .builder
+                .build_store(elem_ptr, value_val)
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
         } else {
             // List index assignment using runtime function
@@ -357,30 +393,28 @@ fn generate_aug_assign<'ctx>(
 
             // Get current value based on storage type
             let current = match &var_info.storage {
-                VarStorage::Stack(alloca) => {
-                    match var_type {
-                        VarType::Float => {
-                            let f64_type = state.context.f64_type();
-                            state
-                                .builder
-                                .build_load(f64_type, *alloca, name)
-                                .expect("load")
-                        }
-                        VarType::Int => {
-                            let i64_type = state.context.i64_type();
-                            state
-                                .builder
-                                .build_load(i64_type, *alloca, name)
-                                .expect("load")
-                        }
-                        VarType::Pointer => {
-                            return Err(format!(
-                                "Cannot perform augmented assignment on pointer variable '{}'",
-                                name
-                            ));
-                        }
+                VarStorage::Stack(alloca) => match var_type {
+                    VarType::Float => {
+                        let f64_type = state.context.f64_type();
+                        state
+                            .builder
+                            .build_load(f64_type, *alloca, name)
+                            .expect("load")
                     }
-                }
+                    VarType::Int => {
+                        let i64_type = state.context.i64_type();
+                        state
+                            .builder
+                            .build_load(i64_type, *alloca, name)
+                            .expect("load")
+                    }
+                    VarType::Pointer => {
+                        return Err(format!(
+                            "Cannot perform augmented assignment on pointer variable '{}'",
+                            name
+                        ));
+                    }
+                },
                 VarStorage::Register(value) => {
                     // For register-allocated variables, upgrade to stack for augmented assignment
                     // since we need to store the result
@@ -389,7 +423,7 @@ fn generate_aug_assign<'ctx>(
                     state.builder.build_store(alloca, *value).expect("store");
                     let new_var_info = VarInfo::new_stack(alloca, var_type);
                     state.variables.insert(name.clone(), new_var_info);
-                    
+
                     match var_type {
                         VarType::Float => {
                             let f64_type = state.context.f64_type();

@@ -10,6 +10,7 @@ pub fn declare_runtime_functions<'ctx>(
 ) -> Result<(), String> {
     declare_print_functions(context, module)?;
     declare_list_functions(context, module)?;
+    declare_dict_functions(context, module)?;
     declare_memory_functions(context, module)?;
     declare_math_functions(context, module)?;
     declare_concurrency_functions(context, module)?;
@@ -45,6 +46,16 @@ fn declare_print_functions<'ctx>(
     // String concatenation function
     let str_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_concat", str_concat_type, None);
+
+    // String conversion functions
+    let str_from_i64_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_str_from_i64", str_from_i64_type, None);
+
+    let str_from_f64_type = ptr_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_str_from_f64", str_from_f64_type, None);
+
+    let str_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_len", str_len_type, None);
 
     Ok(())
 }
@@ -93,6 +104,64 @@ fn declare_list_functions<'ctx>(
 
     let list_contains_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_list_contains", list_contains_type, None);
+
+    // Float list functions (f64)
+    let f64_type = context.f64_type();
+
+    let list_create_f64_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_list_create_f64", list_create_f64_type, None);
+
+    let list_append_f64_type = void_type.fn_type(&[ptr_type.into(), f64_type.into()], false);
+    module.add_function("vp_list_append_f64", list_append_f64_type, None);
+
+    let list_get_f64_type = f64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_get_f64", list_get_f64_type, None);
+
+    let list_set_f64_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), f64_type.into()], false);
+    module.add_function("vp_list_set_f64", list_set_f64_type, None);
+
+    // List repeat function (list * int)
+    let list_repeat_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_repeat", list_repeat_type, None);
+
+    Ok(())
+}
+
+/// Declare dict-related runtime functions
+fn declare_dict_functions<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> Result<(), String> {
+    let i64_type = context.i64_type();
+    let void_type = context.void_type();
+    let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+    let bool_type = context.bool_type();
+
+    let dict_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_dict_create", dict_create_type, None);
+
+    let dict_free_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_dict_free", dict_free_type, None);
+
+    let dict_set_type =
+        void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_dict_set_i64", dict_set_type, None);
+
+    let dict_get_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_dict_get_i64", dict_get_type, None);
+
+    let dict_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_dict_len", dict_len_type, None);
+
+    let dict_contains_type = bool_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_dict_contains", dict_contains_type, None);
+
+    let dict_remove_type = bool_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_dict_remove", dict_remove_type, None);
+
+    let dict_clear_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_dict_clear", dict_clear_type, None);
 
     Ok(())
 }
@@ -150,6 +219,7 @@ fn declare_concurrency_functions<'ctx>(
     let i64_type = context.i64_type();
     let void_type = context.void_type();
     let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+    let bool_type = context.bool_type();
 
     // Channel functions
     let chan_create_type = ptr_type.fn_type(&[i64_type.into()], false);
@@ -192,6 +262,32 @@ fn declare_concurrency_functions<'ctx>(
     // A full implementation would use Future[T] pointer types
     let future_await_type = i64_type.fn_type(&[i64_type.into()], false);
     module.add_function("vp_future_await", future_await_type, None);
+
+    // Async runtime functions
+    let future_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_future_create", future_create_type, None);
+
+    let future_set_result_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_future_set_result", future_set_result_type, None);
+
+    let future_is_ready_type = bool_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_future_is_ready", future_is_ready_type, None);
+
+    let async_spawn_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_async_spawn", async_spawn_type, None);
+
+    let async_run_loop_type = void_type.fn_type(&[], false);
+    module.add_function("vp_async_run_loop", async_run_loop_type, None);
+
+    // Struct module functions (pack/unpack)
+    // struct.pack(format, value) - returns pointer to packed data
+    let struct_pack_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_struct_pack", struct_pack_type, None);
+
+    // struct.unpack(format, data, len) - returns i64 value
+    let struct_unpack_type =
+        i64_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_struct_unpack", struct_unpack_type, None);
 
     Ok(())
 }

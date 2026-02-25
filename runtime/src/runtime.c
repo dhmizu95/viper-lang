@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdarg.h>
 #include "viper_stdlib.h"
 
 /* ============================================ */
@@ -209,4 +210,250 @@ double vp_math_ln(double x) {
 
 double vp_math_floor(double x) {
     return floor(x);
+}
+
+/* ============================================ */
+/* Dict Wrapper Functions (for LLVM JIT)         */
+/* ============================================ */
+
+/* Wrapper for dict set with i64 value */
+void vp_dict_set_i64(ViperDict* dict, const char* key, int64_t value) {
+    if (!dict || !key) return;
+    
+    ViperValue val;
+    val.type = VIPER_TYPE_I64;
+    val.data.as_i64 = value;
+    
+    vp_dict_set(dict, key, val);
+}
+
+/* Wrapper for dict get returning i64 value */
+int64_t vp_dict_get_i64(ViperDict* dict, const char* key) {
+    if (!dict || !key) return 0;
+    
+    ViperValue val = vp_dict_get(dict, key);
+    
+    if (val.type == VIPER_TYPE_I64) {
+        return val.data.as_i64;
+    } else if (val.type == VIPER_TYPE_NONE) {
+        return 0;
+    }
+    
+    /* Type mismatch - return 0 for now */
+    return 0;
+}
+
+/* ============================================ */
+/* Struct Module (Python-compatible pack/unpack)  */
+/* ============================================ */
+
+#include <string.h>
+
+typedef enum {
+    FMT_INT8 = 0,
+    FMT_UINT8,
+    FMT_INT16,
+    FMT_UINT16,
+    FMT_INT32,
+    FMT_UINT32,
+    FMT_INT64,
+    FMT_UINT64,
+    FMT_FLOAT32,
+    FMT_FLOAT64,
+    FMT_STRING,
+} FormatType;
+
+static FormatType parse_format_char(char c) {
+    switch (c) {
+        case 'b': return FMT_INT8;
+        case 'B': return FMT_UINT8;
+        case 'h': return FMT_INT16;
+        case 'H': return FMT_UINT16;
+        case 'i': case 'l': return FMT_INT32;
+        case 'I': case 'L': return FMT_UINT32;
+        case 'q': return FMT_INT64;
+        case 'Q': return FMT_UINT64;
+        case 'f': return FMT_FLOAT32;
+        case 'd': return FMT_FLOAT64;
+        case 's': return FMT_STRING;
+        default: return FMT_INT32;
+    }
+}
+
+static int get_format_size(char c) {
+    switch (c) {
+        case 'b': case 'B': return 1;
+        case 'h': case 'H': return 2;
+        case 'i': case 'I': case 'l': case 'L': case 'f': return 4;
+        case 'q': case 'Q': case 'd': return 8;
+        default: return 4;
+    }
+}
+
+/* Calculate total size needed for pack */
+static int calculate_pack_size(const char* format) {
+    int size = 0;
+    int count = 1;
+    
+    for (int i = 0; format[i]; i++) {
+        if (format[i] >= '0' && format[i] <= '9') {
+            count = count * 10 + (format[i] - '0');
+            continue;
+        }
+        
+        if (format[i] == 's') {
+            /* String: count bytes */
+            size += count;
+        } else {
+            size += get_format_size(format[i]) * count;
+        }
+        count = 1;
+    }
+    
+    return size;
+}
+
+/* Pack values into binary buffer */
+char* vp_struct_pack(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    
+    /* First pass: calculate size */
+    int size = 0;
+    int count = 1;
+    
+    for (int i = 0; format[i]; i++) {
+        char c = format[i];
+        
+        if (c >= '0' && c <= '9') {
+            count = count * 10 + (c - '0');
+            continue;
+        }
+        
+        if (c == 's') {
+            /* String: count bytes */
+            const char* str = va_arg(args, char*);
+            if (str) {
+                int len = count < (int)strlen(str) ? count : (int)strlen(str);
+                size += len;
+            }
+            /* Also account for length prefix */
+            size += 4;
+        } else {
+            size += get_format_size(c) * count;
+        }
+        count = 1;
+    }
+    
+    /* Allocate buffer */
+    char* buffer = (char*)vp_arc_alloc(size + 1);
+    int offset = 0;
+    
+    /* Second pass: pack values */
+    va_start(args, format);
+    count = 1;
+    
+    for (int i = 0; format[i]; i++) {
+        char c = format[i];
+        
+        if (c >= '0' && c <= '9') {
+            count = count * 10 + (c - '0');
+            continue;
+        }
+        
+        for (int j = 0; j < count; j++) {
+            switch (c) {
+                case 'b': {
+                    int8_t val = (int8_t)va_arg(args, int);
+                    buffer[offset++] = (char)val;
+                    break;
+                }
+                case 'B': {
+                    uint8_t val = (uint8_t)va_arg(args, unsigned int);
+                    buffer[offset++] = (char)val;
+                    break;
+                }
+                case 'h': {
+                    int16_t val = (int16_t)va_arg(args, int);
+                    memcpy(&buffer[offset], &val, 2);
+                    offset += 2;
+                    break;
+                }
+                case 'H': {
+                    uint16_t val = (uint16_t)va_arg(args, unsigned int);
+                    memcpy(&buffer[offset], &val, 2);
+                    offset += 2;
+                    break;
+                }
+                case 'i': case 'l': {
+                    int32_t val = va_arg(args, int32_t);
+                    memcpy(&buffer[offset], &val, 4);
+                    offset += 4;
+                    break;
+                }
+                case 'I': case 'L': {
+                    uint32_t val = va_arg(args, uint32_t);
+                    memcpy(&buffer[offset], &val, 4);
+                    offset += 4;
+                    break;
+                }
+                case 'q': {
+                    int64_t val = va_arg(args, int64_t);
+                    memcpy(&buffer[offset], &val, 8);
+                    offset += 8;
+                    break;
+                }
+                case 'Q': {
+                    uint64_t val = va_arg(args, uint64_t);
+                    memcpy(&buffer[offset], &val, 8);
+                    offset += 8;
+                    break;
+                }
+                case 'f': {
+                    float val = (float)va_arg(args, double);
+                    memcpy(&buffer[offset], &val, 4);
+                    offset += 4;
+                    break;
+                }
+                case 'd': {
+                    double val = va_arg(args, double);
+                    memcpy(&buffer[offset], &val, 8);
+                    offset += 8;
+                    break;
+                }
+                case 's': {
+                    const char* str = va_arg(args, char*);
+                    if (str) {
+                        int len = count < (int)strlen(str) ? count : (int)strlen(str);
+                        /* Write length prefix */
+                        memcpy(&buffer[offset], &len, 4);
+                        offset += 4;
+                        /* Write string */
+                        memcpy(&buffer[offset], str, len);
+                        offset += len;
+                    }
+                    break;
+                }
+            }
+        }
+        count = 1;
+    }
+    
+    buffer[offset] = '\0';
+    va_end(args);
+    
+    return buffer;
+}
+
+/* Unpack values from binary buffer - returns list of values */
+/* For simplicity, returns packed buffer with parsed values interpreted */
+int64_t vp_struct_unpack(const char* format, const char* data, int data_len) {
+    /* Simplified implementation: just return the int32 at the start */
+    /* A full implementation would parse and return multiple values */
+    if (!data || data_len < 4) return 0;
+    
+    /* Return first value based on format */
+    int32_t val;
+    memcpy(&val, data, 4);
+    return (int64_t)val;
 }

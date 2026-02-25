@@ -302,10 +302,11 @@ impl DeadCodeEliminator {
                 // Variable is never used - all stores are dead (unless they have side effects)
                 for &store_idx in &store_indices {
                     // Check if this specific store has side effects
-                    let has_side_effects = stmts.get(store_idx)
+                    let has_side_effects = stmts
+                        .get(store_idx)
                         .map(|stmt| self.stmt_value_has_side_effects(stmt))
                         .unwrap_or(false);
-                    
+
                     if !has_side_effects {
                         self.dead_stmts.insert(store_idx);
                     }
@@ -320,9 +321,10 @@ impl DeadCodeEliminator {
     /// Check if the value being assigned in a statement has side effects
     fn stmt_value_has_side_effects(&self, stmt: &Stmt) -> bool {
         match stmt {
-            Stmt::Declare { value, .. } => {
-                value.as_ref().map(|v| self.has_side_effects(v)).unwrap_or(false)
-            }
+            Stmt::Declare { value, .. } => value
+                .as_ref()
+                .map(|v| self.has_side_effects(v))
+                .unwrap_or(false),
             Stmt::Assign { value, .. } => self.has_side_effects(value),
             _ => false,
         }
@@ -354,16 +356,17 @@ impl DeadCodeEliminator {
             // Store is dead if next store comes before any read
             if let Some(ns) = next_store {
                 let is_dead = match next_read {
-                    None => true, // No read after this store, and there's another store
+                    None => true,       // No read after this store, and there's another store
                     Some(&r) => ns < r, // Next store comes before next read
                 };
 
                 if is_dead {
                     // Check if this store has side effects
-                    let has_side_effects = stmts.get(store_idx)
+                    let has_side_effects = stmts
+                        .get(store_idx)
                         .map(|stmt| self.stmt_value_has_side_effects(stmt))
                         .unwrap_or(false);
-                    
+
                     if !has_side_effects {
                         self.dead_stmts.insert(store_idx);
                     }
@@ -408,12 +411,10 @@ impl DeadCodeEliminator {
             Stmt::While {
                 condition, body, ..
             } => {
-                self.expr_contains_var(condition, var_name)
-                    || self.block_reads_var(body, var_name)
+                self.expr_contains_var(condition, var_name) || self.block_reads_var(body, var_name)
             }
             Stmt::For { iter, body, .. } => {
-                self.expr_contains_var(iter, var_name)
-                    || self.block_reads_var(body, var_name)
+                self.expr_contains_var(iter, var_name) || self.block_reads_var(body, var_name)
             }
             _ => false,
         }
@@ -443,9 +444,9 @@ impl DeadCodeEliminator {
             Expr::List { elements, .. } => {
                 elements.iter().any(|e| self.expr_contains_var(e, var_name))
             }
-            Expr::Dict { pairs, .. } => pairs
-                .iter()
-                .any(|(k, v)| self.expr_contains_var(k, var_name) || self.expr_contains_var(v, var_name)),
+            Expr::Dict { pairs, .. } => pairs.iter().any(|(k, v)| {
+                self.expr_contains_var(k, var_name) || self.expr_contains_var(v, var_name)
+            }),
             Expr::Tuple { elements, .. } => {
                 elements.iter().any(|e| self.expr_contains_var(e, var_name))
             }

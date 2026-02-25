@@ -78,7 +78,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Check if a variable can be stack-allocated based on escape analysis
     pub fn can_stack_allocate(&self, var_name: &str) -> bool {
-        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function) {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
+        {
             analyzer.can_stack_allocate(func, var_name)
         } else {
             true // Default to stack allocation if no escape analysis info
@@ -87,7 +88,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Check if a variable needs ARC retain/release operations
     pub fn needs_arc(&self, var_name: &str) -> bool {
-        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function) {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
+        {
             analyzer.needs_arc(func, var_name)
         } else {
             false // Default to no ARC if no escape analysis info
@@ -96,7 +98,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Check if a variable needs ARC cleanup at function exit
     pub fn needs_arc_cleanup(&self, var_name: &str) -> bool {
-        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function) {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
+        {
             analyzer.needs_arc_cleanup(func, var_name)
         } else {
             false // Default to no cleanup if no escape analysis info
@@ -105,7 +108,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Set reference type flag for a variable
     pub fn set_reference_type(&mut self, var_name: &str, is_ref: bool) {
-        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_mut(), self.current_function) {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_mut(), self.current_function)
+        {
             analyzer.set_reference_type(func, var_name, is_ref);
         }
     }
@@ -125,7 +129,11 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let null_ptr = ptr_type.const_null();
             self.builder
-                .build_call(release_func, &[value.into(), null_ptr.into()], &format!("release_{}", name))
+                .build_call(
+                    release_func,
+                    &[value.into(), null_ptr.into()],
+                    &format!("release_{}", name),
+                )
                 .expect("build release call");
         }
     }

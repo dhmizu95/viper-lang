@@ -50,7 +50,8 @@ pub fn generate_expr<'ctx>(
                                     .expect("load"))
                             }
                             VarType::Pointer => {
-                                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                                let ptr_type =
+                                    state.context.ptr_type(inkwell::AddressSpace::default());
                                 Ok(state
                                     .builder
                                     .build_load(ptr_type, *alloca, name)
@@ -71,7 +72,11 @@ pub fn generate_expr<'ctx>(
             }
         }
         Expr::List { elements, span: _ } => generate_list(state, elements),
-        Expr::Array { elements, size, span: _ } => generate_array(state, elements, *size),
+        Expr::Array {
+            elements,
+            size,
+            span: _,
+        } => generate_array(state, elements, *size),
         Expr::Tuple { elements, span: _ } => {
             if elements.is_empty() {
                 Ok(state.ir_builder.i64_const(0).into())
@@ -79,9 +84,7 @@ pub fn generate_expr<'ctx>(
                 generate_expr(state, &elements[0])
             }
         }
-        Expr::Dict { pairs: _, span: _ } => {
-            Err("Dictionary literals not yet implemented in Phase 2".to_string())
-        }
+        Expr::Dict { pairs, span: _ } => generate_dict(state, pairs),
         Expr::Index {
             obj,
             index,
@@ -113,10 +116,22 @@ fn generate_list<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
+    // Determine if this is a float list by checking the first element
+    let is_float_list = elements
+        .first()
+        .map(|e| matches!(e, Expr::Float(..)))
+        .unwrap_or(false);
+
+    let (list_func_name, append_func_name) = if is_float_list {
+        ("vp_list_create_f64", "vp_list_append_f64")
+    } else {
+        ("vp_list_create", "vp_list_append")
+    };
+
     let list_func = state
         .module
-        .get_function("vp_list_create")
-        .ok_or_else(|| "vp_list_create not declared".to_string())?;
+        .get_function(list_func_name)
+        .ok_or_else(|| format!("{} not declared", list_func_name))?;
 
     let list_val = state
         .ir_builder
@@ -125,20 +140,73 @@ fn generate_list<'ctx>(
 
     let append_func = state
         .module
-        .get_function("vp_list_append")
-        .ok_or_else(|| "vp_list_append not declared".to_string())?;
+        .get_function(append_func_name)
+        .ok_or_else(|| format!("{} not declared", append_func_name))?;
 
-    for (i, elem) in elements.iter().enumerate() {
+    for (idx, elem) in elements.iter().enumerate() {
         let elem_val = generate_expr(state, elem)?;
+
+        // If float list but elem is int, convert to float
+        let elem_val = if is_float_list && elem_val.is_int_value() {
+            let int_val = elem_val.into_int_value();
+            state
+                .builder
+                .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
+                .expect("int to float conversion")
+                .into()
+        // Convert bool to i64 for list operations
+        } else {
+            match elem {
+                Expr::Bool(true, _) => state.ir_builder.i64_const(1).into(),
+                Expr::Bool(false, _) => state.ir_builder.i64_const(0).into(),
+                _ => elem_val.into(),
+            }
+        };
+
         let _ = state.ir_builder.build_call(
             state.builder,
             append_func,
-            &[list_val.into(), elem_val.into()],
-            &format!("list_append_{}", i),
+            &[list_val.into(), elem_val],
+            &format!("list_append_{}", idx),
         );
     }
 
     Ok(list_val)
+}
+
+/// Generate dict creation
+fn generate_dict<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    pairs: &[(Expr, Expr)],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let dict_create_func = state
+        .module
+        .get_function("vp_dict_create")
+        .ok_or_else(|| "vp_dict_create not declared".to_string())?;
+
+    let dict_val = state
+        .ir_builder
+        .build_call(state.builder, dict_create_func, &[], "new_dict")
+        .unwrap();
+
+    let dict_set_func = state
+        .module
+        .get_function("vp_dict_set_i64")
+        .ok_or_else(|| "vp_dict_set_i64 not declared".to_string())?;
+
+    for (i, (key_expr, value_expr)) in pairs.iter().enumerate() {
+        let key_val = generate_expr(state, key_expr)?;
+        let value_val = generate_expr(state, value_expr)?;
+
+        let _ = state.ir_builder.build_call(
+            state.builder,
+            dict_set_func,
+            &[dict_val.into(), key_val.into(), value_val.into()],
+            &format!("dict_set_{}", i),
+        );
+    }
+
+    Ok(dict_val)
 }
 
 /// Generate array creation (fixed-size, stack-allocated)
@@ -168,11 +236,14 @@ fn generate_array<'ctx>(
     };
 
     // Allocate array on stack as a single alloca of element type with size
-    let array_alloca = state.builder.build_array_alloca(
-        elem_type,
-        state.context.i32_type().const_int(array_size as u64, false),
-        "array",
-    ).map_err(|e| format!("Failed to allocate array: {:?}", e))?;
+    let array_alloca = state
+        .builder
+        .build_array_alloca(
+            elem_type,
+            state.context.i32_type().const_int(array_size as u64, false),
+            "array",
+        )
+        .map_err(|e| format!("Failed to allocate array: {:?}", e))?;
 
     // Check if this is array repeat syntax: [value; size]
     let is_repeat = elements.len() == 1 && size.is_some() && size.unwrap() > 1;
@@ -205,9 +276,12 @@ fn generate_array<'ctx>(
                 &[state.context.i32_type().const_int(i as u64, false)],
                 &format!("elem_{}", i),
             )
-        }.map_err(|e| format!("Failed to build GEP: {:?}", e))?;
+        }
+        .map_err(|e| format!("Failed to build GEP: {:?}", e))?;
 
-        state.builder.build_store(elem_ptr, elem_val)
+        state
+            .builder
+            .build_store(elem_ptr, elem_val)
             .map_err(|e| format!("Failed to store element: {:?}", e))?;
     }
 
@@ -220,27 +294,48 @@ fn generate_index<'ctx>(
     obj: &Expr,
     index: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Check if indexing into an array (pointer to stack array)
     let obj_val = generate_expr(state, obj)?;
-    let index_val = generate_expr(state, index)?.into_int_value();
+    let index_val = generate_expr(state, index)?;
+
+    // Check if indexing with a string key (dict access)
+    if index_val.is_pointer_value() && obj_val.is_pointer_value() {
+        let dict_get = state
+            .module
+            .get_function("vp_dict_get_i64")
+            .ok_or_else(|| "vp_dict_get_i64 not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                dict_get,
+                &[obj_val.into(), index_val.into()],
+                "dict_get",
+            )
+            .ok_or_else(|| "build call failed".to_string())?;
+
+        return Ok(result);
+    }
+
+    let index_val = index_val.into_int_value();
 
     // Try array indexing first (gep on pointer)
     if obj_val.is_pointer_value() {
         let obj_ptr = obj_val.into_pointer_value();
         let elem_type = state.context.i64_type(); // Default to i64
-        
+
         let elem_ptr = unsafe {
-            state.builder.build_in_bounds_gep(
-                elem_type,
-                obj_ptr,
-                &[index_val],
-                "array_elem",
-            )
-        }.map_err(|e| format!("Failed to build array index GEP: {:?}", e))?;
-        
-        let loaded = state.builder.build_load(elem_type, elem_ptr, "array_load")
+            state
+                .builder
+                .build_in_bounds_gep(elem_type, obj_ptr, &[index_val], "array_elem")
+        }
+        .map_err(|e| format!("Failed to build array index GEP: {:?}", e))?;
+
+        let loaded = state
+            .builder
+            .build_load(elem_type, elem_ptr, "array_load")
             .map_err(|e| format!("Failed to load array element: {:?}", e))?;
-        
+
         return Ok(loaded);
     }
 
@@ -289,15 +384,66 @@ fn generate_binop<'ctx>(
         }
     }
 
+    // Handle list * int for list/array literals: [elem] * n
+    if *op == BinOp::Mul {
+        // Check for List or Array literal
+        let elements = match left {
+            Expr::List { elements, .. } => Some(elements),
+            Expr::Array { elements, .. } => Some(elements),
+            _ => None,
+        };
+
+        if let Some(elems) = elements {
+            if let Some(elem) = elems.first() {
+                let count_val = generate_expr(state, right)?;
+                let count_int = count_val.into_int_value();
+
+                let elem_val = generate_expr(state, elem)?;
+
+                let elem_i64 = match elem {
+                    Expr::Bool(true, _) => state.ir_builder.i64_const(1),
+                    Expr::Bool(false, _) => state.ir_builder.i64_const(0),
+                    _ => {
+                        if elem_val.is_int_value() {
+                            elem_val.into_int_value()
+                        } else {
+                            return Err(
+                                "List repeat requires integer or boolean elements".to_string()
+                            );
+                        }
+                    }
+                };
+
+                let list_repeat_func = state
+                    .module
+                    .get_function("vp_list_repeat")
+                    .ok_or_else(|| "vp_list_repeat not declared".to_string())?;
+
+                let result = state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        list_repeat_func,
+                        &[elem_i64.into(), count_int.into()],
+                        "list_repeat",
+                    )
+                    .expect("list_repeat call");
+
+                return Ok(result.into());
+            }
+        }
+    }
+
+    // General binary operation handling
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
 
-    // Fix #2: Reject pointer values in binary operations
+    // Reject pointer values in binary operations (except for Add with strings)
     if lhs_val.is_pointer_value() || rhs_val.is_pointer_value() {
         return Err("Binary operators cannot be applied to pointer values (lists)".to_string());
     }
 
-    // Fix #3: Auto-convert int to float when one operand is float
+    // Auto-convert int to float when one operand is float
     if lhs_val.is_float_value() && !rhs_val.is_float_value() {
         // Convert rhs (int) to float
         let rhs_int = rhs_val.into_int_value();
@@ -741,6 +887,10 @@ fn generate_call<'ctx>(
             return generate_len_call(state, args);
         }
 
+        if name == "str" {
+            return generate_str_call(state, args);
+        }
+
         // Math builtins
         if name == "sqrt" || name == "abs" || name == "ln" || name == "floor" {
             return generate_math_builtin(state, name, args);
@@ -767,6 +917,14 @@ fn generate_call<'ctx>(
         }
         if name == "wait" {
             return generate_waitgroup_wait(state, args);
+        }
+
+        // Struct module builtins
+        if name == "struct_pack" || name == "pack" {
+            return generate_struct_pack(state, args);
+        }
+        if name == "struct_unpack" || name == "unpack" {
+            return generate_struct_unpack(state, args);
         }
 
         if let Some(&func_val) = state.functions.get(name) {
@@ -899,6 +1057,22 @@ fn generate_len_call<'ctx>(
     }
 
     let obj_val = generate_expr(state, &args[0])?;
+
+    // Check if it's a string (pointer type)
+    if obj_val.is_pointer_value() {
+        // Call vp_str_len for strings
+        let str_len = state
+            .module
+            .get_function("vp_str_len")
+            .ok_or_else(|| "vp_str_len not declared".to_string())?;
+        let result =
+            state
+                .ir_builder
+                .build_call(state.builder, str_len, &[obj_val.into()], "str_len");
+        return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+    }
+
+    // Otherwise treat as list
     let list_len = state
         .module
         .get_function("vp_list_len")
@@ -908,6 +1082,41 @@ fn generate_len_call<'ctx>(
             .ir_builder
             .build_call(state.builder, list_len, &[obj_val.into()], "list_len");
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+}
+
+/// Generate str() call - convert value to string
+fn generate_str_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "str() takes exactly 1 argument, got {}",
+            args.len()
+        ));
+    }
+
+    let arg_val = generate_expr(state, &args[0])?;
+
+    let func_name = if arg_val.is_float_value() {
+        "vp_str_from_f64"
+    } else if arg_val.is_pointer_value() {
+        return Ok(arg_val);
+    } else {
+        "vp_str_from_i64"
+    };
+
+    let str_func = state
+        .module
+        .get_function(func_name)
+        .ok_or_else(|| format!("{} not declared", func_name))?;
+
+    let result = state
+        .ir_builder
+        .build_call(state.builder, str_func, &[arg_val.into()], "str_conv")
+        .expect("str conversion call");
+
+    Ok(result.into())
 }
 
 /// Generate math builtin function calls (sqrt, abs, ln, floor)
@@ -955,6 +1164,86 @@ fn generate_math_builtin<'ctx>(
             .ir_builder
             .build_call(state.builder, math_func, &[arg_float.into()], "math_result");
     Ok(result.unwrap_or(state.ir_builder.f64_const(0.0).into()))
+}
+
+/// Generate struct.pack call
+fn generate_struct_pack<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() < 2 {
+        return Err("struct.pack requires at least 2 arguments (format, value)".to_string());
+    }
+
+    // Generate format string (first arg)
+    let format_expr = &args[0];
+    let format_val = generate_expr(state, format_expr)?;
+    let format_ptr = format_val.into_pointer_value();
+
+    // Generate value (second arg)
+    let value_expr = &args[1];
+    let value_val = generate_expr(state, value_expr)?;
+    let value_int = if value_val.is_int_value() {
+        value_val.into_int_value()
+    } else if value_val.is_float_value() {
+        let float_val = value_val.into_float_value();
+        state
+            .builder
+            .build_float_to_signed_int(float_val, state.context.i64_type(), "float_to_int")
+            .expect("float to int")
+    } else {
+        return Err("Unsupported type for struct.pack".to_string());
+    };
+
+    let struct_pack_func = state
+        .module
+        .get_function("vp_struct_pack")
+        .ok_or_else(|| "vp_struct_pack not declared".to_string())?;
+
+    let result = state.ir_builder.build_call(
+        state.builder,
+        struct_pack_func,
+        &[format_ptr.into(), value_int.into()],
+        "struct_pack_result",
+    );
+
+    Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+}
+
+/// Generate struct.unpack call
+fn generate_struct_unpack<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() < 2 {
+        return Err("struct.unpack requires at least 2 arguments (format, data)".to_string());
+    }
+
+    // Generate format string (first arg)
+    let format_expr = &args[0];
+    let format_val = generate_expr(state, format_expr)?;
+    let format_ptr = format_val.into_pointer_value();
+
+    // Generate data pointer (second arg)
+    let data_expr = &args[1];
+    let data_val = generate_expr(state, data_expr)?;
+    let data_ptr = data_val.into_pointer_value();
+
+    let struct_unpack_func = state
+        .module
+        .get_function("vp_struct_unpack")
+        .ok_or_else(|| "vp_struct_unpack not declared".to_string())?;
+
+    let len_val = state.context.i64_type().const_int(0, false);
+
+    let result = state.ir_builder.build_call(
+        state.builder,
+        struct_unpack_func,
+        &[format_ptr.into(), data_ptr.into(), len_val.into()],
+        "struct_unpack_result",
+    );
+
+    Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
 }
 
 /// Generate method call
@@ -1070,19 +1359,21 @@ fn generate_chan_create<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!("chan() takes 1 argument (capacity), got {}", args.len()));
+        return Err(format!(
+            "chan() takes 1 argument (capacity), got {}",
+            args.len()
+        ));
     }
-    
+
     let size_val = generate_expr(state, &args[0])?;
-    let chan_func = state.module.get_function("vp_chan_create")
+    let chan_func = state
+        .module
+        .get_function("vp_chan_create")
         .ok_or_else(|| "vp_chan_create not declared".to_string())?;
-    
-    let result = state.ir_builder.build_call(
-        state.builder,
-        chan_func,
-        &[size_val.into()],
-        "chan"
-    );
+
+    let result = state
+        .ir_builder
+        .build_call(state.builder, chan_func, &[size_val.into()], "chan");
     // Return the pointer value directly
     Ok(result.expect("chan_create"))
 }
@@ -1093,19 +1384,24 @@ fn generate_chan_send<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 2 {
-        return Err(format!("send() takes 2 arguments (chan, value), got {}", args.len()));
+        return Err(format!(
+            "send() takes 2 arguments (chan, value), got {}",
+            args.len()
+        ));
     }
-    
+
     let chan_val = generate_expr(state, &args[0])?;
     let val_val = generate_expr(state, &args[1])?;
-    let send_func = state.module.get_function("vp_chan_send")
+    let send_func = state
+        .module
+        .get_function("vp_chan_send")
         .ok_or_else(|| "vp_chan_send not declared".to_string())?;
-    
+
     state.ir_builder.build_call(
         state.builder,
         send_func,
         &[chan_val.into(), val_val.into()],
-        "send"
+        "send",
     );
     Ok(state.ir_builder.i64_const(0).into())
 }
@@ -1116,19 +1412,22 @@ fn generate_chan_recv<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!("recv() takes 1 argument (chan), got {}", args.len()));
+        return Err(format!(
+            "recv() takes 1 argument (chan), got {}",
+            args.len()
+        ));
     }
-    
+
     let chan_val = generate_expr(state, &args[0])?;
-    let recv_func = state.module.get_function("vp_chan_recv")
+    let recv_func = state
+        .module
+        .get_function("vp_chan_recv")
         .ok_or_else(|| "vp_chan_recv not declared".to_string())?;
-    
-    let result = state.ir_builder.build_call(
-        state.builder,
-        recv_func,
-        &[chan_val.into()],
-        "recv_val"
-    );
+
+    let result =
+        state
+            .ir_builder
+            .build_call(state.builder, recv_func, &[chan_val.into()], "recv_val");
     // Return the pointer value directly (received value is a pointer)
     Ok(result.expect("recv"))
 }
@@ -1139,18 +1438,20 @@ fn generate_waitgroup_create<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if !args.is_empty() {
-        return Err(format!("WaitGroup() takes no arguments, got {}", args.len()));
+        return Err(format!(
+            "WaitGroup() takes no arguments, got {}",
+            args.len()
+        ));
     }
-    
-    let wg_func = state.module.get_function("vp_waitgroup_create")
+
+    let wg_func = state
+        .module
+        .get_function("vp_waitgroup_create")
         .ok_or_else(|| "vp_waitgroup_create not declared".to_string())?;
-    
-    let result = state.ir_builder.build_call(
-        state.builder,
-        wg_func,
-        &[],
-        "wg"
-    );
+
+    let result = state
+        .ir_builder
+        .build_call(state.builder, wg_func, &[], "wg");
     // Return the pointer value directly
     Ok(result.expect("wg_create"))
 }
@@ -1161,19 +1462,24 @@ fn generate_waitgroup_add<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 2 {
-        return Err(format!("add() takes 2 arguments (wg, n), got {}", args.len()));
+        return Err(format!(
+            "add() takes 2 arguments (wg, n), got {}",
+            args.len()
+        ));
     }
-    
+
     let wg_val = generate_expr(state, &args[0])?;
     let n_val = generate_expr(state, &args[1])?;
-    let add_func = state.module.get_function("vp_waitgroup_add")
+    let add_func = state
+        .module
+        .get_function("vp_waitgroup_add")
         .ok_or_else(|| "vp_waitgroup_add not declared".to_string())?;
-    
+
     state.ir_builder.build_call(
         state.builder,
         add_func,
         &[wg_val.into(), n_val.into()],
-        "wg_add"
+        "wg_add",
     );
     Ok(state.ir_builder.i64_const(0).into())
 }
@@ -1186,17 +1492,16 @@ fn generate_waitgroup_done<'ctx>(
     if args.len() != 1 {
         return Err(format!("done() takes 1 argument (wg), got {}", args.len()));
     }
-    
+
     let wg_val = generate_expr(state, &args[0])?;
-    let done_func = state.module.get_function("vp_waitgroup_done")
+    let done_func = state
+        .module
+        .get_function("vp_waitgroup_done")
         .ok_or_else(|| "vp_waitgroup_done not declared".to_string())?;
-    
-    state.ir_builder.build_call(
-        state.builder,
-        done_func,
-        &[wg_val.into()],
-        "wg_done"
-    );
+
+    state
+        .ir_builder
+        .build_call(state.builder, done_func, &[wg_val.into()], "wg_done");
     Ok(state.ir_builder.i64_const(0).into())
 }
 
@@ -1208,17 +1513,16 @@ fn generate_waitgroup_wait<'ctx>(
     if args.len() != 1 {
         return Err(format!("wait() takes 1 argument (wg), got {}", args.len()));
     }
-    
+
     let wg_val = generate_expr(state, &args[0])?;
-    let wait_func = state.module.get_function("vp_waitgroup_wait")
+    let wait_func = state
+        .module
+        .get_function("vp_waitgroup_wait")
         .ok_or_else(|| "vp_waitgroup_wait not declared".to_string())?;
-    
-    state.ir_builder.build_call(
-        state.builder,
-        wait_func,
-        &[wg_val.into()],
-        "wg_wait"
-    );
+
+    state
+        .ir_builder
+        .build_call(state.builder, wait_func, &[wg_val.into()], "wg_wait");
     Ok(state.ir_builder.i64_const(0).into())
 }
 
@@ -1230,16 +1534,18 @@ fn generate_await<'ctx>(
     // For now, generate a simple call to vp_future_await
     // A full implementation would transform the async function into a state machine
     let future_val = generate_expr(state, future)?;
-    
-    let await_func = state.module.get_function("vp_future_await")
+
+    let await_func = state
+        .module
+        .get_function("vp_future_await")
         .ok_or_else(|| "vp_future_await not declared".to_string())?;
 
     let result = state.ir_builder.build_call(
         state.builder,
         await_func,
         &[future_val.into()],
-        "await_result"
+        "await_result",
     );
-    
+
     Ok(result.unwrap())
 }

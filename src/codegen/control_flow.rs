@@ -13,7 +13,8 @@ pub fn generate_if<'ctx>(
     elif_blocks: &[(Expr, Vec<Stmt>)],
     else_body: &Option<Vec<Stmt>>,
 ) -> Result<(), String> {
-    let func = state.builder
+    let func = state
+        .builder
         .get_insert_block()
         .unwrap()
         .get_parent()
@@ -23,7 +24,8 @@ pub fn generate_if<'ctx>(
     let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
         cond_val
     } else {
-        state.builder
+        state
+            .builder
             .build_int_compare(
                 inkwell::IntPredicate::NE,
                 cond_val,
@@ -37,18 +39,27 @@ pub fn generate_if<'ctx>(
     let else_block = state.context.append_basic_block(func, "else");
     let merge_block = state.context.append_basic_block(func, "if_cont");
 
-    state.ir_builder
+    state
+        .ir_builder
         .build_cond_branch(state.builder, cond_i1, then_block, else_block);
 
     // Then block
     state.builder.position_at_end(then_block);
     for stmt in body {
         crate::codegen::statements::generate_stmt(
-            state.context, state.module, state.builder, state.ir_builder,
-            state.variables, state.functions, state.global_constants, state.loop_stack, stmt
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            stmt,
         )?;
     }
-    if state.builder
+    if state
+        .builder
         .get_insert_block()
         .unwrap()
         .get_terminator()
@@ -62,7 +73,8 @@ pub fn generate_if<'ctx>(
 
     if !elif_blocks.is_empty() {
         let (elif_cond, elif_body) = &elif_blocks[0];
-        let elif_cond_val = crate::codegen::expressions::generate_expr(state, elif_cond)?.into_int_value();
+        let elif_cond_val =
+            crate::codegen::expressions::generate_expr(state, elif_cond)?.into_int_value();
         let elif_then = state.context.append_basic_block(func, "elif_then");
         let elif_else = if elif_blocks.len() > 1 {
             state.context.append_basic_block(func, "elif_else")
@@ -72,17 +84,26 @@ pub fn generate_if<'ctx>(
             merge_block
         };
 
-        state.ir_builder
+        state
+            .ir_builder
             .build_cond_branch(state.builder, elif_cond_val, elif_then, elif_else);
 
         state.builder.position_at_end(elif_then);
         for stmt in elif_body {
             crate::codegen::statements::generate_stmt(
-                state.context, state.module, state.builder, state.ir_builder,
-                state.variables, state.functions, state.global_constants, state.loop_stack, stmt
+                state.context,
+                state.module,
+                state.builder,
+                state.ir_builder,
+                state.variables,
+                state.functions,
+                state.global_constants,
+                state.loop_stack,
+                stmt,
             )?;
         }
-        if state.builder
+        if state
+            .builder
             .get_insert_block()
             .unwrap()
             .get_terminator()
@@ -96,11 +117,19 @@ pub fn generate_if<'ctx>(
             if let Some(else_stmts) = else_body {
                 for stmt in else_stmts {
                     crate::codegen::statements::generate_stmt(
-                        state.context, state.module, state.builder, state.ir_builder,
-                        state.variables, state.functions, state.global_constants, state.loop_stack, stmt
+                        state.context,
+                        state.module,
+                        state.builder,
+                        state.ir_builder,
+                        state.variables,
+                        state.functions,
+                        state.global_constants,
+                        state.loop_stack,
+                        stmt,
                     )?;
                 }
-                if state.builder
+                if state
+                    .builder
                     .get_insert_block()
                     .unwrap()
                     .get_terminator()
@@ -109,7 +138,8 @@ pub fn generate_if<'ctx>(
                     state.ir_builder.build_branch(state.builder, merge_block);
                 }
             } else {
-                if state.builder
+                if state
+                    .builder
                     .get_insert_block()
                     .unwrap()
                     .get_terminator()
@@ -122,11 +152,19 @@ pub fn generate_if<'ctx>(
     } else if let Some(else_stmts) = else_body {
         for stmt in else_stmts {
             crate::codegen::statements::generate_stmt(
-                state.context, state.module, state.builder, state.ir_builder,
-                state.variables, state.functions, state.global_constants, state.loop_stack, stmt
+                state.context,
+                state.module,
+                state.builder,
+                state.ir_builder,
+                state.variables,
+                state.functions,
+                state.global_constants,
+                state.loop_stack,
+                stmt,
             )?;
         }
-        if state.builder
+        if state
+            .builder
             .get_insert_block()
             .unwrap()
             .get_terminator()
@@ -135,7 +173,8 @@ pub fn generate_if<'ctx>(
             state.ir_builder.build_branch(state.builder, merge_block);
         }
     } else {
-        if state.builder
+        if state
+            .builder
             .get_insert_block()
             .unwrap()
             .get_terminator()
@@ -155,7 +194,8 @@ pub fn generate_while<'ctx>(
     condition: &Expr,
     body: &[Stmt],
 ) -> Result<(), String> {
-    let func = state.builder
+    let func = state
+        .builder
         .get_insert_block()
         .unwrap()
         .get_parent()
@@ -172,7 +212,8 @@ pub fn generate_while<'ctx>(
     let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
         cond_val
     } else {
-        state.builder
+        state
+            .builder
             .build_int_compare(
                 inkwell::IntPredicate::NE,
                 cond_val,
@@ -181,16 +222,26 @@ pub fn generate_while<'ctx>(
             )
             .expect("icmp")
     };
-    state.ir_builder
+    state
+        .ir_builder
         .build_cond_branch(state.builder, cond_i1, body_block, exit_block);
 
     state.builder.position_at_end(body_block);
-    state.loop_stack.push(LoopContext::new(exit_block, cond_block));
+    state
+        .loop_stack
+        .push(LoopContext::new(exit_block, cond_block));
 
     for stmt in body {
         crate::codegen::statements::generate_stmt(
-            state.context, state.module, state.builder, state.ir_builder,
-            state.variables, state.functions, state.global_constants, state.loop_stack, stmt
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            stmt,
         )?;
     }
 
@@ -216,7 +267,8 @@ pub fn generate_for<'ctx>(
                     state.ir_builder.i64_const(0)
                 };
 
-                let func_ctx = state.builder
+                let func_ctx = state
+                    .builder
                     .get_insert_block()
                     .unwrap()
                     .get_parent()
@@ -229,44 +281,57 @@ pub fn generate_for<'ctx>(
 
                 state.ir_builder.build_branch(state.builder, init_block);
                 state.builder.position_at_end(init_block);
-                let counter = state.builder
+                let counter = state
+                    .builder
                     .build_alloca(state.context.i64_type(), "for_counter")
                     .expect("alloca");
-                state.builder
+                state
+                    .builder
                     .build_store(counter, state.ir_builder.i64_const(0))
                     .expect("store");
                 state.ir_builder.build_branch(state.builder, cond_block);
 
                 state.builder.position_at_end(cond_block);
-                let counter_val = state.builder
+                let counter_val = state
+                    .builder
                     .build_load(state.context.i64_type(), counter, "counter_val")
                     .expect("load")
                     .into_int_value();
-                let cond = state.ir_builder.build_icmp_lt(
-                    state.builder,
-                    counter_val,
-                    end_val,
-                    "for_cond",
-                );
-                state.ir_builder
+                let cond =
+                    state
+                        .ir_builder
+                        .build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
+                state
+                    .ir_builder
                     .build_cond_branch(state.builder, cond, body_block, exit_block);
 
                 state.builder.position_at_end(body_block);
                 if let Expr::Ident(target_name, _) = target {
-                    state.variables.insert(target_name.clone(), VarInfo::new_stack(counter, VarType::Int));
+                    state.variables.insert(
+                        target_name.clone(),
+                        VarInfo::new_stack(counter, VarType::Int),
+                    );
                 }
 
                 for stmt in body {
                     crate::codegen::statements::generate_stmt(
-                        state.context, state.module, state.builder, state.ir_builder,
-                        state.variables, state.functions, state.global_constants, state.loop_stack, stmt
+                        state.context,
+                        state.module,
+                        state.builder,
+                        state.ir_builder,
+                        state.variables,
+                        state.functions,
+                        state.global_constants,
+                        state.loop_stack,
+                        stmt,
                     )?;
                 }
 
                 state.ir_builder.build_branch(state.builder, step_block);
 
                 state.builder.position_at_end(step_block);
-                let counter_val = state.builder
+                let counter_val = state
+                    .builder
                     .build_load(state.context.i64_type(), counter, "counter_val")
                     .expect("load")
                     .into_int_value();

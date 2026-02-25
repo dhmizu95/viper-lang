@@ -58,7 +58,11 @@ pub enum Expr {
         span: Span,
     },
     /// Array literal (fixed-size): [value; size] or [elements...]
-    Array { elements: Vec<Expr>, size: Option<usize>, span: Span },
+    Array {
+        elements: Vec<Expr>,
+        size: Option<usize>,
+        span: Span,
+    },
     /// Lambda expression
     Lambda {
         params: Vec<String>,
@@ -73,10 +77,7 @@ pub enum Expr {
         span: Span,
     },
     /// Await expression (await future)
-    Await {
-        future: Box<Expr>,
-        span: Span,
-    },
+    Await { future: Box<Expr>, span: Span },
 }
 
 impl Expr {
@@ -263,6 +264,12 @@ pub enum Stmt {
         body: Vec<Stmt>,
         span: Span,
     },
+    /// Struct definition
+    Struct {
+        name: String,
+        fields: Vec<(String, Type)>,
+        span: Span,
+    },
     /// Try-except block
     Try {
         body: Vec<Stmt>,
@@ -278,13 +285,21 @@ pub enum Stmt {
     /// Channel creation: chan(size)
     Chan { size: Expr, span: Span },
     /// Channel send: send(chan, value)
-    Send { chan: Box<Expr>, value: Box<Expr>, span: Span },
+    Send {
+        chan: Box<Expr>,
+        value: Box<Expr>,
+        span: Span,
+    },
     /// Channel receive: recv(chan)
     Recv { chan: Box<Expr>, span: Span },
     /// WaitGroup creation
     WaitGroup { span: Span },
     /// WaitGroup add: add(wg, n)
-    WgAdd { wg: Box<Expr>, n: Box<Expr>, span: Span },
+    WgAdd {
+        wg: Box<Expr>,
+        n: Box<Expr>,
+        span: Span,
+    },
     /// WaitGroup done: done(wg)
     WgDone { wg: Box<Expr>, span: Span },
     /// WaitGroup wait: wait(wg)
@@ -309,6 +324,7 @@ impl Stmt {
             Stmt::Import { span, .. } => *span,
             Stmt::FromImport { span, .. } => *span,
             Stmt::Class { span, .. } => *span,
+            Stmt::Struct { span, .. } => *span,
             Stmt::Try { span, .. } => *span,
             Stmt::Sync { span, .. } => *span,
             Stmt::Task { span, .. } => *span,

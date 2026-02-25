@@ -252,7 +252,12 @@ impl<'a> PrattParser<'a> {
                                 size = Some(*n as usize);
                                 self.advance();
                             }
-                            _ => return Err(format!("Expected integer size for array, found {:?}", size_token.kind)),
+                            _ => {
+                                return Err(format!(
+                                    "Expected integer size for array, found {:?}",
+                                    size_token.kind
+                                ))
+                            }
                         }
                         self.expect(&TokenKind::RBracket)?;
                     } else {
