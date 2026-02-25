@@ -407,7 +407,10 @@ fn generate_assign<'ctx>(
                 .unwrap();
             let entry_block = func.get_first_basic_block().unwrap();
             let old_pos = state.builder.get_insert_block();
-            state.builder.position_at_end(entry_block);
+            match entry_block.get_first_instruction() {
+                Some(first_instr) => state.builder.position_before(&first_instr),
+                None => state.builder.position_at_end(entry_block),
+            }
             let alloca = state.builder.build_alloca(ty, name).expect("alloca");
             if let Some(pos) = old_pos {
                 state.builder.position_at_end(pos);
@@ -418,7 +421,7 @@ fn generate_assign<'ctx>(
                 .insert(name.clone(), VarInfo::new_stack(alloca, var_type));
 
             // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
-            if is_ref_type {
+            if is_ref_type && state.needs_arc(name) {
                 state.build_retain(val, name);
             }
         }
@@ -650,7 +653,10 @@ fn generate_declare<'ctx>(
             let entry_block = func.get_first_basic_block().unwrap();
             let old_builder_pos = state.builder.get_insert_block();
 
-            state.builder.position_at_end(entry_block);
+            match entry_block.get_first_instruction() {
+                Some(first_instr) => state.builder.position_before(&first_instr),
+                None => state.builder.position_at_end(entry_block),
+            }
             let alloca = state.builder.build_alloca(ty, name).expect("alloca");
 
             // Restore builder position
@@ -664,7 +670,7 @@ fn generate_declare<'ctx>(
                 .insert(name.to_string(), VarInfo::new_stack(alloca, var_type));
 
             // Insert ARC retain if this is a reference type that escapes
-            if is_ref_type {
+            if is_ref_type && state.needs_arc(name) {
                 state.build_retain(val, name);
             }
         }

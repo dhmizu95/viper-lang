@@ -86,6 +86,11 @@ int64_t vp_str_len(const char* str);
 char* vp_str_slice(const char* str, int64_t start, int64_t end);
 bool vp_str_equals(const char* a, const char* b);
 int64_t vp_str_compare(const char* a, const char* b);
+char* vp_str_upper(const char* str);
+char* vp_str_lower(const char* str);
+ViperList* vp_str_split(const char* str, const char* delim);
+char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub);
+
 
 /* ============================================ */
 /* Utility Functions                            */

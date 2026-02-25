@@ -1,0 +1,6 @@
+def main():
+    name = "World"
+    age = 30
+    x = 5
+    greeting = f"Hello, {name}! You are {age} years old and {x + 1} is a number."
+    print(greeting)

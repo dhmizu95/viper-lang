@@ -725,6 +725,44 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             vp_str_len_stub as *const () as usize,
         );
     }
+    if let Some(func) = codegen.module().get_function("vp_str_create") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_create_stub as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_str_upper") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_upper_stub as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_str_lower") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_lower_stub as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_str_split") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_split_stub as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_str_replace") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_str_replace_stub as *const () as usize);
+    }
+
+    // Math builtins JIT mappings
+    if let Some(func) = codegen.module().get_function("vp_math_sqrt") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_sqrt_stub as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_math_abs") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_abs_stub as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_math_ln") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_ln_stub as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_math_floor") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_math_floor_stub as *const () as usize);
+    }
+
+    // Struct module JIT mappings
+    if let Some(func) = codegen.module().get_function("vp_struct_pack") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_struct_pack as *const () as usize);
+    }
+    if let Some(func) = codegen.module().get_function("vp_struct_unpack") {
+        execution_engine.add_global_mapping(&func.as_global_value(), vp_struct_unpack as *const () as usize);
+    }
+
     // Concurrency runtime functions (Phase 3)
     if let Some(func) = codegen.module().get_function("vp_chan_create") {
         execution_engine.add_global_mapping(
@@ -1089,6 +1127,65 @@ extern "C" fn vp_str_len_stub(s: *const std::ffi::c_char) -> i64 {
     }
 }
 
+extern "C" fn vp_str_create_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
+    if s.is_null() { return std::ptr::null(); }
+    unsafe {
+        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
+        let c_str = std::ffi::CString::new(str.into_owned()).unwrap();
+        c_str.into_raw()
+    }
+}
+
+extern "C" fn vp_str_upper_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
+    if s.is_null() { return std::ptr::null(); }
+    unsafe {
+        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
+        let upper = str.to_uppercase();
+        let c_str = std::ffi::CString::new(upper).unwrap();
+        c_str.into_raw()
+    }
+}
+
+extern "C" fn vp_str_lower_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
+    if s.is_null() { return std::ptr::null(); }
+    unsafe {
+        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
+        let lower = str.to_lowercase();
+        let c_str = std::ffi::CString::new(lower).unwrap();
+        c_str.into_raw()
+    }
+}
+
+extern "C" fn vp_str_split_stub(s: *const std::ffi::c_char, delim_ptr: *const std::ffi::c_char) -> *mut std::ffi::c_void {
+    let list = Box::new(Vec::<i64>::new());
+    if s.is_null() || delim_ptr.is_null() {
+        return Box::into_raw(list) as *mut std::ffi::c_void;
+    }
+    unsafe {
+        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
+        let delim = std::ffi::CStr::from_ptr(delim_ptr).to_string_lossy();
+        let mut list_val = Vec::<i64>::new();
+        for part in str.split(&*delim) {
+            let c_str = std::ffi::CString::new(part).unwrap();
+            list_val.push(c_str.into_raw() as i64);
+        }
+        let boxed = Box::new(list_val);
+        Box::into_raw(boxed) as *mut std::ffi::c_void
+    }
+}
+
+extern "C" fn vp_str_replace_stub(s: *const std::ffi::c_char, old_sub: *const std::ffi::c_char, new_sub: *const std::ffi::c_char) -> *const std::ffi::c_char {
+    if s.is_null() || old_sub.is_null() || new_sub.is_null() { return std::ptr::null(); }
+    unsafe {
+        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
+        let old_str = std::ffi::CStr::from_ptr(old_sub).to_string_lossy();
+        let new_str = std::ffi::CStr::from_ptr(new_sub).to_string_lossy();
+        let replaced = str.replace(&*old_str, &*new_str);
+        let c_str = std::ffi::CString::new(replaced).unwrap();
+        c_str.into_raw()
+    }
+}
+
 /// Initialize a new Viper project
 fn init_project(name: &str) -> Result<(), String> {
     // Create project directory
@@ -1201,7 +1298,7 @@ extern "C" fn vp_math_floor(x: f64) -> f64 {
 }
 
 // Struct module stubs for JIT
-extern "C" fn vp_struct_pack(format: *const std::ffi::c_char, value: i64) -> *mut std::ffi::c_void {
+extern "C" fn vp_struct_pack(_format: *const std::ffi::c_char, value: i64) -> *mut std::ffi::c_void {
     // Simplified implementation - pack a single i64 value
     // In production, this would use proper format string parsing
     let ptr = Box::into_raw(Box::new(value)) as *mut std::ffi::c_void;
@@ -1209,7 +1306,7 @@ extern "C" fn vp_struct_pack(format: *const std::ffi::c_char, value: i64) -> *mu
 }
 
 extern "C" fn vp_struct_unpack(
-    format: *const std::ffi::c_char,
+    _format: *const std::ffi::c_char,
     data: *const std::ffi::c_void,
     _len: i64,
 ) -> i64 {
@@ -1219,6 +1316,13 @@ extern "C" fn vp_struct_unpack(
     }
     unsafe { *(data as *const i64) }
 }
+
+
+
+extern "C" fn vp_math_sqrt_stub(x: f64) -> f64 { x.sqrt() }
+extern "C" fn vp_math_abs_stub(x: f64) -> f64 { x.abs() }
+extern "C" fn vp_math_ln_stub(x: f64) -> f64 { x.ln() }
+extern "C" fn vp_math_floor_stub(x: f64) -> f64 { x.floor() }
 
 /// Check that all prerequisites are available
 fn check_prerequisites() -> Result<(), String> {

@@ -13,7 +13,9 @@
 *_rust
 *_go
 *_vp
+*_bin
 *_vp_bin
+*.ll
 
 # Generated source files
 # *.c
@@ -33,10 +35,10 @@
 *.a
 
 # Benchmark outputs
-benchmark/sieve_c
-benchmark/sieve_rust
-benchmark/sieve_go
-benchmark/*.o
+*_c
+*_rust
+*_go
+*.o
 
 # Runtime build artifacts
 runtime/libviper.a

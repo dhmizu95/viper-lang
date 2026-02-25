@@ -292,6 +292,7 @@ impl EscapeAnalyzer {
             | Stmt::FromImport { .. }
             | Stmt::Class { .. }
             | Stmt::Try { .. }
+            | Stmt::Extern { .. }
             | Stmt::Struct { .. } => {
                 // Handle other statement types conservatively
             }
@@ -424,6 +425,11 @@ impl EscapeAnalyzer {
             }
             Expr::Array { elements, .. } => {
                 // Array creation - elements may escape if array escapes
+                for elem in elements {
+                    self.analyze_expr(elem, ctx, state);
+                }
+            }
+            Expr::FString(elements, _) => {
                 for elem in elements {
                     self.analyze_expr(elem, ctx, state);
                 }

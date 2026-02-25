@@ -18,7 +18,7 @@ impl VarType {
     pub fn from_ast_type(ty: &Type) -> Self {
         match ty {
             Type::F32 | Type::F64 => VarType::Float,
-            Type::Str | Type::Chan(_) | Type::WaitGroup | Type::List(_) | Type::Dict(_, _) => {
+            Type::Str | Type::Chan(_) | Type::WaitGroup | Type::List(_) | Type::Dict(_, _) | Type::Fn(_, _) => {
                 VarType::Pointer
             }
             _ => VarType::Int,
@@ -46,7 +46,7 @@ impl<'ctx> TypeMapper<'ctx> {
                 .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .into(),
-            Type::Chan(_) | Type::WaitGroup => self
+            Type::Chan(_) | Type::WaitGroup | Type::Fn(_, _) => self
                 .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .into(),

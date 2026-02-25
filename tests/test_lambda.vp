@@ -1,0 +1,13 @@
+def apply(f: Callable, x: i64) -> i64:
+    return f(x)
+
+def main() -> i64:
+    f = lambda x: x * 2
+    print(f(21))
+    print("\n")
+    
+    res = apply(f, 5)
+    print(res)
+    print("\n")
+    
+    return 0

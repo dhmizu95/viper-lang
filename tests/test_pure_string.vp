@@ -1,0 +1,4 @@
+def main() -> i64:
+    s = "Hello World"
+    print(s)
+    return 0

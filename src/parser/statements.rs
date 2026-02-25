@@ -44,6 +44,7 @@ impl<'a> StatementParser<'a> {
 
         match &token.kind {
             TokenKind::Def => self.parse_function_def(),
+            TokenKind::Extern => self.parse_extern_decl(),
             TokenKind::If => self.parse_if_stmt(),
             TokenKind::While => self.parse_while_stmt(),
             TokenKind::For => self.parse_for_stmt(),
@@ -136,6 +137,47 @@ impl<'a> StatementParser<'a> {
             body,
             span,
             is_async: false,
+        })
+    }
+
+    fn parse_extern_decl(&mut self) -> Result<Stmt, String> {
+        let start_span = self.current().span;
+        self.expect(&TokenKind::Extern)?;
+
+        if let TokenKind::Str(_) = &self.current().kind {
+            self.advance();
+        }
+
+        self.expect(&TokenKind::Def)?;
+
+        let name_token = self.expect_ident()?;
+        self.expect(&TokenKind::LParen)?;
+
+        let mut params = Vec::new();
+        if !matches!(self.current().kind, TokenKind::RParen) {
+            loop {
+                let param = self.parse_param()?;
+                params.push(param);
+                if !self.match_token(&TokenKind::Comma) {
+                    break;
+                }
+            }
+        }
+        self.expect(&TokenKind::RParen)?;
+
+        let return_type = if self.match_token(&TokenKind::Arrow) {
+            Some(self.parse_type_annotation()?)
+        } else {
+            None
+        };
+
+        let span = start_span.merge(self.previous().span);
+
+        Ok(Stmt::Extern {
+            name: name_token,
+            params,
+            return_type,
+            span,
         })
     }
 
@@ -248,6 +290,10 @@ impl<'a> StatementParser<'a> {
                 "WaitGroup" => {
                     self.advance();
                     return Ok(Type::WaitGroup);
+                }
+                "Callable" => {
+                    self.advance();
+                    return Ok(Type::Fn(vec![], Box::new(Type::I64)));
                 }
                 _ => Type::Var(name.clone()),
             },
@@ -677,7 +723,6 @@ impl<'a> StatementParser<'a> {
                 | TokenKind::Eof
                 | TokenKind::RParen
                 | TokenKind::Comma
-                | TokenKind::Colon
         ) {
             return Ok(expr);
         }
@@ -759,6 +804,50 @@ impl<'a> StatementParser<'a> {
                 let s = s.clone();
                 self.advance();
                 Expr::Str(s, span)
+            }
+            TokenKind::FString(s) => {
+                let s = s.clone();
+                self.advance();
+                
+                let mut elements = Vec::new();
+                let mut current_lit = String::new();
+                let mut chars = s.chars().peekable();
+                
+                while let Some(c) = chars.next() {
+                    if c == '{' {
+                        if !current_lit.is_empty() {
+                            elements.push(Expr::Str(current_lit.clone(), span));
+                            current_lit.clear();
+                        }
+                        
+                        let mut inner_expr_str = String::new();
+                        while let Some(&next_c) = chars.peek() {
+                            if next_c == '}' {
+                                chars.next(); // consume '}'
+                                break;
+                            } else {
+                                inner_expr_str.push(chars.next().unwrap());
+                            }
+                        }
+                        
+                        // Tokenize and parse inner expression
+                        let mut inner_lexer = crate::lexer::Lexer::new(&inner_expr_str);
+                        if let Ok(tokens) = inner_lexer.tokenize() {
+                            let mut inner_parser = crate::parser::expressions::PrattParser::new(&tokens);
+                            if let Ok(expr) = inner_parser.parse_expr(crate::parser::precedence::Precedence::MIN) {
+                                elements.push(expr);
+                            }
+                        }
+                    } else {
+                        current_lit.push(c);
+                    }
+                }
+                
+                if !current_lit.is_empty() {
+                    elements.push(Expr::Str(current_lit, span));
+                }
+                
+                Expr::FString(elements, span)
             }
             TokenKind::Bool(b) => {
                 let b = *b;
@@ -942,6 +1031,44 @@ impl<'a> StatementParser<'a> {
                     op: crate::ast::UnaryOp::Not,
                     operand: Box::new(operand),
                     span: not_span,
+                }
+            }
+            TokenKind::Plus => {
+                self.advance();
+                let operand = self.parse_primary_expr()?;
+                let plus_span = span.merge(operand.span());
+                Expr::UnaryOp {
+                    op: crate::ast::UnaryOp::Pos,
+                    operand: Box::new(operand),
+                    span: plus_span,
+                }
+            }
+            TokenKind::Lambda => {
+                self.advance();
+                let mut params = Vec::new();
+                if !matches!(self.current().kind, TokenKind::Colon) {
+                    loop {
+                        if let TokenKind::Ident(param_name) = &self.current().kind {
+                            params.push(param_name.clone());
+                            self.advance();
+                        } else {
+                            return Err("Expected parameter name in lambda".to_string());
+                        }
+
+                        if self.match_token(&TokenKind::Comma) {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                self.expect(&TokenKind::Colon)?;
+                let body = self.parse_expression()?;
+                let merged_span = span.merge(body.span());
+                Expr::Lambda {
+                    params,
+                    body: Box::new(body),
+                    span: merged_span,
                 }
             }
             _ => return Err(format!("Unexpected token in expression: {:?}", token.kind)),

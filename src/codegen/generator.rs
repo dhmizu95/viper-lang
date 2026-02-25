@@ -57,22 +57,40 @@ impl<'ctx> CodeGen<'ctx> {
 
         // First pass: declare all functions
         for stmt in &module.statements {
-            if let Stmt::Function {
-                name,
-                params,
-                return_type,
-                ..
-            } = stmt
-            {
-                crate::codegen::functions::declare_function(
-                    self.context,
-                    &mut self.module,
-                    &self.type_mapper,
-                    &mut self.functions,
+            match stmt {
+                Stmt::Function {
                     name,
                     params,
                     return_type,
-                )?;
+                    ..
+                } => {
+                    crate::codegen::functions::declare_function(
+                        self.context,
+                        &mut self.module,
+                        &self.type_mapper,
+                        &mut self.functions,
+                        name,
+                        params,
+                        return_type,
+                    )?;
+                }
+                Stmt::Extern {
+                    name,
+                    params,
+                    return_type,
+                    ..
+                } => {
+                    crate::codegen::functions::declare_function(
+                        self.context,
+                        &mut self.module,
+                        &self.type_mapper,
+                        &mut self.functions,
+                        name,
+                        params,
+                        return_type,
+                    )?;
+                }
+                _ => {}
             }
         }
 
@@ -135,12 +153,12 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if !is_constant_assign {
-                    // Skip type declarations (Class, Struct)
-                    let is_type_decl = matches!(stmt, Stmt::Class { .. } | Stmt::Struct { .. });
+                // Skip type declarations (Class, Struct) and Externs
+                let is_type_or_extern_decl = matches!(stmt, Stmt::Class { .. } | Stmt::Struct { .. } | Stmt::Extern { .. });
 
-                    if !is_type_decl {
-                        top_level_stmts.push(stmt.clone());
-                    }
+                if !is_type_or_extern_decl {
+                    top_level_stmts.push(stmt.clone());
+                }
                 }
             }
         }
@@ -193,13 +211,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder
                 .build_store(alloca, param_value)
                 .expect("store");
-            let var_type = if param_value.is_float_value() {
-                VarType::Float
-            } else if param_value.is_pointer_value() {
-                VarType::Pointer
-            } else {
-                VarType::Int
-            };
+            let var_type = VarType::from_ast_type(&param.type_ann.clone().unwrap_or(Type::I64));
             self.variables
                 .insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
         }

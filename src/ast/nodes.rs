@@ -11,6 +11,8 @@ pub enum Expr {
     Float(f64, Span),
     /// String literal
     Str(String, Span),
+    /// FString literal
+    FString(Vec<Expr>, Span),
     /// Boolean literal
     Bool(bool, Span),
     /// None literal
@@ -86,6 +88,7 @@ impl Expr {
             Expr::Int(_, s) => *s,
             Expr::Float(_, s) => *s,
             Expr::Str(_, s) => *s,
+            Expr::FString(_, s) => *s,
             Expr::Bool(_, s) => *s,
             Expr::None(s) => *s,
             Expr::Ident(_, s) => *s,
@@ -237,6 +240,13 @@ pub enum Stmt {
         span: Span,
         is_async: bool,
     },
+    /// External C function declaration: extern "C" fn name(args...) -> ret
+    Extern {
+        name: String,
+        params: Vec<Param>,
+        return_type: Option<Type>,
+        span: Span,
+    },
     /// Return statement
     Return { value: Option<Expr>, span: Span },
     /// Break statement
@@ -317,6 +327,7 @@ impl Stmt {
             Stmt::While { span, .. } => *span,
             Stmt::For { span, .. } => *span,
             Stmt::Function { span, .. } => *span,
+            Stmt::Extern { span, .. } => *span,
             Stmt::Return { span, .. } => *span,
             Stmt::Break(s) => *s,
             Stmt::Continue(s) => *s,

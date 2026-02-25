@@ -43,6 +43,10 @@ fn declare_print_functions<'ctx>(
     let print_newline_type = void_type.fn_type(&[], false);
     module.add_function("vp_print_newline", print_newline_type, None);
 
+    // String creation function
+    let str_create_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_create", str_create_type, None);
+
     // String concatenation function
     let str_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_concat", str_concat_type, None);
@@ -56,6 +60,21 @@ fn declare_print_functions<'ctx>(
 
     let str_len_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_str_len", str_len_type, None);
+
+    let str_create_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_create", str_create_type, None);
+
+    let str_upper_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_upper", str_upper_type, None);
+
+    let str_lower_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_lower", str_lower_type, None);
+
+    let str_split_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_str_split", str_split_type, None);
+
+    let str_replace_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_str_replace", str_replace_type, None);
 
     Ok(())
 }
