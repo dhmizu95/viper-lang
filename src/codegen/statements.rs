@@ -83,8 +83,13 @@ fn generate_stmt_internal<'ctx>(
         } => {
             generate_aug_assign(state, target, op, value)?;
         }
-        Stmt::Declare { name, value, .. } => {
-            generate_declare(state, name, value)?;
+        Stmt::Declare {
+            name,
+            value,
+            mutable,
+            ..
+        } => {
+            generate_declare(state, name, *mutable, value)?;
         }
         Stmt::Return { value, .. } => {
             return crate::codegen::control_flow::generate_return(state, value);
@@ -276,36 +281,6 @@ fn generate_assign<'ctx>(
                     state.builder.build_store(*alloca, val).expect("store");
                 }
                 VarStorage::Register(_) => {
-                    // For scalar types, keep register allocation
-                    // For reference types, upgrade to stack if needed
-                    let is_ref = var_info.var_type == VarType::Pointer;
-
-                    if is_ref {
-                        // For reference types, upgrade to stack
-                        // since the variable is being reassigned (may escape now)
-                        // Create the alloca at the function entry block
-                        let func = state
-                            .builder
-                            .get_insert_block()
-                            .unwrap()
-                            .get_parent()
-                            .unwrap();
-                        let entry_block = func.get_first_basic_block().unwrap();
-                        let old_builder_pos = state.builder.get_insert_block();
-
-                        state.builder.position_at_end(entry_block);
-                        let ty = val.get_type();
-                        let alloca = state.builder.build_alloca(ty, name).expect("alloca");
-
-                        // Restore builder position
-                        if let Some(pos) = old_builder_pos {
-                            state.builder.position_at_end(pos);
-                        }
-
-                        state.builder.build_store(alloca, val).expect("store");
-                        let new_var_info = VarInfo::new_stack(alloca, var_info.var_type);
-                        state.variables.insert(name.clone(), new_var_info);
-                    }
                     // For scalar types, just keep register allocation -
                     // we replace the register value
                 }
@@ -538,6 +513,7 @@ fn generate_aug_assign<'ctx>(
 fn generate_declare<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     name: &str,
+    mutable: bool,
     value: &Option<Expr>,
 ) -> Result<(), String> {
     if let Some(val) = value {
@@ -562,17 +538,18 @@ fn generate_declare<'ctx>(
             VarType::Int
         };
 
-        // For scalar types (int, float), always use register allocation
-        // to avoid LLVM dominance issues with loop variables
+        // For scalar types (int, float), use stack allocation if mutable
+        // to allow reassignment in loops
         let is_scalar = !is_ref_type;
+        let use_stack = !can_stack_alloc || is_scalar || mutable;
 
-        if can_stack_alloc || is_scalar {
-            // Use SSA register allocation for non-escaping variables or scalars
+        if !use_stack {
+            // Use SSA register allocation for non-escaping variables or non-mutable scalars
             state
                 .variables
                 .insert(name.to_string(), VarInfo::new_register(val, var_type));
         } else {
-            // Use stack allocation (alloca) for escaping variables
+            // Use stack allocation (alloca) for escaping variables or mutable scalars
             // Create alloca in function entry block to satisfy LLVM dominance
             let func = state
                 .builder
