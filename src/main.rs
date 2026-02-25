@@ -15,17 +15,14 @@ use std::path::Path;
 use std::process;
 
 fn main() {
-    // Check prerequisites before parsing commands
-    if let Err(e) = check_prerequisites() {
+    // Check basic prerequisites (LLVM, GCC) - runtime check moved to AOT compile
+    if let Err(e) = check_basic_prerequisites() {
         eprintln!("Error: {}", e);
         eprintln!();
         eprintln!("Please ensure:");
         eprintln!("  1. LLVM 20.x is installed and in PATH");
-        eprintln!("  2. Viper runtime library is built (runtime/libviper.a)");
-        eprintln!("  3. GCC is installed for linking AOT binaries");
+        eprintln!("  2. GCC is installed for linking AOT binaries");
         eprintln!();
-        eprintln!("To build the runtime library:");
-        eprintln!("  cd runtime && make");
         process::exit(1);
     }
 
@@ -40,6 +37,14 @@ fn main() {
             emit_llvm,
             pgo,
         } => {
+            // Check runtime library for AOT compilation
+            if let Err(e) = check_runtime_library() {
+                eprintln!("Error: {}", e);
+                eprintln!();
+                eprintln!("To build the runtime library:");
+                eprintln!("  cd runtime && make");
+                std::process::exit(1);
+            }
             if let Err(e) =
                 compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
             {
@@ -328,10 +333,32 @@ fn link_with_gcc(
     pgo: Option<&str>,
     opt_level: u32,
 ) -> Result<(), String> {
-    let runtime_paths = ["runtime/obj", "../runtime/obj", "../../runtime/obj"];
-    let runtime_path = runtime_paths
+    // Check local paths first, then system-wide installation
+    let runtime_paths = [
+        "runtime/obj",
+        "../runtime/obj",
+        "../../runtime/obj",
+        "/usr/local/lib/viper",
+        "/usr/lib/viper",
+        "/opt/viper/lib",
+    ];
+    
+    let mut runtime_path: Option<String> = runtime_paths
         .iter()
         .find(|p| Path::new(p).exists())
+        .map(|p| p.to_string());
+    
+    // Check $HOME/.local/lib/viper
+    if runtime_path.is_none() {
+        if let Ok(home) = std::env::var("HOME") {
+            let home_lib = format!("{}/.local/lib/viper", home);
+            if Path::new(&home_lib).exists() {
+                runtime_path = Some(home_lib);
+            }
+        }
+    }
+    
+    let runtime_path = runtime_path
         .ok_or_else(|| "Runtime object files not found".to_string())?;
 
     let mut args = vec![obj_path.to_string()];
@@ -368,8 +395,10 @@ fn link_with_gcc(
     // Add output
     args.extend_from_slice(&["-o".to_string(), bin_path.to_string()]);
 
-    // Add runtime.o for additional runtime functions
-    args.push(format!("{}/runtime.o", runtime_path));
+    // Add runtime.o for additional runtime functions (only if using local path)
+    if runtime_path.starts_with(".") {
+        args.push(format!("{}/runtime.o", runtime_path));
+    }
 
     // Add library path and libraries
     args.extend_from_slice(&[
@@ -961,15 +990,21 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
 
 // Runtime function implementations for JIT
 extern "C" fn vp_print_i64(val: i64) {
+    use std::io::{self, Write};
     print!("{}", val);
+    io::stdout().flush().unwrap();
 }
 
 extern "C" fn vp_print_f64(val: f64) {
+    use std::io::{self, Write};
     print!("{}", val);
+    io::stdout().flush().unwrap();
 }
 
 extern "C" fn vp_print_bool(val: bool) {
+    use std::io::{self, Write};
     print!("{}", if val { "True" } else { "False" });
+    io::stdout().flush().unwrap();
 }
 
 extern "C" fn vp_print_newline() {
@@ -977,6 +1012,7 @@ extern "C" fn vp_print_newline() {
 }
 
 extern "C" fn vp_print_str_stub(s: *mut std::ffi::c_void) {
+    use std::io::{self, Write};
     if s.is_null() {
         return;
     }
@@ -984,6 +1020,7 @@ extern "C" fn vp_print_str_stub(s: *mut std::ffi::c_void) {
         let c_str = std::ffi::CStr::from_ptr(s as *const std::ffi::c_char);
         if let Ok(rust_str) = c_str.to_str() {
             print!("{}", rust_str);
+            io::stdout().flush().unwrap();
         }
     }
 }
@@ -1434,24 +1471,48 @@ extern "C" fn vp_math_floor_stub(x: f64) -> f64 {
     x.floor()
 }
 
-/// Check that all prerequisites are available
-fn check_prerequisites() -> Result<(), String> {
-    // Check runtime library exists (only needed for AOT compilation)
+/// Check basic prerequisites (LLVM, GCC)
+fn check_basic_prerequisites() -> Result<(), String> {
+    // Check GCC for AOT linking
+    if !check_command_exists("gcc") {
+        return Err("GCC compiler not found in PATH".to_string());
+    }
+
+    Ok(())
+}
+
+/// Check runtime library exists (only needed for AOT compilation)
+fn check_runtime_library() -> Result<(), String> {
     let runtime_paths = [
         "runtime/libviper.a",
         "../runtime/libviper.a",
         "../../runtime/libviper.a",
+        "/usr/local/lib/viper/libviper.a",
+        "/usr/lib/viper/libviper.a",
+        "/opt/viper/lib/libviper.a",
+        "$HOME/.local/lib/viper/libviper.a",
     ];
 
-    let runtime_found = runtime_paths.iter().any(|p| Path::new(p).exists());
+    // Expand environment variables in paths
+    let expanded_paths: Vec<String> = runtime_paths
+        .iter()
+        .map(|p| {
+            if p.starts_with("$HOME") {
+                if let Ok(home) = std::env::var("HOME") {
+                    p.replacen("$HOME", &home, 1)
+                } else {
+                    p.to_string()
+                }
+            } else {
+                p.to_string()
+            }
+        })
+        .collect();
+
+    let runtime_found = expanded_paths.iter().any(|p| Path::new(p).exists());
 
     if !runtime_found {
         return Err("Viper runtime library not found (runtime/libviper.a)".to_string());
-    }
-
-    // Check GCC for AOT linking
-    if !check_command_exists("gcc") {
-        return Err("GCC compiler not found in PATH".to_string());
     }
 
     Ok(())

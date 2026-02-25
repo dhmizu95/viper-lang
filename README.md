@@ -10,7 +10,7 @@ Viper is an LLVM-based compiler for the Viper programming language, providing bo
 
 ## Installation
 
-### From Source
+### From Source (Recommended)
 
 ```bash
 # Clone the repository
@@ -20,8 +20,26 @@ cd viper
 # Build release binary
 cargo build --release
 
-# Install to ~/.cargo/bin
-cargo install --path . --force
+# Run the installation script (installs to ~/.local)
+./install.sh
+
+# Add to PATH (add to ~/.bashrc or ~/.zshrc)
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### System-Wide Installation
+
+The `install.sh` script installs Viper to `~/.local` (no sudo required):
+
+- **Binary:** `~/.local/bin/viper`
+- **Runtime:** `~/.local/lib/viper/libviper.a`
+- **Headers:** `~/.local/include/viper/`
+
+For system-wide installation to `/usr/local`, copy manually:
+```bash
+sudo cp target/release/viper /usr/local/bin/
+sudo cp -r runtime/obj /usr/local/lib/viper/
+sudo cp runtime/include/*.h /usr/local/include/viper/
 ```
 
 ### Requirements
@@ -29,7 +47,7 @@ cargo install --path . --force
 - Rust 1.70+
 - LLVM 20.x
 - GCC (for linking AOT binaries)
-- Viper Runtime Library (included in `runtime/`)
+- Viper Runtime Library (built automatically by `install.sh`)
 
 ## Quick Start
 
@@ -255,15 +273,14 @@ Viper programs link against `libviper.a` which provides:
 
 ### Linking AOT Binaries
 
+The Viper compiler handles linking automatically. Manual linking (if needed):
+
 ```bash
-# Basic linking
-gcc program.o runtime/libviper.a -o program -lm
+# Using installed runtime
+gcc program.o -L$HOME/.local/lib/viper -lviper -o program -lm
 
-# With optimization flags
-gcc -O2 program.o runtime/libviper.a -o program -lm
-
-# Static linking
-gcc -static program.o runtime/libviper.a -o program -lm -lpthread
+# Or use full path to library
+gcc program.o $HOME/.local/lib/viper/libviper.a -o program -lm
 ```
 
 ## Examples
@@ -426,16 +443,19 @@ a.append(4)
 
 ### Linking Errors
 
+**"Runtime object files not found"**
+```bash
+# Ensure runtime is installed
+cd viper-lang && ./install.sh
+
+# Or build manually
+cd runtime && make
+```
+
 **"cannot find -lviper"**
 ```bash
 # Use full path to library
-gcc program.o runtime/libviper.a -o program -lm
-```
-
-**"relocation R_X86_64_32"**
-```bash
-# Add -no-pie flag
-gcc -no-pie program.o runtime/libviper.a -o program -lm
+gcc program.o $HOME/.local/lib/viper/libviper.a -o program -lm
 ```
 
 ### Runtime Errors
@@ -473,15 +493,15 @@ gcc -O2 -o sieve_c sieve.c
 rustc -O -o sieve_rust sieve.rs
 go build -o sieve_go sieve.go
 
-# Build Viper
+# Build Viper (uses installed runtime)
 viper build sieve.vp -O 2
-gcc -no-pie sieve.o runtime/libviper.a -o sieve_viper -lm
+./sieve_vp_bin
 
 # Run comparison
 ./sieve_c
 ./sieve_rust
 ./sieve_go
-./sieve_viper
+./sieve_vp_bin
 ```
 
 ## Contributing
