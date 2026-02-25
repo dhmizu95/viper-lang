@@ -320,7 +320,14 @@ impl<'a> StatementParser<'a> {
         let start_span = self.current().span;
         self.expect(&TokenKind::For)?;
 
-        let target = self.parse_expression()?;
+        let target = if matches!(self.current().kind, TokenKind::Ident(_))
+            && matches!(self.peek().map(|t| &t.kind), Some(TokenKind::In))
+        {
+            let name = self.expect_ident()?;
+            Ok(Expr::Ident(name, start_span.merge(self.previous().span)))
+        } else {
+            self.parse_expression()
+        }?;
         self.expect(&TokenKind::In)?;
         let iter = self.parse_expression()?;
         self.expect(&TokenKind::Colon)?;
