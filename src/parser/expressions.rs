@@ -186,6 +186,50 @@ impl<'a> PrattParser<'a> {
                 self.advance();
                 Ok(Expr::Str(s, span))
             }
+            TokenKind::FString(s) => {
+                let s = s.clone();
+                self.advance();
+                
+                let mut elements = Vec::new();
+                let mut current_lit = String::new();
+                let mut chars = s.chars().peekable();
+                
+                while let Some(c) = chars.next() {
+                    if c == '{' {
+                        if !current_lit.is_empty() {
+                            elements.push(Expr::Str(current_lit.clone(), span));
+                            current_lit.clear();
+                        }
+                        
+                        let mut inner_expr_str = String::new();
+                        while let Some(&next_c) = chars.peek() {
+                            if next_c == '}' {
+                                chars.next(); // consume '}'
+                                break;
+                            } else {
+                                inner_expr_str.push(chars.next().unwrap());
+                            }
+                        }
+                        
+                        // Tokenize and parse inner expression
+                        let mut inner_lexer = crate::lexer::Lexer::new(&inner_expr_str);
+                        if let Ok(tokens) = inner_lexer.tokenize() {
+                            let mut inner_parser = PrattParser::new(&tokens);
+                            if let Ok(expr) = inner_parser.parse_expr(Precedence::MIN) {
+                                elements.push(expr);
+                            }
+                        }
+                    } else {
+                        current_lit.push(c);
+                    }
+                }
+                
+                if !current_lit.is_empty() {
+                    elements.push(Expr::Str(current_lit, span));
+                }
+                
+                Ok(Expr::FString(elements, span))
+            }
             TokenKind::Bool(b) => {
                 let b = *b;
                 self.advance();
@@ -194,6 +238,34 @@ impl<'a> PrattParser<'a> {
             TokenKind::None => {
                 self.advance();
                 Ok(Expr::None(span))
+            }
+            TokenKind::Lambda => { // Changed from TokenKind::Ident(name) if name == "lambda"
+                self.advance();
+                let mut params = Vec::new();
+                if !matches!(self.current().kind, TokenKind::Colon) {
+                    loop {
+                        if let TokenKind::Ident(param_name) = &self.current().kind {
+                            params.push(param_name.clone());
+                            self.advance();
+                        } else {
+                            return Err("Expected parameter name in lambda".to_string());
+                        }
+
+                        if self.match_token(&TokenKind::Comma) {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                self.expect(&TokenKind::Colon)?;
+                let body = self.parse_expr(Precedence::MIN)?;
+                let merged_span = span.merge(body.span());
+                Ok(Expr::Lambda {
+                    params,
+                    body: Box::new(body),
+                    span: merged_span,
+                })
             }
             TokenKind::Ident(name) => {
                 let name = name.clone();

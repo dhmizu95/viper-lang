@@ -305,15 +305,21 @@ impl<'a> Lexer<'a> {
 
                 // Identifiers and keywords
                 c if c.is_alphabetic() || c == '_' => {
-                    let mut ident = c.to_string();
-                    while let Some(c) = self.peek() {
-                        if c.is_alphanumeric() || c == '_' {
-                            ident.push(self.advance());
-                        } else {
-                            break;
+                    if c == 'f' && (self.peek() == Some('"') || self.peek() == Some('\'')) {
+                        let quote_char = self.advance();
+                        let s = self.read_string(quote_char)?;
+                        TokenKind::FString(s)
+                    } else {
+                        let mut ident = c.to_string();
+                        while let Some(c) = self.peek() {
+                            if c.is_alphanumeric() || c == '_' {
+                                ident.push(self.advance());
+                            } else {
+                                break;
+                            }
                         }
+                        self.keyword_or_ident(ident)
                     }
-                    self.keyword_or_ident(ident)
                 }
 
                 // Newline - should not reach here due to whitespace handling
@@ -518,6 +524,7 @@ impl<'a> Lexer<'a> {
             "or" => TokenKind::Or,
             "async" => TokenKind::Async,
             "await" => TokenKind::Await,
+            "extern" => TokenKind::Extern,
             "is" => {
                 // Check for "is not" by looking at source string
                 // Look ahead in the source to see if next word is "not"
@@ -585,8 +592,8 @@ impl<'a> Lexer<'a> {
             }
             "global" => TokenKind::Ident("global".to_string()), // Reserved for Phase 3
             "const" => TokenKind::Ident("const".to_string()),   // Reserved for Phase 2
-            "lambda" => TokenKind::Ident("lambda".to_string()), // Phase 2
-            "yield" => TokenKind::Ident("yield".to_string()),   // Phase 3
+            "lambda" => TokenKind::Lambda,
+            "yield" => TokenKind::Ident("yield".to_string()),
             _ => TokenKind::Ident(ident),
         }
     }

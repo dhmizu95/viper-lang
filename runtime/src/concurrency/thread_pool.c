@@ -74,6 +74,11 @@ static void* worker_thread(void* arg) {
                 task->cleanup(task);
             }
             free(task);
+            
+            atomic_fetch_sub(&pool->task_count, 1);
+            pthread_mutex_lock(&pool->mutex);
+            pthread_cond_broadcast(&pool->cond);
+            pthread_mutex_unlock(&pool->mutex);
         } else {
             /* No work available - wait briefly */
             pthread_mutex_lock(&pool->mutex);

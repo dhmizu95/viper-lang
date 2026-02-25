@@ -43,6 +43,10 @@ fn declare_print_functions<'ctx>(
     let print_newline_type = void_type.fn_type(&[], false);
     module.add_function("vp_print_newline", print_newline_type, None);
 
+    // String creation function
+    let str_create_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_create", str_create_type, None);
+
     // String concatenation function
     let str_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_concat", str_concat_type, None);
@@ -56,6 +60,21 @@ fn declare_print_functions<'ctx>(
 
     let str_len_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_str_len", str_len_type, None);
+
+    let str_create_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_create", str_create_type, None);
+
+    let str_upper_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_upper", str_upper_type, None);
+
+    let str_lower_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_lower", str_lower_type, None);
+
+    let str_split_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_str_split", str_split_type, None);
+
+    let str_replace_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_str_replace", str_replace_type, None);
 
     Ok(())
 }
@@ -182,6 +201,14 @@ fn declare_memory_functions<'ctx>(
     let release_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_release", release_type, None);
 
+    // malloc and free for heap allocations (used for task closures)
+    let i64_type = context.i64_type();
+    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("malloc", malloc_type, None);
+
+    let free_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("free", free_type, None);
+
     Ok(())
 }
 
@@ -261,6 +288,10 @@ fn declare_concurrency_functions<'ctx>(
     // vp_submit_task(func, data) - submits a task to run asynchronously
     let submit_task_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_submit_task", submit_task_type, None);
+
+    // Wait for all tasks to finish
+    let wait_all_tasks_type = void_type.fn_type(&[], false);
+    module.add_function("vp_wait_all_tasks", wait_all_tasks_type, None);
 
     // Thread spawning - creates a new OS thread for the task
     let spawn_thread_type = i64_type.fn_type(&[ptr_type.into()], false);

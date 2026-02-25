@@ -17,7 +17,32 @@ pub fn generate_expr<'ctx>(
         Expr::Float(n, _) => Ok(state.ir_builder.f64_const(*n).into()),
         Expr::Bool(b, _) => Ok(state.ir_builder.bool_const(*b).into()),
         Expr::None(_) => Ok(state.ir_builder.i64_const(0).into()),
-        Expr::Str(s, _) => Ok(state.ir_builder.string_const(state.module, s).into()),
+        Expr::Str(s, _) => {
+            let str_val = state.ir_builder.string_const(state.module, s);
+            let create_func = state
+                .module
+                .get_function("vp_str_create")
+                .ok_or_else(|| "vp_str_create not declared".to_string())?;
+            let result = state
+                .ir_builder
+                .build_call(state.builder, create_func, &[str_val.into()], "str_create")
+                .unwrap();
+            Ok(result)
+        },
+        Expr::FString(elements, _) => {
+            if elements.is_empty() {
+                let str_val = state.ir_builder.string_const(state.module, "");
+                let create_func = state.module.get_function("vp_str_create").unwrap();
+                let result = state.ir_builder.build_call(state.builder, create_func, &[str_val.into()], "str_create").unwrap();
+                return Ok(result);
+            }
+            let mut current = generate_str_call(state, &elements[0..1])?;
+            for elem in elements.iter().skip(1) {
+                let next_val = generate_str_call(state, std::slice::from_ref(elem))?;
+                current = generate_str_concat(state, current, next_val)?;
+            }
+            Ok(current)
+        },
         Expr::Ident(name, _span) => {
             // First check if it's a global constant
             if let Some(global) = state.global_constants.get(name) {
@@ -107,8 +132,71 @@ pub fn generate_expr<'ctx>(
             span: _,
         } => generate_expr(state, obj),
         Expr::Await { future, span: _ } => generate_await(state, future),
-        _ => Err(format!("Unsupported expression: {:?}", expr)),
+        Expr::Lambda { params, body, span } => generate_lambda(state, params, body, *span),
     }
+}
+
+/// Generate lambda expression
+fn generate_lambda<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    params: &[String],
+    body: &Expr,
+    span: crate::utils::Span,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // We assume i64 for all lambda params and return type for now
+    let i64_type = state.context.i64_type();
+    let mut param_types = Vec::new();
+    for _ in params {
+        param_types.push(i64_type.into());
+    }
+    
+    let fn_type = i64_type.fn_type(&param_types, false);
+    let lambda_name = format!("__lambda_{}_{}", span.line, span.column);
+    let func = state.module.add_function(&lambda_name, fn_type, None);
+    
+    // Save insertion block
+    let current_block = state.builder.get_insert_block().unwrap();
+    
+    let entry_block = state.context.append_basic_block(func, "entry");
+    state.builder.position_at_end(entry_block);
+    
+    // Setup params (as i64)
+    // We don't do full closure capture, only parameters
+    // We need to temporarily push these params to state.variables
+    let mut old_vars = Vec::new();
+    for (i, param_name) in params.iter().enumerate() {
+        let param_value = func.get_nth_param(i as u32).unwrap();
+        let alloca = state.builder.build_alloca(i64_type, param_name).expect("alloca");
+        state.builder.build_store(alloca, param_value).expect("store");
+        
+        let old_var = state.variables.insert(param_name.clone(), crate::codegen::variables::VarInfo::new_stack(alloca, crate::codegen::variables::VarType::Int));
+        old_vars.push((param_name.clone(), old_var));
+    }
+    
+    // Generate body
+    let body_val = generate_expr(state, body)?;
+    let body_int = if body_val.is_int_value() {
+        body_val.into_int_value()
+    } else {
+        return Err("Lambda must return int value currently".to_string());
+    };
+    state.builder.build_return(Some(&body_int)).expect("return");
+    
+    // Restore builder
+    state.builder.position_at_end(current_block);
+    
+    // Restore variables
+    for (name, old_var) in old_vars {
+        if let Some(var) = old_var {
+            state.variables.insert(name, var);
+        } else {
+            state.variables.remove(&name);
+        }
+    }
+    
+    // Note: To return a lambda as a value, we can cast the function pointer
+    // to a void pointer (ptr_type) representing a closure/function reference
+    Ok(func.as_global_value().as_pointer_value().into())
 }
 
 /// Generate list creation
@@ -938,11 +1026,30 @@ fn generate_call<'ctx>(
                 .build_call(state.builder, func_val, &arg_values, "call");
             return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
         }
-
-        return Err(format!("Unknown function: {}", name));
     }
 
-    Err(format!("Unknown function: {:?}", func))
+    // Not a direct named function call or it's a variable reference
+    let var_val = generate_expr(state, func).map_err(|e| format!("Call target failed: {}", e))?;
+    if var_val.is_pointer_value() {
+        let arg_values: Vec<_> = args
+            .iter()
+            .map(|a| generate_expr(state, a).map(|v| v.into()))
+            .collect::<Result<_, _>>()?;
+            
+        let i64_type = state.context.i64_type();
+        let mut param_types = Vec::new();
+        for _ in args {
+            param_types.push(i64_type.into());
+        }
+        let fn_type = i64_type.fn_type(&param_types, false);
+        let result = state.builder.build_indirect_call(fn_type, var_val.into_pointer_value(), &arg_values, "indirect_call").expect("indirect call");
+        match result.try_as_basic_value() {
+            inkwell::values::ValueKind::Basic(basic_val) => return Ok(basic_val),
+            _ => return Ok(state.ir_builder.i64_const(0).into()),
+        }
+    }
+
+    return Err(format!("Call target is not a function: {:?}", func));
 }
 
 /// Generate print call
@@ -1343,6 +1450,41 @@ fn generate_method_call<'ctx>(
                 .ir_builder
                 .build_call(state.builder, list_clear, &[obj_val.into()], "list_clear");
             Ok(state.ir_builder.i64_const(0).into())
+        }
+        "upper" => {
+            if !args.is_empty() {
+                return Err("upper() takes no arguments".to_string());
+            }
+            let func = state.module.get_function("vp_str_upper").unwrap();
+            let result = state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "str_upper");
+            Ok(result.unwrap())
+        }
+        "lower" => {
+            if !args.is_empty() {
+                return Err("lower() takes no arguments".to_string());
+            }
+            let func = state.module.get_function("vp_str_lower").unwrap();
+            let result = state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "str_lower");
+            Ok(result.unwrap())
+        }
+        "split" => {
+            if args.len() != 1 {
+                return Err("split() takes exactly 1 argument".to_string());
+            }
+            let delim_val = generate_expr(state, &args[0])?;
+            let func = state.module.get_function("vp_str_split").unwrap();
+            let result = state.ir_builder.build_call(state.builder, func, &[obj_val.into(), delim_val.into()], "str_split");
+            Ok(result.unwrap())
+        }
+        "replace" => {
+            if args.len() != 2 {
+                return Err("replace() takes exactly 2 arguments".to_string());
+            }
+            let old_val = generate_expr(state, &args[0])?;
+            let new_val = generate_expr(state, &args[1])?;
+            let func = state.module.get_function("vp_str_replace").unwrap();
+            let result = state.ir_builder.build_call(state.builder, func, &[obj_val.into(), old_val.into(), new_val.into()], "str_replace");
+            Ok(result.unwrap())
         }
         "len" => Err("len() is a builtin function, not a method".to_string()),
         _ => Err(format!("Unknown method: {}", method_name)),

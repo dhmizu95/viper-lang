@@ -7,7 +7,9 @@
 #include <string.h>
 #include <math.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "viper_stdlib.h"
+
 
 /* ============================================ */
 /* Basic I/O Functions                          */
@@ -109,6 +111,84 @@ int64_t vp_str_compare(const char* a, const char* b) {
     if (!a) return -1;
     if (!b) return 1;
     return (int64_t)strcmp(a, b);
+}
+
+/* ============================================ */
+/* String Methods                               */
+/* ============================================ */
+
+char* vp_str_upper(const char* str) {
+    if (!str) return NULL;
+    size_t len = strlen(str);
+    char* upper = (char*)vp_arc_alloc(len + 1);
+    for (size_t i = 0; i < len; i++) {
+        upper[i] = (char)toupper((unsigned char)str[i]);
+    }
+    upper[len] = '\0';
+    return upper;
+}
+
+char* vp_str_lower(const char* str) {
+    if (!str) return NULL;
+    size_t len = strlen(str);
+    char* lower = (char*)vp_arc_alloc(len + 1);
+    for (size_t i = 0; i < len; i++) {
+        lower[i] = (char)tolower((unsigned char)str[i]);
+    }
+    lower[len] = '\0';
+    return lower;
+}
+
+ViperList* vp_str_split(const char* str, const char* delim) {
+    ViperList* list = vp_list_create();
+    if (!str || !delim) return list;
+    
+    char* str_copy = vp_str_create(str); // Mutable copy for strtok
+    char* token = strtok(str_copy, delim);
+    while (token != NULL) {
+        // Here we just append the string directly to the list
+        // Note: vp_list_append appends an i64_t, which causes pointer truncation
+        // Phase 3 list handles i64 array, so storing a pointer needs casting.
+        vp_list_append(list, (int64_t)vp_str_create(token));
+        token = strtok(NULL, delim);
+    }
+    vp_str_free(str_copy);
+    return list;
+}
+
+char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub) {
+    if (!str || !old_sub || !new_sub) return NULL;
+    
+    size_t old_len = strlen(old_sub);
+    size_t new_len = strlen(new_sub);
+    
+    if (old_len == 0) return vp_str_create(str);
+    
+    // Count occurrences
+    const char* p = str;
+    int count = 0;
+    while ((p = strstr(p, old_sub)) != NULL) {
+        count++;
+        p += old_len;
+    }
+    
+    size_t res_len = strlen(str) + count * (new_len - old_len);
+    char* result = (char*)vp_arc_alloc(res_len + 1);
+    
+    char* out = result;
+    p = str;
+    const char* tmp;
+    while ((tmp = strstr(p, old_sub)) != NULL) {
+        size_t len = tmp - p;
+        strncpy(out, p, len);
+        out += len;
+        strcpy(out, new_sub);
+        out += new_len;
+        p = tmp + old_len;
+    }
+    strcpy(out, p);
+    
+    return result;
 }
 
 /* ============================================ */
@@ -447,7 +527,7 @@ char* vp_struct_pack(const char* format, ...) {
 
 /* Unpack values from binary buffer - returns list of values */
 /* For simplicity, returns packed buffer with parsed values interpreted */
-int64_t vp_struct_unpack(const char* format, const char* data, int data_len) {
+char* vp_struct_unpack(const char* _format, const char* data, int data_len) {
     /* Simplified implementation: just return the int32 at the start */
     /* A full implementation would parse and return multiple values */
     if (!data || data_len < 4) return 0;

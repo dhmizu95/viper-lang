@@ -57,22 +57,40 @@ impl<'ctx> CodeGen<'ctx> {
 
         // First pass: declare all functions
         for stmt in &module.statements {
-            if let Stmt::Function {
-                name,
-                params,
-                return_type,
-                ..
-            } = stmt
-            {
-                crate::codegen::functions::declare_function(
-                    self.context,
-                    &mut self.module,
-                    &self.type_mapper,
-                    &mut self.functions,
+            match stmt {
+                Stmt::Function {
                     name,
                     params,
                     return_type,
-                )?;
+                    ..
+                } => {
+                    crate::codegen::functions::declare_function(
+                        self.context,
+                        &mut self.module,
+                        &self.type_mapper,
+                        &mut self.functions,
+                        name,
+                        params,
+                        return_type,
+                    )?;
+                }
+                Stmt::Extern {
+                    name,
+                    params,
+                    return_type,
+                    ..
+                } => {
+                    crate::codegen::functions::declare_function(
+                        self.context,
+                        &mut self.module,
+                        &self.type_mapper,
+                        &mut self.functions,
+                        name,
+                        params,
+                        return_type,
+                    )?;
+                }
+                _ => {}
             }
         }
 
@@ -135,12 +153,12 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if !is_constant_assign {
-                    // Skip type declarations (Class, Struct)
-                    let is_type_decl = matches!(stmt, Stmt::Class { .. } | Stmt::Struct { .. });
+                // Skip type declarations (Class, Struct) and Externs
+                let is_type_or_extern_decl = matches!(stmt, Stmt::Class { .. } | Stmt::Struct { .. } | Stmt::Extern { .. });
 
-                    if !is_type_decl {
-                        top_level_stmts.push(stmt.clone());
-                    }
+                if !is_type_or_extern_decl {
+                    top_level_stmts.push(stmt.clone());
+                }
                 }
             }
         }
@@ -193,13 +211,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder
                 .build_store(alloca, param_value)
                 .expect("store");
-            let var_type = if param_value.is_float_value() {
-                VarType::Float
-            } else if param_value.is_pointer_value() {
-                VarType::Pointer
-            } else {
-                VarType::Int
-            };
+            let var_type = VarType::from_ast_type(&param.type_ann.clone().unwrap_or(Type::I64));
             self.variables
                 .insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
         }
@@ -311,38 +323,10 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Generate ARC cleanup code for local variables at function exit
-    fn generate_arc_cleanup(&mut self, function_name: &str) {
-        // Get all variables that need cleanup
-        let vars_to_cleanup = self.escape_analyzer.get_vars_needing_cleanup(function_name);
-
-        for var_name in vars_to_cleanup {
-            if let Some(var_info) = self.variables.get(var_name) {
-                // Only cleanup stack-allocated reference types
-                if let Some(alloca) = var_info.get_alloca() {
-                    if var_info.var_type == VarType::Pointer {
-                        // Load the pointer value
-                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                        let ptr_val = self
-                            .builder
-                            .build_load(ptr_type, alloca, &format!("{}_ptr", var_name))
-                            .expect("load pointer for cleanup");
-
-                        // Call vp_release with the pointer and a null destructor for now
-                        if let Some(release_func) = self.module.get_function("vp_release") {
-                            // For now, pass null as destructor (will be improved later)
-                            let null_ptr = ptr_type.const_null();
-                            self.builder
-                                .build_call(
-                                    release_func,
-                                    &[ptr_val.into(), null_ptr.into()],
-                                    &format!("release_{}", var_name),
-                                )
-                                .expect("build release call");
-                        }
-                    }
-                }
-            }
-        }
+    fn generate_arc_cleanup(&mut self, _function_name: &str) {
+        // ARC cleanup is disabled: channels, lists, and other pointer types currently
+        // don't have an ARC header, so calling vp_release on them causes a segfault.
+        // When proper ARC allocation is wired up for user objects, re-enable this.
     }
 
     /// Create a global constant from a literal expression

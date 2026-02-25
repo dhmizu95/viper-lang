@@ -279,10 +279,16 @@ pub fn generate_for<'ctx>(
     if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
-                let end_val = if args.len() == 1 {
-                    crate::codegen::expressions::generate_expr(state, &args[0])?.into_int_value()
-                } else {
-                    state.ir_builder.i64_const(0)
+                let (start_val, end_val) = match args.len() {
+                    0 => return Err("range expected at least 1 argument, got 0".to_string()),
+                    1 => (
+                        state.ir_builder.i64_const(0),
+                        crate::codegen::expressions::generate_expr(state, &args[0])?.into_int_value(),
+                    ),
+                    _ => (
+                        crate::codegen::expressions::generate_expr(state, &args[0])?.into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[1])?.into_int_value(),
+                    ),
                 };
 
                 let func_ctx = state
@@ -316,7 +322,7 @@ pub fn generate_for<'ctx>(
                     .expect("alloca");
                 state
                     .builder
-                    .build_store(counter, state.ir_builder.i64_const(0))
+                    .build_store(counter, start_val)
                     .expect("store");
                 state.ir_builder.build_branch(state.builder, cond_block);
 
@@ -335,12 +341,19 @@ pub fn generate_for<'ctx>(
                     .build_cond_branch(state.builder, cond, body_block, exit_block);
 
                 state.builder.position_at_end(body_block);
-                if let Expr::Ident(target_name, _) = target {
+                
+                let old_var = if let Expr::Ident(target_name, _) = target {
+                    // Try to construct a new VarInfo. Use state.variables.insert which returns the old value
                     state.variables.insert(
                         target_name.clone(),
-                        VarInfo::new_stack(counter, VarType::Int),
-                    );
-                }
+                        VarInfo {
+                            storage: crate::codegen::variables::VarStorage::Stack(counter),
+                            var_type: VarType::Int,
+                        },
+                    )
+                } else {
+                    None
+                };
 
                 for stmt in body {
                     crate::codegen::statements::generate_stmt(
@@ -390,6 +403,16 @@ pub fn generate_for<'ctx>(
                 }
 
                 state.builder.position_at_end(exit_block);
+                
+                // Restore the original shadowed variable, if any
+                if let Expr::Ident(target_name, _) = target {
+                    if let Some(old) = old_var {
+                        state.variables.insert(target_name.clone(), old);
+                    } else {
+                        state.variables.remove(target_name);
+                    }
+                }
+                
                 return Ok(());
             }
         }

@@ -8,6 +8,7 @@ pub enum TokenKind {
     Int(i64),
     Float(f64),
     Str(String),
+    FString(String),
     Bool(bool),
     Ident(String),
 
@@ -39,6 +40,7 @@ pub enum TokenKind {
     Async,
     Await,
     Struct,
+    Extern,
 
     // Operators
     Plus,
@@ -71,6 +73,7 @@ pub enum TokenKind {
     NotIn,
     // Ternary (Phase 2)
     Question, // ?
+    Lambda,
 
     // Delimiters
     LParen,
@@ -129,6 +132,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Int(n) => write!(f, "Int({})", n),
             TokenKind::Float(n) => write!(f, "Float({})", n),
             TokenKind::Str(s) => write!(f, "Str({})", s),
+            TokenKind::FString(s) => write!(f, "FString({})", s),
             TokenKind::Bool(b) => write!(f, "Bool({})", b),
             TokenKind::Ident(s) => write!(f, "Ident({})", s),
             TokenKind::Def => write!(f, "def"),
@@ -158,6 +162,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Async => write!(f, "async"),
             TokenKind::Await => write!(f, "await"),
             TokenKind::Struct => write!(f, "struct"),
+            TokenKind::Extern => write!(f, "extern"),
             TokenKind::Plus => write!(f, "+"),
             TokenKind::Minus => write!(f, "-"),
             TokenKind::Star => write!(f, "*"),
@@ -185,6 +190,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::IsNot => write!(f, "is not"),
             TokenKind::NotIn => write!(f, "not in"),
             TokenKind::Question => write!(f, "?"),
+            TokenKind::Lambda => write!(f, "lambda"),
             TokenKind::LParen => write!(f, "("),
             TokenKind::RParen => write!(f, ")"),
             TokenKind::LBracket => write!(f, "["),
