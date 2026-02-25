@@ -427,21 +427,66 @@ impl<'a> Lexer<'a> {
         let mut s = first.to_string();
         let mut is_float = false;
 
-        // Check for hex literal (0x, 0X)
-        if first == '0' && self.peek() == Some('x') || self.peek() == Some('X') {
-            s.push(self.advance()); // consume 'x' or 'X'
-                                    // Read hex digits
-            while let Some(c) = self.peek() {
-                if c.is_ascii_hexdigit() {
-                    s.push(self.advance());
-                } else {
-                    break;
+        // Check for number base prefixes (0x, 0b, 0o)
+        if first == '0' && self.peek().is_some() {
+            let next_char = self.peek().unwrap();
+            match next_char {
+                'x' | 'X' => {
+                    // Hex literal (0x, 0X)
+                    s.push(self.advance()); // consume 'x' or 'X'
+                                            // Read hex digits
+                    while let Some(c) = self.peek() {
+                        if c.is_ascii_hexdigit() {
+                            s.push(self.advance());
+                        } else {
+                            break;
+                        }
+                    }
+                    // Parse as hex integer
+                    let value = i128::from_str_radix(&s[2..], 16)
+                        .map_err(|_| format!("Invalid hex literal: {}", s))?;
+                    return Ok(TokenKind::Int(value));
                 }
+                'b' | 'B' => {
+                    // Binary literal (0b, 0B)
+                    s.push(self.advance()); // consume 'b' or 'B'
+                                            // Read binary digits
+                    while let Some(c) = self.peek() {
+                        if c == '0' || c == '1' {
+                            s.push(self.advance());
+                        } else {
+                            break;
+                        }
+                    }
+                    if s.len() < 3 {
+                        return Err(format!("Invalid binary literal: {}", s));
+                    }
+                    // Parse as binary integer
+                    let value = i128::from_str_radix(&s[2..], 2)
+                        .map_err(|_| format!("Invalid binary literal: {}", s))?;
+                    return Ok(TokenKind::Int(value));
+                }
+                'o' | 'O' => {
+                    // Octal literal (0o, 0O)
+                    s.push(self.advance()); // consume 'o' or 'O'
+                                            // Read octal digits
+                    while let Some(c) = self.peek() {
+                        if c >= '0' && c <= '7' {
+                            s.push(self.advance());
+                        } else {
+                            break;
+                        }
+                    }
+                    if s.len() < 3 {
+                        return Err(format!("Invalid octal literal: {}", s));
+                    }
+                    // Parse as octal integer
+                    let value = i128::from_str_radix(&s[2..], 8)
+                        .map_err(|_| format!("Invalid octal literal: {}", s))?;
+                    return Ok(TokenKind::Int(value));
+                }
+                _ => {}
             }
-            // Parse as hex integer
-            let value = i128::from_str_radix(&s[2..], 16)
-                .map_err(|_| format!("Invalid hex literal: {}", s))?;
-            return Ok(TokenKind::Int(value));
         }
 
         // Read decimal number
@@ -497,10 +542,9 @@ impl<'a> Lexer<'a> {
         if is_float {
             Ok(TokenKind::Float(s.parse().unwrap()))
         } else {
-            Ok(TokenKind::Int(
-                s.parse::<i128>()
-                    .map_err(|_| format!("Integer literal too large: {}", s))?,
-            ))
+            Ok(TokenKind::Int(s.parse::<i128>().map_err(|_| {
+                format!("Integer literal too large: {}", s)
+            })?))
         }
     }
 
@@ -610,6 +654,7 @@ impl<'a> Lexer<'a> {
             "global" => TokenKind::Ident("global".to_string()), // Reserved for Phase 3
             "const" => TokenKind::Ident("const".to_string()),   // Reserved for Phase 2
             "lambda" => TokenKind::Lambda,
+            "fn" => TokenKind::Fn,
             "yield" => TokenKind::Ident("yield".to_string()),
             _ => TokenKind::Ident(ident),
         }

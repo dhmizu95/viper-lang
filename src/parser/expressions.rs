@@ -258,7 +258,7 @@ impl<'a> PrattParser<'a> {
                 self.advance();
                 Ok(Expr::None(span))
             }
-            TokenKind::Lambda => {
+            TokenKind::Lambda | TokenKind::Fn => {
                 // Changed from TokenKind::Ident(name) if name == "lambda"
                 self.advance();
                 let mut params = Vec::new();
@@ -332,7 +332,44 @@ impl<'a> PrattParser<'a> {
 
                 if !self.match_token(&TokenKind::RBracket) {
                     // Parse first element
-                    elements.push(self.parse_expr(Precedence::MIN)?);
+                    let first_elem = self.parse_expr(Precedence::MIN)?;
+
+                    // Check for list comprehension: [expr for var in iter]
+                    if matches!(self.current().kind, TokenKind::For) {
+                        // This is a list comprehension
+                        self.advance(); // consume 'for'
+
+                        // Parse the variable name
+                        let var = if let TokenKind::Ident(name) = &self.current().kind {
+                            let name = name.clone();
+                            self.advance();
+                            name
+                        } else {
+                            return Err("Expected variable name in list comprehension".to_string());
+                        };
+
+                        // Expect 'in' keyword
+                        self.expect(&TokenKind::In)?;
+
+                        // Parse the iterable
+                        let iter = self.parse_expr(Precedence::MIN)?;
+
+                        // Expect closing bracket
+                        self.expect(&TokenKind::RBracket)?;
+
+                        let last_span = self.previous().span;
+                        let merged_span = span.merge(last_span);
+
+                        return Ok(Expr::ListComprehension {
+                            element: Box::new(first_elem),
+                            var,
+                            iter: Box::new(iter),
+                            span: merged_span,
+                        });
+                    }
+
+                    // Not a list comprehension, treat as array/list
+                    elements.push(first_elem);
 
                     // Check for array repetition syntax: [value; size]
                     let is_semi = matches!(self.current().kind, TokenKind::Semi);

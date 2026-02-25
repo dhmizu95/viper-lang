@@ -83,6 +83,7 @@ pub enum TokenKind {
     // Ternary (Phase 2)
     Question, // ?
     Lambda,
+    Fn, // fn as alternative to lambda
 
     // Delimiters
     LParen,
@@ -209,6 +210,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::NotIn => write!(f, "not in"),
             TokenKind::Question => write!(f, "?"),
             TokenKind::Lambda => write!(f, "lambda"),
+            TokenKind::Fn => write!(f, "fn"),
             TokenKind::LParen => write!(f, "("),
             TokenKind::RParen => write!(f, ")"),
             TokenKind::LBracket => write!(f, "["),

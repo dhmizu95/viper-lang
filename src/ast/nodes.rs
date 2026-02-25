@@ -71,6 +71,13 @@ pub enum Expr {
         body: Box<Expr>,
         span: Span,
     },
+    /// List comprehension: [expr for var in iter]
+    ListComprehension {
+        element: Box<Expr>,
+        var: String,
+        iter: Box<Expr>,
+        span: Span,
+    },
     /// Conditional expression (a if cond else b)
     Conditional {
         condition: Box<Expr>,
@@ -102,6 +109,7 @@ impl Expr {
             Expr::Dict { span, .. } => *span,
             Expr::Array { span, .. } => *span,
             Expr::Lambda { span, .. } => *span,
+            Expr::ListComprehension { span, .. } => *span,
             Expr::Conditional { span, .. } => *span,
             Expr::Await { span, .. } => *span,
         }

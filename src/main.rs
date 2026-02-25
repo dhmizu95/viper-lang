@@ -45,9 +45,14 @@ fn main() {
                 eprintln!("  cd runtime && make");
                 std::process::exit(1);
             }
-            if let Err(e) =
-                compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
-            {
+            if let Err(e) = compile_file_aot(
+                &input,
+                optimize,
+                output.as_deref(),
+                lto,
+                emit_llvm,
+                pgo.as_deref(),
+            ) {
                 eprintln!("Compilation failed: {}", e);
                 std::process::exit(1);
             }
@@ -189,11 +194,12 @@ fn compile_file_aot(
     println!("   ✓ Generated LLVM IR");
 
     let module = codegen.module();
-    
+
     /* Emit LLVM IR to .ll file if requested */
     if emit_llvm {
         let ll_path = format!("{}.ll", module_name);
-        module.print_to_file(&ll_path)
+        module
+            .print_to_file(&ll_path)
             .map_err(|e| format!("Failed to write LLVM IR to '{}': {}", ll_path, e))?;
         println!("   ✓ Emitted LLVM IR: {}", ll_path);
     }
@@ -256,8 +262,12 @@ fn compile_file_aot(
         // Emit optimized LLVM IR to .ll file if requested (shows optimized IR, not raw)
         if emit_llvm {
             let opt_ll_path = format!("{}.opt.ll", module_name);
-            opt_module.print_to_file(&opt_ll_path)
-                .map_err(|e| format!("Failed to write optimized LLVM IR to '{}': {}", opt_ll_path, e))?;
+            opt_module.print_to_file(&opt_ll_path).map_err(|e| {
+                format!(
+                    "Failed to write optimized LLVM IR to '{}': {}",
+                    opt_ll_path, e
+                )
+            })?;
             println!("   ✓ Emitted optimized LLVM IR: {}", opt_ll_path);
         }
 
@@ -342,12 +352,12 @@ fn link_with_gcc(
         "/usr/lib/viper",
         "/opt/viper/lib",
     ];
-    
+
     let mut runtime_path: Option<String> = runtime_paths
         .iter()
         .find(|p| Path::new(p).exists())
         .map(|p| p.to_string());
-    
+
     // Check $HOME/.local/lib/viper
     if runtime_path.is_none() {
         if let Ok(home) = std::env::var("HOME") {
@@ -357,9 +367,8 @@ fn link_with_gcc(
             }
         }
     }
-    
-    let runtime_path = runtime_path
-        .ok_or_else(|| "Runtime object files not found".to_string())?;
+
+    let runtime_path = runtime_path.ok_or_else(|| "Runtime object files not found".to_string())?;
 
     let mut args = vec![obj_path.to_string()];
 
@@ -447,7 +456,10 @@ fn link_with_gcc(
 }
 
 fn compile_file_optimized(input_path: &str) -> Result<(), String> {
-    println!("🐍 Viper Compiler {} (AOT + opt)", env!("CARGO_PKG_VERSION"));
+    println!(
+        "🐍 Viper Compiler {} (AOT + opt)",
+        env!("CARGO_PKG_VERSION")
+    );
     println!("   Compiling: {}", input_path);
 
     let source = fs::read_to_string(input_path)
@@ -587,7 +599,11 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
 fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
     use inkwell::targets::{InitializationConfig, Target};
 
-    println!("🐍 Viper Compiler {} (JIT -O{})", env!("CARGO_PKG_VERSION"), opt_level);
+    println!(
+        "🐍 Viper Compiler {} (JIT -O{})",
+        env!("CARGO_PKG_VERSION"),
+        opt_level
+    );
     println!("   Running: {}", input_path);
 
     let source = std::fs::read_to_string(input_path)
@@ -772,6 +788,10 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             &func.as_global_value(),
             vp_list_repeat_stub as *const () as usize,
         );
+    }
+    if let Some(func) = codegen.module().get_function("vp_range") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_range_stub as *const () as usize);
     }
 
     if let Some(func) = codegen.module().get_function("vp_retain") {
@@ -1181,6 +1201,11 @@ extern "C" fn vp_list_set_f64_stub(list: *mut std::ffi::c_void, index: i64, val:
             vec[index as usize] = val;
         }
     }
+}
+
+extern "C" fn vp_range_stub(start: i64, end: i64) -> *mut std::ffi::c_void {
+    let list: Vec<i64> = (start..end).collect();
+    Box::into_raw(Box::new(list)) as *mut std::ffi::c_void
 }
 
 // List repeat stub - creates a new list with element repeated n times

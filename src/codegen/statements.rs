@@ -436,6 +436,7 @@ fn generate_assign<'ctx>(
         // Track list variables
         let is_list = match value {
             Expr::List { .. } => true,
+            Expr::ListComprehension { .. } => true,
             Expr::Ident(other, _) => state.is_list(other),
             _ => false,
         };
@@ -726,6 +727,7 @@ fn generate_declare<'ctx>(
         // Track list variables
         let is_list = match expr {
             Expr::List { .. } => true,
+            Expr::ListComprehension { .. } => true,
             Expr::Ident(other, _) => state.is_list(other),
             _ => false,
         };

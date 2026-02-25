@@ -65,6 +65,7 @@ impl<'ctx> CodeGen<'ctx> {
                     name,
                     params,
                     return_type,
+                    body,
                     ..
                 } => {
                     crate::codegen::functions::declare_function(
@@ -75,6 +76,7 @@ impl<'ctx> CodeGen<'ctx> {
                         name,
                         params,
                         return_type,
+                        Some(body),
                     )?;
                 }
                 Stmt::Extern {
@@ -96,33 +98,16 @@ impl<'ctx> CodeGen<'ctx> {
                         &mangled_name,
                         params,
                         return_type,
+                        None,
                     )?;
                 }
                 _ => {}
             }
         }
 
-        // Second pass: process module-level constant assignments first
-        // Module-level assignments like "PI = 3.14" are treated as immutable constants
-        for stmt in &module.statements {
-            if let Stmt::Assign { target, value, .. } = stmt {
-                if let Expr::Ident(name, _) = target.as_ref() {
-                    // Check if it's a simple literal value (int, float, string, bool)
-                    let is_literal = matches!(
-                        value.as_ref(),
-                        Expr::Int(..)
-                            | Expr::Float(..)
-                            | Expr::Str(..)
-                            | Expr::Bool(..)
-                            | Expr::None(..)
-                    );
-
-                    if is_literal {
-                        self.create_global_constant(name, value)?;
-                    }
-                }
-            }
-        }
+        // Second pass: Skip module-level constant creation entirely
+        // This simplifies variable handling - all module-level vars are treated as regular variables
+        // True constants (like PI = 3.14) could be added as a separate feature with explicit 'const' keyword
 
         // Third pass: define all functions
         let mut top_level_stmts = Vec::new();
@@ -263,7 +248,7 @@ impl<'ctx> CodeGen<'ctx> {
             // Check actual function return type from LLVM signature
             let func = self.functions.get(name).copied().unwrap();
             let return_type_llvm = func.get_type().get_return_type();
-            
+
             match return_type {
                 Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) => {
                     self.ir_builder
@@ -277,7 +262,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.bool_const(false)));
                 }
-                // For functions with no explicit return type (None), 
+                // For functions with no explicit return type (None),
                 // check LLVM signature: main() returns i64, others return void
                 None => {
                     if return_type_llvm.is_some() {

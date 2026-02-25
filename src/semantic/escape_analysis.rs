@@ -494,6 +494,9 @@ impl EscapeAnalyzer {
                 self.analyze_expr(then_expr, ctx, state);
                 self.analyze_expr(else_expr, ctx, state);
             }
+            Expr::ListComprehension { .. } => {
+                // List comprehension - not yet fully implemented
+            }
         }
     }
 
