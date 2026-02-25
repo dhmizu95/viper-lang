@@ -23,7 +23,7 @@ pub enum Commands {
         output: Option<String>,
 
         /// Optimization level (0, 1, 2, or 3)
-        #[arg(short = 'O', default_value = "0", value_name = "LEVEL")]
+        #[arg(short = 'O', default_value = "2", value_name = "LEVEL")]
         optimize: u32,
 
         /// Enable Link-Time Optimization
@@ -45,7 +45,7 @@ pub enum Commands {
         input: String,
 
         /// Optimization level (0, 1, 2, or 3)
-        #[arg(short = 'O', default_value = "0", value_name = "LEVEL")]
+        #[arg(short = 'O', default_value = "2", value_name = "LEVEL")]
         optimize: u32,
 
         /// Enable Link-Time Optimization
