@@ -58,6 +58,7 @@ pub fn generate_if<'ctx>(
             state.functions,
             state.global_constants,
             state.loop_stack,
+            state.list_vars,
             stmt,
         )?;
     }
@@ -102,6 +103,7 @@ pub fn generate_if<'ctx>(
                 state.functions,
                 state.global_constants,
                 state.loop_stack,
+            state.list_vars,
                 stmt,
             )?;
         }
@@ -128,6 +130,7 @@ pub fn generate_if<'ctx>(
                         state.functions,
                         state.global_constants,
                         state.loop_stack,
+            state.list_vars,
                         stmt,
                     )?;
                 }
@@ -163,6 +166,7 @@ pub fn generate_if<'ctx>(
                 state.functions,
                 state.global_constants,
                 state.loop_stack,
+            state.list_vars,
                 stmt,
             )?;
         }
@@ -251,6 +255,7 @@ pub fn generate_while<'ctx>(
             state.functions,
             state.global_constants,
             state.loop_stack,
+            state.list_vars,
             stmt,
         )?;
     }
@@ -365,6 +370,7 @@ pub fn generate_for<'ctx>(
                         state.functions,
                         state.global_constants,
                         state.loop_stack,
+            state.list_vars,
                         stmt,
                     )?;
                 }

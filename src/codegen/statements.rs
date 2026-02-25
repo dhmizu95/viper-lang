@@ -3,7 +3,7 @@
 use crate::ast::{BinOp, Expr, Stmt};
 use inkwell::context::Context;
 use inkwell::values::{FunctionValue, GlobalValue};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::state::CodeGenState;
@@ -20,6 +20,7 @@ pub fn generate_stmt<'ctx>(
     functions: &HashMap<String, FunctionValue<'ctx>>,
     global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
     loop_stack: &mut Vec<LoopContext<'ctx>>,
+    list_vars: &mut HashSet<String>,
     stmt: &Stmt,
 ) -> Result<(), String> {
     let mut state = CodeGenState::new(
@@ -31,6 +32,7 @@ pub fn generate_stmt<'ctx>(
         functions,
         global_constants,
         loop_stack,
+        list_vars,
     );
 
     generate_stmt_internal(&mut state, stmt)
@@ -46,6 +48,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     functions: &HashMap<String, FunctionValue<'ctx>>,
     global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
     loop_stack: &mut Vec<LoopContext<'ctx>>,
+    list_vars: &mut HashSet<String>,
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
@@ -59,6 +62,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         functions,
         global_constants,
         loop_stack,
+        list_vars,
         escape_analyzer,
         current_function,
     );
@@ -341,6 +345,18 @@ fn generate_assign<'ctx>(
         // Check if the value is a stack-allocated array (should not use ARC)
         let is_stack_array = matches!(value, Expr::Array { .. });
 
+        // Track list variables
+        let is_list = match value {
+            Expr::List { .. } => true,
+            Expr::Ident(other, _) => state.is_list(other),
+            _ => false,
+        };
+        if is_list {
+            state.mark_as_list(name.clone());
+        } else {
+            state.list_vars.remove(name);
+        }
+
         if let Some(var_info) = state.variables.get(name) {
             // Check if we're replacing a reference type value
             let old_is_ref = var_info.var_type == VarType::Pointer;
@@ -430,8 +446,14 @@ fn generate_assign<'ctx>(
         let index_val = crate::codegen::expressions::generate_expr(state, index)?.into_int_value();
         let value_val = crate::codegen::expressions::generate_expr(state, value)?;
 
+        let is_list = if let Expr::Ident(obj_name, _) = obj.as_ref() {
+            state.is_list(obj_name)
+        } else {
+            matches!(obj.as_ref(), Expr::List { .. })
+        };
+
         // Check if this is an array (pointer) or list
-        if obj_val.is_pointer_value() {
+        if obj_val.is_pointer_value() && !is_list {
             // Array index assignment using GEP and store
             let obj_ptr = obj_val.into_pointer_value();
             let elem_type = value_val.get_type();
@@ -609,9 +631,19 @@ fn generate_declare<'ctx>(
     mutable: bool,
     value: &Option<Expr>,
 ) -> Result<(), String> {
-    if let Some(val) = value {
-        let val = crate::codegen::expressions::generate_expr(state, val)?;
+    if let Some(expr) = value {
+        let val = crate::codegen::expressions::generate_expr(state, expr)?;
         let ty = val.get_type();
+
+        // Track list variables
+        let is_list = match expr {
+            Expr::List { .. } => true,
+            Expr::Ident(other, _) => state.is_list(other),
+            _ => false,
+        };
+        if is_list {
+            state.mark_as_list(name.to_string());
+        }
 
         // Use escape analysis to determine allocation strategy
         let can_stack_alloc = state.can_stack_allocate(name);

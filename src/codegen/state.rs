@@ -2,7 +2,7 @@
 
 use inkwell::context::Context;
 use inkwell::values::{FunctionValue, GlobalValue};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::variables::{LoopContext, VarInfo};
@@ -18,6 +18,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub functions: &'a HashMap<String, FunctionValue<'ctx>>,
     pub global_constants: &'a mut HashMap<String, GlobalValue<'ctx>>,
     pub loop_stack: &'a mut Vec<LoopContext<'ctx>>,
+    pub list_vars: &'a mut HashSet<String>,
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
 }
@@ -33,6 +34,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         functions: &'a HashMap<String, FunctionValue<'ctx>>,
         global_constants: &'a mut HashMap<String, GlobalValue<'ctx>>,
         loop_stack: &'a mut Vec<LoopContext<'ctx>>,
+        list_vars: &'a mut HashSet<String>,
     ) -> Self {
         Self {
             context,
@@ -43,6 +45,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             functions,
             global_constants,
             loop_stack,
+            list_vars,
             escape_analyzer: None,
             current_function: None,
         }
@@ -59,6 +62,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         functions: &'a HashMap<String, FunctionValue<'ctx>>,
         global_constants: &'a mut HashMap<String, GlobalValue<'ctx>>,
         loop_stack: &'a mut Vec<LoopContext<'ctx>>,
+        list_vars: &'a mut HashSet<String>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
     ) -> Self {
@@ -71,6 +75,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             functions,
             global_constants,
             loop_stack,
+            list_vars,
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
         }
@@ -112,6 +117,16 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         {
             analyzer.set_reference_type(func, var_name, is_ref);
         }
+    }
+
+    /// Mark a variable as a list
+    pub fn mark_as_list(&mut self, name: String) {
+        self.list_vars.insert(name);
+    }
+
+    /// Check if a variable is a list
+    pub fn is_list(&self, name: &str) -> bool {
+        self.list_vars.contains(name)
     }
 
     /// Generate ARC retain call for a value

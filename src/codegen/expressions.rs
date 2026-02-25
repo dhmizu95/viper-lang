@@ -422,8 +422,14 @@ fn generate_index<'ctx>(
 
     let index_val = index_val.into_int_value();
 
-    // Try array indexing first (gep on pointer)
-    if obj_val.is_pointer_value() {
+    let is_list = if let Expr::Ident(obj_name, _) = obj {
+        state.is_list(obj_name)
+    } else {
+        matches!(obj, Expr::List { .. })
+    };
+
+    // Try array indexing first (gep on pointer) - only for raw pointers/arrays, not lists
+    if obj_val.is_pointer_value() && !is_list {
         let obj_ptr = obj_val.into_pointer_value();
         let elem_type = state.context.i64_type(); // Default to i64
 
@@ -1404,7 +1410,7 @@ fn generate_method_call<'ctx>(
                 &[obj_val.into(), val.into()],
                 "list_append",
             );
-            Ok(state.ir_builder.i64_const(0).into())
+            Ok(obj_val)
         }
         "insert" => {
             if args.len() != 2 {
@@ -1425,7 +1431,7 @@ fn generate_method_call<'ctx>(
                 &[obj_val.into(), index.into(), val.into()],
                 "list_insert",
             );
-            Ok(state.ir_builder.i64_const(0).into())
+            Ok(obj_val)
         }
         "remove" => {
             if args.len() != 1 {
@@ -1472,7 +1478,7 @@ fn generate_method_call<'ctx>(
             state
                 .ir_builder
                 .build_call(state.builder, list_clear, &[obj_val.into()], "list_clear");
-            Ok(state.ir_builder.i64_const(0).into())
+            Ok(obj_val)
         }
         "upper" => {
             if !args.is_empty() {

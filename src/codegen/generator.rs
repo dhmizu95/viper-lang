@@ -3,7 +3,7 @@
 use crate::ast::{Expr, Module, Stmt, Type};
 use inkwell::context::Context;
 use inkwell::values::{BasicValue, FunctionValue, GlobalValue};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::types::TypeMapper;
@@ -21,6 +21,7 @@ pub struct CodeGen<'ctx> {
     functions: HashMap<String, FunctionValue<'ctx>>,
     global_constants: HashMap<String, GlobalValue<'ctx>>,
     loop_stack: Vec<LoopContext<'ctx>>,
+    list_vars: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
     current_function: Option<String>,
 }
@@ -42,6 +43,7 @@ impl<'ctx> CodeGen<'ctx> {
             functions: HashMap::new(),
             global_constants: HashMap::new(),
             loop_stack: Vec::new(),
+            list_vars: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
         }
@@ -180,6 +182,7 @@ impl<'ctx> CodeGen<'ctx> {
         // Save variables from previous function scope
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
+        let saved_list_vars = std::mem::take(&mut self.list_vars);
         let saved_current_function = self.current_function.clone();
         self.current_function = Some(name.to_string());
 
@@ -227,6 +230,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &self.functions,
                 &mut self.global_constants,
                 &mut self.loop_stack,
+                &mut self.list_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 name,
@@ -266,6 +270,7 @@ impl<'ctx> CodeGen<'ctx> {
         // Restore variables for next function
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
+        self.list_vars = saved_list_vars;
         self.current_function = saved_current_function;
 
         Ok(())
@@ -295,6 +300,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &self.functions,
                 &mut self.global_constants,
                 &mut self.loop_stack,
+                &mut self.list_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 "__module_level__",
