@@ -262,6 +262,10 @@ fn declare_concurrency_functions<'ctx>(
     let submit_task_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_submit_task", submit_task_type, None);
 
+    // Thread spawning - creates a new OS thread for the task
+    let spawn_thread_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_spawn_thread", spawn_thread_type, None);
+
     // Fiber scheduler functions (Phase 3)
     let scheduler_init_type = void_type.fn_type(&[i64_type.into()], false);
     module.add_function("vp_scheduler_init", scheduler_init_type, None);

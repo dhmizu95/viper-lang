@@ -118,3 +118,43 @@ void vp_spawn_task(void (*func)(void)) {
         vp_submit_task(task_wrapper, closure);
     }
 }
+
+/* ============================================ */
+/* Thread Spawning (true parallelism)           */
+/* ============================================ */
+
+#include <pthread.h>
+
+static _Atomic int64_t g_thread_counter = 0;
+
+typedef struct {
+    void (*func)(void);
+    int64_t id;
+} ThreadData;
+
+static void* thread_start(void* arg) {
+    ThreadData* data = (ThreadData*)arg;
+    if (data && data->func) {
+        data->func();
+    }
+    free(data);
+    return NULL;
+}
+
+int64_t vp_spawn_thread(void (*func)(void)) {
+    ThreadData* data = (ThreadData*)malloc(sizeof(ThreadData));
+    if (!data) return -1;
+    
+    data->func = func;
+    data->id = atomic_fetch_add(&g_thread_counter, 1);
+    
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, thread_start, data) != 0) {
+        free(data);
+        return -1;
+    }
+    
+    pthread_detach(thread);
+    
+    return data->id;
+}
