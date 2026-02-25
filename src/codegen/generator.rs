@@ -273,6 +273,16 @@ impl<'ctx> CodeGen<'ctx> {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.bool_const(false)));
                 }
+                // For functions with no explicit return type (None), 
+                // return 0 for main() to ensure proper exit code, void for others
+                None => {
+                    if name == "main" {
+                        self.ir_builder
+                            .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
+                    } else {
+                        self.ir_builder.build_return(&self.builder, None);
+                    }
+                }
                 _ => {
                     self.ir_builder.build_return(&self.builder, None);
                 }
