@@ -961,19 +961,19 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
 
 // Runtime function implementations for JIT
 extern "C" fn vp_print_i64(val: i64) {
-    println!("{}", val);
+    print!("{}", val);
 }
 
 extern "C" fn vp_print_f64(val: f64) {
-    println!("{}", val);
+    print!("{}", val);
 }
 
 extern "C" fn vp_print_bool(val: bool) {
-    println!("{}", if val { "True" } else { "False" });
+    print!("{}", if val { "True" } else { "False" });
 }
 
 extern "C" fn vp_print_newline() {
-    // Newline is handled by println!
+    println!();
 }
 
 extern "C" fn vp_print_str_stub(s: *mut std::ffi::c_void) {
@@ -983,7 +983,7 @@ extern "C" fn vp_print_str_stub(s: *mut std::ffi::c_void) {
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(s as *const std::ffi::c_char);
         if let Ok(rust_str) = c_str.to_str() {
-            println!("{}", rust_str);
+            print!("{}", rust_str);
         }
     }
 }
@@ -1165,7 +1165,7 @@ extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
 }
 
 /// String concatenation stub for JIT
-/// Uses a simple static buffer approach for JIT execution
+/// Uses CString to ensure proper null-terminated string layout
 extern "C" fn vp_str_concat_stub(
     a: *const std::ffi::c_char,
     b: *const std::ffi::c_char,
@@ -1181,28 +1181,25 @@ extern "C" fn vp_str_concat_stub(
         let str_b = CStr::from_ptr(b).to_string_lossy();
         let concatenated = format!("{}{}", str_a, str_b);
 
-        // Leak the string to keep it alive for JIT execution
-        // This is a memory leak but acceptable for short-lived JIT execution
-        let boxed = Box::new(concatenated);
-        let ptr = Box::into_raw(boxed) as *const std::ffi::c_char;
-        ptr
+        // Use CString to ensure proper null-terminated layout
+        // Leak the CString to keep it alive for JIT execution
+        let c_str = std::ffi::CString::new(concatenated).unwrap();
+        c_str.into_raw()
     }
 }
 
 /// Convert i64 to string stub for JIT
 extern "C" fn vp_str_from_i64_stub(val: i64) -> *const std::ffi::c_char {
     let s = val.to_string();
-    let boxed = Box::new(s);
-    let ptr = Box::into_raw(boxed) as *const std::ffi::c_char;
-    ptr
+    let c_str = std::ffi::CString::new(s).unwrap();
+    c_str.into_raw()
 }
 
 /// Convert f64 to string stub for JIT
 extern "C" fn vp_str_from_f64_stub(val: f64) -> *const std::ffi::c_char {
     let s = val.to_string();
-    let boxed = Box::new(s);
-    let ptr = Box::into_raw(boxed) as *const std::ffi::c_char;
-    ptr
+    let c_str = std::ffi::CString::new(s).unwrap();
+    c_str.into_raw()
 }
 
 /// Get string length stub for JIT
