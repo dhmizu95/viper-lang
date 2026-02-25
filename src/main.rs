@@ -139,7 +139,7 @@ fn compile_file_aot(
     emit_llvm: bool,
     pgo: Option<&str>,
 ) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.2.3 (AOT)");
+    println!("🐍 Viper Compiler {} (AOT)", env!("CARGO_PKG_VERSION"));
     println!("   Compiling: {}", input_path);
     println!("   Optimization: -O{}", opt_level);
     if lto {
@@ -447,7 +447,7 @@ fn link_with_gcc(
 }
 
 fn compile_file_optimized(input_path: &str) -> Result<(), String> {
-    println!("🐍 Viper Compiler 0.2.2 (AOT + opt)");
+    println!("🐍 Viper Compiler {} (AOT + opt)", env!("CARGO_PKG_VERSION"));
     println!("   Compiling: {}", input_path);
 
     let source = fs::read_to_string(input_path)
@@ -587,7 +587,7 @@ fn compile_and_run(input_path: &str) -> Result<(), String> {
 fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
     use inkwell::targets::{InitializationConfig, Target};
 
-    println!("🐍 Viper Compiler 0.2.2 (JIT -O{})", opt_level);
+    println!("🐍 Viper Compiler {} (JIT -O{})", env!("CARGO_PKG_VERSION"), opt_level);
     println!("   Running: {}", input_path);
 
     let source = std::fs::read_to_string(input_path)
@@ -1525,7 +1525,7 @@ fn check_command_exists(cmd: &str) -> bool {
 
 /// Show compiler information
 fn show_info() {
-    println!("Viper Compiler 0.2.3");
+    println!("Viper Compiler {}", env!("CARGO_PKG_VERSION"));
     println!("====================");
     println!("LLVM-based compiler for the Viper programming language");
     println!();

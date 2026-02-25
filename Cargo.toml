@@ -1,6 +1,6 @@
 [package]
 name = "viper-lang"
-version = "0.2.3"
+version = "0.3.7"
 edition = "2021"
 
 [profile.release]
