@@ -11,14 +11,26 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <unistd.h>
+#include <sys/sysinfo.h>
 #include "thread_pool.h"
 #include "task_queue.h"
+
+/* ============================================ */
+/* Helper Functions                            */
+/* ============================================ */
+
+static size_t detect_cpu_count(void) {
+    int cpus = get_nprocs();
+    if (cpus <= 0) return 4;
+    return (size_t)cpus;
+}
 
 /* ============================================ */
 /* Constants                                    */
 /* ============================================ */
 
-#define VIPER_DEFAULT_THREAD_COUNT 4
+#define VIPER_DEFAULT_THREAD_COUNT 0  /* 0 = auto-detect */
 #define VIPER_MAX_THREAD_COUNT 512
 
 /* ============================================ */
@@ -94,7 +106,7 @@ static void* worker_thread(void* arg) {
 
 ViperThreadPool* vp_threadpool_create(size_t num_threads) {
     if (num_threads == 0) {
-        num_threads = VIPER_DEFAULT_THREAD_COUNT;
+        num_threads = detect_cpu_count();
     }
     if (num_threads > VIPER_MAX_THREAD_COUNT) {
         num_threads = VIPER_MAX_THREAD_COUNT;
