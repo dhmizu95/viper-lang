@@ -129,11 +129,11 @@ static _Atomic int64_t g_thread_counter = 0;
 
 typedef struct {
     void (*func)(void);
-    int64_t id;
-} ThreadData;
+    void* arg;
+} TaskData;
 
 static void* thread_start(void* arg) {
-    ThreadData* data = (ThreadData*)arg;
+    TaskData* data = (TaskData*)arg;
     if (data && data->func) {
         data->func();
     }
@@ -142,11 +142,11 @@ static void* thread_start(void* arg) {
 }
 
 int64_t vp_spawn_thread(void (*func)(void)) {
-    ThreadData* data = (ThreadData*)malloc(sizeof(ThreadData));
+    TaskData* data = (TaskData*)malloc(sizeof(TaskData));
     if (!data) return -1;
     
     data->func = func;
-    data->id = atomic_fetch_add(&g_thread_counter, 1);
+    data->arg = NULL;
     
     pthread_t thread;
     if (pthread_create(&thread, NULL, thread_start, data) != 0) {
@@ -156,5 +156,5 @@ int64_t vp_spawn_thread(void (*func)(void)) {
     
     pthread_detach(thread);
     
-    return data->id;
+    return atomic_fetch_add(&g_thread_counter, 1);
 }
