@@ -44,8 +44,8 @@ impl<'a> PrattParser<'a> {
                             break;
                         }
                     }
+                    self.expect(&TokenKind::RParen)?;
                 }
-                self.expect(&TokenKind::RParen)?;
                 let call_span = left.span().merge(self.previous().span);
                 left = Expr::Call {
                     func: Box::new(left),
