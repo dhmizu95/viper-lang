@@ -60,7 +60,7 @@ Arguments:
 
 Options:
   -o, --output <OUT>  Output file name
-  -O, --optimize <LVL> Optimization level (0-3) [default: 0]
+  -O, --optimize <LVL> Optimization level (0-3) [default: 2]
   -h, --help          Print help
 ```
 
@@ -93,7 +93,7 @@ Arguments:
   <FILE>              Source file to execute (.vp)
 
 Options:
-  -O, --optimize <LVL> Optimization level (0-3) [default: 0]
+  -O, --optimize <LVL> Optimization level (0-3) [default: 2]
   -h, --help          Print help
 ```
 
@@ -138,10 +138,12 @@ viper info
 
 | Level | Flag | Description | Use Case |
 |-------|------|-------------|----------|
-| O0 | `-O 0` | No optimization | Development, debugging |
-| O1 | `-O 1` | Basic optimization | Faster development builds |
-| O2 | `-O 2` | Standard optimization | Release builds |
-| O3 | `-O 3` | Aggressive optimization | Performance-critical code |
+| O0 | `-O 0` | No optimization | Debugging, testing |
+| O1 | `-O 1` | Basic optimization | Development builds |
+| O2 | `-O 2` | Standard optimization | **Default** - Best performance/speed tradeoff |
+| O3 | `-O 3` | Aggressive optimization | Performance-critical production builds |
+
+**Default:** `-O 2` provides the best balance of compilation speed and runtime performance.
 
 ## Language Features
 
