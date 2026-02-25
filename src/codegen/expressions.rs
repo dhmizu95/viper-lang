@@ -313,29 +313,33 @@ fn generate_list<'ctx>(
         .ok_or_else(|| format!("{} not declared", append_func_name))?;
 
     for (idx, elem) in elements.iter().enumerate() {
-        let elem_val = generate_expr(state, elem)?;
+        let mut elem_val = generate_expr(state, elem)?;
 
         // If float list but elem is int, convert to float
-        let elem_val = if is_float_list && elem_val.is_int_value() {
+        if is_float_list && elem_val.is_int_value() {
             let int_val = elem_val.into_int_value();
-            state
+            let float_val = state
                 .builder
                 .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
-                .expect("int to float conversion")
-                .into()
-        // Convert bool to i64 for list operations
+                .expect("int to float conversion");
+            elem_val = float_val.into();
         } else {
+            // Convert bool to i64 for list operations
             match elem {
-                Expr::Bool(true, _) => state.ir_builder.i64_const(1).into(),
-                Expr::Bool(false, _) => state.ir_builder.i64_const(0).into(),
-                _ => elem_val.into(),
+                Expr::Bool(true, _) => {
+                    elem_val = state.ir_builder.i64_const(1).into();
+                }
+                Expr::Bool(false, _) => {
+                    elem_val = state.ir_builder.i64_const(0).into();
+                }
+                _ => {}
             }
         };
 
         let _ = state.ir_builder.build_call(
             state.builder,
             append_func,
-            &[list_val.into(), elem_val],
+            &[list_val.into(), elem_val.into()],
             &format!("list_append_{}", idx),
         );
     }
@@ -423,7 +427,7 @@ fn generate_list_comprehension<'ctx>(
         .builder
         .build_unconditional_branch(init_block)
         .expect("branch to init");
-    
+
     // Init block: create counter variable
     state.builder.position_at_end(init_block);
     let counter = state
@@ -434,7 +438,7 @@ fn generate_list_comprehension<'ctx>(
         .builder
         .build_store(counter, start_val)
         .expect("store counter");
-    
+
     // Branch to condition
     state
         .builder
@@ -889,6 +893,9 @@ fn generate_logical_op<'ctx>(
     op: &BinOp,
     right: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
+    // Save the block where we evaluate lhs - this is where we'll branch from
+    let lhs_block = state.builder.get_insert_block().unwrap();
+
     let lhs_val = generate_expr(state, left)?.into_int_value();
 
     let func = state
@@ -897,45 +904,52 @@ fn generate_logical_op<'ctx>(
         .unwrap()
         .get_parent()
         .unwrap();
-    let then_block = state.context.append_basic_block(func, "logic_then");
-    let end_block = state.context.append_basic_block(func, "logic_end");
 
     let is_and = *op == BinOp::And;
 
+    // For AND: if lhs is true, evaluate rhs; if false, short-circuit to end
+    // For OR: if lhs is false, evaluate rhs; if true, short-circuit to end
+    let evaluate_rhs_block = state.context.append_basic_block(func, "logic_evaluate_rhs");
+    let end_block = state.context.append_basic_block(func, "logic_end");
+
+    // Branch based on lhs value
     state
         .builder
         .build_conditional_branch(
             lhs_val,
-            if is_and { then_block } else { end_block },
-            if is_and { end_block } else { then_block },
+            if is_and {
+                evaluate_rhs_block
+            } else {
+                end_block
+            },
+            if is_and {
+                end_block
+            } else {
+                evaluate_rhs_block
+            },
         )
         .expect("branch");
 
-    state.builder.position_at_end(then_block);
+    // Evaluate rhs block
+    state.builder.position_at_end(evaluate_rhs_block);
     let rhs_val = generate_expr(state, right)?.into_int_value();
     state
         .builder
         .build_unconditional_branch(end_block)
         .expect("branch");
-    let then_block_end = state.builder.get_insert_block().unwrap();
+    let rhs_block_end = state.builder.get_insert_block().unwrap();
 
+    // Build phi in end block
     state.builder.position_at_end(end_block);
     let phi = state
         .builder
         .build_phi(state.context.bool_type(), "logic_result")
         .expect("phi");
 
-    let cond_block = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_previous_basic_block()
-        .unwrap();
-    if is_and {
-        phi.add_incoming(&[(&lhs_val, cond_block), (&rhs_val, then_block_end)]);
-    } else {
-        phi.add_incoming(&[(&lhs_val, cond_block), (&rhs_val, then_block_end)]);
-    }
+    // For both AND and OR:
+    // - From lhs_block: if short-circuit happens (lhs decides result), use lhs_val
+    // - From evaluate_rhs_block: use rhs_val
+    phi.add_incoming(&[(&lhs_val, lhs_block), (&rhs_val, rhs_block_end)]);
 
     Ok(phi.as_basic_value())
 }
@@ -1340,6 +1354,11 @@ fn generate_call<'ctx>(
             return generate_str_call(state, args);
         }
 
+        // Type conversion functions
+        if name == "float" || name == "int" {
+            return generate_type_convert(state, name, args);
+        }
+
         // Math builtins
         if name == "sqrt" || name == "abs" || name == "ln" || name == "floor" {
             return generate_math_builtin(state, name, args);
@@ -1556,9 +1575,31 @@ fn generate_len_call<'ctx>(
         ));
     }
 
-    let obj_val = generate_expr(state, &args[0])?;
+    let obj_expr = &args[0];
+    let obj_val = generate_expr(state, obj_expr)?;
 
-    // Check if it's a string (pointer type)
+    // Check if it's a list (literal or variable)
+    let is_list = match obj_expr {
+        Expr::List { .. } => true,
+        Expr::Ident(name, _) => state.is_list(name),
+        _ => false,
+    };
+
+    // Call the appropriate length function
+    if is_list {
+        // Call vp_list_len for lists
+        let list_len = state
+            .module
+            .get_function("vp_list_len")
+            .ok_or_else(|| "vp_list_len not declared".to_string())?;
+        let result =
+            state
+                .ir_builder
+                .build_call(state.builder, list_len, &[obj_val.into()], "list_len");
+        return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+    }
+
+    // Otherwise treat as string (for string literals or variables)
     if obj_val.is_pointer_value() {
         // Call vp_str_len for strings
         let str_len = state
@@ -1572,7 +1613,7 @@ fn generate_len_call<'ctx>(
         return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
     }
 
-    // Otherwise treat as list
+    // Fallback: treat as list
     let list_len = state
         .module
         .get_function("vp_list_len")
@@ -1582,6 +1623,68 @@ fn generate_len_call<'ctx>(
             .ir_builder
             .build_call(state.builder, list_len, &[obj_val.into()], "list_len");
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+}
+
+/// Generate type conversion calls (float(), int())
+fn generate_type_convert<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    name: &str,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "{}() takes exactly 1 argument, got {}",
+            name,
+            args.len()
+        ));
+    }
+
+    let arg_val = generate_expr(state, &args[0])?;
+
+    match name {
+        "float" => {
+            // Convert to float
+            if arg_val.is_float_value() {
+                Ok(arg_val)
+            } else if arg_val.is_int_value() {
+                let int_val = arg_val.into_int_value();
+                let result = state
+                    .builder
+                    .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
+                    .expect("int to float conversion");
+                Ok(result.into())
+            } else {
+                Err("Cannot convert to float".to_string())
+            }
+        }
+        "int" => {
+            // Convert to int
+            if arg_val.is_int_value() {
+                Ok(arg_val)
+            } else if arg_val.is_float_value() {
+                let float_val = arg_val.into_float_value();
+                let result = state
+                    .builder
+                    .build_float_to_signed_int(float_val, state.context.i64_type(), "float_to_int")
+                    .expect("float to int conversion");
+                Ok(result.into())
+            } else if arg_val.is_pointer_value() {
+                // Try string to int conversion
+                let str_to_int = state
+                    .module
+                    .get_function("vp_str_to_i64")
+                    .ok_or_else(|| "vp_str_to_i64 not declared".to_string())?;
+                let result = state
+                    .ir_builder
+                    .build_call(state.builder, str_to_int, &[arg_val.into()], "str_to_int")
+                    .unwrap();
+                Ok(result)
+            } else {
+                Err("Cannot convert to int".to_string())
+            }
+        }
+        _ => Err(format!("Unknown type conversion: {}", name)),
+    }
 }
 
 /// Generate str() call - convert value to string

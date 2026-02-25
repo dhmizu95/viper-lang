@@ -61,6 +61,9 @@ fn declare_print_functions<'ctx>(
     let str_len_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_str_len", str_len_type, None);
 
+    let str_to_i64_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_to_i64", str_to_i64_type, None);
+
     let str_create_type = ptr_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_str_create", str_create_type, None);
 

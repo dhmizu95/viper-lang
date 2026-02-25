@@ -259,25 +259,41 @@ impl<'a> PrattParser<'a> {
                 Ok(Expr::None(span))
             }
             TokenKind::Lambda | TokenKind::Fn => {
-                // Changed from TokenKind::Ident(name) if name == "lambda"
                 self.advance();
                 let mut params = Vec::new();
+
+                // Handle optional parentheses around parameters: fn(x, y: expr) or fn(x: expr)
+                let paren_params = self.match_token(&TokenKind::LParen);
+
                 if !matches!(self.current().kind, TokenKind::Colon) {
                     loop {
                         if let TokenKind::Ident(param_name) = &self.current().kind {
                             params.push(param_name.clone());
                             self.advance();
+                        } else if paren_params && matches!(self.current().kind, TokenKind::RParen) {
+                            // Empty parameter list like fn(): expr
+                            break;
                         } else {
                             return Err("Expected parameter name in lambda".to_string());
                         }
 
                         if self.match_token(&TokenKind::Comma) {
+                            // Check if there's another parameter or closing paren
+                            if paren_params && matches!(self.current().kind, TokenKind::RParen) {
+                                break;
+                            }
                             continue;
                         } else {
                             break;
                         }
                     }
                 }
+
+                // If we opened a paren, expect closing paren before the colon
+                if paren_params {
+                    self.expect(&TokenKind::RParen)?;
+                }
+
                 self.expect(&TokenKind::Colon)?;
                 let body = self.parse_expr(Precedence::MIN)?;
                 let merged_span = span.merge(body.span());
