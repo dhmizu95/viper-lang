@@ -60,6 +60,13 @@ pub enum TokenKind {
     Percent,
     DoubleStar,
     DoubleSlash,
+    PlusEq,     // +=
+    MinusEq,    // -=
+    StarEq,     // *=
+    SlashEq,    // /=
+    PercentEq,  // %=
+    DoubleStarEq,   // **=
+    DoubleSlashEq,  // //=
     Eq,
     EqEq,
     NotEq,
@@ -192,6 +199,13 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Percent => write!(f, "%"),
             TokenKind::DoubleStar => write!(f, "**"),
             TokenKind::DoubleSlash => write!(f, "//"),
+            TokenKind::PlusEq => write!(f, "+="),
+            TokenKind::MinusEq => write!(f, "-="),
+            TokenKind::StarEq => write!(f, "*="),
+            TokenKind::SlashEq => write!(f, "/="),
+            TokenKind::PercentEq => write!(f, "%="),
+            TokenKind::DoubleStarEq => write!(f, "**="),
+            TokenKind::DoubleSlashEq => write!(f, "//="),
             TokenKind::Eq => write!(f, "="),
             TokenKind::EqEq => write!(f, "=="),
             TokenKind::NotEq => write!(f, "!="),

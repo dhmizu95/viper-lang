@@ -187,22 +187,47 @@ impl<'a> Lexer<'a> {
                 ';' => TokenKind::Semi,
                 '.' => TokenKind::Dot,
                 '@' => TokenKind::At,
-                '+' => TokenKind::Plus,
+                '+' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::PlusEq
+                    } else {
+                        TokenKind::Plus
+                    }
+                },
                 '-' => {
-                    if self.peek() == Some('>') {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::MinusEq
+                    } else if self.peek() == Some('>') {
                         self.advance();
                         TokenKind::Arrow
                     } else {
                         TokenKind::Minus
                     }
-                }
-                '%' => TokenKind::Percent,
+                },
+                '%' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::PercentEq
+                    } else {
+                        TokenKind::Percent
+                    }
+                },
 
                 // Potentially double-character tokens
                 '*' => {
                     if self.peek() == Some('*') {
                         self.advance();
-                        TokenKind::DoubleStar
+                        if self.peek() == Some('=') {
+                            self.advance();
+                            TokenKind::DoubleStarEq
+                        } else {
+                            TokenKind::DoubleStar
+                        }
+                    } else if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::StarEq
                     } else {
                         TokenKind::Star
                     }
@@ -210,7 +235,15 @@ impl<'a> Lexer<'a> {
                 '/' => {
                     if self.peek() == Some('/') {
                         self.advance();
-                        TokenKind::DoubleSlash
+                        if self.peek() == Some('=') {
+                            self.advance();
+                            TokenKind::DoubleSlashEq
+                        } else {
+                            TokenKind::DoubleSlash
+                        }
+                    } else if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::SlashEq
                     } else {
                         TokenKind::Slash
                     }

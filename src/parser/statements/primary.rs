@@ -676,29 +676,30 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
 pub fn is_augmented_assign(parser: &mut StatementParser) -> bool {
         matches!(
             parser.current().kind,
-            TokenKind::Plus
-                | TokenKind::Minus
-                | TokenKind::Star
-                | TokenKind::Slash
-                | TokenKind::Percent
-                | TokenKind::DoubleStar
-        ) && parser.peek()
-            .map_or(false, |t| matches!(t.kind, TokenKind::Eq))
+            TokenKind::PlusEq
+                | TokenKind::MinusEq
+                | TokenKind::StarEq
+                | TokenKind::SlashEq
+                | TokenKind::PercentEq
+                | TokenKind::DoubleStarEq
+                | TokenKind::DoubleSlashEq
+        )
     }
 
 pub fn get_aug_assign_op(parser: &mut StatementParser) -> BinOp {
-        parser.advance(); // skip operator
-        parser.advance(); // skip =
-
-        match &parser.previous().kind {
-            TokenKind::Plus => BinOp::Add,
-            TokenKind::Minus => BinOp::Sub,
-            TokenKind::Star => BinOp::Mul,
-            TokenKind::Slash => BinOp::Div,
-            TokenKind::Percent => BinOp::Mod,
-            TokenKind::DoubleStar => BinOp::Pow,
+        let op = match &parser.current().kind {
+            TokenKind::PlusEq => BinOp::Add,
+            TokenKind::MinusEq => BinOp::Sub,
+            TokenKind::StarEq => BinOp::Mul,
+            TokenKind::SlashEq => BinOp::Div,
+            TokenKind::PercentEq => BinOp::Mod,
+            TokenKind::DoubleStarEq => BinOp::Pow,
+            TokenKind::DoubleSlashEq => BinOp::FloorDiv,
             _ => BinOp::Add, // default
-        }
+        };
+        parser.advance(); // skip the augmented assignment token
+
+        op
     }
     /// Check if the bracket contents match a slice pattern (contains ':' before ']')
     /// Handles: [:], [start:], [:end], [start:end], [::step], etc.

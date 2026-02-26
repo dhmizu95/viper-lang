@@ -253,6 +253,31 @@ pub(crate) fn generate_aug_assign<'ctx>(
                         .builder
                         .build_float_div(lhs, rhs, "fdiv")
                         .expect("fdiv"),
+                    BinOp::FloorDiv => {
+                        // For float, floor division is floor(lhs / rhs)
+                        let div = state
+                            .builder
+                            .build_float_div(lhs, rhs, "fdiv")
+                            .expect("fdiv");
+                        // Call vp_math_floor
+                        let floor_func = state.module.get_function("vp_math_floor")
+                            .expect("vp_math_floor not found");
+                        let result = state
+                            .ir_builder
+                            .build_call(state.builder, floor_func, &[div.into()], "floor")
+                            .expect("floor call");
+                        result.into_float_value()
+                    }
+                    BinOp::Pow => {
+                        // Call vp_pow for float exponentiation
+                        let pow_func = state.module.get_function("vp_pow")
+                            .expect("vp_pow not found");
+                        let result = state
+                            .ir_builder
+                            .build_call(state.builder, pow_func, &[lhs.into(), rhs.into()], "pow")
+                            .expect("pow call");
+                        result.into_float_value()
+                    }
                     _ => {
                         return Err(format!(
                             "Unsupported augmented assignment operator for float: {:?}",
@@ -277,6 +302,16 @@ pub(crate) fn generate_aug_assign<'ctx>(
                         state
                             .ir_builder
                             .build_div(state.builder, lhs, rhs, "floordiv")
+                    }
+                    BinOp::Pow => {
+                        // For integer power, call vp_pow_i64
+                        let pow_i64_func = state.module.get_function("vp_pow_i64")
+                            .expect("vp_pow_i64 not found");
+                        let result = state
+                            .ir_builder
+                            .build_call(state.builder, pow_i64_func, &[lhs.into(), rhs.into()], "pow")
+                            .expect("pow call");
+                        result.into_int_value()
                     }
                     _ => {
                         return Err(format!(
