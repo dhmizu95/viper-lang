@@ -720,8 +720,42 @@ pub fn generate_bigint_binop<'ctx>(
     lhs_val: BasicValueEnum<'ctx>,
     rhs_val: BasicValueEnum<'ctx>,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    let _ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
     let i64_type = state.context.i64_type();
+
+    // Convert operands to BigInt if needed
+    let lhs_bigint = if lhs_val.is_pointer_value() {
+        lhs_val
+    } else if lhs_val.is_int_value() {
+        // Convert i64 to BigInt using vp_bigint_from_i64
+        let from_i64 = state
+            .module
+            .get_function("vp_bigint_from_i64")
+            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, from_i64, &[lhs_val.into()], "bigint_from_i64")
+            .unwrap();
+        result
+    } else {
+        return Err("BigInt operation requires BigInt or integer operands".to_string());
+    };
+
+    let rhs_bigint = if rhs_val.is_pointer_value() {
+        rhs_val
+    } else if rhs_val.is_int_value() {
+        // Convert i64 to BigInt using vp_bigint_from_i64
+        let from_i64 = state
+            .module
+            .get_function("vp_bigint_from_i64")
+            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, from_i64, &[rhs_val.into()], "bigint_from_i64")
+            .unwrap();
+        result
+    } else {
+        return Err("BigInt operation requires BigInt or integer operands".to_string());
+    };
 
     // Get the appropriate BigInt operation function
     let func_name = match op {
@@ -743,7 +777,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .build_call(
                     state.builder,
                     cmp_func,
-                    &[lhs_val.into(), rhs_val.into()],
+                    &[lhs_bigint.into(), rhs_bigint.into()],
                     "bigint_cmp",
                 )
                 .unwrap();
@@ -773,7 +807,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .build_call(
                     state.builder,
                     cmp_func,
-                    &[lhs_val.into(), rhs_val.into()],
+                    &[lhs_bigint.into(), rhs_bigint.into()],
                     "bigint_cmp",
                 )
                 .unwrap();
@@ -803,7 +837,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .build_call(
                     state.builder,
                     cmp_func,
-                    &[lhs_val.into(), rhs_val.into()],
+                    &[lhs_bigint.into(), rhs_bigint.into()],
                     "bigint_cmp",
                 )
                 .unwrap();
@@ -833,7 +867,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .build_call(
                     state.builder,
                     cmp_func,
-                    &[lhs_val.into(), rhs_val.into()],
+                    &[lhs_bigint.into(), rhs_bigint.into()],
                     "bigint_cmp",
                 )
                 .unwrap();
@@ -863,7 +897,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .build_call(
                     state.builder,
                     cmp_func,
-                    &[lhs_val.into(), rhs_val.into()],
+                    &[lhs_bigint.into(), rhs_bigint.into()],
                     "bigint_cmp",
                 )
                 .unwrap();
@@ -893,7 +927,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .build_call(
                     state.builder,
                     cmp_func,
-                    &[lhs_val.into(), rhs_val.into()],
+                    &[lhs_bigint.into(), rhs_bigint.into()],
                     "bigint_cmp",
                 )
                 .unwrap();
@@ -922,7 +956,7 @@ pub fn generate_bigint_binop<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(state.builder, func, &[lhs_val.into(), rhs_val.into()], "bigint_op")
+        .build_call(state.builder, func, &[lhs_bigint.into(), rhs_bigint.into()], "bigint_op")
         .unwrap();
 
     Ok(result)

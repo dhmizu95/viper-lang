@@ -56,11 +56,22 @@ pub fn generate_print_call<'ctx>(
                 _ => false,
             };
 
-            // Check if this is a BigInt
+            // Check if this is a BigInt (including BigInt operations)
             let is_bigint_arg = match arg {
                 Expr::BigInt(_, _) => true,
                 Expr::Ident(name, _) => {
                     state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
+                }
+                // BigInt operations produce BigInt results
+                Expr::BinOp { left, right, .. } => {
+                    // Check if either operand is BigInt
+                    let left_is_bigint = matches!(left.as_ref(), Expr::BigInt(_, _))
+                        || state.variables.get(left.as_ident().unwrap_or(&String::new()))
+                            .map_or(false, |v| v.var_type == VarType::BigInt);
+                    let right_is_bigint = matches!(right.as_ref(), Expr::BigInt(_, _))
+                        || state.variables.get(right.as_ident().unwrap_or(&String::new()))
+                            .map_or(false, |v| v.var_type == VarType::BigInt);
+                    left_is_bigint || right_is_bigint
                 }
                 _ => false,
             };
