@@ -58,105 +58,50 @@ impl<'ctx> CodeGen<'ctx> {
         // Declare runtime functions first
         crate::codegen::runtime::declare_runtime_functions(self.context, &self.module)?;
 
-        // First pass: declare all functions
-        for stmt in &module.statements {
-            match stmt {
-                Stmt::Function {
-                    name,
-                    params,
-                    return_type,
-                    body,
-                    ..
-                } => {
-                    crate::codegen::functions::declare_function(
-                        self.context,
-                        &mut self.module,
-                        &self.type_mapper,
-                        &mut self.functions,
-                        name,
-                        params,
-                        return_type,
-                        Some(body),
-                    )?;
-                }
-                Stmt::Extern {
-                    name,
-                    params,
-                    return_type,
-                    ..
-                } => {
-                    let param_types: Vec<Type> = params
-                        .iter()
-                        .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
-                        .collect();
-                    let mangled_name = mangle_function_name(name, &param_types);
-                    crate::codegen::functions::declare_function(
-                        self.context,
-                        &mut self.module,
-                        &self.type_mapper,
-                        &mut self.functions,
-                        &mangled_name,
-                        params,
-                        return_type,
-                        None,
-                    )?;
-                }
-                _ => {}
-            }
-        }
+        // First pass: declare all functions (including nested functions)
+        self.declare_all_functions(&module.statements)?;
 
         // Second pass: Skip module-level constant creation entirely
         // This simplifies variable handling - all module-level vars are treated as regular variables
         // True constants (like PI = 3.14) could be added as a separate feature with explicit 'const' keyword
 
-        // Third pass: define all functions
+        // Third pass: define all functions (including nested ones)
+        self.define_all_functions(&module.statements)?;
+
+        // Collect top-level statements (non-function statements)
         let mut top_level_stmts = Vec::new();
         for stmt in &module.statements {
-            if let Stmt::Function {
-                name,
-                params,
-                return_type,
-                body,
-                is_async: _,
-                ..
-            } = stmt
-            {
-                // Compute mangled name using the same logic as declare_function
-                // Infer parameter types from body if not annotated
-                use crate::codegen::functions::infer_param_types_from_body;
-                let param_types = infer_param_types_from_body(params, body);
-                let mangled_name = mangle_function_name(name, &param_types);
-                self.define_function(&mangled_name, params, return_type, body)?;
-            } else {
-                // Skip constant assignments - they're already handled
-                let is_constant_assign = match stmt {
-                    Stmt::Assign { target, value, .. } => {
-                        if let Expr::Ident(name, _) = target.as_ref() {
-                            self.global_constants.contains_key(name)
-                                && matches!(
-                                    value.as_ref(),
-                                    Expr::Int(..)
-                                        | Expr::Float(..)
-                                        | Expr::Str(..)
-                                        | Expr::Bool(..)
-                                        | Expr::None(..)
-                                )
-                        } else {
-                            false
+            match stmt {
+                Stmt::Function { .. } | Stmt::Extern { .. } => {}
+                _ => {
+                    let is_constant_assign = match stmt {
+                        Stmt::Assign { target, value, .. } => {
+                            if let Expr::Ident(name, _) = target.as_ref() {
+                                self.global_constants.contains_key(name)
+                                    && matches!(
+                                        value.as_ref(),
+                                        Expr::Int(..)
+                                            | Expr::Float(..)
+                                            | Expr::Str(..)
+                                            | Expr::Bool(..)
+                                            | Expr::None(..)
+                                    )
+                            } else {
+                                false
+                            }
                         }
-                    }
-                    _ => false,
-                };
+                        _ => false,
+                    };
 
-                if !is_constant_assign {
-                    // Skip type declarations (Class, Struct) and Externs
-                    let is_type_or_extern_decl = matches!(
-                        stmt,
-                        Stmt::Class { .. } | Stmt::Struct { .. } | Stmt::Extern { .. }
-                    );
+                    if !is_constant_assign {
+                        let is_type_or_extern_decl = matches!(
+                            stmt,
+                            Stmt::Class { .. } | Stmt::Struct { .. } | Stmt::Extern { .. }
+                        );
 
-                    if !is_type_or_extern_decl {
-                        top_level_stmts.push(stmt.clone());
+                        if !is_type_or_extern_decl {
+                            top_level_stmts.push(stmt.clone());
+                        }
                     }
                 }
             }
@@ -165,6 +110,50 @@ impl<'ctx> CodeGen<'ctx> {
         // Generate main handling top-level statements
         self.generate_main_with_statements(&top_level_stmts)?;
 
+        Ok(())
+    }
+
+    /// Define all functions recursively (including nested functions)
+    fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+        for stmt in stmts {
+            if let Stmt::Function {
+                name,
+                params,
+                return_type,
+                body,
+                ..
+            } = stmt
+            {
+                // Compute mangled name using the same logic as declare_function
+                use crate::codegen::functions::infer_param_types_from_body;
+                let param_types = infer_param_types_from_body(params, body);
+                let mangled_name = mangle_function_name(name, &param_types);
+                self.define_function(&mangled_name, params, return_type, body)?;
+            }
+        }
+        // Second pass: define nested functions in compound statements
+        for stmt in stmts {
+            match stmt {
+                Stmt::Function { body, .. } => {
+                    self.define_all_functions(body)?;
+                }
+                Stmt::If {
+                    body, else_body, ..
+                } => {
+                    self.define_all_functions(body)?;
+                    if let Some(else_stmts) = else_body {
+                        self.define_all_functions(else_stmts)?;
+                    }
+                }
+                Stmt::While { body, .. } => {
+                    self.define_all_functions(body)?;
+                }
+                Stmt::For { body, .. } => {
+                    self.define_all_functions(body)?;
+                }
+                _ => {}
+            }
+        }
         Ok(())
     }
 
@@ -345,6 +334,125 @@ impl<'ctx> CodeGen<'ctx> {
                 .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
         }
 
+        Ok(())
+    }
+
+    /// Declare all functions recursively (including nested functions)
+    fn declare_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+        for stmt in stmts {
+            match stmt {
+                Stmt::Function {
+                    name,
+                    params,
+                    return_type,
+                    body,
+                    ..
+                } => {
+                    crate::codegen::functions::declare_function(
+                        self.context,
+                        &mut self.module,
+                        &self.type_mapper,
+                        &mut self.functions,
+                        name,
+                        params,
+                        return_type,
+                        Some(body),
+                    )?;
+                    // Recursively declare nested functions in the body
+                    self.declare_all_functions(body)?;
+                }
+                Stmt::Extern {
+                    name,
+                    params,
+                    return_type,
+                    ..
+                } => {
+                    let param_types: Vec<Type> = params
+                        .iter()
+                        .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
+                        .collect();
+                    let mangled_name = mangle_function_name(name, &param_types);
+                    crate::codegen::functions::declare_function(
+                        self.context,
+                        &mut self.module,
+                        &self.type_mapper,
+                        &mut self.functions,
+                        &mangled_name,
+                        params,
+                        return_type,
+                        None,
+                    )?;
+                }
+                // Recursively search for nested functions in compound statements
+                Stmt::If {
+                    body, else_body, ..
+                } => {
+                    self.declare_all_functions(body)?;
+                    if let Some(else_stmts) = else_body {
+                        self.declare_all_functions(else_stmts)?;
+                    }
+                }
+                Stmt::While { body, .. } => {
+                    self.declare_all_functions(body)?;
+                }
+                Stmt::For { body, .. } => {
+                    self.declare_all_functions(body)?;
+                }
+                Stmt::Task { call, .. } => {
+                    // Check if call contains nested function definitions
+                    if let Expr::Call { args, .. } = call {
+                        // Functions could be defined in lambda args
+                        for arg in args {
+                            self.declare_functions_in_expr(&arg)?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Declare functions found in expressions (e.g., lambdas)
+    fn declare_functions_in_expr(&mut self, expr: &Expr) -> Result<(), String> {
+        match expr {
+            Expr::Lambda { body, .. } => {
+                // Lambda body is an expression, check if it contains nested functions
+                self.declare_functions_in_expr(body)?;
+            }
+            Expr::Call { args, func, .. } => {
+                for arg in args {
+                    self.declare_functions_in_expr(arg)?;
+                }
+                self.declare_functions_in_expr(func)?;
+            }
+            Expr::BinOp { left, right, .. } => {
+                self.declare_functions_in_expr(left)?;
+                self.declare_functions_in_expr(right)?;
+            }
+            Expr::UnaryOp { operand, .. } => {
+                self.declare_functions_in_expr(operand)?;
+            }
+            Expr::Conditional {
+                condition,
+                then_expr,
+                else_expr,
+                ..
+            } => {
+                self.declare_functions_in_expr(condition)?;
+                self.declare_functions_in_expr(then_expr)?;
+                self.declare_functions_in_expr(else_expr)?;
+            }
+            Expr::List { elements, .. } => {
+                for elem in elements {
+                    self.declare_functions_in_expr(elem)?;
+                }
+            }
+            Expr::Attribute { obj, .. } => {
+                self.declare_functions_in_expr(obj)?;
+            }
+            _ => {}
+        }
         Ok(())
     }
 
