@@ -15,6 +15,10 @@ pub struct ReplSession {
     pub float_vars: HashMap<String, f64>,
     pub bool_vars: HashMap<String, bool>,
     str_vars: HashMap<String, *mut c_void>, // raw pointers for strings/lists
+    // Persistent function definitions (stored as source text)
+    function_sources: HashMap<String, String>,
+    // Persistent variable assignments (stored as source text for re-execution)
+    var_assignments: HashMap<String, String>,
 }
 
 unsafe impl Send for ReplSession {}
@@ -31,13 +35,16 @@ impl ReplSession {
             float_vars: HashMap::new(),
             bool_vars: HashMap::new(),
             str_vars: HashMap::new(),
+            function_sources: HashMap::new(),
+            var_assignments: HashMap::new(),
         }
     }
 
     pub fn execute_chunk(&mut self, source: &str) -> Result<(), String> {
         self.chunk_counter += 1;
 
-        // 1. Wrap source with declarations for our shadowed variables
+        // 1. Wrap source with declarations for our shadowed variables and function definitions
+        // Note: We use the state from BEFORE this chunk to avoid duplicates
         let wrapped_source = self.build_wrapped_source(source);
 
         // 2. Tokenize and parse
@@ -50,6 +57,9 @@ impl ReplSession {
         // Extract variable assignments from AST to update shadow store
         // This happens BEFORE execution - we assume execution will succeed
         self.extract_assignments_from_ast(&ast);
+        
+        // Extract function definitions and variable assignments from source for FUTURE chunks
+        self.extract_definitions_and_assignments(source);
 
         // Type checking
         let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
@@ -120,6 +130,146 @@ impl ReplSession {
         }
     }
 
+    /// Extract function definitions and variable assignments from source text
+    fn extract_definitions_and_assignments(&mut self, source: &str) {
+        // Extract function definitions
+        self.extract_function_definitions(source);
+        
+        // Extract variable assignments (for re-execution in future chunks)
+        self.extract_variable_assignments(source);
+    }
+
+    /// Extract function definitions from source text and store them
+    fn extract_function_definitions(&mut self, source: &str) {
+        // Simple regex-like extraction: find "def name(" patterns and extract the function
+        let chars: Vec<char> = source.chars().collect();
+        let mut i = 0;
+        
+        while i < chars.len() {
+            // Look for "def " at current position
+            if i + 4 <= chars.len() && chars[i..i+4].iter().collect::<String>() == "def " {
+                let start = i;
+                // Find the end of the function (matching indentation or end of source)
+                let func_end = self.find_function_end(&chars, i);
+                let func_source: String = chars[start..func_end].iter().collect();
+                
+                // Extract function name
+                if let Some(name) = self.extract_function_name(&func_source) {
+                    self.function_sources.insert(name.clone(), func_source);
+                }
+                
+                i = func_end;
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    /// Find the end of a function definition based on indentation
+    fn find_function_end(&self, chars: &[char], start: usize) -> usize {
+        let mut i = start;
+        let mut found_body = false;
+        
+        // First, find the colon and get the indentation of the def line
+        let def_line_indent = self.get_line_indent(chars, start);
+        
+        while i < chars.len() {
+            if chars[i] == ':' && !found_body {
+                found_body = true;
+                // Move to next line
+                while i < chars.len() && chars[i] != '\n' {
+                    i += 1;
+                }
+                if i < chars.len() {
+                    i += 1; // Skip newline
+                }
+                continue;
+            }
+            
+            if found_body {
+                // Check indentation of current line
+                let line_start = i;
+                let line_indent = self.get_line_indent(chars, i);
+                
+                // Skip empty lines
+                if line_indent == chars.len() - line_start || chars[line_start..].iter().take_while(|&&c| c == '\n').count() > 0 {
+                    while i < chars.len() && chars[i] != '\n' {
+                        i += 1;
+                    }
+                    if i < chars.len() {
+                        i += 1;
+                    }
+                    continue;
+                }
+                
+                // If indentation is less than or equal to def line and not empty, function ended
+                if line_indent <= def_line_indent && line_indent < chars.len() - line_start {
+                    // Check if this is a new def, class, or other top-level statement
+                    let rest: String = chars[line_start..].iter().take(10).collect();
+                    if rest.trim().starts_with("def ") || rest.trim().starts_with("class ") || 
+                       rest.trim().starts_with("struct ") || rest.trim().starts_with("type ") {
+                        return line_start;
+                    }
+                }
+            }
+            
+            i += 1;
+        }
+        
+        i
+    }
+
+    /// Get indentation level of a line starting at position
+    fn get_line_indent(&self, chars: &[char], start: usize) -> usize {
+        let mut indent = 0;
+        let mut i = start;
+        while i < chars.len() && (chars[i] == ' ' || chars[i] == '\t') {
+            indent += 1;
+            i += 1;
+        }
+        indent
+    }
+
+    /// Extract function name from a function definition
+    fn extract_function_name(&self, func_source: &str) -> Option<String> {
+        // Find "def " and extract name until "("
+        if let Some(def_pos) = func_source.find("def ") {
+            let after_def = &func_source[def_pos + 4..];
+            if let Some(paren_pos) = after_def.find('(') {
+                let name = after_def[..paren_pos].trim();
+                return Some(name.to_string());
+            }
+        }
+        None
+    }
+
+    /// Extract variable assignments from source text for re-execution
+    fn extract_variable_assignments(&mut self, source: &str) {
+        // Simple extraction: find "name = expr" patterns at the top level
+        let lines: Vec<&str> = source.lines().collect();
+        for line in lines {
+            let trimmed = line.trim();
+            // Skip empty lines, comments, and non-assignment statements
+            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with("def ") ||
+               trimmed.starts_with("class ") || trimmed.starts_with("struct ") ||
+               trimmed.starts_with("if ") || trimmed.starts_with("while ") ||
+               trimmed.starts_with("for ") || trimmed.starts_with("return ") ||
+               trimmed.starts_with("print(") || trimmed.starts_with(":") {
+                continue;
+            }
+            
+            // Look for "name = " pattern
+            if let Some(eq_pos) = trimmed.find(" = ") {
+                let name = trimmed[..eq_pos].trim();
+                // Check if name is a valid identifier (simple check)
+                if !name.is_empty() && name.chars().next().unwrap().is_alphabetic() {
+                    // Store the assignment for re-execution
+                    self.var_assignments.insert(name.to_string(), trimmed.to_string());
+                }
+            }
+        }
+    }
+
     fn extract_value_to_shadow_store(&mut self, name: &str, expr: &Expr) {
         match expr {
             Expr::Int(val, _) => {
@@ -154,9 +304,9 @@ impl ReplSession {
                 self.extract_unaryop_to_shadow(name, op, operand.as_ref());
             }
             Expr::Call { .. } => {
-                // Function call - just track that variable exists with placeholder
-                // The actual value will come from the wrapped source on next chunk
-                self.int_vars.insert(name.to_string(), 0);
+                // Function call - don't insert a placeholder.
+                // The variable will be set during execution and extracted after.
+                // We skip this to avoid overriding the actual value with a placeholder.
             }
             Expr::Ident(other, _) => {
                 // Assignment from another variable - copy the value from shadow store
@@ -430,17 +580,38 @@ impl ReplSession {
     }
 
     fn build_wrapped_source(&self, source: &str) -> String {
-        // Prepend user's code with earlier variable state to preserve values across chunks
+        // Prepend user's code with earlier variable state and function definitions
         let mut preamble = String::new();
 
+        // First, include all function definitions
+        for (_name, func_source) in &self.function_sources {
+            preamble.push_str(func_source);
+            preamble.push('\n');
+        }
+
+        // Then, include variable assignments for re-execution
+        // These need to come after function definitions but before literal values
+        for (_name, assignment) in &self.var_assignments {
+            preamble.push_str(assignment);
+            preamble.push('\n');
+        }
+
+        // Finally, include literal variable state (for values that weren't from assignments)
         for (name, val) in &self.int_vars {
-            preamble.push_str(&format!("{} = {}\n", name, val));
+            // Skip if this variable has an assignment (will be re-executed)
+            if !self.var_assignments.contains_key(name) {
+                preamble.push_str(&format!("{} = {}\n", name, val));
+            }
         }
         for (name, val) in &self.float_vars {
-            preamble.push_str(&format!("{} = {}\n", name, val));
+            if !self.var_assignments.contains_key(name) {
+                preamble.push_str(&format!("{} = {}\n", name, val));
+            }
         }
         for (name, val) in &self.bool_vars {
-            preamble.push_str(&format!("{} = {}\n", name, if *val { "True" } else { "False" }));
+            if !self.var_assignments.contains_key(name) {
+                preamble.push_str(&format!("{} = {}\n", name, if *val { "True" } else { "False" }));
+            }
         }
 
         preamble.push_str(source);
@@ -453,6 +624,8 @@ impl ReplSession {
         self.float_vars.clear();
         self.bool_vars.clear();
         self.str_vars.clear();
+        self.function_sources.clear();
+        self.var_assignments.clear();
     }
 
     /// Get a summary of all variables for the :vars command
@@ -470,6 +643,16 @@ impl ReplSession {
         }
         for (name, _val) in &self.str_vars {
             result.push(format!("{}: ptr = <reference>", name));
+        }
+
+        // Add function definitions
+        for (name, _) in &self.function_sources {
+            result.push(format!("{}: fn", name));
+        }
+
+        // Add variable assignments (for re-execution)
+        for (name, assignment) in &self.var_assignments {
+            result.push(format!("{}: {}", name, assignment));
         }
 
         result
