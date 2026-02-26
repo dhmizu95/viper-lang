@@ -157,6 +157,10 @@ fn declare_list_functions<'ctx>(
     let list_repeat_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     module.add_function("vp_list_repeat", list_repeat_type, None);
 
+    // List print function
+    let list_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_print", list_print_type, None);
+
     // Range function: vp_range(start, end) returns a list
     let range_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     module.add_function("vp_range", range_type, None);

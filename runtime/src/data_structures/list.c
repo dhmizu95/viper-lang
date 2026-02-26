@@ -234,3 +234,22 @@ ViperList* vp_list_repeat(int64_t elem, int64_t count) {
 
     return list;
 }
+
+/**
+ * Print a list in format [elem1, elem2, ...]
+ */
+void vp_list_print(ViperList* list) {
+    if (!list) {
+        printf("[]");
+        return;
+    }
+
+    printf("[");
+    for (int64_t i = 0; i < list->length; i++) {
+        if (i > 0) {
+            printf(", ");
+        }
+        printf("%ld", (long)list->data[i]);
+    }
+    printf("]");
+}

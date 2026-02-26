@@ -1570,14 +1570,32 @@ fn generate_print_call<'ctx>(
                 .build_call(print_func, &[val.into()], "print_bool")
                 .expect("vp_print_bool");
         } else if val.is_pointer_value() {
-            let print_func = state
-                .module
-                .get_function("vp_print_str")
-                .ok_or_else(|| "vp_print_str not declared".to_string())?;
-            state
-                .builder
-                .build_call(print_func, &[val.into()], "print_str")
-                .expect("vp_print_str");
+            // Check if this is a list - if so, use vp_list_print
+            let is_list_arg = match arg {
+                Expr::Ident(name, _) => state.is_list(name),
+                Expr::List { .. } | Expr::ListComprehension { .. } => true,
+                _ => false,
+            };
+
+            if is_list_arg {
+                let print_func = state
+                    .module
+                    .get_function("vp_list_print")
+                    .ok_or_else(|| "vp_list_print not declared".to_string())?;
+                state
+                    .builder
+                    .build_call(print_func, &[val.into()], "print_list")
+                    .expect("vp_list_print");
+            } else {
+                let print_func = state
+                    .module
+                    .get_function("vp_print_str")
+                    .ok_or_else(|| "vp_print_str not declared".to_string())?;
+                state
+                    .builder
+                    .build_call(print_func, &[val.into()], "print_str")
+                    .expect("vp_print_str");
+            }
         } else {
             return Err(format!(
                 "print() does not support type {:?}",

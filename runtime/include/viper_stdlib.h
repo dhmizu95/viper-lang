@@ -51,6 +51,7 @@ int64_t vp_list_len(ViperList* list);
 bool vp_list_contains(ViperList* list, int64_t value);
 ViperList* vp_list_copy(ViperList* list);
 ViperList* vp_list_repeat(int64_t elem, int64_t count);
+void vp_list_print(ViperList* list);
 
 /* ============================================ */
 /* Dictionary Functions                         */
