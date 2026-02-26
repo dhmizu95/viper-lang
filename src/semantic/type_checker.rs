@@ -101,6 +101,7 @@ impl TypeChecker {
     fn infer_expr_type(&self, expr: &Expr) -> Option<Type> {
         match expr {
             Expr::Int(_, _) => Some(Type::I64),
+            Expr::BigInt(_, _) => Some(Type::BigInt),
             Expr::Float(_, _) => Some(Type::F64),
             Expr::Bool(_, _) => Some(Type::Bool),
             Expr::Str(_, _) | Expr::FString(_, _) => Some(Type::Str),

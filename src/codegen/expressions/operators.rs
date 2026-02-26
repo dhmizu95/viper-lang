@@ -3,6 +3,7 @@
 use super::*;
 
 use crate::ast::{BinOp, Expr, UnaryOp};
+use crate::codegen::variables::VarType;
 
 use inkwell::values::BasicValueEnum;
 
@@ -24,11 +25,31 @@ pub fn generate_binop<'ctx>(
         return generate_membership_op(state, left, op, right);
     }
 
+    // Helper to check if an expression is BigInt type
+    let expr_is_bigint = |expr: &Expr, state: &CodeGenState<'_, 'ctx>| -> bool {
+        match expr {
+            Expr::BigInt(_, _) => true,
+            Expr::Ident(name, _) => {
+                state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
+            }
+            _ => false,
+        }
+    };
+
+    // Check if either operand is BigInt BEFORE generating code
+    let lhs_is_bigint = expr_is_bigint(left, state);
+    let rhs_is_bigint = expr_is_bigint(right, state);
+
+    // Generate both operands first
+    let lhs_val = generate_expr(state, left)?;
+    let rhs_val = generate_expr(state, right)?;
+
+    if lhs_is_bigint || rhs_is_bigint {
+        return generate_bigint_binop(state, left, op, right, lhs_val, rhs_val);
+    }
+
     // Handle string concatenation with + operator
     if *op == BinOp::Add {
-        let lhs_val = generate_expr(state, left)?;
-        let rhs_val = generate_expr(state, right)?;
-
         // Check if both operands are strings (pointer types)
         if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
             return generate_str_concat(state, lhs_val, rhs_val);
@@ -570,6 +591,32 @@ pub fn generate_unary<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let val = generate_expr(state, operand)?;
 
+    // Check if this is a BigInt (pointer value from BigInt expression)
+    let is_bigint = match operand {
+        Expr::BigInt(_, _) => true,
+        Expr::Ident(name, _) => {
+            state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
+        }
+        Expr::UnaryOp { operand, .. } => {
+            // Check if operand is BigInt
+            matches!(operand.as_ref(), Expr::BigInt(_, _))
+        }
+        _ => false,
+    };
+
+    if is_bigint && *op == UnaryOp::Neg {
+        // Call vp_bigint_neg for BigInt negation
+        let neg_func = state
+            .module
+            .get_function("vp_bigint_neg")
+            .ok_or_else(|| "vp_bigint_neg not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, neg_func, &[val.into()], "bigint_neg")
+            .unwrap();
+        return Ok(result);
+    }
+
     if val.is_float_value() {
         let float_val = val.into_float_value();
         match op {
@@ -658,5 +705,197 @@ pub fn generate_conditional<'ctx>(
     phi.add_incoming(&[(&then_val, then_block_end), (&else_val, else_block_end)]);
 
     Ok(phi.as_basic_value())
+}
+
+/// Generate BigInt binary operation
+pub fn generate_bigint_binop<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    _left: &Expr,
+    op: &BinOp,
+    _right: &Expr,
+    lhs_val: BasicValueEnum<'ctx>,
+    rhs_val: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let _ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+    let i64_type = state.context.i64_type();
+    
+    // Get the appropriate BigInt operation function
+    let func_name = match op {
+        BinOp::Add => "vp_bigint_add",
+        BinOp::Sub => "vp_bigint_sub",
+        BinOp::Mul => "vp_bigint_mul",
+        BinOp::Div => "vp_bigint_div",
+        BinOp::Mod => "vp_bigint_mod",
+        BinOp::Pow => "vp_bigint_pow",
+        BinOp::Eq => {
+            // vp_bigint_cmp returns i64, compare to 0
+            let cmp_func = state
+                .module
+                .get_function("vp_bigint_cmp")
+                .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    cmp_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "bigint_cmp",
+                )
+                .unwrap();
+            
+            // Compare result to 0
+            let zero = i64_type.const_zero();
+            let eq = state
+                .builder
+                .build_int_compare(inkwell::IntPredicate::EQ, result.into_int_value(), zero, "bigint_eq")
+                .expect("bigint_eq");
+            
+            return Ok(eq.into());
+        }
+        BinOp::NotEq => {
+            let cmp_func = state
+                .module
+                .get_function("vp_bigint_cmp")
+                .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    cmp_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "bigint_cmp",
+                )
+                .unwrap();
+            
+            let zero = i64_type.const_zero();
+            let eq = state
+                .builder
+                .build_int_compare(inkwell::IntPredicate::EQ, result.into_int_value(), zero, "bigint_eq")
+                .expect("bigint_eq");
+            
+            let neq = state.builder.build_not(eq, "bigint_neq").expect("bigint_neq");
+            return Ok(neq.into());
+        }
+        BinOp::Lt => {
+            let cmp_func = state
+                .module
+                .get_function("vp_bigint_cmp")
+                .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    cmp_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "bigint_cmp",
+                )
+                .unwrap();
+            
+            // result < 0
+            let zero = i64_type.const_zero();
+            let lt = state
+                .builder
+                .build_int_compare(inkwell::IntPredicate::SLT, result.into_int_value(), zero, "bigint_lt")
+                .expect("bigint_lt");
+            
+            return Ok(lt.into());
+        }
+        BinOp::LtEq => {
+            let cmp_func = state
+                .module
+                .get_function("vp_bigint_cmp")
+                .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    cmp_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "bigint_cmp",
+                )
+                .unwrap();
+            
+            // result <= 0
+            let zero = i64_type.const_zero();
+            let le = state
+                .builder
+                .build_int_compare(inkwell::IntPredicate::SLE, result.into_int_value(), zero, "bigint_le")
+                .expect("bigint_le");
+            
+            return Ok(le.into());
+        }
+        BinOp::Gt => {
+            let cmp_func = state
+                .module
+                .get_function("vp_bigint_cmp")
+                .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    cmp_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "bigint_cmp",
+                )
+                .unwrap();
+            
+            // result > 0
+            let zero = i64_type.const_zero();
+            let gt = state
+                .builder
+                .build_int_compare(inkwell::IntPredicate::SGT, result.into_int_value(), zero, "bigint_gt")
+                .expect("bigint_gt");
+            
+            return Ok(gt.into());
+        }
+        BinOp::GtEq => {
+            let cmp_func = state
+                .module
+                .get_function("vp_bigint_cmp")
+                .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    cmp_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "bigint_cmp",
+                )
+                .unwrap();
+            
+            // result >= 0
+            let zero = i64_type.const_zero();
+            let ge = state
+                .builder
+                .build_int_compare(inkwell::IntPredicate::SGE, result.into_int_value(), zero, "bigint_ge")
+                .expect("bigint_ge");
+            
+            return Ok(ge.into());
+        }
+        _ => return Err(format!("Unsupported BigInt operator: {:?}", op)),
+    };
+    
+    let func = state
+        .module
+        .get_function(func_name)
+        .ok_or_else(|| format!("{} not declared", func_name))?;
+    
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            func,
+            &[lhs_val.into(), rhs_val.into()],
+            "bigint_op",
+        )
+        .unwrap();
+    
+    Ok(result)
 }
 

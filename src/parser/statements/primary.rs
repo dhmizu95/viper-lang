@@ -234,6 +234,11 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
                 }
                 Expr::Int(n as i64, span)
             }
+            TokenKind::BigInt(s) => {
+                let s = s.clone();
+                parser.advance();
+                Expr::BigInt(s, span)
+            }
             TokenKind::Float(n) => {
                 let n = *n;
                 parser.advance();

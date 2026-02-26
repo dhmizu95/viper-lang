@@ -46,13 +46,52 @@ pub(crate) fn generate_assign<'ctx>(
             state.list_vars.remove(name);
         }
 
-        if let Some(var_info) = state.variables.get(name) {
-            // Check if we're replacing a reference type value
-            let old_is_ref = var_info.var_type == VarType::Pointer;
-            let old_needs_arc = state.needs_arc(name);
+        // Check if value is BigInt before borrowing state
+        // BigInt values are pointers from BigInt literals or operations
+        // We detect BigInt by checking the expression type and value type
+        let is_bigint = match value {
+            Expr::BigInt(_, _) => true,
+            Expr::BinOp { op, .. } => {
+                // Arithmetic operations on BigInts produce BigInt results
+                matches!(op, crate::ast::BinOp::Add | crate::ast::BinOp::Sub | 
+                         crate::ast::BinOp::Mul | crate::ast::BinOp::Div | 
+                         crate::ast::BinOp::Mod | crate::ast::BinOp::Pow) &&
+                val.is_pointer_value()
+            }
+            Expr::UnaryOp { op, operand, .. } => {
+                // Negation of BigInt produces BigInt
+                matches!(op, crate::ast::UnaryOp::Neg) &&
+                matches!(operand.as_ref(), Expr::BigInt(_, _)) &&
+                val.is_pointer_value()
+            }
+            _ => false,
+        };
+
+        // Check if variable exists and get its info
+        let var_exists = state.variables.contains_key(name);
+        
+        if var_exists {
+            // Get info we need before mutable borrow
+            let old_is_ref;
+            let old_needs_arc;
+            let storage;
+            
+            {
+                let var_info = state.variables.get(name).unwrap();
+                old_is_ref = var_info.var_type == VarType::Pointer || var_info.var_type == VarType::BigInt;
+                old_needs_arc = state.needs_arc(name);
+                storage = var_info.storage.clone();
+            }
+            
+            // Update var_type if this is a BigInt assignment
+            if is_bigint {
+                if let Some(var_info) = state.variables.get_mut(name) {
+                    var_info.var_type = VarType::BigInt;
+                }
+            }
 
             // Update existing variable
-            match &var_info.storage {
+            match &storage {
                 VarStorage::Stack(alloca) => {
                     // Release old value if it was a reference type needing ARC
                     if old_is_ref && old_needs_arc {
@@ -89,7 +128,10 @@ pub(crate) fn generate_assign<'ctx>(
             // Set reference type flag in escape analyzer
             state.set_reference_type(name, is_ref_type);
 
-            let var_type = if val.is_float_value() {
+            // Use the is_bigint check defined earlier
+            let var_type = if is_bigint {
+                VarType::BigInt
+            } else if val.is_float_value() {
                 VarType::Float
             } else if val.is_pointer_value() {
                 VarType::Pointer

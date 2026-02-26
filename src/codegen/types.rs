@@ -9,6 +9,7 @@ use inkwell::types::BasicTypeEnum;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VarType {
     Int,
+    BigInt,
     Float,
     Pointer,
     Bool,
@@ -20,6 +21,7 @@ impl VarType {
         match ty {
             Type::F32 | Type::F64 => VarType::Float,
             Type::Bool => VarType::Bool,
+            Type::BigInt => VarType::BigInt,
             Type::Str
             | Type::Chan(_)
             | Type::WaitGroup
@@ -47,7 +49,8 @@ impl<'ctx> TypeMapper<'ctx> {
             Type::I8 | Type::I16 | Type::I32 | Type::I64 => self.context.i64_type().into(),
             Type::F32 | Type::F64 => self.context.f64_type().into(),
             Type::Bool => self.context.bool_type().into(),
-            Type::Str
+            Type::BigInt
+            | Type::Str
             | Type::Chan(_)
             | Type::WaitGroup
             | Type::List(_)
@@ -73,7 +76,8 @@ impl<'ctx> TypeMapper<'ctx> {
             }
             Some(Type::F32) | Some(Type::F64) => Some(self.context.f64_type().into()),
             Some(Type::Bool) => Some(self.context.bool_type().into()),
-            Some(Type::Str)
+            Some(Type::BigInt)
+            | Some(Type::Str)
             | Some(Type::Chan(_))
             | Some(Type::WaitGroup)
             | Some(Type::List(_))

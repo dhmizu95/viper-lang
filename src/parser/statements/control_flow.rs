@@ -414,6 +414,11 @@ pub fn parse_match_pattern(parser: &mut StatementParser) -> Result<MatchPattern,
                 }
                 Ok(MatchPattern::Constant(Expr::Int(*n as i64, span)))
             }
+            TokenKind::BigInt(ref s) => {
+                let span = token.span;
+                parser.advance();
+                Ok(MatchPattern::Constant(Expr::BigInt(s.clone(), span)))
+            }
             TokenKind::Str(s) => {
                 let span = token.span;
                 parser.advance();

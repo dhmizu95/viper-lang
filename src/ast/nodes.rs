@@ -15,6 +15,8 @@ pub enum Expr {
     FString(Vec<Expr>, Span),
     /// Boolean literal
     Bool(bool, Span),
+    /// BigInt literal (arbitrary precision)
+    BigInt(String, Span),
     /// None literal
     None(Span),
     /// Identifier/variable reference
@@ -105,6 +107,7 @@ impl Expr {
             Expr::Str(_, s) => *s,
             Expr::FString(_, s) => *s,
             Expr::Bool(_, s) => *s,
+            Expr::BigInt(_, s) => *s,
             Expr::None(s) => *s,
             Expr::Ident(_, s) => *s,
             Expr::BinOp { span, .. } => *span,

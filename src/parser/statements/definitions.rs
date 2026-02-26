@@ -181,6 +181,9 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
                     }
                     *n as usize
                 }
+                TokenKind::BigInt(_) => {
+                    return Err("Array size cannot be a BigInt".to_string());
+                }
                 _ => {
                     return Err(format!(
                         "Expected integer size for array type, found {:?}",

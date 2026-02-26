@@ -6,6 +6,7 @@ use crate::utils::Span;
 pub enum TokenKind {
     // Literals
     Int(i128),
+    BigInt(String),  // Arbitrary precision integer literal (as decimal string)
     Float(f64),
     Str(String),
     FString(String),
@@ -148,6 +149,7 @@ impl std::fmt::Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TokenKind::Int(n) => write!(f, "Int({})", n),
+            TokenKind::BigInt(s) => write!(f, "BigInt({})", s),
             TokenKind::Float(n) => write!(f, "Float({})", n),
             TokenKind::Str(s) => write!(f, "Str({})", s),
             TokenKind::FString(s) => write!(f, "FString({})", s),

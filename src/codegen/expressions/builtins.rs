@@ -3,6 +3,7 @@
 use super::*;
 
 use crate::ast::Expr;
+use crate::codegen::variables::VarType;
 
 use inkwell::values::BasicValueEnum;
 
@@ -65,7 +66,36 @@ pub fn generate_print_call<'ctx>(
                 _ => false,
             };
 
-            if is_list_arg {
+            // Check if this is a BigInt
+            let is_bigint_arg = match arg {
+                Expr::BigInt(_, _) => true,
+                Expr::Ident(name, _) => {
+                    state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
+                }
+                _ => false,
+            };
+
+            if is_bigint_arg {
+                // Convert BigInt to string using vp_bigint_to_str
+                let to_str_func = state
+                    .module
+                    .get_function("vp_bigint_to_str")
+                    .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+                let str_val = state
+                    .ir_builder
+                    .build_call(state.builder, to_str_func, &[val.into()], "bigint_to_str")
+                    .unwrap();
+                
+                // Print the string
+                let print_func = state
+                    .module
+                    .get_function("vp_print_str")
+                    .ok_or_else(|| "vp_print_str not declared".to_string())?;
+                state
+                    .builder
+                    .build_call(print_func, &[str_val.into()], "print_bigint_str")
+                    .expect("vp_print_str");
+            } else if is_list_arg {
                 let print_func = state
                     .module
                     .get_function("vp_list_print")
@@ -267,7 +297,30 @@ pub fn generate_str_call<'ctx>(
         ));
     }
 
-    let arg_val = generate_expr(state, &args[0])?;
+    let arg = &args[0];
+    let arg_val = generate_expr(state, arg)?;
+
+    // Check if this is a BigInt
+    let is_bigint = match arg {
+        Expr::BigInt(_, _) => true,
+        Expr::Ident(name, _) => {
+            state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
+        }
+        _ => false,
+    };
+
+    if is_bigint {
+        // Convert BigInt to string using vp_bigint_to_str
+        let to_str_func = state
+            .module
+            .get_function("vp_bigint_to_str")
+            .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, to_str_func, &[arg_val.into()], "bigint_to_str")
+            .unwrap();
+        return Ok(result);
+    }
 
     let func_name = if arg_val.is_float_value() {
         "vp_str_from_f64"
