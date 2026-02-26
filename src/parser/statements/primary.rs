@@ -462,10 +462,10 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
         TokenKind::LParen => {
             parser.advance();
 
-            // Check for empty tuple or just parenthesized expression
+            // Check for empty tuple
             if parser.match_token(&TokenKind::RParen) {
-                // Empty tuple - treat as None for now
-                return Ok(Expr::None(span));
+                // Empty tuple: ()
+                return Ok(Expr::Tuple { elements: vec![], span });
             }
 
             let expr = parse_expression(parser)?;

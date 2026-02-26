@@ -63,9 +63,15 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Second pass: Process module-level constants and variables
         // Module-level assignments create immutable constants by default (Python UPPER_CASE convention)
+        // Note: Complex types (tuples, lists, dicts, arrays) cannot be global initializers
+        // and will be handled as regular statements in viper_init
         for stmt in &module.statements {
             match stmt {
                 Stmt::Const { name, value, .. } => {
+                    // Only simple types can be global constants
+                    if !Self::is_simple_initializer_expr(value) {
+                        continue; // Will be handled as regular statement in viper_init
+                    }
                     // Create a true constant (explicit const keyword)
                     // Note: We use set_constant(false) to allow runtime access,
                     // immutability is enforced by the type checker
@@ -96,6 +102,10 @@ impl<'ctx> CodeGen<'ctx> {
                     // Note: We use set_constant(false) to allow 'global' to work,
                     // immutability is enforced by the type checker
                     if let Expr::Ident(name, _) = target.as_ref() {
+                        // Only simple types can be global initializers
+                        if !Self::is_simple_initializer_expr(value) {
+                            continue; // Will be handled as regular statement in viper_init
+                        }
                         let val = crate::codegen::expressions::generate_expr(
                             &mut crate::codegen::state::CodeGenState::new(
                                 self.context,
@@ -496,6 +506,24 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.global_constants.insert(name.to_string(), global);
         Ok(())
+    }
+
+    /// Check if an expression can be used as a simple global initializer
+    /// Complex types (tuples, lists, dicts, arrays) require runtime allocation
+    fn is_simple_initializer_expr(expr: &Expr) -> bool {
+        match expr {
+            Expr::Int(..)
+            | Expr::Float(..)
+            | Expr::Bool(..)
+            | Expr::Str(..)
+            | Expr::None(..)
+            | Expr::BigInt(..) => true,
+            Expr::UnaryOp { operand, .. } => matches!(
+                operand.as_ref(),
+                Expr::Int(..) | Expr::Float(..) | Expr::BigInt(..)
+            ),
+            _ => false,
+        }
     }
 
     /// Get the generated LLVM module
