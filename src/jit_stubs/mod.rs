@@ -1,5 +1,6 @@
 pub mod concurrency;
 pub mod dicts;
+pub mod hash;
 pub mod io;
 pub mod lists;
 pub mod math;
@@ -9,6 +10,7 @@ pub mod structs;
 
 pub use concurrency::*;
 pub use dicts::*;
+pub use hash::*;
 pub use io::*;
 pub use lists::*;
 pub use math::*;

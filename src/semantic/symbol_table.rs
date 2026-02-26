@@ -30,6 +30,7 @@ pub enum BuiltinSignature {
     Pop,
     Clear,
     Index,
+    Hash,
     // Concurrency primitives (Phase 3)
     ChanCreate,      // chan(capacity) -> Chan[T]
     ChanSend,        // send(chan, value) -> None
@@ -90,6 +91,7 @@ impl Symbol {
                 BuiltinSignature::Pop => Some(Type::Infer),
                 BuiltinSignature::Clear => Some(Type::None),
                 BuiltinSignature::Index => Some(Type::Infer),
+                BuiltinSignature::Hash => Some(Type::I64),
                 // Concurrency primitives return pointer types
                 BuiltinSignature::ChanCreate => Some(Type::Infer), // Chan[T] - element type inferred from usage
                 BuiltinSignature::ChanSend => Some(Type::None),
@@ -131,6 +133,7 @@ impl SymbolTable {
             ("float", SymbolKind::Builtin { signature: BuiltinSignature::Float }),
             ("bool", SymbolKind::Builtin { signature: BuiltinSignature::Bool }),
             ("list", SymbolKind::Builtin { signature: BuiltinSignature::List }),
+            ("hash", SymbolKind::Builtin { signature: BuiltinSignature::Hash }),
             // Concurrency builtins (Phase 3)
             ("chan", SymbolKind::Builtin { signature: BuiltinSignature::ChanCreate }),
             ("send", SymbolKind::Builtin { signature: BuiltinSignature::ChanSend }),

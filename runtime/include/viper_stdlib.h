@@ -119,6 +119,13 @@ char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub);
 void vp_panic(const char* message);
 void vp_assert(bool condition, const char* message);
 
+/* Hash functions */
+int64_t vp_hash_i64(int64_t val);
+int64_t vp_hash_f64(double val);
+int64_t vp_hash_bool(bool val);
+int64_t vp_hash_str(const char* str);
+int64_t vp_hash_none(void);
+
 /* Math functions */
 double vp_pow(double base, double exponent);
 int64_t vp_pow_i64(int64_t base, int64_t exponent);

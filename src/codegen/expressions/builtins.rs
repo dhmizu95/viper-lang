@@ -476,3 +476,71 @@ pub fn generate_struct_unpack<'ctx>(
 
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
 }
+
+/// Generate hash() call - returns hash value for hashable types
+pub fn generate_hash_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("hash() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let arg = &args[0];
+    let arg_val = generate_expr(state, arg)?;
+
+    // Check if this is a BigInt
+    let is_bigint = match arg {
+        Expr::BigInt(_, _) => true,
+        Expr::Ident(name, _) => {
+            state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
+        }
+        _ => false,
+    };
+
+    // Choose the appropriate hash function based on the type
+    let hash_func_name = if is_bigint {
+        // For BigInt, hash the string representation
+        let to_str_func = state
+            .module
+            .get_function("vp_bigint_to_str")
+            .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+        let str_val = state
+            .ir_builder
+            .build_call(state.builder, to_str_func, &[arg_val.into()], "bigint_to_str")
+            .unwrap();
+        
+        let hash_func = state
+            .module
+            .get_function("vp_hash_str")
+            .ok_or_else(|| "vp_hash_str not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, hash_func, &[str_val.into()], "hash_bigint")
+            .unwrap();
+        return Ok(result);
+    } else if arg_val.is_float_value() {
+        "vp_hash_f64"
+    } else if arg_val.is_int_value() && arg_val.get_type().into_int_type().get_bit_width() == 1 {
+        // Check for bool (i1) before general i64
+        "vp_hash_bool"
+    } else if arg_val.is_int_value() {
+        "vp_hash_i64"
+    } else if arg_val.is_pointer_value() {
+        // String or other pointer type
+        "vp_hash_str"
+    } else {
+        return Err(format!("hash() not supported for type {:?}", arg_val.get_type()));
+    };
+
+    let hash_func = state
+        .module
+        .get_function(hash_func_name)
+        .ok_or_else(|| format!("{} not declared", hash_func_name))?;
+
+    let result = state
+        .ir_builder
+        .build_call(state.builder, hash_func, &[arg_val.into()], "hash_result");
+    
+    Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+}

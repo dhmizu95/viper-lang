@@ -240,6 +240,57 @@ void vp_assert(bool condition, const char* message) {
 }
 
 /* ============================================ */
+/* Hash Functions                               */
+/* ============================================ */
+
+/* FNV-1a hash constants */
+#define FNV_OFFSET_BASIS 14695981039346656037ULL
+#define FNV_PRIME 1099511628211ULL
+
+/* Hash an i64 value */
+int64_t vp_hash_i64(int64_t val) {
+    /* Simple hash for integers - use the value itself with some mixing */
+    uint64_t hash = (uint64_t)val;
+    hash ^= hash >> 33;
+    hash *= 0xff51afd7ed558ccdULL;
+    hash ^= hash >> 33;
+    hash *= 0xc4ceb9fe1a85ec53ULL;
+    hash ^= hash >> 33;
+    return (int64_t)hash;
+}
+
+/* Hash an f64 value */
+int64_t vp_hash_f64(double val) {
+    /* Hash the bit representation of the float */
+    uint64_t bits;
+    memcpy(&bits, &val, sizeof(double));
+    return vp_hash_i64((int64_t)bits);
+}
+
+/* Hash a bool value */
+int64_t vp_hash_bool(bool val) {
+    return val ? 1 : 0;
+}
+
+/* Hash a string using FNV-1a */
+int64_t vp_hash_str(const char* str) {
+    if (!str) return 0;
+    
+    uint64_t hash = FNV_OFFSET_BASIS;
+    while (*str) {
+        hash ^= (uint64_t)(*str);
+        hash *= FNV_PRIME;
+        str++;
+    }
+    return (int64_t)hash;
+}
+
+/* Hash for None */
+int64_t vp_hash_none(void) {
+    return 0;
+}
+
+/* ============================================ */
 /* Range Built-in                               */
 /* ============================================ */
 
