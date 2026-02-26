@@ -438,6 +438,25 @@ fn generate_assign<'ctx>(
             Expr::List { .. } => true,
             Expr::ListComprehension { .. } => true,
             Expr::Ident(other, _) => state.is_list(other),
+            Expr::Call { func, .. } => {
+                // Check if calling a list-returning function
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    // Built-in list functions
+                    if func_name == "vp_list_create" || func_name == "vp_list_create_f64"
+                        || func_name == "vp_list_create_with_capacity"
+                    {
+                        true
+                    // Built-in string functions - not lists
+                    } else if func_name.starts_with("vp_str_") {
+                        false
+                    // User-defined functions - check if return value is a pointer
+                    } else {
+                        val.is_pointer_value()
+                    }
+                } else {
+                    val.is_pointer_value()
+                }
+            }
             _ => false,
         };
         if is_list {
@@ -731,13 +750,25 @@ fn generate_declare<'ctx>(
             Expr::ListComprehension { .. } => true,
             Expr::Ident(other, _) => state.is_list(other),
             Expr::Call { func, .. } => {
-                // Check if calling a known list-returning function
+                // Check if calling a list-returning function
+                // Lists return pointers, but so do strings - need to distinguish
                 if let Expr::Ident(func_name, _) = func.as_ref() {
-                    // List literal functions
-                    func_name == "vp_list_create" || func_name == "vp_list_create_f64" 
+                    // Built-in list functions
+                    if func_name == "vp_list_create" || func_name == "vp_list_create_f64"
                         || func_name == "vp_list_create_with_capacity"
+                    {
+                        true
+                    // Built-in string functions - not lists
+                    } else if func_name.starts_with("vp_str_") {
+                        false
+                    // User-defined functions - check if return value is a pointer
+                    // (lists return pointers, and we can't easily determine the return type)
+                    } else {
+                        val.is_pointer_value()
+                    }
                 } else {
-                    false
+                    // For non-ident function calls (method calls, etc.), check if pointer
+                    val.is_pointer_value()
                 }
             }
             _ => false,

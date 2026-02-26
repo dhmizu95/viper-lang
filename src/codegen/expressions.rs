@@ -705,50 +705,42 @@ fn generate_index<'ctx>(
 
     // Check if this is a list by examining the object
     let is_list = match obj {
-        Expr::Ident(obj_name, _) => {
-            // Check if variable is marked as list OR if it has pointer type (lists are pointers)
-            state.is_list(obj_name)
-        }
+        Expr::Ident(obj_name, _) => state.is_list(obj_name),
         Expr::List { .. } | Expr::ListComprehension { .. } => true,
         _ => false,
     };
 
-    // For pointer-typed objects that aren't explicitly lists, check if the value is a pointer
-    // Lists, strings, and channels are all pointers, but only lists use vp_list_get
+    // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
 
-    // Try array indexing first (gep on pointer) - only for raw pointers/arrays, not lists
     // Lists need to use vp_list_get because they have a ViperList struct wrapper
-    if is_pointer_type && !is_list {
-        // Check if this might be a list by looking at variable type
-        // If variable has Pointer type and we're indexing, assume it's a list
-        if let Expr::Ident(obj_name, _) = obj {
-            if let Some(var_info) = state.variables.get(obj_name) {
-                if var_info.var_type == VarType::Pointer {
-                    // This is a pointer-typed variable, use list access
-                    let list_get = state
-                        .module
-                        .get_function("vp_list_get")
-                        .ok_or_else(|| "vp_list_get not declared".to_string())?;
+    // Other pointers (strings, arrays) use array GEP
+    if is_pointer_type && is_list {
+        // Use list indexing
+        let list_get = state
+            .module
+            .get_function("vp_list_get")
+            .ok_or_else(|| "vp_list_get not declared".to_string())?;
 
-                    let result = state
-                        .ir_builder
-                        .build_call(
-                            state.builder,
-                            list_get,
-                            &[obj_val.into(), index_val.into()],
-                            "list_get",
-                        )
-                        .ok_or_else(|| "build call failed".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                list_get,
+                &[obj_val.into(), index_val.into()],
+                "list_get",
+            )
+            .ok_or_else(|| "build call failed".to_string())?;
 
-                    return Ok(result);
-                }
-            }
-        }
-        
-        // For non-list pointers, use array indexing
+        return Ok(result);
+    }
+
+    // For non-list pointers (strings, arrays), use array indexing
+    if is_pointer_type {
         let obj_ptr = obj_val.into_pointer_value();
-        let elem_type = state.context.i64_type(); // Default to i64
+        // For strings, element type is i8 (char); for arrays, it depends on the array type
+        // Default to i8 for strings
+        let elem_type = state.context.i8_type();
 
         let elem_ptr = unsafe {
             state
@@ -762,10 +754,17 @@ fn generate_index<'ctx>(
             .build_load(elem_type, elem_ptr, "array_load")
             .map_err(|e| format!("Failed to load array element: {:?}", e))?;
 
-        return Ok(loaded);
+        // Cast i8 to i64 for compatibility with print() and other functions
+        let int_val = loaded.into_int_value();
+        let extended = state
+            .builder
+            .build_int_z_extend(int_val, state.context.i64_type(), "char_to_i64")
+            .map_err(|e| format!("Failed to extend char to i64: {:?}", e))?;
+
+        return Ok(extended.into());
     }
 
-    // Fall back to list indexing
+    // Fall back to list indexing for any remaining cases
     let list_get = state
         .module
         .get_function("vp_list_get")
