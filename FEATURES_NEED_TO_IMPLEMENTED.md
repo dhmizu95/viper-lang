@@ -108,7 +108,7 @@
 | `xml` | XML parsing | Low |
 | `html` | HTML escaping | Low |
 | `statistics` | `mean`, `median`, `stdev` | Low |
-| `decimal` | Arbitrary precision | Low |
+| `decimal` | Arbitrary precision decimals (requires BigInt runtime - see big_int_implementation_plan.md) | Low |
 | `fractions` | Rational numbers | Low |
 | `shutil` | File operations | Low |
 | `tempfile` | Temporary files | Low |

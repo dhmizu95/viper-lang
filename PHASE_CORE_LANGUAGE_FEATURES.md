@@ -29,6 +29,7 @@ Features that form the foundation of the language.
 | Type inference | `x = 5` → `i64` automatically |
 | Explicit annotations | `x: i64`, `def f() -> str` |
 | Basic types | `i8`, `i16`, `i32`, `i64`, `f32`, `f64`, `bool` |
+| BigInt type | `BigInt` - arbitrary precision integers |
 | String type | `str` (UTF-8, immutable) |
 | Void type | `void` for functions |
 
@@ -601,7 +602,7 @@ Advanced language features, tooling, and ecosystem support.
 
 | Feature | Description |
 |---------|-------------|
-| (none additional) | |
+| Decimal type | `Decimal` - arbitrary precision decimals (built on BigInt infrastructure) |
 
 ### Variables & Assignment
 
@@ -715,7 +716,7 @@ Advanced language features, tooling, and ecosystem support.
 | `xml` | XML parsing |
 | `html` | HTML escaping |
 | `statistics` | `mean`, `median`, `mode`, `stdev` |
-| `decimal` | Arbitrary precision decimals |
+| `decimal` | Arbitrary precision decimals (built on BigInt) |
 | `fractions` | Rational numbers |
 | `numbers` | Abstract base classes |
 | `shutil` | File operations, archives |

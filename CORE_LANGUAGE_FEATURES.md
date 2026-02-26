@@ -23,6 +23,7 @@
 | Type inference | `x = 5` → `i64` automatically | Phase 1 |
 | Explicit annotations | `x: i64`, `def f() -> str` | Phase 1 |
 | Basic types | `i8`, `i16`, `i32`, `i64`, `f32`, `f64`, `bool` | Phase 1 |
+| BigInt type | `BigInt` - arbitrary precision integers | Phase 1 |
 | String type | `str` (UTF-8, immutable) | Phase 1 |
 | Void type | `void` for functions | Phase 1 |
 | Optional types | `T?` or `Option[T]` | Phase 2 |

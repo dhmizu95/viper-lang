@@ -197,3 +197,42 @@ print(y)  # Should print "-inf"
 The `decimal` standard library module (arbitrary precision decimals like Python's `Decimal`) is
 listed as **Phase 4 Low priority** in [FEATURES_NEED_TO_IMPLEMENTED.md](file:///home/stl/viper-lang/FEATURES_NEED_TO_IMPLEMENTED.md). It will be a follow-up
 task built on top of the BigInt infrastructure added here.
+
+### Implementation Notes for Decimal
+
+When implementing `decimal`, the following approach is recommended:
+
+1. **Runtime Structure**: Store as `{ VpBigInt* coefficient, int32_t exponent }`
+   - Value = coefficient × 10^exponent
+   - Similar to Python's Decimal implementation
+
+2. **Runtime Functions** (`decimal.c`/`decimal.h`):
+   - `vp_decimal_from_bigint(VpBigInt*, int32_t exponent)` 
+   - `vp_decimal_from_str(const char*)`
+   - `vp_decimal_add/sub/mul/div(VpDecimal*, VpDecimal*)`
+   - `vp_decimal_to_str(VpDecimal*)`
+   - Rounding mode support
+
+3. **Viper Module** (`std/decimal.vp`):
+   - FFI bindings to C runtime functions
+   - `Decimal` class with operator overloading
+   - Context for precision/rounding configuration
+
+4. **Language Support** (optional):
+   - Decimal literal suffix: `42.5d` or `42.5D`
+   - Type: `Type::Decimal`
+   - Codegen for decimal operations
+
+---
+
+## Implementation Status
+
+✅ **BigInt implementation is COMPLETE** as of version 0.3.7
+
+All features from this plan have been implemented:
+- Runtime library with full arithmetic operations
+- Lexer support for large integer literals
+- AST and parser support
+- Code generation with LLVM IR
+- Print and string conversion
+- Comprehensive test suite
