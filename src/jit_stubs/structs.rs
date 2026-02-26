@@ -1,4 +1,3 @@
-use std::ffi::{c_char, c_void};
 
 // Struct module stubs for JIT
 pub extern "C" fn vp_struct_pack(

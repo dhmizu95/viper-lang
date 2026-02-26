@@ -1,10 +1,8 @@
 use super::*;
 use crate::ast::{
-    BinOp, ExceptHandler, Expr, MatchCase, MatchPattern, Param, SelectCase, SelectCaseKind, Stmt,
-    Type, UnaryOp,
+    Expr, Stmt,
 };
-use crate::lexer::{Token, TokenKind};
-use crate::utils::Span;
+use crate::lexer::TokenKind;
 
     /// Parse all statements until EOF
 pub fn parse_statements(parser: &mut StatementParser) -> Result<Vec<Stmt>, String> {

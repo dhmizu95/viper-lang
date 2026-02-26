@@ -1,5 +1,4 @@
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
-use std::ffi::c_void;
 
 // Concurrency runtime stubs for JIT (Phase 3)
 // Simplified implementations using atomics for safety

@@ -1,15 +1,12 @@
 //! Expression code generation for Viper
 
 use super::*;
-use inkwell::values::BasicMetadataValueEnum;
 
-use crate::ast::{BinOp, Expr, Type, UnaryOp};
-use crate::utils::mangle_function_name;
+use crate::ast::Expr;
 
 use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
-use crate::codegen::variables::{VarStorage, VarType};
 
 
 

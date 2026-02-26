@@ -1,4 +1,3 @@
-use std::ffi::c_void;
 
 // Stub implementations for list functions (Phase 2 MVP)
 // Using Box<Vec<i64>> as the internal representation

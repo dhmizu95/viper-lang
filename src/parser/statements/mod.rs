@@ -1,10 +1,5 @@
-use crate::ast::{
-    BinOp, ExceptHandler, Expr, MatchCase, MatchPattern, Param, SelectCase, SelectCaseKind, Stmt,
-    Type, UnaryOp,
-};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::expressions::PrattParser;
-use crate::utils::Span;
 
 pub mod core;
 pub mod definitions;

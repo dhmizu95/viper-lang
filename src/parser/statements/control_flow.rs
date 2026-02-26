@@ -1,10 +1,8 @@
 use super::*;
 use crate::ast::{
-    BinOp, ExceptHandler, Expr, MatchCase, MatchPattern, Param, SelectCase, SelectCaseKind, Stmt,
-    Type, UnaryOp,
+    ExceptHandler, Expr, MatchCase, MatchPattern, SelectCase, SelectCaseKind, Stmt, UnaryOp,
 };
-use crate::lexer::{Token, TokenKind};
-use crate::utils::Span;
+use crate::lexer::TokenKind;
 
 pub fn parse_unless_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
         let start_span = parser.current().span;

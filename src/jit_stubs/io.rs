@@ -1,4 +1,3 @@
-use std::ffi::{c_void, c_char, CStr};
 
 // Runtime function implementations for JIT
 pub extern "C" fn vp_print_i64(val: i64) {

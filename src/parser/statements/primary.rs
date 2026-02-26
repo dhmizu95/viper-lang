@@ -1,10 +1,8 @@
 use super::*;
 use crate::ast::{
-    BinOp, ExceptHandler, Expr, MatchCase, MatchPattern, Param, SelectCase, SelectCaseKind, Stmt,
-    Type, UnaryOp,
+    BinOp, Expr, Stmt,
 };
-use crate::lexer::{Token, TokenKind};
-use crate::utils::Span;
+use crate::lexer::TokenKind;
 
 pub fn parse_mutable_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
         let span = parser.current().span;

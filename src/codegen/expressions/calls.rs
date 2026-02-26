@@ -1,15 +1,13 @@
 //! Expression code generation for Viper
 
 use super::*;
-use inkwell::values::BasicMetadataValueEnum;
 
-use crate::ast::{BinOp, Expr, Type, UnaryOp};
+use crate::ast::{Expr, Type};
 use crate::utils::mangle_function_name;
 
 use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
-use crate::codegen::variables::{VarStorage, VarType};
 
 
 /// Generate lambda expression

@@ -1,9 +1,8 @@
 use super::*;
 use crate::ast::{
-    BinOp, ExceptHandler, Expr, MatchCase, MatchPattern, Param, SelectCase, SelectCaseKind, Stmt,
-    Type, UnaryOp,
+    Expr, Stmt,
 };
-use crate::lexer::{Token, TokenKind};
+use crate::lexer::TokenKind;
 use crate::utils::Span;
 
 pub fn parse_sync_block(parser: &mut StatementParser) -> Result<Stmt, String> {
@@ -23,7 +22,7 @@ pub fn parse_task_spawn(parser: &mut StatementParser) -> Result<Stmt, String> {
         Ok(Stmt::Task { call, span })
     }
     /// Transform concurrency builtin calls into appropriate AST nodes
-pub fn transform_concurrency_call(parser: &mut StatementParser, func: &Expr, args: Vec<Expr>, span: Span) -> Option<Stmt> {
+pub fn transform_concurrency_call(_parser: &mut StatementParser, func: &Expr, args: Vec<Expr>, span: Span) -> Option<Stmt> {
         if let Expr::Ident(name, _) = func {
             match name.as_str() {
                 "chan" => {
