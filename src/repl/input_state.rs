@@ -1,4 +1,4 @@
-use crate::lexer::indent_stack::{IndentChange, IndentStack};
+use crate::lexer::indent_stack::IndentStack;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum LineStatus {

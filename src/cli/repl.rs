@@ -1,6 +1,5 @@
-use std::error::Error;
 use rustyline::error::ReadlineError;
-use rustyline::{DefaultEditor, Result as RlResult};
+use rustyline::DefaultEditor;
 
 use crate::repl::{InputState, LineStatus, ReplSession};
 
@@ -110,7 +109,15 @@ fn handle_command(cmd: &str, session: &mut ReplSession, input_state: &mut InputS
             CommandResult::Continue
         }
         ":vars" => {
-            println!("Variables are not currently persisted globally in this stub.");
+            let vars = session.vars_summary();
+            if vars.is_empty() {
+                println!("No variables defined.");
+            } else {
+                println!("Variables:");
+                for var in vars {
+                    println!("  {}", var);
+                }
+            }
             CommandResult::Continue
         }
         ":help" | ":h" => {
@@ -118,7 +125,7 @@ fn handle_command(cmd: &str, session: &mut ReplSession, input_state: &mut InputS
             println!("  :quit,   :q    - Exit the REPL");
             println!("  :clear,  :c    - Clear the screen");
             println!("  :reset         - Clear all variables & state");
-            println!("  :vars          - Show currently defined variables (WIP)");
+            println!("  :vars          - Show currently defined variables");
             println!("  :help,   :h    - Show this help message");
             println!();
             CommandResult::Continue
