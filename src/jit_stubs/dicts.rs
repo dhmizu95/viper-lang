@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use std::sync::Mutex;
 
-static JIT_DICT_COUNTER: AtomicUsize = AtomicUsize::new(0);
+static JIT_DICT_COUNTER: AtomicUsize = AtomicUsize::new(1);  // Start from 1 to avoid NULL pointer
 // Simple global dict storage for JIT - maps dict_id to HashMap<String, i64>
 static JIT_DICTS: Mutex<Option<HashMap<usize, HashMap<String, i64>>>> = Mutex::new(None);
 
