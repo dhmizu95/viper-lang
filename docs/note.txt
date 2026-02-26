@@ -36,3 +36,11 @@ ARC overhead — the list pointer may get vp_retain/vp_release even when it neve
 Fastest win with zero language changes: add vp_list_repeat to the runtime + write is_prime = [1] * (n + 1). Expected: 3–5× faster init. Combined with inlining: Viper AOT should reach ~1.5–2× C.
 
 To fully close the gap to C: need a byte-list type (uint8_t[]) — a bigger feature.
+
+
+
+Current Limitations
+Docstrings are not stored in the compiled binary (no runtime introspection)
+Simple extraction logic (line-based parsing)
+Only supports function docstrings (not module/class docstrings)
+Status: ✅ Implemented for Phase 2. Docstrings work as documentation comments and can be extracted using viper doc.
