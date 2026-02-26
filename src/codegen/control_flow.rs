@@ -289,17 +289,27 @@ pub fn generate_for<'ctx>(
     if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
-                let (start_val, end_val) = match args.len() {
+                let (start_val, end_val, step_val) = match args.len() {
                     0 => return Err("range expected at least 1 argument, got 0".to_string()),
                     1 => (
                         state.ir_builder.i64_const(0),
                         crate::codegen::expressions::generate_expr(state, &args[0])?
                             .into_int_value(),
+                        state.ir_builder.i64_const(1),
+                    ),
+                    2 => (
+                        crate::codegen::expressions::generate_expr(state, &args[0])?
+                            .into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[1])?
+                            .into_int_value(),
+                        state.ir_builder.i64_const(1),
                     ),
                     _ => (
                         crate::codegen::expressions::generate_expr(state, &args[0])?
                             .into_int_value(),
                         crate::codegen::expressions::generate_expr(state, &args[1])?
+                            .into_int_value(),
+                        crate::codegen::expressions::generate_expr(state, &args[2])?
                             .into_int_value(),
                     ),
                 };
@@ -402,7 +412,7 @@ pub fn generate_for<'ctx>(
                 let next_val = state.ir_builder.build_add(
                     state.builder,
                     counter_val,
-                    state.ir_builder.i64_const(1),
+                    step_val,
                     "next_counter",
                 );
                 state.builder.build_store(counter, next_val).expect("store");
