@@ -8,6 +8,11 @@ pub(crate) fn generate_assign<'ctx>(
     target: &Expr,
     value: &Expr,
 ) -> Result<(), String> {
+    // Handle tuple unpacking: a, b = (1, 2)
+    if let Expr::Tuple { elements: targets, .. } = target {
+        return generate_tuple_unpack(state, targets, value);
+    }
+
     if let Expr::Ident(name, _) = target {
         let val = crate::codegen::expressions::generate_expr(state, value)?;
 
@@ -364,5 +369,66 @@ pub(crate) fn generate_aug_assign<'ctx>(
             return Err(format!("Undefined variable in augmented assignment: {}", name));
         }
     }
+    Ok(())
+}
+
+/// Generate tuple unpacking: a, b, c = (1, 2, 3)
+fn generate_tuple_unpack<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    targets: &[Expr],
+    value: &Expr,
+) -> Result<(), String> {
+    // Generate the value expression (should be a tuple pointer)
+    let value_ptr = crate::codegen::expressions::generate_expr(state, value)?;
+
+    // The tuple is stored as a pointer to a struct
+    let tuple_ptr = if value_ptr.is_pointer_value() {
+        value_ptr.into_pointer_value()
+    } else {
+        return Err("Tuple unpacking requires a tuple value".to_string());
+    };
+
+    // For each target, extract the corresponding element from the tuple
+    // We use array GEP instead of struct GEP since we don't have the struct type
+    for (i, target) in targets.iter().enumerate() {
+        if let Expr::Ident(name, _) = target {
+            // Get the element from the tuple using array GEP
+            // Cast to i8* first, then calculate offset
+            let i8_ptr = state.builder.build_pointer_cast(
+                tuple_ptr,
+                state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                "tuple_i8_ptr",
+            ).map_err(|e| format!("Failed to cast tuple pointer: {:?}", e))?;
+
+            // For simplicity, assume all elements are i64 (8 bytes)
+            // This is a limitation - proper implementation would need to track element types
+            let offset = (i * 8) as i64;
+            let elem_i8_ptr = unsafe {
+                state.builder.build_in_bounds_gep(
+                    state.context.i8_type(),
+                    i8_ptr,
+                    &[state.context.i64_type().const_int(offset as u64, false)],
+                    &format!("elem_{}_i8_ptr", i),
+                )
+            }.map_err(|e| format!("Failed to build GEP for tuple unpacking: {:?}", e))?;
+
+            // Cast back to i64*
+            let elem_ptr = state.builder.build_pointer_cast(
+                elem_i8_ptr,
+                state.context.i64_type().ptr_type(inkwell::AddressSpace::default()),
+                &format!("elem_{}_ptr", i),
+            ).map_err(|e| format!("Failed to cast element pointer: {:?}", e))?;
+
+            // Load the element value
+            let elem_val = state.builder.build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
+                .map_err(|e| format!("Failed to load tuple element: {:?}", e))?;
+
+            // Store in variable
+            state.variables.insert(name.clone(), VarInfo::new_register(elem_val, VarType::Int));
+        } else {
+            return Err("Tuple unpacking only supports simple identifiers".to_string());
+        }
+    }
+
     Ok(())
 }

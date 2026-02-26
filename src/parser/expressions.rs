@@ -377,20 +377,39 @@ impl<'a> PrattParser<'a> {
             }
             TokenKind::LParen => {
                 self.advance();
+                
+                // Check for empty tuple
+                if self.match_token(&TokenKind::RParen) {
+                    return Ok(Expr::Tuple { elements: vec![], span });
+                }
+                
                 let expr = self.parse_expr(Precedence::MIN)?;
 
-                // Check for tuple
+                // Check for tuple (including single-element tuple with trailing comma)
                 if self.match_token(&TokenKind::Comma) {
                     let mut elements = vec![expr];
-                    while !self.match_token(&TokenKind::RParen) {
+                    // Check for trailing comma (single-element tuple): (x,)
+                    if self.match_token(&TokenKind::RParen) {
+                        // Single-element tuple with trailing comma
+                        let merged_span = span.merge(self.previous().span);
+                        return Ok(Expr::Tuple { elements, span: merged_span });
+                    }
+                    // More elements follow - parse them
+                    loop {
                         elements.push(self.parse_expr(Precedence::MIN)?);
-                        if !self.match_token(&TokenKind::Comma) {
+                        if self.match_token(&TokenKind::Comma) {
+                            // Check for trailing comma after multiple elements
+                            if self.match_token(&TokenKind::RParen) {
+                                let merged_span = span.merge(self.previous().span);
+                                return Ok(Expr::Tuple { elements, span: merged_span });
+                            }
+                            // Continue parsing more elements
+                        } else {
                             break;
                         }
                     }
                     self.expect(&TokenKind::RParen)?;
-                    let last_span = self.previous().span;
-                    let merged_span = span.merge(last_span);
+                    let merged_span = span.merge(self.previous().span);
                     return Ok(Expr::Tuple { elements, span: merged_span });
                 }
 

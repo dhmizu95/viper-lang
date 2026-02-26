@@ -171,13 +171,7 @@ pub fn generate_expr<'ctx>(
         }
         Expr::List { elements, span: _ } => generate_list(state, elements),
         Expr::Array { elements, size, span: _ } => generate_array(state, elements, *size),
-        Expr::Tuple { elements, span: _ } => {
-            if elements.is_empty() {
-                Ok(state.ir_builder.i64_const(0).into())
-            } else {
-                generate_expr(state, &elements[0])
-            }
-        }
+        Expr::Tuple { elements, span: _ } => generate_tuple(state, elements),
         Expr::Dict { pairs, span: _ } => generate_dict(state, pairs),
         Expr::Index { obj, index, span: _ } => generate_index(state, obj, index),
         Expr::Slice { obj, start, end, step, span: _ } => {
