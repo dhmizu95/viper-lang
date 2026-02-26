@@ -481,7 +481,7 @@
 | `viper doc` | Generate documentation | Phase 4 |
 | `viper fmt` | Format code | Phase 4 |
 | `viper lint` | Static analysis | Phase 4 |
-| `viper repl` | Interactive shell | Phase 4 |
+| `viper repl` | Interactive shell with incremental JIT | Phase 1 (Implemented) |
 | `viper debugger` | Debug support | Phase 5 |
 
 ### Package Manager (vpm)

@@ -4,8 +4,8 @@
 
 Viper is an LLVM-based compiler for the Viper programming language, providing both Ahead-of-Time (AOT) compilation to native binaries and Just-in-Time (JIT) execution for rapid development.
 
-**Version:** 0.2.3  
-**License:** MIT  
+**Version:** 0.4.0
+**License:** MIT
 **Repository:** github.com/viper-lang/viper
 
 ## Installation

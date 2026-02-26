@@ -1,5 +1,7 @@
 # Core Language Features by Phase
 
+**Version:** 0.4.0
+
 This document reorganizes the language features from `CORE_LANGUAGE_FEATURES.md`, grouped by implementation phase rather than feature category.
 
 ---
@@ -93,6 +95,7 @@ Features that form the foundation of the language.
 |------|---------|
 | `viper` | Main compiler |
 | `viper build` | Compile to binary |
+| `viper repl` | Interactive shell with incremental JIT |
 
 ### Optimization
 
@@ -760,7 +763,7 @@ Advanced language features, tooling, and ecosystem support.
 | `viper doc` | Generate documentation |
 | `viper fmt` | Format code |
 | `viper lint` | Static analysis |
-| `viper repl` | Interactive shell |
+| `viper repl` | Interactive shell with incremental JIT compilation |
 
 #### Package Manager (vpm)
 

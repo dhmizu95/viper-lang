@@ -4,7 +4,7 @@ use rustyline::DefaultEditor;
 use crate::repl::{InputState, LineStatus, ReplSession};
 
 pub fn run_repl() -> Result<(), String> {
-    println!("🐍 Viper REPL v0.2.3");
+    println!("🐍 Viper REPL {}", env!("CARGO_PKG_VERSION"));
     println!("Type :quit to exit, :clear to clear, :help for commands\n");
 
     let mut editor = DefaultEditor::new().map_err(|e| e.to_string())?;
@@ -97,7 +97,7 @@ fn handle_command(cmd: &str, session: &mut ReplSession, input_state: &mut InputS
         }
         ":clear" | ":c" => {
             print!("\x1B[2J\x1B[1J");
-            println!("🐍 Viper REPL v0.2.3");
+            println!("🐍 Viper REPL {}", env!("CARGO_PKG_VERSION"));
             println!("Type :quit to exit, :clear to clear, :help for commands\n");
             CommandResult::Continue
         }
