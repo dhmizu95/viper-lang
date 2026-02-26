@@ -193,7 +193,7 @@ pub fn generate_len_call<'ctx>(
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
 }
 
-/// Generate type conversion calls (float(), int())
+/// Generate type conversion calls (float(), int(), bool())
 pub fn generate_type_convert<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     name: &str,
@@ -245,6 +245,65 @@ pub fn generate_type_convert<'ctx>(
                 Ok(result)
             } else {
                 Err("Cannot convert to int".to_string())
+            }
+        }
+        "bool" => {
+            // Convert to bool (i1)
+            if arg_val.is_int_value() {
+                let int_val = arg_val.into_int_value();
+                // Non-zero becomes true, zero becomes false
+                let zero = state.context.i64_type().const_int(0, false);
+                let result = state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        int_val,
+                        zero,
+                        "to_bool",
+                    )
+                    .expect("int to bool comparison");
+                Ok(result.into())
+            } else if arg_val.is_float_value() {
+                let float_val = arg_val.into_float_value();
+                // Non-zero becomes true, zero becomes false
+                let zero = state.context.f64_type().const_float(0.0);
+                let result = state
+                    .builder
+                    .build_float_compare(
+                        inkwell::FloatPredicate::ONE,
+                        float_val,
+                        zero,
+                        "to_bool",
+                    )
+                    .expect("float to bool comparison");
+                Ok(result.into())
+            } else if arg_val.is_pointer_value() {
+                // For pointers: null is false, non-null is true
+                let null_ptr = state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                let ptr_as_int = state
+                    .builder
+                    .build_ptr_to_int(
+                        arg_val.into_pointer_value(),
+                        state.context.i64_type(),
+                        "ptr_to_int",
+                    )
+                    .expect("ptr to int");
+                let null_as_int = state
+                    .builder
+                    .build_ptr_to_int(null_ptr, state.context.i64_type(), "null_to_int")
+                    .expect("null to int");
+                let result = state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        ptr_as_int,
+                        null_as_int,
+                        "ptr_to_bool",
+                    )
+                    .expect("ptr to bool comparison");
+                Ok(result.into())
+            } else {
+                Err("Cannot convert to bool".to_string())
             }
         }
         _ => Err(format!("Unknown type conversion: {}", name)),

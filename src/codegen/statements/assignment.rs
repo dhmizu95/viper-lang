@@ -29,7 +29,9 @@ pub(crate) fn generate_assign<'ctx>(
                     {
                         true
                     // Built-in string functions - not lists
-                    } else if func_name.starts_with("vp_str_") {
+                    } else if func_name.starts_with("vp_str_")
+                        || func_name == "str"  // str() conversion returns string, not list
+                    {
                         false
                     // User-defined functions - check if return value is a pointer
                     } else {

@@ -103,7 +103,7 @@ pub fn generate_call<'ctx>(
         }
 
         // Type conversion functions
-        if name == "float" || name == "int" {
+        if name == "float" || name == "int" || name == "bool" {
             return generate_type_convert(state, name, args);
         }
 
