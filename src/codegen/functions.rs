@@ -100,6 +100,17 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return Type::List(Box::new(Type::Infer));
             }
 
+            // Check if parameter is used in arithmetic/comparison operations (indicating scalar)
+            if param_is_used_as_scalar(&param.name, body) {
+                return Type::I64;
+            }
+
+            // Also check if parameter is passed to another function (indicating reference type)
+            // This is a fallback for parameters that are only passed through
+            if param_is_passed_to_function(&param.name, body) {
+                return Type::List(Box::new(Type::Infer));
+            }
+
             // Default to I64 for unannotated parameters
             Type::I64
         })
@@ -114,6 +125,87 @@ fn param_is_used_as_list(param_name: &str, body: &[Stmt]) -> bool {
         }
     }
     false
+}
+
+/// Check if a parameter is used as a scalar (in arithmetic/comparison operations)
+fn param_is_used_as_scalar(param_name: &str, body: &[Stmt]) -> bool {
+    for stmt in body {
+        if stmt_contains_scalar_usage(param_name, stmt) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check if a parameter is passed as argument to a function call
+/// This indicates the parameter might be a reference type (list, dict, etc.)
+fn param_is_passed_to_function(param_name: &str, body: &[Stmt]) -> bool {
+    for stmt in body {
+        if stmt_contains_function_call_with_param(param_name, stmt) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check if a parameter is used as a scalar (in arithmetic/comparison operations)
+fn stmt_contains_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::Expr(expr) => expr_contains_scalar_usage(param_name, expr),
+        Stmt::If { condition, .. } => expr_contains_scalar_usage(param_name, condition),
+        Stmt::While { condition, .. } => expr_contains_scalar_usage(param_name, condition),
+        Stmt::Return { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_scalar_usage(param_name, v))
+        }
+        Stmt::Assign { value, .. } => {
+            expr_contains_scalar_usage(param_name, value)
+        }
+        Stmt::Declare { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_scalar_usage(param_name, v))
+        }
+        Stmt::AugAssign { target, value, .. } => {
+            expr_contains_scalar_usage(param_name, target)
+                || expr_contains_scalar_usage(param_name, value)
+        }
+        _ => false,
+    }
+}
+
+/// Check if an expression uses the parameter as a scalar (arithmetic/comparison)
+fn expr_contains_scalar_usage(param_name: &str, expr: &Expr) -> bool {
+    match expr {
+        // Binary operations (arithmetic, comparison, logical) indicate scalar usage
+        Expr::BinOp { left, right, .. } => {
+            // Check if this param is directly involved in the operation
+            let left_is_param = matches!(left.as_ref(), Expr::Ident(name, _) if name == param_name);
+            let right_is_param = matches!(right.as_ref(), Expr::Ident(name, _) if name == param_name);
+            if left_is_param || right_is_param {
+                return true;
+            }
+            // Recursively check sub-expressions
+            expr_contains_scalar_usage(param_name, left)
+                || expr_contains_scalar_usage(param_name, right)
+        }
+        Expr::UnaryOp { operand, .. } => {
+            if matches!(operand.as_ref(), Expr::Ident(name, _) if name == param_name) {
+                return true;
+            }
+            expr_contains_scalar_usage(param_name, operand)
+        }
+        // Index operations on the param indicate it's a list, not scalar
+        Expr::Index { obj, .. } => {
+            if matches!(obj.as_ref(), Expr::Ident(name, _) if name == param_name) {
+                return false; // This is list usage, not scalar
+            }
+            expr_contains_scalar_usage(param_name, obj)
+        }
+        // Function calls - check arguments but passing to function doesn't indicate scalar
+        Expr::Call { args, .. } => {
+            args.iter().any(|arg| expr_contains_scalar_usage(param_name, arg))
+        }
+        Expr::Attribute { obj, .. } => expr_contains_scalar_usage(param_name, obj),
+        _ => false,
+    }
 }
 
 /// Check if a statement contains list indexing of a parameter
@@ -171,6 +263,69 @@ fn expr_contains_list_index(param_name: &str, expr: &Expr) -> bool {
                 || args.iter().any(|arg| expr_contains_list_index(param_name, arg))
         }
         Expr::Attribute { obj, .. } => expr_contains_list_index(param_name, obj),
+        _ => false,
+    }
+}
+
+/// Check if a statement contains a function call where the parameter is passed as an argument
+fn stmt_contains_function_call_with_param(param_name: &str, stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::Expr(expr) => expr_contains_function_call_with_param(param_name, expr),
+        Stmt::Assign { target, value, .. } => {
+            expr_contains_function_call_with_param(param_name, target)
+                || expr_contains_function_call_with_param(param_name, value)
+        }
+        Stmt::If { condition, body, else_body, .. } => {
+            expr_contains_function_call_with_param(param_name, condition)
+                || body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
+                || else_body
+                    .as_ref()
+                    .map_or(false, |eb| eb.iter().any(|s| stmt_contains_function_call_with_param(param_name, s)))
+        }
+        Stmt::While { condition, body, .. } => {
+            expr_contains_function_call_with_param(param_name, condition)
+                || body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
+        }
+        Stmt::For { body, .. } => {
+            body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
+        }
+        Stmt::Return { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_function_call_with_param(param_name, v))
+        }
+        Stmt::Function { body, .. } => body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s)),
+        Stmt::Declare { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_function_call_with_param(param_name, v))
+        }
+        Stmt::AugAssign { value, .. } => expr_contains_function_call_with_param(param_name, value),
+        _ => false,
+    }
+}
+
+/// Check if an expression contains a function call where the parameter is passed as an argument
+fn expr_contains_function_call_with_param(param_name: &str, expr: &Expr) -> bool {
+    match expr {
+        Expr::Call { func: _, args, .. } => {
+            // Check if any argument is the parameter
+            args.iter().any(|arg| {
+                if let Expr::Ident(name, _) = arg {
+                    name == param_name
+                } else {
+                    false
+                }
+            })
+            // Also check nested calls in arguments
+            || args.iter().any(|arg| expr_contains_function_call_with_param(param_name, arg))
+        }
+        Expr::BinOp { left, right, .. } => {
+            expr_contains_function_call_with_param(param_name, left)
+                || expr_contains_function_call_with_param(param_name, right)
+        }
+        Expr::UnaryOp { operand, .. } => expr_contains_function_call_with_param(param_name, operand),
+        Expr::Attribute { obj, .. } => expr_contains_function_call_with_param(param_name, obj),
+        Expr::Index { obj, index, .. } => {
+            expr_contains_function_call_with_param(param_name, obj)
+                || expr_contains_function_call_with_param(param_name, index)
+        }
         _ => false,
     }
 }
