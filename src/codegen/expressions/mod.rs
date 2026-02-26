@@ -1,5 +1,3 @@
-//! Expression code generation for Viper - Main Coordinator
-
 pub mod builtins;
 pub mod calls;
 pub mod collections;

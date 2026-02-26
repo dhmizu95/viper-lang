@@ -1,6 +1,3 @@
-// Semantic analysis module for Viper compiler
-// Handles symbol table management and type checking
-
 pub mod escape_analysis;
 pub mod symbol_table;
 pub mod type_checker;
