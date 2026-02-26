@@ -26,6 +26,12 @@ impl TypeError {
     }
 }
 
+impl std::fmt::Display for TypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} at {}", self.message, self.span)
+    }
+}
+
 impl TypeChecker {
     pub fn new() -> Self {
         Self {
@@ -231,12 +237,14 @@ impl TypeChecker {
                 value,
                 span,
             } => {
-                self.check_expr(value);
+                let value_type = self.check_expr(value);
+                let target_type = self.check_expr(target);
+
                 if let Expr::Ident(name, _) = target.as_ref() {
                     // Check if variable exists and is mutable
                     if let Some(symbol) = self.symbol_table.lookup(name) {
                         if let SymbolKind::Variable { mutable, .. } = &symbol.kind {
-                            if !mutable {
+                            if !*mutable {
                                 self.errors.push(TypeError::new(
                                     format!("Cannot assign to immutable variable '{}'", name),
                                     *span,
@@ -245,7 +253,31 @@ impl TypeChecker {
                         }
                     }
                 }
-                self.check_expr(target);
+
+                if let (Some(tt), Some(vt)) = (target_type, value_type) {
+                    if !self.is_compatible(&tt, &vt) {
+                        self.errors.push(TypeError::new(
+                            format!("Cannot assign {} to {}", vt, tt),
+                            *span,
+                        ));
+                        } else {
+                        // Add bounds checking for integers
+                        if let Expr::Int(n, _) = value.as_ref() {
+                            let out_of_bounds = match tt {
+                                Type::I8 => n < &(i8::MIN as i64) || n > &(i8::MAX as i64),
+                                Type::I16 => n < &(i16::MIN as i64) || n > &(i16::MAX as i64),
+                                Type::I32 => n < &(i32::MIN as i64) || n > &(i32::MAX as i64),
+                                _ => false,
+                            };
+                            if out_of_bounds {
+                                self.errors.push(TypeError::new(
+                                    format!("Value {} is out of bounds for type {}", n, tt),
+                                    value.span(),
+                                ));
+                            }
+                        }
+                    }
+                }
             }
             Stmt::Declare {
                 name,
@@ -259,12 +291,28 @@ impl TypeChecker {
 
                     // Check type compatibility
                     if let Some(ann_type) = type_ann {
-                        if let Some(vt) = value_type {
-                            if !self.is_compatible(ann_type, &vt) {
+                        if let Some(vt) = &value_type {
+                            if !self.is_compatible(ann_type, vt) {
                                 self.errors.push(TypeError::new(
                                     format!("Cannot assign {} to {}", vt, ann_type),
                                     *span,
                                 ));
+                            } else {
+                                // Add bounds checking for integers
+                                if let Expr::Int(n, _) = val {
+                                    let out_of_bounds = match ann_type {
+                                        Type::I8 => *n < i8::MIN as i64 || *n > i8::MAX as i64,
+                                        Type::I16 => *n < i16::MIN as i64 || *n > i16::MAX as i64,
+                                        Type::I32 => *n < i32::MIN as i64 || *n > i32::MAX as i64,
+                                        _ => false,
+                                    };
+                                    if out_of_bounds {
+                                        self.errors.push(TypeError::new(
+                                            format!("Value {} is out of bounds for type {}", n, ann_type),
+                                            val.span(),
+                                        ));
+                                    }
+                                }
                             }
                         }
                     }
@@ -781,7 +829,7 @@ impl TypeChecker {
 
     /// Check if a type is numeric
     fn is_numeric(&self, t: &Type) -> bool {
-        matches!(t, Type::I64 | Type::F64)
+        t.is_numeric()
     }
 
     /// Check if two types are compatible
@@ -789,8 +837,8 @@ impl TypeChecker {
         match (expected, actual) {
             (Type::Infer, _) | (_, Type::Infer) => true,
             (Type::Error, _) | (_, Type::Error) => true,
-            (Type::I64, Type::I64) => true,
-            (Type::F64, Type::F64) => true,
+            (e, a) if e.is_integer() && a.is_integer() => true,
+            (e, a) if e.is_float() && a.is_float() => true,
             (Type::Bool, Type::Bool) => true,
             (Type::Str, Type::Str) => true,
             (Type::None, Type::None) => true,

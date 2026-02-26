@@ -37,6 +37,12 @@ pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), Strin
     let mut parser = parser::Parser::new(tokens);
     let ast = parser.parse()?;
 
+    // Semantic Analysis (Type Checking)
+    let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
+    type_checker.check(&ast).map_err(|e| {
+        format!("Type errors found:\n{}", e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n"))
+    })?;
+
     let context = Context::create();
     let module_name = Path::new(input_path)
         .file_stem()

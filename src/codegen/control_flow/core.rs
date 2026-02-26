@@ -8,6 +8,16 @@ pub fn generate_return<'ctx>(
     value: &Option<Expr>,
 ) -> Result<(), String> {
     if let Some(val) = value {
+        // If it's an explicit None return, and the function returns void,
+        // treat it as a void return.
+        if matches!(val, Expr::None(_)) {
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+            if func.get_type().get_return_type().is_none() {
+                state.ir_builder.build_return(state.builder, None);
+                return Ok(());
+            }
+        }
+        
         let v = crate::codegen::expressions::generate_expr(state, val)?;
         state.ir_builder.build_return(state.builder, Some(&v));
     } else {

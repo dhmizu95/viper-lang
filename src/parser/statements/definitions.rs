@@ -224,6 +224,7 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
                 }
                 _ => Type::Var(name.clone()),
             },
+            TokenKind::None | TokenKind::Void => Type::None,
             _ => return Err(format!("Expected type name, found {:?}", token.kind)),
         };
         parser.advance();

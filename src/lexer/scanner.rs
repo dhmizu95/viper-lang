@@ -615,6 +615,7 @@ impl<'a> Lexer<'a> {
             "True" => TokenKind::True,
             "False" => TokenKind::False,
             "None" => TokenKind::None,
+            "void" => TokenKind::Void,
             "mut" => TokenKind::Mut,
             "sync" => TokenKind::Sync,
             "task" => TokenKind::Task,

@@ -45,6 +45,13 @@ pub fn compile_file_aot(
     let mut ast = parser.parse()?;
     println!("   ✓ Parsed {} statements", ast.statements.len());
 
+    // Semantic Analysis (Type Checking)
+    println!("   [2.2/4] Type checking...");
+    let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
+    type_checker.check(&ast).map_err(|e| {
+        format!("Type errors found:\n{}", e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n"))
+    })?;
+
     // Apply Dead Code Elimination optimization
     if opt_level >= 1 {
         println!("   [2.5/4] Running DCE optimization...");
