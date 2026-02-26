@@ -529,9 +529,11 @@ impl<'a> Lexer<'a> {
                 'x' | 'X' => {
                     // Hex literal (0x, 0X)
                     s.push(self.advance()); // consume 'x' or 'X'
-                                            // Read hex digits
+                    // Read hex digits with optional underscores
                     while let Some(c) = self.peek() {
-                        if c.is_ascii_hexdigit() {
+                        if c == '_' {
+                            self.advance();
+                        } else if c.is_ascii_hexdigit() {
                             s.push(self.advance());
                         } else {
                             break;
@@ -553,9 +555,11 @@ impl<'a> Lexer<'a> {
                 'b' | 'B' => {
                     // Binary literal (0b, 0B)
                     s.push(self.advance()); // consume 'b' or 'B'
-                                            // Read binary digits
+                    // Read binary digits with optional underscores
                     while let Some(c) = self.peek() {
-                        if c == '0' || c == '1' {
+                        if c == '_' {
+                            self.advance();
+                        } else if c == '0' || c == '1' {
                             s.push(self.advance());
                         } else {
                             break;
@@ -578,9 +582,11 @@ impl<'a> Lexer<'a> {
                 'o' | 'O' => {
                     // Octal literal (0o, 0O)
                     s.push(self.advance()); // consume 'o' or 'O'
-                                            // Read octal digits
+                    // Read octal digits with optional underscores
                     while let Some(c) = self.peek() {
-                        if c >= '0' && c <= '7' {
+                        if c == '_' {
+                            self.advance();
+                        } else if c >= '0' && c <= '7' {
                             s.push(self.advance());
                         } else {
                             break;
@@ -604,9 +610,11 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        // Read decimal number
+        // Read decimal number with optional underscores
         while let Some(c) = self.peek() {
-            if c.is_ascii_digit() {
+            if c == '_' {
+                self.advance();
+            } else if c.is_ascii_digit() {
                 s.push(self.advance());
             } else if c == '.' && !is_float {
                 // Check if next char is a digit (to distinguish from method call)
@@ -633,10 +641,12 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                // Exponent digits (required)
+                // Exponent digits (required) - allow underscores
                 let mut has_exp_digits = false;
                 while let Some(c) = self.peek() {
-                    if c.is_ascii_digit() {
+                    if c == '_' {
+                        self.advance();
+                    } else if c.is_ascii_digit() {
                         s.push(self.advance());
                         has_exp_digits = true;
                     } else {

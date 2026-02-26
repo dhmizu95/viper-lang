@@ -207,6 +207,48 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
     let token = parser.current();
     let ty = match &token.kind {
         TokenKind::Ident(name) => match name.as_str() {
+            // Python-style aliases
+            "int" => Type::I64,      // Python int -> Viper i64
+            "float" => Type::F64,    // Python float -> Viper f64
+            "list" => {
+                // list[T] syntax
+                parser.advance();
+                if !parser.match_token(&TokenKind::LBracket) {
+                    return Err("Expected '[' after list".to_string());
+                }
+                let elem_type = parse_type_annotation(parser)?;
+                parser.expect(&TokenKind::RBracket)?;
+                return Ok(Type::List(Box::new(elem_type)));
+            }
+            "dict" => {
+                // dict[K, V] syntax
+                parser.advance();
+                if !parser.match_token(&TokenKind::LBracket) {
+                    return Err("Expected '[' after dict".to_string());
+                }
+                let key_type = parse_type_annotation(parser)?;
+                parser.expect(&TokenKind::Comma)?;
+                let value_type = parse_type_annotation(parser)?;
+                parser.expect(&TokenKind::RBracket)?;
+                return Ok(Type::Dict(Box::new(key_type), Box::new(value_type)));
+            }
+            "tuple" => {
+                // tuple[T1, T2, ...] syntax
+                parser.advance();
+                parser.expect(&TokenKind::LBracket)?;
+                let mut types = Vec::new();
+                if !parser.match_token(&TokenKind::RBracket) {
+                    loop {
+                        types.push(parse_type_annotation(parser)?);
+                        if !parser.match_token(&TokenKind::Comma) {
+                            break;
+                        }
+                    }
+                }
+                parser.expect(&TokenKind::RBracket)?;
+                return Ok(Type::Tuple(types));
+            }
+            // Viper native types
             "i8" => Type::I8,
             "i16" => Type::I16,
             "i32" => Type::I32,
