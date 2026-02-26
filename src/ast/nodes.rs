@@ -175,6 +175,10 @@ pub enum Stmt {
     AugAssign { target: Box<Expr>, op: BinOp, value: Box<Expr>, span: Span },
     /// Variable declaration with type: x: i64 = expr
     Declare { name: String, type_ann: Option<Type>, value: Option<Expr>, mutable: bool, span: Span },
+    /// Global variable declaration: global x, y, z (inside function)
+    Global { names: Vec<String>, span: Span },
+    /// Constant declaration: const PI = 3.14
+    Const { name: String, value: Expr, span: Span },
     /// If statement
     If {
         condition: Expr,
@@ -308,6 +312,8 @@ impl Stmt {
             Stmt::Assign { span, .. } => *span,
             Stmt::AugAssign { span, .. } => *span,
             Stmt::Declare { span, .. } => *span,
+            Stmt::Global { span, .. } => *span,
+            Stmt::Const { span, .. } => *span,
             Stmt::If { span, .. } => *span,
             Stmt::While { span, .. } => *span,
             Stmt::For { span, .. } => *span,

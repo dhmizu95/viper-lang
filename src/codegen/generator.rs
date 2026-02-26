@@ -61,9 +61,66 @@ impl<'ctx> CodeGen<'ctx> {
         // First pass: declare all functions (including nested functions)
         self.declare_all_functions(&module.statements)?;
 
-        // Second pass: Skip module-level constant creation entirely
-        // This simplifies variable handling - all module-level vars are treated as regular variables
-        // True constants (like PI = 3.14) could be added as a separate feature with explicit 'const' keyword
+        // Second pass: Process module-level constants and variables
+        // Module-level assignments create immutable constants by default (Python UPPER_CASE convention)
+        for stmt in &module.statements {
+            match stmt {
+                Stmt::Const { name, value, .. } => {
+                    // Create a true constant (explicit const keyword)
+                    // Note: We use set_constant(false) to allow runtime access,
+                    // immutability is enforced by the type checker
+                    let val = crate::codegen::expressions::generate_expr(
+                        &mut crate::codegen::state::CodeGenState::new(
+                            self.context,
+                            &self.module,
+                            &self.builder,
+                            &self.ir_builder,
+                            &mut self.variables,
+                            &self.functions,
+                            &mut self.global_constants,
+                            &mut self.loop_stack,
+                            &mut self.list_vars,
+                        ),
+                        value,
+                    )?;
+                    let ty = val.get_type();
+                    let global = self.module.add_global(ty, None, name);
+                    global.set_constant(false); // Mutable at LLVM level (type checker enforces)
+                    global.set_initializer(&val);
+                    global.set_unnamed_addr(false);
+                    self.global_constants.insert(name.clone(), global);
+                }
+                Stmt::Assign { target, value, .. } => {
+                    // Module-level assignment creates an immutable constant by default
+                    // This follows Python UPPER_CASE convention for constants
+                    // Note: We use set_constant(false) to allow 'global' to work,
+                    // immutability is enforced by the type checker
+                    if let Expr::Ident(name, _) = target.as_ref() {
+                        let val = crate::codegen::expressions::generate_expr(
+                            &mut crate::codegen::state::CodeGenState::new(
+                                self.context,
+                                &self.module,
+                                &self.builder,
+                                &self.ir_builder,
+                                &mut self.variables,
+                                &self.functions,
+                                &mut self.global_constants,
+                                &mut self.loop_stack,
+                                &mut self.list_vars,
+                            ),
+                            value,
+                        )?;
+                        let ty = val.get_type();
+                        let global = self.module.add_global(ty, None, name);
+                        global.set_constant(false); // Mutable at LLVM level (type checker enforces)
+                        global.set_initializer(&val);
+                        global.set_unnamed_addr(false);
+                        self.global_constants.insert(name.clone(), global);
+                    }
+                }
+                _ => {}
+            }
+        }
 
         // Third pass: define all functions (including nested ones)
         self.define_all_functions(&module.statements)?;

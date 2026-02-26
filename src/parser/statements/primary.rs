@@ -20,12 +20,61 @@ pub fn parse_mutable_decl(parser: &mut StatementParser) -> Result<Stmt, String> 
     Ok(Stmt::Declare { name, type_ann, value, mutable: true, span })
 }
 
+/// Parse global variable declaration: global x, y, z
+/// Python syntax: global x (inside function to refer to module-level x)
+pub fn parse_global_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Global)?;
+
+    // Parse comma-separated list of variable names
+    let mut names = vec![parser.expect_ident()?];
+    while parser.match_token(&TokenKind::Comma) {
+        names.push(parser.expect_ident()?);
+    }
+
+    Ok(Stmt::Global { names, span })
+}
+
+/// Parse constant declaration: const PI = 3.14
+pub fn parse_const_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Const)?;
+
+    let name = parser.expect_ident()?;
+
+    // Constants must have an initializer
+    if !parser.match_token(&TokenKind::Eq) {
+        return Err("Constant declaration must have an initializer".to_string());
+    }
+
+    let value = parse_expression(parser)?;
+
+    Ok(Stmt::Const { name, value, span })
+}
+
 pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, String> {
-    // Parse the left-hand side (should be an identifier or attribute access)
+    // Parse the left-hand side (could be identifier, tuple, or attribute access)
     let expr = parse_primary_expr(parser)?;
 
+    // Check for tuple unpacking: a, b = 1, 2
+    let target = if parser.match_token(&TokenKind::Comma) {
+        // This is a tuple pattern for unpacking
+        let mut elements = vec![expr];
+        loop {
+            elements.push(parse_primary_expr(parser)?);
+            if !parser.match_token(&TokenKind::Comma) {
+                break;
+            }
+        }
+        let last_span = parser.previous().span;
+        let merged_span = elements.first().unwrap().span().merge(last_span);
+        Expr::Tuple { elements, span: merged_span }
+    } else {
+        expr
+    };
+
     let mut type_ann = None;
-    let is_ident = matches!(expr, Expr::Ident(_, _));
+    let is_ident = matches!(target, Expr::Ident(_, _));
 
     // If it's an identifier, we can have a type annotation
     if is_ident {
@@ -36,11 +85,12 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, St
 
     if parser.match_token(&TokenKind::Eq) {
         // For the value, we need to parse a full expression including function calls
-        let value = parse_value_expr(parser)?;
-        let span = expr.span().merge(value.span());
+        // Also handle tuple literals on the right-hand side: a, b = 1, 2
+        let value = parse_value_or_tuple(parser)?;
+        let span = target.span().merge(value.span());
 
         if type_ann.is_some() {
-            if let Expr::Ident(name, _) = expr {
+            if let Expr::Ident(name, _) = target {
                 return Ok(Stmt::Declare {
                     name,
                     type_ann,
@@ -51,20 +101,20 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, St
             }
         }
 
-        Ok(Stmt::Assign { target: Box::new(expr), value: Box::new(value), span })
+        Ok(Stmt::Assign { target: Box::new(target), value: Box::new(value), span })
     } else if is_augmented_assign(parser) {
         let op = get_aug_assign_op(parser);
         let value = parse_value_expr(parser)?;
-        let span = expr.span().merge(value.span());
+        let span = target.span().merge(value.span());
         if type_ann.is_some() {
             return Err("Cannot use type annotation with augmented assignment".to_string());
         }
-        Ok(Stmt::AugAssign { target: Box::new(expr), op, value: Box::new(value), span })
+        Ok(Stmt::AugAssign { target: Box::new(target), op, value: Box::new(value), span })
     } else {
         // If we parsed a type annotation but no assignment, it's just a declaration
         if let Some(ann) = type_ann {
-            let expr_span = expr.span();
-            if let Expr::Ident(name, _) = expr {
+            let expr_span = target.span();
+            if let Expr::Ident(name, _) = target {
                 return Ok(Stmt::Declare {
                     name,
                     type_ann: Some(ann),
@@ -83,16 +133,16 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, St
         if matches!(parser.current().kind, TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof)
         {
             // Just return the primary expression as a statement
-            Ok(Stmt::Expr(expr))
+            Ok(Stmt::Expr(target))
         } else {
             // Parse the full expression, carefully not eating the next line
             if parser.is_at_end() {
-                return Ok(Stmt::Expr(expr));
+                return Ok(Stmt::Expr(target));
             }
 
             // Let parse_value_expr do the bounded checking
             parser.pos = parser.expr_parser.pos(); // sync pos before value parse
-            let full_expr = parse_value_expr_with_left(parser, expr)?;
+            let full_expr = parse_value_expr_with_left(parser, target)?;
             Ok(Stmt::Expr(full_expr))
         }
     }
@@ -200,6 +250,31 @@ pub fn parse_value_expr(parser: &mut StatementParser) -> Result<Expr, String> {
     parser.pos = parser.expr_parser.pos();
     Ok(full_expr)
 }
+
+/// Parse a value expression or tuple of values
+/// Used for assignment right-hand sides: a, b = 1, 2
+pub fn parse_value_or_tuple(parser: &mut StatementParser) -> Result<Expr, String> {
+    let first = parse_primary_expr(parser)?;
+    
+    // Check for comma - indicates a tuple
+    if parser.match_token(&TokenKind::Comma) {
+        let first_span = first.span();
+        let mut elements = vec![first];
+        loop {
+            elements.push(parse_primary_expr(parser)?);
+            if !parser.match_token(&TokenKind::Comma) {
+                break;
+            }
+        }
+        let last_span = parser.previous().span;
+        let merged_span = first_span.merge(last_span);
+        return Ok(Expr::Tuple { elements, span: merged_span });
+    }
+    
+    // Otherwise parse as a regular value expression
+    parse_value_expr_with_left(parser, first)
+}
+
 pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> {
     // Parse only primary expressions (identifiers, literals, etc.) without operators
     let token = parser.current();

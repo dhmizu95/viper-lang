@@ -128,6 +128,8 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         TokenKind::Sync => parse_sync_block(parser),
         TokenKind::Task => parse_task_spawn(parser),
         TokenKind::Mut => parse_mutable_decl(parser),
+        TokenKind::Global => parse_global_decl(parser),
+        TokenKind::Const => parse_const_decl(parser),
         TokenKind::Async => {
             // Check if this is async for or async def
             if matches!(parser.peek(), Some(t) if matches!(t.kind, TokenKind::For)) {

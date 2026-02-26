@@ -215,6 +215,18 @@ impl EscapeAnalyzer {
                     self.analyze_expr(val, ctx, EscapeState::None);
                 }
             }
+            Stmt::Global { names, .. } => {
+                // Global keyword marks variables as module-level
+                // They escape by definition - mark them as escaping
+                for name in names {
+                    // Mark as escaping by adding to variables with Escapes state
+                    ctx.variables.insert(name.clone(), VariableEscapeInfo::new(None, true, 0));
+                }
+            }
+            Stmt::Const { value, .. } => {
+                // Constants are immutable, but their values may escape
+                self.analyze_expr(value, ctx, EscapeState::Escapes);
+            }
             Stmt::Return { value, .. } => {
                 if let Some(expr) = value {
                     self.analyze_return_expr(expr, ctx);
