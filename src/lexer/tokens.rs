@@ -52,6 +52,8 @@ pub enum TokenKind {
     Unless,
     Pipeline,
     DotDot,
+    Global,
+    Const,
     Type,      // type keyword for type aliases
     Tuple,     // tuple keyword for tuple types
     Optional,  // Optional keyword for optional types
@@ -193,6 +195,8 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Pipe => write!(f, "|"),
             TokenKind::Pipeline => write!(f, "|>"),
             TokenKind::DotDot => write!(f, ".."),
+            TokenKind::Global => write!(f, "global"),
+            TokenKind::Const => write!(f, "const"),
             TokenKind::Plus => write!(f, "+"),
             TokenKind::Minus => write!(f, "-"),
             TokenKind::Star => write!(f, "*"),

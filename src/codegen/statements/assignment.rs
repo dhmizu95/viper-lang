@@ -11,6 +11,17 @@ pub(crate) fn generate_assign<'ctx>(
     if let Expr::Ident(name, _) = target {
         let val = crate::codegen::expressions::generate_expr(state, value)?;
 
+        // Check if this is a global variable assignment
+        // If the variable exists in global_constants but not in local variables,
+        // assign to the global
+        if state.global_constants.contains_key(name) && !state.variables.contains_key(name) {
+            // This is a global variable assignment
+            let global = state.global_constants.get(name).unwrap();
+            let global_ptr = global.as_pointer_value();
+            state.builder.build_store(global_ptr, val).expect("store to global");
+            return Ok(());
+        }
+
         // Check if the value is a stack-allocated array (should not use ARC)
         let is_stack_array = matches!(value, Expr::Array { .. });
 

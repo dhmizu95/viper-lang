@@ -1,4 +1,4 @@
-use crate::ast::Stmt;
+use crate::ast::{Expr, Stmt};
 use inkwell::context::Context;
 use inkwell::values::{FunctionValue, GlobalValue};
 use std::collections::{HashMap, HashSet};
@@ -78,14 +78,25 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::Expr(expr) => {
             crate::codegen::expressions::generate_expr(state, expr)?;
         }
+        Stmt::Declare { name, value, mutable, .. } => {
+            generate_declare(state, name, *mutable, value)?;
+        }
+        Stmt::Global { names, .. } => {
+            generate_global(state, names)?;
+        }
+        Stmt::Const { name, value, .. } => {
+            generate_const(state, name, value)?;
+        }
         Stmt::Assign { target, value, .. } => {
-            generate_assign(state, target, value)?;
+            // Check for tuple unpacking
+            if let Expr::Tuple { elements, .. } = target.as_ref() {
+                generate_tuple_unpack(state, elements, value)?;
+            } else {
+                generate_assign(state, target, value)?;
+            }
         }
         Stmt::AugAssign { target, op, value, .. } => {
             generate_aug_assign(state, target, op, value)?;
-        }
-        Stmt::Declare { name, value, mutable, .. } => {
-            generate_declare(state, name, *mutable, value)?;
         }
         Stmt::Return { value, .. } => {
             return crate::codegen::control_flow::generate_return(state, value);

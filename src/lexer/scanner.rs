@@ -770,8 +770,8 @@ impl<'a> Lexer<'a> {
                 }
                 TokenKind::Not
             }
-            "global" => TokenKind::Ident("global".to_string()), // Reserved for Phase 3
-            "const" => TokenKind::Ident("const".to_string()),   // Reserved for Phase 2
+            "global" => TokenKind::Global,
+            "const" => TokenKind::Const,
             "lambda" => TokenKind::Lambda,
             "fn" => TokenKind::Fn,
             "yield" => TokenKind::Ident("yield".to_string()),

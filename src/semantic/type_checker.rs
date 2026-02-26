@@ -66,8 +66,9 @@ impl TypeChecker {
         }
 
         // Second pass: type check all statements
+        // Module-level (scope 0) assignments create immutable constants
         for stmt in &module.statements {
-            self.check_stmt(stmt);
+            self.check_stmt_module(stmt);
         }
 
         if self.errors.is_empty() {
@@ -204,6 +205,31 @@ impl TypeChecker {
         }
     }
 
+    /// Check a statement at module level (assignments create immutable constants)
+    fn check_stmt_module(&mut self, stmt: &Stmt) {
+        match stmt {
+            Stmt::Assign { target, value, span } => {
+                let value_type = self.check_expr(value);
+                
+                if let Expr::Ident(name, _) = target.as_ref() {
+                    // Module-level assignments create immutable constants
+                    let kind = SymbolKind::Variable { mutable: false, type_ann: value_type.clone() };
+                    let symbol = Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
+                    if let Err(e) = self.symbol_table.insert(symbol) {
+                        self.errors.push(TypeError::new(e, *span));
+                    }
+                } else {
+                    // Non-identifier target, use regular check
+                    self.check_stmt(stmt);
+                }
+            }
+            _ => {
+                // Other statements use regular checking
+                self.check_stmt(stmt);
+            }
+        }
+    }
+
     /// Check a statement
     fn check_stmt(&mut self, stmt: &Stmt) {
         match stmt {
@@ -289,6 +315,29 @@ impl TypeChecker {
 
                 // Insert variable into symbol table
                 let kind = SymbolKind::Variable { mutable: *mutable, type_ann: type_ann.clone() };
+                let symbol =
+                    Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
+                if let Err(e) = self.symbol_table.insert(symbol) {
+                    self.errors.push(TypeError::new(e, *span));
+                }
+            }
+            Stmt::Global { names, span } => {
+                // Global keyword - variables should exist at module level
+                // For now, we just register them as mutable variables
+                for name in names {
+                    let kind = SymbolKind::Variable { mutable: true, type_ann: None };
+                    let symbol =
+                        Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
+                    // Don't error if already exists (global can be repeated)
+                    let _ = self.symbol_table.insert(symbol);
+                }
+            }
+            Stmt::Const { name, value, span } => {
+                // Constants must have a value and are immutable
+                let value_type = self.check_expr(value);
+                
+                // Insert into symbol table as immutable constant
+                let kind = SymbolKind::Variable { mutable: false, type_ann: value_type };
                 let symbol =
                     Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
                 if let Err(e) = self.symbol_table.insert(symbol) {
