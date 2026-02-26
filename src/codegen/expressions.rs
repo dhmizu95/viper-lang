@@ -881,7 +881,7 @@ fn generate_binop<'ctx>(
             .builder
             .build_signed_int_to_float(rhs_int, state.context.f64_type(), "int_to_float")
             .expect("int to float conversion");
-        return generate_float_binop(state.builder, lhs_val, rhs_float.into(), op);
+        return generate_float_binop(state, lhs_val, rhs_float.into(), op);
     } else if !lhs_val.is_float_value() && rhs_val.is_float_value() {
         // Convert lhs (int) to float
         let lhs_int = lhs_val.into_int_value();
@@ -889,9 +889,9 @@ fn generate_binop<'ctx>(
             .builder
             .build_signed_int_to_float(lhs_int, state.context.f64_type(), "int_to_float")
             .expect("int to float conversion");
-        return generate_float_binop(state.builder, lhs_float.into(), rhs_val, op);
+        return generate_float_binop(state, lhs_float.into(), rhs_val, op);
     } else if lhs_val.is_float_value() {
-        return generate_float_binop(state.builder, lhs_val, rhs_val, op);
+        return generate_float_binop(state, lhs_val, rhs_val, op);
     } else {
         return generate_int_binop(state, lhs_val, rhs_val, op);
     }
@@ -1029,11 +1029,12 @@ fn generate_membership_op<'ctx>(
 
 /// Generate float binary operation
 fn generate_float_binop<'ctx>(
-    builder: &inkwell::builder::Builder<'ctx>,
+    state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
 ) -> Result<BasicValueEnum<'ctx>, String> {
+    let builder = state.builder;
     let lhs = lhs.into_float_value();
     let rhs = rhs.into_float_value();
 
@@ -1092,7 +1093,20 @@ fn generate_float_binop<'ctx>(
             let div = builder.build_float_div(lhs, rhs, "fdiv").expect("fdiv");
             Ok(div.into())
         }
-        BinOp::Pow => Err("pow for floats not implemented".to_string()),
+        BinOp::Pow => {
+            // Call vp_pow(base, exponent)
+            let pow_func = state
+                .module
+                .get_function("vp_pow")
+                .ok_or_else(|| "vp_pow not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(state.builder, pow_func, &[lhs.into(), rhs.into()], "pow")
+                .ok_or_else(|| "build call failed".to_string())?;
+            
+            Ok(result)
+        }
         BinOp::In | BinOp::NotIn => {
             Err("Membership operators not supported for float types".to_string())
         }
@@ -1204,7 +1218,20 @@ fn generate_int_binop<'ctx>(
             .build_right_shift(lhs, rhs, false, "rshift")
             .expect("rshift")
             .into()),
-        BinOp::Pow => Err("pow for ints not implemented".to_string()),
+        BinOp::Pow => {
+            // Call vp_pow_i64(base, exponent)
+            let pow_func = state
+                .module
+                .get_function("vp_pow_i64")
+                .ok_or_else(|| "vp_pow_i64 not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(state.builder, pow_func, &[lhs.into(), rhs.into()], "pow")
+                .ok_or_else(|| "build call failed".to_string())?;
+            
+            Ok(result.into())
+        }
         _ => Err(format!("Unsupported int operator: {:?}", op)),
     }
 }

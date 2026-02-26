@@ -235,6 +235,7 @@ fn declare_math_functions<'ctx>(
     module: &Module<'ctx>,
 ) -> Result<(), String> {
     let f64_type = context.f64_type();
+    let i64_type = context.i64_type();
 
     // sqrt(x) - square root
     let sqrt_type = f64_type.fn_type(&[f64_type.into()], false);
@@ -251,6 +252,14 @@ fn declare_math_functions<'ctx>(
     // floor(x) - floor function
     let floor_type = f64_type.fn_type(&[f64_type.into()], false);
     module.add_function("vp_math_floor", floor_type, None);
+
+    // pow(base, exponent) - power function for floats
+    let pow_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
+    module.add_function("vp_pow", pow_type, None);
+
+    // pow_i64(base, exponent) - power function for integers
+    let pow_i64_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_pow_i64", pow_i64_type, None);
 
     Ok(())
 }

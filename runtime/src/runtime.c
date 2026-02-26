@@ -195,6 +195,34 @@ char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub) 
 /* Utility Functions                            */
 /* ============================================ */
 
+/* Math functions */
+double vp_pow(double base, double exponent) {
+    return pow(base, exponent);
+}
+
+int64_t vp_pow_i64(int64_t base, int64_t exponent) {
+    if (exponent < 0) {
+        vp_panic("Negative exponent not supported for integer power");
+    }
+    if (exponent == 0) {
+        return 1;
+    }
+    
+    int64_t result = 1;
+    int64_t b = base;
+    int64_t e = exponent;
+    
+    while (e > 0) {
+        if (e & 1) {
+            result *= b;
+        }
+        b *= b;
+        e >>= 1;
+    }
+    
+    return result;
+}
+
 void vp_panic(const char* message) {
     fprintf(stderr, "\nViper Runtime Error: %s\n", message);
     exit(1);

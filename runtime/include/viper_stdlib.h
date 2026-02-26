@@ -103,6 +103,10 @@ char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub);
 void vp_panic(const char* message);
 void vp_assert(bool condition, const char* message);
 
+/* Math functions */
+double vp_pow(double base, double exponent);
+int64_t vp_pow_i64(int64_t base, int64_t exponent);
+
 /* ============================================ */
 /* Built-in Functions (callable from Viper)     */
 /* ============================================ */

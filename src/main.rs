@@ -886,6 +886,19 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             vp_math_floor_stub as *const () as usize,
         );
     }
+    // Power functions
+    if let Some(func) = codegen.module().get_function("vp_pow") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_pow_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_pow_i64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_pow_i64_stub as *const () as usize,
+        );
+    }
 
     // Struct module JIT mappings
     if let Some(func) = codegen.module().get_function("vp_struct_pack") {
@@ -1494,6 +1507,31 @@ extern "C" fn vp_math_ln_stub(x: f64) -> f64 {
 }
 extern "C" fn vp_math_floor_stub(x: f64) -> f64 {
     x.floor()
+}
+extern "C" fn vp_pow_stub(base: f64, exponent: f64) -> f64 {
+    base.powf(exponent)
+}
+extern "C" fn vp_pow_i64_stub(base: i64, exponent: i64) -> i64 {
+    if exponent < 0 {
+        panic!("Negative exponent not supported for integer power");
+    }
+    if exponent == 0 {
+        return 1;
+    }
+    
+    let mut result = 1;
+    let mut b = base;
+    let mut e = exponent;
+    
+    while e > 0 {
+        if e & 1 == 1 {
+            result *= b;
+        }
+        b *= b;
+        e >>= 1;
+    }
+    
+    result
 }
 
 /// Check basic prerequisites (LLVM, GCC)
