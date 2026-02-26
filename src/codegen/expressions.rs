@@ -15,7 +15,7 @@ fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::None(_) => Type::None,
-        Expr::Ident(_, _) => Type::Infer,
+        Expr::Ident(_, _) => Type::Infer,  // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
@@ -703,14 +703,50 @@ fn generate_index<'ctx>(
 
     let index_val = index_val.into_int_value();
 
-    let is_list = if let Expr::Ident(obj_name, _) = obj {
-        state.is_list(obj_name)
-    } else {
-        matches!(obj, Expr::List { .. })
+    // Check if this is a list by examining the object
+    let is_list = match obj {
+        Expr::Ident(obj_name, _) => {
+            // Check if variable is marked as list OR if it has pointer type (lists are pointers)
+            state.is_list(obj_name)
+        }
+        Expr::List { .. } | Expr::ListComprehension { .. } => true,
+        _ => false,
     };
 
+    // For pointer-typed objects that aren't explicitly lists, check if the value is a pointer
+    // Lists, strings, and channels are all pointers, but only lists use vp_list_get
+    let is_pointer_type = obj_val.is_pointer_value();
+
     // Try array indexing first (gep on pointer) - only for raw pointers/arrays, not lists
-    if obj_val.is_pointer_value() && !is_list {
+    // Lists need to use vp_list_get because they have a ViperList struct wrapper
+    if is_pointer_type && !is_list {
+        // Check if this might be a list by looking at variable type
+        // If variable has Pointer type and we're indexing, assume it's a list
+        if let Expr::Ident(obj_name, _) = obj {
+            if let Some(var_info) = state.variables.get(obj_name) {
+                if var_info.var_type == VarType::Pointer {
+                    // This is a pointer-typed variable, use list access
+                    let list_get = state
+                        .module
+                        .get_function("vp_list_get")
+                        .ok_or_else(|| "vp_list_get not declared".to_string())?;
+
+                    let result = state
+                        .ir_builder
+                        .build_call(
+                            state.builder,
+                            list_get,
+                            &[obj_val.into(), index_val.into()],
+                            "list_get",
+                        )
+                        .ok_or_else(|| "build call failed".to_string())?;
+
+                    return Ok(result);
+                }
+            }
+        }
+        
+        // For non-list pointers, use array indexing
         let obj_ptr = obj_val.into_pointer_value();
         let elem_type = state.context.i64_type(); // Default to i64
 

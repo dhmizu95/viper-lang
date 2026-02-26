@@ -45,11 +45,12 @@ impl<'ctx> TypeMapper<'ctx> {
             Type::I8 | Type::I16 | Type::I32 | Type::I64 => self.context.i64_type().into(),
             Type::F32 | Type::F64 => self.context.f64_type().into(),
             Type::Bool => self.context.bool_type().into(),
-            Type::Str => self
-                .context
-                .ptr_type(inkwell::AddressSpace::default())
-                .into(),
-            Type::Chan(_) | Type::WaitGroup | Type::Fn(_, _) => self
+            Type::Str
+            | Type::Chan(_)
+            | Type::WaitGroup
+            | Type::List(_)
+            | Type::Dict(_, _)
+            | Type::Fn(_, _) => self
                 .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .into(),
@@ -70,7 +71,11 @@ impl<'ctx> TypeMapper<'ctx> {
             }
             Some(Type::F32) | Some(Type::F64) => Some(self.context.f64_type().into()),
             Some(Type::Bool) => Some(self.context.bool_type().into()),
-            Some(Type::Str) | Some(Type::Chan(_)) | Some(Type::WaitGroup) => Some(
+            Some(Type::Str)
+            | Some(Type::Chan(_))
+            | Some(Type::WaitGroup)
+            | Some(Type::List(_))
+            | Some(Type::Dict(_, _)) => Some(
                 self.context
                     .ptr_type(inkwell::AddressSpace::default())
                     .into(),

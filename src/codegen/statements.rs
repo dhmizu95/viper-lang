@@ -725,10 +725,21 @@ fn generate_declare<'ctx>(
         let ty = val.get_type();
 
         // Track list variables
+        // Check for explicit list expressions, list comprehensions, or variables that hold lists
         let is_list = match expr {
             Expr::List { .. } => true,
             Expr::ListComprehension { .. } => true,
             Expr::Ident(other, _) => state.is_list(other),
+            Expr::Call { func, .. } => {
+                // Check if calling a known list-returning function
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    // List literal functions
+                    func_name == "vp_list_create" || func_name == "vp_list_create_f64" 
+                        || func_name == "vp_list_create_with_capacity"
+                } else {
+                    false
+                }
+            }
             _ => false,
         };
         if is_list {

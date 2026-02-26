@@ -121,10 +121,10 @@ impl<'ctx> CodeGen<'ctx> {
                 ..
             } = stmt
             {
-                let param_types: Vec<Type> = params
-                    .iter()
-                    .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
-                    .collect();
+                // Compute mangled name using the same logic as declare_function
+                // Infer parameter types from body if not annotated
+                use crate::codegen::functions::infer_param_types_from_body;
+                let param_types = infer_param_types_from_body(params, body);
                 let mangled_name = mangle_function_name(name, &param_types);
                 self.define_function(&mangled_name, params, return_type, body)?;
             } else {
@@ -211,7 +211,15 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder
                 .build_store(alloca, param_value)
                 .expect("store");
-            let var_type = VarType::from_ast_type(&param.type_ann.clone().unwrap_or(Type::I64));
+            // Determine VarType from the actual LLVM parameter type, not just the annotation
+            // This handles cases where lists/channels are passed without explicit type annotations
+            let var_type = if param_value.is_pointer_value() {
+                VarType::Pointer
+            } else if param_value.is_float_value() {
+                VarType::Float
+            } else {
+                VarType::Int
+            };
             self.variables
                 .insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
         }
