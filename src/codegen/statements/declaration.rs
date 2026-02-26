@@ -48,8 +48,13 @@ pub(crate) fn generate_declare<'ctx>(
             state.mark_as_list(name.to_string());
         }
 
-        // Use escape analysis to determine allocation strategy
-        let can_stack_alloc = state.can_stack_allocate(name);
+        // Lists are ALWAYS heap-allocated with ARC since they can be mutated via method calls
+        // This prevents stack allocation issues with in-place mutations like sort() and reverse()
+        let can_stack_alloc = if is_list {
+            false
+        } else {
+            state.can_stack_allocate(name)
+        };
 
         // Determine if this is a reference type (pointer)
         // Chan[T] and WaitGroup are always pointer types

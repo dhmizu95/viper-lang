@@ -637,9 +637,47 @@ impl TypeChecker {
 
                 if let (Some(lt), Some(rt)) = (left_type, right_type) {
                     match op {
-                        BinOp::Add
-                        | BinOp::Sub
-                        | BinOp::Mul
+                        BinOp::Add => {
+                            // List concatenation: List + List is allowed
+                            match (&lt, &rt) {
+                                (Type::List(_), Type::List(_)) => {
+                                    // List concatenation is valid
+                                }
+                                _ => {
+                                    // For other types, require numeric
+                                    if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                                        self.errors.push(TypeError::new(
+                                            format!(
+                                                "Arithmetic operators require numeric types, got {} and {}",
+                                                lt, rt
+                                            ),
+                                            *span,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                        BinOp::Mul => {
+                            // List repetition: List * int or int * List is allowed
+                            let is_list_repeat = match (&lt, &rt) {
+                                (Type::List(_), Type::I64) => true,
+                                (Type::I64, Type::List(_)) => true,
+                                _ => false,
+                            };
+                            if !is_list_repeat {
+                                // For other types, require numeric
+                                if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                                    self.errors.push(TypeError::new(
+                                        format!(
+                                            "Arithmetic operators require numeric types, got {} and {}",
+                                            lt, rt
+                                        ),
+                                        *span,
+                                    ));
+                                }
+                            }
+                        }
+                        BinOp::Sub
                         | BinOp::Div
                         | BinOp::Mod
                         | BinOp::FloorDiv

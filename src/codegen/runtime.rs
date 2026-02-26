@@ -142,6 +142,9 @@ fn declare_list_functions<'ctx>(
     let list_contains_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_list_contains", list_contains_type, None);
 
+    let list_copy_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_copy", list_copy_type, None);
+
     // Float list functions (f64)
     let f64_type = context.f64_type();
 
@@ -165,6 +168,31 @@ fn declare_list_functions<'ctx>(
     // List print function
     let list_print_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_list_print", list_print_type, None);
+
+    // Extended list operations
+    let list_extend_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_list_extend", list_extend_type, None);
+
+    let list_index_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_index", list_index_type, None);
+
+    let list_count_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_count", list_count_type, None);
+
+    let list_sort_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_sort", list_sort_type, None);
+
+    let list_reverse_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_reverse", list_reverse_type, None);
+
+    let list_reversed_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_reversed", list_reversed_type, None);
+
+    let list_sorted_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_sorted", list_sorted_type, None);
+
+    let list_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_list_concat", list_concat_type, None);
 
     // Range function: vp_range(start, end) returns a list
     let range_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);

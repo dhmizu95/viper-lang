@@ -271,25 +271,169 @@ void vp_list_print(ViperList* list) {
  */
 ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step) {
     if (!list) return NULL;
-    
+
     /* Normalize negative indices */
     if (start < 0) start = (start + list->length < 0) ? 0 : start + list->length;
     if (end < 0) end = end + list->length;
-    
+
     /* Clamp to valid range */
     if (start < 0) start = 0;
     if (end > list->length) end = list->length;
     if (start >= end) return vp_list_create();
-    
+
     /* Calculate result length */
     int64_t result_len = (end - start + step - 1) / step;
     if (result_len < 0) result_len = 0;
-    
+
     ViperList* result = vp_list_create_with_capacity(result_len);
-    
+
     for (int64_t i = start; i < end; i += step) {
         vp_list_append(result, list->data[i]);
     }
-    
+
+    return result;
+}
+
+/**
+ * Extend a list by appending all elements from another list
+ * list.extend(other)
+ */
+void vp_list_extend(ViperList* list, ViperList* other) {
+    if (!list) {
+        vp_panic("Cannot extend NULL list");
+        return;
+    }
+    if (!other) {
+        return;  /* Extending with NULL is a no-op */
+    }
+
+    /* Ensure capacity */
+    int64_t new_length = list->length + other->length;
+    while (list->capacity < new_length) {
+        vp_list_grow(list);
+    }
+
+    /* Copy elements */
+    memcpy(list->data + list->length, other->data, other->length * sizeof(int64_t));
+    list->length = new_length;
+}
+
+/**
+ * Find the index of the first occurrence of a value
+ * list.index(x) - returns index or -1 if not found
+ */
+int64_t vp_list_index(ViperList* list, int64_t value) {
+    if (!list) return -1;
+
+    for (int64_t i = 0; i < list->length; i++) {
+        if (list->data[i] == value) {
+            return i;
+        }
+    }
+
+    return -1;  /* Not found */
+}
+
+/**
+ * Count occurrences of a value in the list
+ * list.count(x)
+ */
+int64_t vp_list_count(ViperList* list, int64_t value) {
+    if (!list) return 0;
+
+    int64_t count = 0;
+    for (int64_t i = 0; i < list->length; i++) {
+        if (list->data[i] == value) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+/* Comparison function for qsort */
+static int compare_i64(const void* a, const void* b) {
+    int64_t val_a = *(const int64_t*)a;
+    int64_t val_b = *(const int64_t*)b;
+    if (val_a < val_b) return -1;
+    if (val_a > val_b) return 1;
+    return 0;
+}
+
+/**
+ * Sort the list in-place (ascending order)
+ * list.sort()
+ */
+void vp_list_sort(ViperList* list) {
+    if (!list || list->length <= 1) return;
+    qsort(list->data, list->length, sizeof(int64_t), compare_i64);
+}
+
+/**
+ * Reverse the list in-place
+ * list.reverse()
+ */
+void vp_list_reverse(ViperList* list) {
+    if (!list || list->length <= 1) return;
+
+    int64_t left = 0;
+    int64_t right = list->length - 1;
+    while (left < right) {
+        int64_t temp = list->data[left];
+        list->data[left] = list->data[right];
+        list->data[right] = temp;
+        left++;
+        right--;
+    }
+}
+
+/**
+ * Create a reversed copy of the list
+ * reversed(list) - returns new list
+ */
+ViperList* vp_list_reversed(ViperList* list) {
+    if (!list) return vp_list_create();
+
+    ViperList* result = vp_list_copy(list);
+    vp_list_reverse(result);
+    return result;
+}
+
+/**
+ * Create a sorted copy of the list
+ * sorted(list) - returns new list
+ */
+ViperList* vp_list_sorted(ViperList* list) {
+    if (!list) return vp_list_create();
+
+    ViperList* result = vp_list_copy(list);
+    vp_list_sort(result);
+    return result;
+}
+
+/**
+ * Concatenate two lists: list1 + list2
+ * Returns a new list
+ */
+ViperList* vp_list_concat(ViperList* list1, ViperList* list2) {
+    if (!list1 && !list2) return vp_list_create();
+    if (!list1) return vp_list_copy(list2);
+    if (!list2) return vp_list_copy(list1);
+
+    int64_t total_len = list1->length + list2->length;
+    ViperList* result = vp_list_create_with_capacity(total_len);
+
+    /* Copy first list */
+    if (list1->length > 0) {
+        memcpy(result->data, list1->data, list1->length * sizeof(int64_t));
+        result->length = list1->length;
+    }
+
+    /* Copy second list */
+    if (list2->length > 0) {
+        memcpy(result->data + list1->length, list2->data, list2->length * sizeof(int64_t));
+        result->length = total_len;
+    }
+
     return result;
 }

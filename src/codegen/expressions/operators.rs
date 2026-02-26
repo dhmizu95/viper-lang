@@ -105,6 +105,39 @@ pub fn generate_binop<'ctx>(
         }
     }
 
+    // List concatenation: list1 + list2
+    if matches!(op, BinOp::Add) {
+        let is_list_left = match left {
+            Expr::List { .. } | Expr::ListComprehension { .. } => true,
+            Expr::Ident(name, _) => state.is_list(name),
+            _ => false,
+        };
+        let is_list_right = match right {
+            Expr::List { .. } | Expr::ListComprehension { .. } => true,
+            Expr::Ident(name, _) => state.is_list(name),
+            _ => false,
+        };
+
+        if is_list_left && is_list_right {
+            let left_val = generate_expr(state, left)?;
+            let right_val = generate_expr(state, right)?;
+            let list_concat = state
+                .module
+                .get_function("vp_list_concat")
+                .ok_or_else(|| "vp_list_concat not declared".to_string())?;
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    list_concat,
+                    &[left_val.into(), right_val.into()],
+                    "list_concat",
+                )
+                .expect("list_concat call");
+            return Ok(result.into());
+        }
+    }
+
     // General binary operation handling
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;

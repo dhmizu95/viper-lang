@@ -54,6 +54,16 @@ ViperList* vp_list_repeat(int64_t elem, int64_t count);
 ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step);
 void vp_list_print(ViperList* list);
 
+/* Extended list operations */
+void vp_list_extend(ViperList* list, ViperList* other);
+int64_t vp_list_index(ViperList* list, int64_t value);
+int64_t vp_list_count(ViperList* list, int64_t value);
+void vp_list_sort(ViperList* list);
+void vp_list_reverse(ViperList* list);
+ViperList* vp_list_reversed(ViperList* list);
+ViperList* vp_list_sorted(ViperList* list);
+ViperList* vp_list_concat(ViperList* list1, ViperList* list2);
+
 /* ============================================ */
 /* Dictionary Functions                         */
 /* ============================================ */

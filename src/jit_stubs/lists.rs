@@ -238,3 +238,113 @@ pub extern "C" fn vp_retain_stub(_ptr: *mut std::ffi::c_void) {
 pub extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
     // No-op for JIT
 }
+
+// Extended list operations
+pub extern "C" fn vp_list_extend_stub(list: *mut std::ffi::c_void, other: *mut std::ffi::c_void) {
+    if list.is_null() || other.is_null() {
+        return;
+    }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        let other_vec = &*(other as *mut Vec<i64>);
+        vec.extend(other_vec.iter().cloned());
+    }
+}
+
+pub extern "C" fn vp_list_index_stub(list: *mut std::ffi::c_void, val: i64) -> i64 {
+    if list.is_null() {
+        return -1;
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        match vec.iter().position(|&x| x == val) {
+            Some(idx) => idx as i64,
+            None => -1,
+        }
+    }
+}
+
+pub extern "C" fn vp_list_count_stub(list: *mut std::ffi::c_void, val: i64) -> i64 {
+    if list.is_null() {
+        return 0;
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        vec.iter().filter(|&&x| x == val).count() as i64
+    }
+}
+
+pub extern "C" fn vp_list_sort_stub(list: *mut std::ffi::c_void) {
+    if list.is_null() {
+        return;
+    }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        vec.sort();
+    }
+}
+
+pub extern "C" fn vp_list_reverse_stub(list: *mut std::ffi::c_void) {
+    if list.is_null() {
+        return;
+    }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        vec.reverse();
+    }
+}
+
+pub extern "C" fn vp_list_copy_stub(list: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
+    if list.is_null() {
+        return std::ptr::null_mut();
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        let copy = vec.clone();
+        Box::into_raw(Box::new(copy)) as *mut std::ffi::c_void
+    }
+}
+
+pub extern "C" fn vp_list_concat_stub(
+    list1: *mut std::ffi::c_void,
+    list2: *mut std::ffi::c_void,
+) -> *mut std::ffi::c_void {
+    let mut result = Vec::<i64>::new();
+    if !list1.is_null() {
+        unsafe {
+            let vec1 = &*(list1 as *mut Vec<i64>);
+            result.extend(vec1.iter().cloned());
+        }
+    }
+    if !list2.is_null() {
+        unsafe {
+            let vec2 = &*(list2 as *mut Vec<i64>);
+            result.extend(vec2.iter().cloned());
+        }
+    }
+    Box::into_raw(Box::new(result)) as *mut std::ffi::c_void
+}
+
+pub extern "C" fn vp_list_sorted_stub(list: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
+    if list.is_null() {
+        return vp_list_create_stub();
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        let mut sorted = vec.clone();
+        sorted.sort();
+        Box::into_raw(Box::new(sorted)) as *mut std::ffi::c_void
+    }
+}
+
+pub extern "C" fn vp_list_reversed_stub(list: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
+    if list.is_null() {
+        return vp_list_create_stub();
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        let mut reversed = vec.clone();
+        reversed.reverse();
+        Box::into_raw(Box::new(reversed)) as *mut std::ffi::c_void
+    }
+}

@@ -140,6 +140,14 @@ pub fn generate_call<'ctx>(
             return generate_struct_unpack(state, args);
         }
 
+        // List builtins
+        if name == "sorted" {
+            return generate_sorted_call(state, args);
+        }
+        if name == "reversed" {
+            return generate_reversed_call(state, args);
+        }
+
         // Check for user-defined functions BEFORE builtins (to support overloading)
         let arg_types: Vec<Type> = args.iter().map(|a| infer_expr_type(a)).collect();
         let mangled_name = mangle_function_name(name, &arg_types);
@@ -273,16 +281,33 @@ pub fn generate_method_call<'ctx>(
             Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
         }
         "pop" => {
-            if !args.is_empty() {
-                return Err(format!("pop() takes no arguments, got {}", args.len()));
+            if args.len() > 1 {
+                return Err(format!("pop() takes at most 1 argument, got {}", args.len()));
             }
-            let list_pop = state
-                .module
-                .get_function("vp_list_pop")
-                .ok_or_else(|| "vp_list_pop not declared".to_string())?;
-            let result =
-                state.ir_builder.build_call(state.builder, list_pop, &[obj_val.into()], "list_pop");
-            Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+            if args.is_empty() {
+                // pop() - pop last element
+                let list_pop = state
+                    .module
+                    .get_function("vp_list_pop")
+                    .ok_or_else(|| "vp_list_pop not declared".to_string())?;
+                let result =
+                    state.ir_builder.build_call(state.builder, list_pop, &[obj_val.into()], "list_pop");
+                Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+            } else {
+                // pop(i) - pop element at index
+                let index = generate_expr(state, &args[0])?.into_int_value();
+                let list_remove = state
+                    .module
+                    .get_function("vp_list_remove")
+                    .ok_or_else(|| "vp_list_remove not declared".to_string())?;
+                let result = state.ir_builder.build_call(
+                    state.builder,
+                    list_remove,
+                    &[obj_val.into(), index.into()],
+                    "list_pop_at",
+                );
+                Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+            }
         }
         "clear" => {
             if !args.is_empty() {
@@ -294,6 +319,105 @@ pub fn generate_method_call<'ctx>(
                 .ok_or_else(|| "vp_list_clear not declared".to_string())?;
             state.ir_builder.build_call(state.builder, list_clear, &[obj_val.into()], "list_clear");
             Ok(obj_val)
+        }
+        "extend" => {
+            if args.len() != 1 {
+                return Err(format!("extend() takes exactly 1 argument, got {}", args.len()));
+            }
+            let other_val = generate_expr(state, &args[0])?;
+            let list_extend = state
+                .module
+                .get_function("vp_list_extend")
+                .ok_or_else(|| "vp_list_extend not declared".to_string())?;
+            state.ir_builder.build_call(
+                state.builder,
+                list_extend,
+                &[obj_val.into(), other_val.into()],
+                "list_extend",
+            );
+            Ok(obj_val)
+        }
+        "index" => {
+            if args.len() != 1 {
+                return Err(format!("index() takes exactly 1 argument, got {}", args.len()));
+            }
+            let value = generate_expr(state, &args[0])?.into_int_value();
+            let list_index = state
+                .module
+                .get_function("vp_list_index")
+                .ok_or_else(|| "vp_list_index not declared".to_string())?;
+            let result = state.ir_builder.build_call(
+                state.builder,
+                list_index,
+                &[obj_val.into(), value.into()],
+                "list_index",
+            );
+            Ok(result.unwrap_or(state.ir_builder.i64_const(-1).into()))
+        }
+        "count" => {
+            if args.len() != 1 {
+                return Err(format!("count() takes exactly 1 argument, got {}", args.len()));
+            }
+            let value = generate_expr(state, &args[0])?.into_int_value();
+            let list_count = state
+                .module
+                .get_function("vp_list_count")
+                .ok_or_else(|| "vp_list_count not declared".to_string())?;
+            let result = state.ir_builder.build_call(
+                state.builder,
+                list_count,
+                &[obj_val.into(), value.into()],
+                "list_count",
+            );
+            Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+        }
+        "sort" => {
+            if !args.is_empty() {
+                return Err(format!("sort() takes no arguments, got {}", args.len()));
+            }
+            let list_sort = state
+                .module
+                .get_function("vp_list_sort")
+                .ok_or_else(|| "vp_list_sort not declared".to_string())?;
+            state.ir_builder.build_call(
+                state.builder,
+                list_sort,
+                &[obj_val.into()],
+                "list_sort",
+            );
+            Ok(obj_val)
+        }
+        "reverse" => {
+            if !args.is_empty() {
+                return Err(format!("reverse() takes no arguments, got {}", args.len()));
+            }
+            let list_reverse = state
+                .module
+                .get_function("vp_list_reverse")
+                .ok_or_else(|| "vp_list_reverse not declared".to_string())?;
+            state.ir_builder.build_call(
+                state.builder,
+                list_reverse,
+                &[obj_val.into()],
+                "list_reverse",
+            );
+            Ok(obj_val)
+        }
+        "copy" => {
+            if !args.is_empty() {
+                return Err(format!("copy() takes no arguments, got {}", args.len()));
+            }
+            let list_copy = state
+                .module
+                .get_function("vp_list_copy")
+                .ok_or_else(|| "vp_list_copy not declared".to_string())?;
+            let result = state.ir_builder.build_call(
+                state.builder,
+                list_copy,
+                &[obj_val.into()],
+                "list_copy",
+            );
+            Ok(result.unwrap_or(obj_val))
         }
         "upper" => {
             if !args.is_empty() {
@@ -345,4 +469,44 @@ pub fn generate_method_call<'ctx>(
         "len" => Err("len() is a builtin function, not a method".to_string()),
         _ => Err(format!("Unknown method: {}", method_name)),
     }
+}
+
+/// Generate sorted() call - returns a sorted copy of the list
+pub fn generate_sorted_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("sorted() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let list_val = generate_expr(state, &args[0])?;
+    let list_sorted = state
+        .module
+        .get_function("vp_list_sorted")
+        .ok_or_else(|| "vp_list_sorted not declared".to_string())?;
+    let result = state
+        .ir_builder
+        .build_call(state.builder, list_sorted, &[list_val.into()], "sorted_list");
+    Ok(result.unwrap_or(list_val))
+}
+
+/// Generate reversed() call - returns a reversed copy of the list
+pub fn generate_reversed_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("reversed() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let list_val = generate_expr(state, &args[0])?;
+    let list_reversed = state
+        .module
+        .get_function("vp_list_reversed")
+        .ok_or_else(|| "vp_list_reversed not declared".to_string())?;
+    let result = state
+        .ir_builder
+        .build_call(state.builder, list_reversed, &[list_val.into()], "reversed_list");
+    Ok(result.unwrap_or(list_val))
 }

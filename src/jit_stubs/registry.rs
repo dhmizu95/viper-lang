@@ -111,6 +111,44 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_list_slice_stub as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_list_extend") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_extend_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_index") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_index_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_count") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_count_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_sort") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_sort_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_reverse") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_reverse_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_copy") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_copy_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_concat") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_concat_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_sorted") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_sorted_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_reversed") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_reversed_stub as *const () as usize,
+        );
+    }
     if let Some(func) = module.get_function("vp_range") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_range_stub as *const () as usize);
