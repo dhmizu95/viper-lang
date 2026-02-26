@@ -497,6 +497,18 @@ impl EscapeAnalyzer {
             Expr::ListComprehension { .. } => {
                 // List comprehension - not yet fully implemented
             }
+            Expr::Slice { obj, start, end, step, .. } => {
+                self.analyze_expr(obj, ctx, state);
+                if let Some(start) = start {
+                    self.analyze_expr(start, ctx, state);
+                }
+                if let Some(end) = end {
+                    self.analyze_expr(end, ctx, state);
+                }
+                if let Some(step) = step {
+                    self.analyze_expr(step, ctx, state);
+                }
+            }
         }
     }
 

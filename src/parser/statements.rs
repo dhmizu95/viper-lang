@@ -1058,14 +1058,60 @@ impl<'a> StatementParser<'a> {
                             span: call_span,
                         };
                     } else if self.match_token(&TokenKind::LBracket) {
-                        let index = self.parse_expression()?;
-                        self.expect(&TokenKind::RBracket)?;
-                        let index_span = span.merge(self.previous().span);
-                        expr = Expr::Index {
-                            obj: Box::new(expr),
-                            index: Box::new(index),
-                            span: index_span,
-                        };
+                        // Parse slice or index
+                        // Look ahead to check for ':' which indicates a slice
+                        // We need to peek past the first expression to see if there's a colon
+                        let is_slice = self.is_slice_pattern();
+
+                        if is_slice {
+                            // Parse slice: [:], [start:], [:end], [start:end], [::step], etc.
+                            let mut start: Option<Box<Expr>> = None;
+                            let mut end: Option<Box<Expr>> = None;
+                            let mut step: Option<Box<Expr>> = None;
+
+                            // Parse start (optional)
+                            if !matches!(self.current().kind, TokenKind::Colon) {
+                                start = Some(Box::new(self.parse_expression()?));
+                            }
+
+                            // Expect first colon
+                            self.expect(&TokenKind::Colon)?;
+
+                            // Parse end (optional)
+                            if !matches!(self.current().kind, TokenKind::RBracket) &&
+                               !matches!(self.current().kind, TokenKind::Colon) {
+                                end = Some(Box::new(self.parse_expression()?));
+                            }
+
+                            // Check for step
+                            if matches!(self.current().kind, TokenKind::Colon) {
+                                self.expect(&TokenKind::Colon)?;
+                                // Parse step (optional)
+                                if !matches!(self.current().kind, TokenKind::RBracket) {
+                                    step = Some(Box::new(self.parse_expression()?));
+                                }
+                            }
+
+                            self.expect(&TokenKind::RBracket)?;
+                            let index_span = span.merge(self.previous().span);
+                            expr = Expr::Slice {
+                                obj: Box::new(expr),
+                                start,
+                                end,
+                                step,
+                                span: index_span,
+                            };
+                        } else {
+                            // Regular indexing
+                            let index = self.parse_expression()?;
+                            self.expect(&TokenKind::RBracket)?;
+                            let index_span = span.merge(self.previous().span);
+                            expr = Expr::Index {
+                                obj: Box::new(expr),
+                                index: Box::new(index),
+                                span: index_span,
+                            };
+                        }
                     } else {
                         break;
                     }
@@ -1203,6 +1249,46 @@ impl<'a> StatementParser<'a> {
                         elements,
                         span: list_span,
                     }
+                }
+            }
+            TokenKind::LBrace => {
+                self.advance();
+                let mut pairs = Vec::new();
+
+                // Handle empty dict: {}
+                if self.match_token(&TokenKind::RBrace) {
+                    let last_span = self.previous().span;
+                    let merged_span = span.merge(last_span);
+                    return Ok(Expr::Dict {
+                        pairs,
+                        span: merged_span,
+                    });
+                }
+
+                // Parse key-value pairs
+                loop {
+                    let key = self.parse_expression()?;
+                    self.expect(&TokenKind::Colon)?;
+                    let value = self.parse_expression()?;
+                    pairs.push((key, value));
+
+                    if !self.match_token(&TokenKind::Comma) {
+                        break;
+                    }
+
+                    // Handle trailing comma: {key: value,}
+                    if self.match_token(&TokenKind::RBrace) {
+                        break;
+                    }
+                }
+
+                self.expect(&TokenKind::RBrace)?;
+                let last_span = self.previous().span;
+                let merged_span = span.merge(last_span);
+
+                Expr::Dict {
+                    pairs,
+                    span: merged_span,
                 }
             }
             TokenKind::Minus => {
@@ -1388,6 +1474,35 @@ impl<'a> StatementParser<'a> {
         } else {
             false
         }
+    }
+
+    /// Check if the bracket contents match a slice pattern (contains ':' before ']')
+    /// Handles: [:], [start:], [:end], [start:end], [::step], etc.
+    fn is_slice_pattern(&self) -> bool {
+        // Look ahead through tokens to find ':' or ']'
+        // We need to handle nested brackets/parens
+        let mut pos = self.pos;
+        let mut bracket_depth = 1;
+        
+        while pos < self.tokens.len() {
+            match &self.tokens[pos].kind {
+                TokenKind::Colon if bracket_depth == 1 => return true,
+                TokenKind::RBracket => {
+                    bracket_depth -= 1;
+                    if bracket_depth == 0 {
+                        return false;
+                    }
+                }
+                TokenKind::LBracket | TokenKind::LParen => {
+                    bracket_depth += 1;
+                }
+                TokenKind::Eof => return false,
+                _ => {}
+            }
+            pos += 1;
+        }
+        
+        false
     }
 
     /// Transform concurrency builtin calls into appropriate AST nodes

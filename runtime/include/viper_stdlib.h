@@ -51,6 +51,7 @@ int64_t vp_list_len(ViperList* list);
 bool vp_list_contains(ViperList* list, int64_t value);
 ViperList* vp_list_copy(ViperList* list);
 ViperList* vp_list_repeat(int64_t elem, int64_t count);
+ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step);
 void vp_list_print(ViperList* list);
 
 /* ============================================ */
@@ -67,6 +68,10 @@ bool vp_dict_remove(ViperDict* dict, const char* key);
 void vp_dict_clear(ViperDict* dict);
 int64_t vp_dict_len(ViperDict* dict);
 ViperDict* vp_dict_copy(ViperDict* dict);
+
+/* Dict set with ViperString key (for compiler codegen) */
+void vp_dict_set_str_i64(ViperDict* dict, void* viper_str, int64_t value);
+void vp_dict_set_str_str(ViperDict* dict, void* viper_str, void* value_str);
 
 /* Dictionary Iterator */
 typedef struct ViperDictIter ViperDictIter;

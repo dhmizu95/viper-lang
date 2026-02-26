@@ -55,6 +55,7 @@ fn infer_expr_type(expr: &Expr) -> Type {
         Expr::UnaryOp { op: _, operand, .. } => infer_expr_type(operand),
         Expr::Attribute { .. } => Type::Infer,
         Expr::Index { .. } => Type::Infer,
+        Expr::Slice { .. } => Type::List(Box::new(Type::Infer)),
         Expr::FString { .. } => Type::Str,
         Expr::Await { .. } => Type::Infer,
         Expr::Lambda { .. } => Type::Fn(vec![], Box::new(Type::Infer)),
@@ -178,6 +179,13 @@ pub fn generate_expr<'ctx>(
             index,
             span: _,
         } => generate_index(state, obj, index),
+        Expr::Slice {
+            obj,
+            start,
+            end,
+            step,
+            span: _,
+        } => generate_slice(state, obj, start, end, step),
         Expr::BinOp {
             left, op, right, ..
         } => generate_binop(state, left, op, right),
@@ -573,18 +581,44 @@ fn generate_dict<'ctx>(
         .build_call(state.builder, dict_create_func, &[], "new_dict")
         .unwrap();
 
-    let dict_set_func = state
-        .module
-        .get_function("vp_dict_set_i64")
-        .ok_or_else(|| "vp_dict_set_i64 not declared".to_string())?;
-
     for (i, (key_expr, value_expr)) in pairs.iter().enumerate() {
         let key_val = generate_expr(state, key_expr)?;
         let value_val = generate_expr(state, value_expr)?;
 
+        // Choose the appropriate dict_set function based on key and value types
+        let set_func = match (key_expr, value_expr) {
+            (Expr::Str(_, _), Expr::Int(_, _)) => {
+                state
+                    .module
+                    .get_function("vp_dict_set_str_i64")
+                    .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?
+            }
+            (Expr::Str(_, _), Expr::Str(_, _)) => {
+                state
+                    .module
+                    .get_function("vp_dict_set_str_str")
+                    .ok_or_else(|| "vp_dict_set_str_str not declared".to_string())?
+            }
+            (Expr::Str(_, _), _) => {
+                // String key with other value types - use str_i64 for now
+                // TODO: Add more specialized functions for other value types
+                state
+                    .module
+                    .get_function("vp_dict_set_str_i64")
+                    .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?
+            }
+            _ => {
+                // Fallback to original function (for non-string keys)
+                state
+                    .module
+                    .get_function("vp_dict_set_i64")
+                    .ok_or_else(|| "vp_dict_set_i64 not declared".to_string())?
+            }
+        };
+
         let _ = state.ir_builder.build_call(
             state.builder,
-            dict_set_func,
+            set_func,
             &[dict_val.into(), key_val.into(), value_val.into()],
             &format!("dict_set_{}", i),
         );
@@ -777,6 +811,76 @@ fn generate_index<'ctx>(
             list_get,
             &[obj_val.into(), index_val.into()],
             "list_get",
+        )
+        .ok_or_else(|| "build call failed".to_string())?;
+
+    Ok(result)
+}
+
+/// Generate slice access (list[start:end] or list[start:end:step])
+fn generate_slice<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    obj: &Expr,
+    start: &Option<Box<Expr>>,
+    end: &Option<Box<Expr>>,
+    step: &Option<Box<Expr>>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let obj_val = generate_expr(state, obj)?;
+
+    // Generate start value (default to 0)
+    let start_val = if let Some(start_expr) = start {
+        generate_expr(state, start_expr)?
+    } else {
+        state.ir_builder.i64_const(0).into()
+    };
+
+    // Generate end value (default to list length)
+    let end_val = if let Some(end_expr) = end {
+        generate_expr(state, end_expr)?
+    } else {
+        // Need to get list length
+        let list_len = state
+            .module
+            .get_function("vp_list_len")
+            .ok_or_else(|| "vp_list_len not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                list_len,
+                &[obj_val.into()],
+                "list_len",
+            )
+            .ok_or_else(|| "build call failed".to_string())?;
+        result
+    };
+
+    // Generate step value (default to 1)
+    let step_val = if let Some(step_expr) = step {
+        generate_expr(state, step_expr)?
+    } else {
+        state.ir_builder.i64_const(1).into()
+    };
+
+    // Call vp_list_slice function
+    let list_slice = state
+        .module
+        .get_function("vp_list_slice")
+        .ok_or_else(|| "vp_list_slice not declared".to_string())?;
+
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            list_slice,
+            &[
+                obj_val.into(),
+                start_val.into(),
+                end_val.into(),
+                step_val.into(),
+            ],
+            "list_slice",
         )
         .ok_or_else(|| "build call failed".to_string())?;
 

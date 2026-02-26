@@ -53,15 +53,61 @@ impl<'a> PrattParser<'a> {
                     span: call_span,
                 };
             } else if self.match_token(&TokenKind::LBracket) {
-                // Indexing
-                let index = self.parse_expr(Precedence::MIN)?;
-                self.expect(&TokenKind::RBracket)?;
-                let index_span = left.span().merge(self.previous().span);
-                left = Expr::Index {
-                    obj: Box::new(left),
-                    index: Box::new(index),
-                    span: index_span,
-                };
+                // Indexing or slicing
+                let _index_span_start = self.current().span;
+
+                // Check if this is a slice by looking for ':' before ']'
+                let is_slice = self.is_slice_pattern();
+
+                if is_slice {
+                    // Parse slice: [:], [start:], [:end], [start:end], [::step], etc.
+                    let mut start: Option<Box<Expr>> = None;
+                    let mut end: Option<Box<Expr>> = None;
+                    let mut step: Option<Box<Expr>> = None;
+
+                    // Parse start (optional)
+                    if !matches!(self.current().kind, TokenKind::Colon) {
+                        start = Some(Box::new(self.parse_expr(Precedence::MIN)?));
+                    }
+                    
+                    // Expect first colon
+                    self.expect(&TokenKind::Colon)?;
+                    
+                    // Parse end (optional)
+                    if !matches!(self.current().kind, TokenKind::RBracket) && 
+                       !matches!(self.current().kind, TokenKind::Colon) {
+                        end = Some(Box::new(self.parse_expr(Precedence::MIN)?));
+                    }
+                    
+                    // Check for step
+                    if matches!(self.current().kind, TokenKind::Colon) {
+                        self.expect(&TokenKind::Colon)?;
+                        // Parse step (optional)
+                        if !matches!(self.current().kind, TokenKind::RBracket) {
+                            step = Some(Box::new(self.parse_expr(Precedence::MIN)?));
+                        }
+                    }
+                    
+                    self.expect(&TokenKind::RBracket)?;
+                    let index_span = left.span().merge(self.previous().span);
+                    left = Expr::Slice {
+                        obj: Box::new(left),
+                        start,
+                        end,
+                        step,
+                        span: index_span,
+                    };
+                } else {
+                    // Regular indexing
+                    let index = self.parse_expr(Precedence::MIN)?;
+                    self.expect(&TokenKind::RBracket)?;
+                    let index_span = left.span().merge(self.previous().span);
+                    left = Expr::Index {
+                        obj: Box::new(left),
+                        index: Box::new(index),
+                        span: index_span,
+                    };
+                }
             } else if self.match_token(&TokenKind::Dot) {
                 // Attribute access
                 if let TokenKind::Ident(attr) = &self.current().kind {
@@ -446,6 +492,46 @@ impl<'a> PrattParser<'a> {
                     })
                 }
             }
+            TokenKind::LBrace => {
+                self.advance();
+                let mut pairs = Vec::new();
+
+                // Handle empty dict: {}
+                if self.match_token(&TokenKind::RBrace) {
+                    let last_span = self.previous().span;
+                    let merged_span = span.merge(last_span);
+                    return Ok(Expr::Dict {
+                        pairs,
+                        span: merged_span,
+                    });
+                }
+
+                // Parse key-value pairs
+                loop {
+                    let key = self.parse_expr(Precedence::MIN)?;
+                    self.expect(&TokenKind::Colon)?;
+                    let value = self.parse_expr(Precedence::MIN)?;
+                    pairs.push((key, value));
+
+                    if !self.match_token(&TokenKind::Comma) {
+                        break;
+                    }
+
+                    // Handle trailing comma: {key: value,}
+                    if self.match_token(&TokenKind::RBrace) {
+                        break;
+                    }
+                }
+
+                self.expect(&TokenKind::RBrace)?;
+                let last_span = self.previous().span;
+                let merged_span = span.merge(last_span);
+
+                Ok(Expr::Dict {
+                    pairs,
+                    span: merged_span,
+                })
+            }
             TokenKind::Minus => {
                 self.advance();
                 let operand = self.parse_expr(Precedence::UNARY)?;
@@ -611,5 +697,34 @@ impl<'a> PrattParser<'a> {
                 self.current().kind
             ))
         }
+    }
+
+    /// Check if the bracket contents match a slice pattern (contains ':' before ']')
+    /// Handles: [:], [start:], [:end], [start:end], [::step], etc.
+    fn is_slice_pattern(&self) -> bool {
+        // Look ahead through tokens to find ':' or ']'
+        // We need to handle nested brackets/parens
+        let mut pos = self.pos;
+        let mut bracket_depth = 1;
+        
+        while pos < self.tokens.len() {
+            match &self.tokens[pos].kind {
+                TokenKind::Colon if bracket_depth == 1 => return true,
+                TokenKind::RBracket => {
+                    bracket_depth -= 1;
+                    if bracket_depth == 0 {
+                        return false;
+                    }
+                }
+                TokenKind::LBracket | TokenKind::LParen => {
+                    bracket_depth += 1;
+                }
+                TokenKind::Eof => return false,
+                _ => {}
+            }
+            pos += 1;
+        }
+        
+        false
     }
 }

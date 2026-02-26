@@ -238,7 +238,10 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '<' => {
-                    if self.peek() == Some('=') {
+                    if self.peek() == Some('<') {
+                        self.advance();
+                        TokenKind::LtLt
+                    } else if self.peek() == Some('=') {
                         self.advance();
                         TokenKind::LtEq
                     } else {

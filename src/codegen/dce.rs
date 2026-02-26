@@ -230,6 +230,18 @@ impl DeadCodeEliminator {
                 self.mark_expr_vars(obj);
                 self.mark_expr_vars(index);
             }
+            Expr::Slice { obj, start, end, step, .. } => {
+                self.mark_expr_vars(obj);
+                if let Some(start) = start {
+                    self.mark_expr_vars(start);
+                }
+                if let Some(end) = end {
+                    self.mark_expr_vars(end);
+                }
+                if let Some(step) = step {
+                    self.mark_expr_vars(step);
+                }
+            }
             Expr::Attribute { obj, .. } => {
                 self.mark_expr_vars(obj);
             }
@@ -440,6 +452,19 @@ impl DeadCodeEliminator {
             Expr::Index { obj, index, .. } => {
                 self.expr_contains_var(obj, var_name) || self.expr_contains_var(index, var_name)
             }
+            Expr::Slice { obj, start, end, step, .. } => {
+                let mut contains = self.expr_contains_var(obj, var_name);
+                if let Some(start) = start {
+                    contains = contains || self.expr_contains_var(start, var_name);
+                }
+                if let Some(end) = end {
+                    contains = contains || self.expr_contains_var(end, var_name);
+                }
+                if let Some(step) = step {
+                    contains = contains || self.expr_contains_var(step, var_name);
+                }
+                contains
+            }
             Expr::Attribute { obj, .. } => self.expr_contains_var(obj, var_name),
             Expr::List { elements, .. } => {
                 elements.iter().any(|e| self.expr_contains_var(e, var_name))
@@ -505,6 +530,19 @@ impl DeadCodeEliminator {
             Expr::UnaryOp { operand, .. } => self.has_side_effects(operand),
             Expr::Index { obj, index, .. } => {
                 self.has_side_effects(obj) || self.has_side_effects(index)
+            }
+            Expr::Slice { obj, start, end, step, .. } => {
+                let mut effects = self.has_side_effects(obj);
+                if let Some(start) = start {
+                    effects = effects || self.has_side_effects(start);
+                }
+                if let Some(end) = end {
+                    effects = effects || self.has_side_effects(end);
+                }
+                if let Some(step) = step {
+                    effects = effects || self.has_side_effects(step);
+                }
+                effects
             }
             Expr::Attribute { obj, .. } => self.has_side_effects(obj),
             Expr::Conditional {

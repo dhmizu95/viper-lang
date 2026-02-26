@@ -216,6 +216,7 @@ impl TypeChecker {
             Expr::Conditional { then_expr, .. } => self.infer_expr_type(then_expr),
             Expr::Lambda { .. } => Some(Type::Var("lambda".to_string())),
             Expr::ListComprehension { .. } => Some(Type::List(Box::new(Type::Infer))),
+            Expr::Slice { .. } => Some(Type::List(Box::new(Type::Infer))),
         }
     }
 

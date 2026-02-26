@@ -44,6 +44,14 @@ pub enum Expr {
         index: Box<Expr>,
         span: Span,
     },
+    /// Slice access (list[start:end] or list[start:end:step])
+    Slice {
+        obj: Box<Expr>,
+        start: Option<Box<Expr>>,
+        end: Option<Box<Expr>>,
+        step: Option<Box<Expr>>,
+        span: Span,
+    },
     /// Attribute access (obj.attr)
     Attribute {
         obj: Box<Expr>,
@@ -103,6 +111,7 @@ impl Expr {
             Expr::UnaryOp { span, .. } => *span,
             Expr::Call { span, .. } => *span,
             Expr::Index { span, .. } => *span,
+            Expr::Slice { span, .. } => *span,
             Expr::Attribute { span, .. } => *span,
             Expr::List { span, .. } => *span,
             Expr::Tuple { span, .. } => *span,

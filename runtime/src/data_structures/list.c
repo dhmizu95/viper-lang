@@ -253,3 +253,33 @@ void vp_list_print(ViperList* list) {
     }
     printf("]");
 }
+
+/**
+ * Slice a list: list[start:end] or list[start:end:step]
+ * Returns a new list containing elements from start to end (exclusive)
+ * with the given step
+ */
+ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step) {
+    if (!list) return NULL;
+    
+    /* Normalize negative indices */
+    if (start < 0) start = (start + list->length < 0) ? 0 : start + list->length;
+    if (end < 0) end = end + list->length;
+    
+    /* Clamp to valid range */
+    if (start < 0) start = 0;
+    if (end > list->length) end = list->length;
+    if (start >= end) return vp_list_create();
+    
+    /* Calculate result length */
+    int64_t result_len = (end - start + step - 1) / step;
+    if (result_len < 0) result_len = 0;
+    
+    ViperList* result = vp_list_create_with_capacity(result_len);
+    
+    for (int64_t i = start; i < end; i += step) {
+        vp_list_append(result, list->data[i]);
+    }
+    
+    return result;
+}

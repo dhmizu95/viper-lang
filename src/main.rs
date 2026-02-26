@@ -752,6 +752,12 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
             vp_list_clear_stub as *const () as usize,
         );
     }
+    if let Some(func) = codegen.module().get_function("vp_list_print") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_print_stub as *const () as usize,
+        );
+    }
     if let Some(func) = codegen.module().get_function("vp_list_contains") {
         execution_engine.add_global_mapping(
             &func.as_global_value(),
@@ -787,6 +793,12 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
         execution_engine.add_global_mapping(
             &func.as_global_value(),
             vp_list_repeat_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_list_slice") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_slice_stub as *const () as usize,
         );
     }
     if let Some(func) = codegen.module().get_function("vp_range") {
@@ -911,6 +923,32 @@ fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
         execution_engine.add_global_mapping(
             &func.as_global_value(),
             vp_struct_unpack as *const () as usize,
+        );
+    }
+
+    // Dict JIT mappings (Phase 2)
+    if let Some(func) = codegen.module().get_function("vp_dict_create") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_dict_create as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_dict_set_str_i64") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_dict_set_str_i64 as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_dict_set_str_str") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_dict_set_str_str as *const () as usize,
+        );
+    }
+    if let Some(func) = codegen.module().get_function("vp_dict_free") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_dict_free as *const () as usize,
         );
     }
 
@@ -1058,6 +1096,70 @@ extern "C" fn vp_print_str_stub(s: *mut std::ffi::c_void) {
     }
 }
 
+/* ============================================ */
+/* Dict stubs for JIT (Phase 2)                 */
+/* ============================================ */
+
+use std::collections::HashMap;
+
+static JIT_DICT_COUNTER: AtomicUsize = AtomicUsize::new(0);
+// Simple global dict storage for JIT - maps dict_id to HashMap<String, i64>
+static mut JIT_DICTS: Option<HashMap<usize, HashMap<String, i64>>> = None;
+
+fn get_jit_dicts() -> &'static mut HashMap<usize, HashMap<String, i64>> {
+    unsafe {
+        if JIT_DICTS.is_none() {
+            JIT_DICTS = Some(HashMap::new());
+        }
+        JIT_DICTS.as_mut().unwrap()
+    }
+}
+
+extern "C" fn vp_dict_create() -> *mut std::ffi::c_void {
+    let id = JIT_DICT_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let dict: HashMap<String, i64> = HashMap::new();
+    get_jit_dicts().insert(id, dict);
+    id as *mut std::ffi::c_void
+}
+
+extern "C" fn vp_dict_set_str_i64(dict_ptr: *mut std::ffi::c_void, key: *const std::ffi::c_char, value: i64) {
+    if dict_ptr.is_null() || key.is_null() {
+        return;
+    }
+    let id = dict_ptr as usize;
+    unsafe {
+        let key_str = std::ffi::CStr::from_ptr(key).to_string_lossy().into_owned();
+        get_jit_dicts().get_mut(&id).unwrap().insert(key_str, value);
+    }
+}
+
+extern "C" fn vp_dict_set_str_str(dict_ptr: *mut std::ffi::c_void, key: *const std::ffi::c_char, _value: *const std::ffi::c_char) {
+    // For now, just handle string values by storing as-is
+    if dict_ptr.is_null() || key.is_null() {
+        return;
+    }
+    // String values not fully supported in JIT yet - simplified implementation
+}
+
+extern "C" fn vp_dict_get_i64(dict_ptr: *mut std::ffi::c_void, key: *const std::ffi::c_char) -> i64 {
+    if dict_ptr.is_null() || key.is_null() {
+        return 0;
+    }
+    let id = dict_ptr as usize;
+    unsafe {
+        let key_str = std::ffi::CStr::from_ptr(key).to_string_lossy();
+        get_jit_dicts().get(&id).and_then(|d| d.get(key_str.as_ref())).copied().unwrap_or(0)
+    }
+}
+
+extern "C" fn vp_dict_free(dict_ptr: *mut std::ffi::c_void) {
+    if dict_ptr.is_null() {
+        return;
+    }
+    let id = dict_ptr as usize;
+    get_jit_dicts().remove(&id);
+}
+
 // Stub implementations for list functions (Phase 2 MVP)
 // Using Box<Vec<i64>> as the internal representation
 extern "C" fn vp_list_create_stub() -> *mut std::ffi::c_void {
@@ -1175,6 +1277,24 @@ extern "C" fn vp_list_contains_stub(list: *mut std::ffi::c_void, val: i64) -> bo
     }
 }
 
+extern "C" fn vp_list_print_stub(list: *mut std::ffi::c_void) {
+    if list.is_null() {
+        print!("[null]");
+        return;
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        print!("[");
+        for (i, val) in vec.iter().enumerate() {
+            if i > 0 {
+                print!(", ");
+            }
+            print!("{}", val);
+        }
+        print!("]");
+    }
+}
+
 // Float list stubs (f64)
 extern "C" fn vp_list_create_f64_stub() -> *mut std::ffi::c_void {
     let list = Box::new(Vec::<f64>::new());
@@ -1229,6 +1349,39 @@ extern "C" fn vp_list_repeat_stub(elem: i64, count: i64) -> *mut std::ffi::c_voi
     }
     let boxed = Box::new(result);
     Box::into_raw(boxed) as *mut std::ffi::c_void
+}
+
+// List slice stub - creates a new list with elements from start to end with step
+extern "C" fn vp_list_slice_stub(list: *mut std::ffi::c_void, start: i64, end: i64, step: i64) -> *mut std::ffi::c_void {
+    if list.is_null() {
+        return vp_list_create_stub();
+    }
+    unsafe {
+        let vec = &*(list as *mut Vec<i64>);
+        let len = vec.len() as i64;
+        
+        // Normalize negative indices
+        let mut s = if start < 0 { (start + len).max(0) } else { start.min(len) };
+        let mut e = if end < 0 { (end + len).max(0) } else { end.min(len) };
+        
+        // Clamp to valid range
+        if s < 0 { s = 0; }
+        if e > len { e = len; }
+        if s >= e {
+            return vp_list_create_stub();
+        }
+        
+        let step = if step <= 0 { 1 } else { step };
+        let mut result = Vec::<i64>::new();
+        let mut i = s;
+        while i < e {
+            result.push(vec[i as usize]);
+            i += step;
+        }
+        
+        let boxed = Box::new(result);
+        Box::into_raw(boxed) as *mut std::ffi::c_void
+    }
 }
 
 extern "C" fn vp_retain_stub(_ptr: *mut std::ffi::c_void) {

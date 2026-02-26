@@ -117,6 +117,9 @@ fn declare_list_functions<'ctx>(
     let list_len_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_list_len", list_len_type, None);
 
+    let list_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_slice", list_slice_type, None);
+
     let list_set_type =
         void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_list_set", list_set_type, None);
@@ -187,6 +190,15 @@ fn declare_dict_functions<'ctx>(
     let dict_set_type =
         void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_dict_set_i64", dict_set_type, None);
+
+    /* Dict set with ViperString key */
+    let dict_set_str_i64_type =
+        void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_dict_set_str_i64", dict_set_str_i64_type, None);
+
+    let dict_set_str_str_type =
+        void_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_dict_set_str_str", dict_set_str_str_type, None);
 
     let dict_get_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_dict_get_i64", dict_get_type, None);
