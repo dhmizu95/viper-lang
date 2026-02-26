@@ -3,9 +3,54 @@
 use super::*;
 use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
+use crate::codegen::types::TypeMapper;
 use crate::codegen::variables::{VarStorage, VarType};
 use crate::utils::mangle_function_name;
 use inkwell::values::BasicValueEnum;
+
+pub fn generate_tuple<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    elements: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if elements.is_empty() {
+        return Ok(state.ir_builder.i64_const(0).into());
+    }
+
+    let element_values: Result<Vec<BasicValueEnum<'ctx>>, String> =
+        elements.iter().map(|e| generate_expr(state, e)).collect();
+
+    let element_values = element_values?;
+
+    let type_mapper = TypeMapper::new(state.context);
+    let tuple_type =
+        type_mapper.llvm_type(&Type::Tuple(elements.iter().map(infer_expr_type).collect()));
+
+    let struct_type = tuple_type.into_struct_type();
+
+    let struct_alloca = state
+        .builder
+        .build_alloca(struct_type, "tuple")
+        .map_err(|e| format!("Failed to allocate struct: {:?}", e))?;
+
+    for (i, elem_val) in element_values.iter().enumerate() {
+        let index = state.context.i32_type().const_int(i as u64, false);
+        let elem_ptr = unsafe {
+            state.builder.build_in_bounds_gep(struct_type, struct_alloca, &[index], "elem_ptr")
+        }
+        .map_err(|e| format!("Failed to build GEP: {:?}", e))?;
+        state
+            .builder
+            .build_store(elem_ptr, *elem_val)
+            .map_err(|e| format!("Failed to store element: {:?}", e))?;
+    }
+
+    let struct_value = state
+        .builder
+        .build_load(struct_type, struct_alloca, "tuple_load")
+        .map_err(|e| format!("Failed to load struct: {:?}", e))?;
+
+    Ok(struct_value.into())
+}
 
 pub fn infer_expr_type(expr: &Expr) -> Type {
     match expr {
@@ -171,13 +216,7 @@ pub fn generate_expr<'ctx>(
         }
         Expr::List { elements, span: _ } => generate_list(state, elements),
         Expr::Array { elements, size, span: _ } => generate_array(state, elements, *size),
-        Expr::Tuple { elements, span: _ } => {
-            if elements.is_empty() {
-                Ok(state.ir_builder.i64_const(0).into())
-            } else {
-                generate_expr(state, &elements[0])
-            }
-        }
+        Expr::Tuple { elements, span: _ } => generate_tuple(state, elements),
         Expr::Dict { pairs, span: _ } => generate_dict(state, pairs),
         Expr::Index { obj, index, span: _ } => generate_index(state, obj, index),
         Expr::Slice { obj, start, end, step, span: _ } => {

@@ -8,8 +8,8 @@ pub fn run_repl() -> Result<(), String> {
     println!("Type :quit to exit, :clear to clear, :help for commands\n");
 
     let mut editor = DefaultEditor::new().map_err(|e| e.to_string())?;
-    
-    // We intentionally don't load history file here as Viper doesn't have a reliable 
+
+    // We intentionally don't load history file here as Viper doesn't have a reliable
     // home directory expansion built-in, but rustyline keeps session history anyway.
 
     let mut input_state = InputState::new();
@@ -21,7 +21,7 @@ pub fn run_repl() -> Result<(), String> {
         match readline {
             Ok(line) => {
                 let trimmed = line.trim();
-                
+
                 // Handle REPL commands when not in a block
                 if prompt == ">>> " && trimmed.starts_with(':') {
                     editor.add_history_entry(line.as_str()).unwrap();
@@ -90,11 +90,13 @@ enum CommandResult {
     Quit,
 }
 
-fn handle_command(cmd: &str, session: &mut ReplSession, input_state: &mut InputState) -> CommandResult {
+fn handle_command(
+    cmd: &str,
+    session: &mut ReplSession,
+    input_state: &mut InputState,
+) -> CommandResult {
     match cmd {
-        ":quit" | ":q" => {
-            CommandResult::Quit
-        }
+        ":quit" | ":q" => CommandResult::Quit,
         ":clear" | ":c" => {
             print!("\x1B[2J\x1B[1J");
             println!("🐍 Viper REPL {}", env!("CARGO_PKG_VERSION"));

@@ -570,7 +570,6 @@ fn generate_incdec<'ctx>(
     op: &UnaryOp,
     operand: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    
     // Increment/decrement only works on variables
     let (name, alloca, var_type) = match operand {
         Expr::Ident(name, _) => {

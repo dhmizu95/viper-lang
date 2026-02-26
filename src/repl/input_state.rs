@@ -85,11 +85,7 @@ impl InputState {
 
         // Check if inside block (ends with :)
         // We strip comments to check for the trailing colon
-        let code_part = if let Some(idx) = line.find('#') {
-            &line[..idx]
-        } else {
-            line
-        };
+        let code_part = if let Some(idx) = line.find('#') { &line[..idx] } else { line };
 
         if code_part.trim_end().ends_with(':') {
             self.inside_block = true;

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use std::ffi::c_void;
-use std::ptr;
 use inkwell::context::Context;
 use inkwell::targets::{InitializationConfig, Target};
 use inkwell::OptimizationLevel;
+use std::collections::HashMap;
+use std::ffi::c_void;
+use std::ptr;
 
 use crate::ast::{Expr, Stmt};
 use crate::codegen::CodeGen;
@@ -176,41 +176,65 @@ impl ReplSession {
         }
     }
 
-    fn extract_binop_to_shadow(&mut self, name: &str, op: &crate::ast::BinOp, left: &Expr, right: &Expr) {
+    fn extract_binop_to_shadow(
+        &mut self,
+        name: &str,
+        op: &crate::ast::BinOp,
+        left: &Expr,
+        right: &Expr,
+    ) {
         // Recursively evaluate left and right operands
         let left_val = self.evaluate_expr_int(left);
         let right_val = self.evaluate_expr_int(right);
-        
+
         if let (Some(l), Some(r)) = (left_val, right_val) {
             let result = match op {
                 crate::ast::BinOp::Add => l + r,
                 crate::ast::BinOp::Sub => l - r,
                 crate::ast::BinOp::Mul => l * r,
-                crate::ast::BinOp::Div => if r != 0 { l / r } else { 0 },
-                crate::ast::BinOp::Mod => if r != 0 { l % r } else { 0 },
+                crate::ast::BinOp::Div => {
+                    if r != 0 {
+                        l / r
+                    } else {
+                        0
+                    }
+                }
+                crate::ast::BinOp::Mod => {
+                    if r != 0 {
+                        l % r
+                    } else {
+                        0
+                    }
+                }
                 crate::ast::BinOp::Pow => l.pow(r as u32),
                 _ => l,
             };
             self.int_vars.insert(name.to_string(), result);
             return;
         }
-        
+
         // Try float operations
         let left_float = self.evaluate_expr_float(left);
         let right_float = self.evaluate_expr_float(right);
-        
+
         if let (Some(l), Some(r)) = (left_float, right_float) {
             let result = match op {
                 crate::ast::BinOp::Add => l + r,
                 crate::ast::BinOp::Sub => l - r,
                 crate::ast::BinOp::Mul => l * r,
-                crate::ast::BinOp::Div => if r != 0.0 { l / r } else { 0.0 },
+                crate::ast::BinOp::Div => {
+                    if r != 0.0 {
+                        l / r
+                    } else {
+                        0.0
+                    }
+                }
                 _ => l,
             };
             self.float_vars.insert(name.to_string(), result);
             return;
         }
-        
+
         // Mixed int/float - promote to float
         if let Some(l) = self.evaluate_expr_int(left) {
             if let Some(r) = self.evaluate_expr_float(right) {
@@ -218,7 +242,13 @@ impl ReplSession {
                     crate::ast::BinOp::Add => l as f64 + r,
                     crate::ast::BinOp::Sub => l as f64 - r,
                     crate::ast::BinOp::Mul => l as f64 * r,
-                    crate::ast::BinOp::Div => if r != 0.0 { l as f64 / r } else { 0.0 },
+                    crate::ast::BinOp::Div => {
+                        if r != 0.0 {
+                            l as f64 / r
+                        } else {
+                            0.0
+                        }
+                    }
                     _ => l as f64,
                 };
                 self.float_vars.insert(name.to_string(), result);
@@ -231,14 +261,20 @@ impl ReplSession {
                     crate::ast::BinOp::Add => l + r as f64,
                     crate::ast::BinOp::Sub => l - r as f64,
                     crate::ast::BinOp::Mul => l * r as f64,
-                    crate::ast::BinOp::Div => if r != 0 { l / r as f64 } else { 0.0 },
+                    crate::ast::BinOp::Div => {
+                        if r != 0 {
+                            l / r as f64
+                        } else {
+                            0.0
+                        }
+                    }
                     _ => l,
                 };
                 self.float_vars.insert(name.to_string(), result);
                 return;
             }
         }
-        
+
         // Can't statically evaluate, use placeholder
         self.int_vars.insert(name.to_string(), 0);
     }
@@ -255,8 +291,20 @@ impl ReplSession {
                     crate::ast::BinOp::Add => Some(l + r),
                     crate::ast::BinOp::Sub => Some(l - r),
                     crate::ast::BinOp::Mul => Some(l * r),
-                    crate::ast::BinOp::Div => if r != 0 { Some(l / r) } else { Some(0) },
-                    crate::ast::BinOp::Mod => if r != 0 { Some(l % r) } else { Some(0) },
+                    crate::ast::BinOp::Div => {
+                        if r != 0 {
+                            Some(l / r)
+                        } else {
+                            Some(0)
+                        }
+                    }
+                    crate::ast::BinOp::Mod => {
+                        if r != 0 {
+                            Some(l % r)
+                        } else {
+                            Some(0)
+                        }
+                    }
                     _ => Some(l),
                 }
             }
@@ -279,31 +327,55 @@ impl ReplSession {
             Expr::Int(val, _) => Some(*val as f64),
             Expr::BinOp { left, op, right, .. } => {
                 // Try float operations first
-                if let (Some(l), Some(r)) = (self.evaluate_expr_float(left), self.evaluate_expr_float(right)) {
+                if let (Some(l), Some(r)) =
+                    (self.evaluate_expr_float(left), self.evaluate_expr_float(right))
+                {
                     return match op {
                         crate::ast::BinOp::Add => Some(l + r),
                         crate::ast::BinOp::Sub => Some(l - r),
                         crate::ast::BinOp::Mul => Some(l * r),
-                        crate::ast::BinOp::Div => if r != 0.0 { Some(l / r) } else { Some(0.0) },
+                        crate::ast::BinOp::Div => {
+                            if r != 0.0 {
+                                Some(l / r)
+                            } else {
+                                Some(0.0)
+                            }
+                        }
                         _ => Some(l),
                     };
                 }
                 // Try mixed int/float
-                if let (Some(l), Some(r)) = (self.evaluate_expr_int(left), self.evaluate_expr_float(right)) {
+                if let (Some(l), Some(r)) =
+                    (self.evaluate_expr_int(left), self.evaluate_expr_float(right))
+                {
                     return match op {
                         crate::ast::BinOp::Add => Some(l as f64 + r),
                         crate::ast::BinOp::Sub => Some(l as f64 - r),
                         crate::ast::BinOp::Mul => Some(l as f64 * r),
-                        crate::ast::BinOp::Div => if r != 0.0 { Some(l as f64 / r) } else { Some(0.0) },
+                        crate::ast::BinOp::Div => {
+                            if r != 0.0 {
+                                Some(l as f64 / r)
+                            } else {
+                                Some(0.0)
+                            }
+                        }
                         _ => Some(l as f64),
                     };
                 }
-                if let (Some(l), Some(r)) = (self.evaluate_expr_float(left), self.evaluate_expr_int(right)) {
+                if let (Some(l), Some(r)) =
+                    (self.evaluate_expr_float(left), self.evaluate_expr_int(right))
+                {
                     return match op {
                         crate::ast::BinOp::Add => Some(l + r as f64),
                         crate::ast::BinOp::Sub => Some(l - r as f64),
                         crate::ast::BinOp::Mul => Some(l * r as f64),
-                        crate::ast::BinOp::Div => if r != 0 { Some(l / r as f64) } else { Some(0.0) },
+                        crate::ast::BinOp::Div => {
+                            if r != 0 {
+                                Some(l / r as f64)
+                            } else {
+                                Some(0.0)
+                            }
+                        }
                         _ => Some(l),
                     };
                 }
@@ -386,7 +458,7 @@ impl ReplSession {
     /// Get a summary of all variables for the :vars command
     pub fn vars_summary(&self) -> Vec<String> {
         let mut result = Vec::new();
-        
+
         for (name, val) in &self.int_vars {
             result.push(format!("{}: i64 = {}", name, val));
         }
@@ -399,7 +471,7 @@ impl ReplSession {
         for (name, _val) in &self.str_vars {
             result.push(format!("{}: ptr = <reference>", name));
         }
-        
+
         result
     }
 }

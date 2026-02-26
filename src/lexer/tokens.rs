@@ -52,9 +52,9 @@ pub enum TokenKind {
     Unless,
     Pipeline,
     DotDot,
-    Type,      // type keyword for type aliases
-    Tuple,     // tuple keyword for tuple types
-    Optional,  // Optional keyword for optional types
+    Type,     // type keyword for type aliases
+    Tuple,    // tuple keyword for tuple types
+    Optional, // Optional keyword for optional types
 
     // Operators
     Plus,
