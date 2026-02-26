@@ -173,12 +173,22 @@ void vp_list_clear(ViperList* list) {
 }
 
 /* OPTIMIZED: Minimal checks for hot path - assume valid index */
+/* Supports negative indexing: list[-1] = last element */
 int64_t vp_list_get(ViperList* list, int64_t index) {
+    /* Handle negative indexing */
+    if (index < 0) {
+        index = list->length + index;
+    }
     return list->data[index];
 }
 
 /* OPTIMIZED: Minimal checks for hot path - assume valid index */
+/* Supports negative indexing: list[-1] = last element */
 void vp_list_set(ViperList* list, int64_t index, int64_t value) {
+    /* Handle negative indexing */
+    if (index < 0) {
+        index = list->length + index;
+    }
     list->data[index] = value;
 }
 
