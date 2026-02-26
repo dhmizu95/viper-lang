@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-
 use std::sync::Mutex;
 
 static JIT_DICT_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -23,7 +22,11 @@ pub extern "C" fn vp_dict_create() -> *mut std::ffi::c_void {
     id as *mut std::ffi::c_void
 }
 
-pub extern "C" fn vp_dict_set_str_i64(dict_ptr: *mut std::ffi::c_void, key: *const std::ffi::c_char, value: i64) {
+pub extern "C" fn vp_dict_set_str_i64(
+    dict_ptr: *mut std::ffi::c_void,
+    key: *const std::ffi::c_char,
+    value: i64,
+) {
     if dict_ptr.is_null() || key.is_null() {
         return;
     }
@@ -34,7 +37,11 @@ pub extern "C" fn vp_dict_set_str_i64(dict_ptr: *mut std::ffi::c_void, key: *con
     }
 }
 
-pub extern "C" fn vp_dict_set_str_str(dict_ptr: *mut std::ffi::c_void, key: *const std::ffi::c_char, _value: *const std::ffi::c_char) {
+pub extern "C" fn vp_dict_set_str_str(
+    dict_ptr: *mut std::ffi::c_void,
+    key: *const std::ffi::c_char,
+    _value: *const std::ffi::c_char,
+) {
     // For now, just handle string values by storing as-is
     if dict_ptr.is_null() || key.is_null() {
         return;
@@ -42,14 +49,23 @@ pub extern "C" fn vp_dict_set_str_str(dict_ptr: *mut std::ffi::c_void, key: *con
     // String values not fully supported in JIT yet - simplified implementation
 }
 
-pub extern "C" fn vp_dict_get_i64(dict_ptr: *mut std::ffi::c_void, key: *const std::ffi::c_char) -> i64 {
+pub extern "C" fn vp_dict_get_i64(
+    dict_ptr: *mut std::ffi::c_void,
+    key: *const std::ffi::c_char,
+) -> i64 {
     if dict_ptr.is_null() || key.is_null() {
         return 0;
     }
     let id = dict_ptr as usize;
     unsafe {
         let key_str = std::ffi::CStr::from_ptr(key).to_string_lossy();
-        get_jit_dicts().as_ref().unwrap().get(&id).and_then(|d| d.get(key_str.as_ref())).copied().unwrap_or(0)
+        get_jit_dicts()
+            .as_ref()
+            .unwrap()
+            .get(&id)
+            .and_then(|d| d.get(key_str.as_ref()))
+            .copied()
+            .unwrap_or(0)
     }
 }
 
@@ -60,4 +76,3 @@ pub extern "C" fn vp_dict_free(dict_ptr: *mut std::ffi::c_void) {
     let id = dict_ptr as usize;
     get_jit_dicts().as_mut().unwrap().remove(&id);
 }
-

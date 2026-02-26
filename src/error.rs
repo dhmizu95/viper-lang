@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::utils::Span;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ViperError {

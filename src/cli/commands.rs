@@ -1,17 +1,10 @@
+use crate::cli;
 use crate::cli::args::{Args, Commands};
 use crate::driver::*;
-use crate::cli;
 
 pub fn execute(args: Args) -> Result<(), String> {
     match args.command {
-        Commands::Build {
-            input,
-            output,
-            optimize,
-            lto,
-            emit_llvm,
-            pgo,
-        } => {
+        Commands::Build { input, output, optimize, lto, emit_llvm, pgo } => {
             // Check runtime library for AOT compilation
             if let Err(e) = check_runtime_library() {
                 eprintln!("Error: {}", e);
@@ -20,22 +13,9 @@ pub fn execute(args: Args) -> Result<(), String> {
                 eprintln!("  cd runtime && make");
                 std::process::exit(1);
             }
-            compile_file_aot(
-                &input,
-                optimize,
-                output.as_deref(),
-                lto,
-                emit_llvm,
-                pgo.as_deref(),
-            )
+            compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
         }
-        Commands::Run {
-            input,
-            optimize,
-            lto: _,
-            emit_llvm: _,
-            pgo: _,
-        } => {
+        Commands::Run { input, optimize, lto: _, emit_llvm: _, pgo: _ } => {
             compile_and_run_jit(&input, optimize)
         }
         Commands::Init { name } => {
@@ -58,9 +38,7 @@ pub fn execute(args: Args) -> Result<(), String> {
             let args = cli::lint::LintArgs::new(input, warnings);
             cli::lint::run_lint(&args)
         }
-        Commands::Repl => {
-            cli::repl::run_repl()
-        }
+        Commands::Repl => cli::repl::run_repl(),
         Commands::Doc { input, output } => {
             let args = cli::doc::DocArgs::new(input, output);
             cli::doc::run_doc(&args)

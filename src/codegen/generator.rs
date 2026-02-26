@@ -116,14 +116,7 @@ impl<'ctx> CodeGen<'ctx> {
     /// Define all functions recursively (including nested functions)
     fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         for stmt in stmts {
-            if let Stmt::Function {
-                name,
-                params,
-                return_type,
-                body,
-                ..
-            } = stmt
-            {
+            if let Stmt::Function { name, params, return_type, body, .. } = stmt {
                 // Compute mangled name using the same logic as declare_function
                 use crate::codegen::functions::infer_param_types_from_body;
                 let param_types = infer_param_types_from_body(params, body);
@@ -137,9 +130,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Stmt::Function { body, .. } => {
                     self.define_all_functions(body)?;
                 }
-                Stmt::If {
-                    body, else_body, ..
-                } => {
+                Stmt::If { body, else_body, .. } => {
                     self.define_all_functions(body)?;
                     if let Some(else_stmts) = else_body {
                         self.define_all_functions(else_stmts)?;
@@ -188,18 +179,13 @@ impl<'ctx> CodeGen<'ctx> {
             let is_ref_type = param_value.is_pointer_value();
 
             // Mark parameter as reference type in escape analyzer
-            self.escape_analyzer
-                .set_reference_type(name, &param.name, is_ref_type);
+            self.escape_analyzer.set_reference_type(name, &param.name, is_ref_type);
 
             // Always allocate on stack for now (escape analysis informs optimization decisions)
             // In a more advanced implementation, we might skip alloca for non-escaping params
-            let alloca = self
-                .builder
-                .build_alloca(param_value.get_type(), &param.name)
-                .expect("alloca");
-            self.builder
-                .build_store(alloca, param_value)
-                .expect("store");
+            let alloca =
+                self.builder.build_alloca(param_value.get_type(), &param.name).expect("alloca");
+            self.builder.build_store(alloca, param_value).expect("store");
             // Determine VarType from the actual LLVM parameter type, not just the annotation
             // This handles cases where lists/channels are passed without explicit type annotations
             let var_type = if param_value.is_pointer_value() {
@@ -209,8 +195,7 @@ impl<'ctx> CodeGen<'ctx> {
             } else {
                 VarType::Int
             };
-            self.variables
-                .insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
+            self.variables.insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
         }
 
         // Generate body using escape analysis
@@ -235,13 +220,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.generate_arc_cleanup(name);
 
         // Add implicit return if needed
-        if self
-            .builder
-            .get_insert_block()
-            .unwrap()
-            .get_terminator()
-            .is_none()
-        {
+        if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
             // Check actual function return type from LLVM signature
             let func = self.functions.get(name).copied().unwrap();
             let return_type_llvm = func.get_type().get_return_type();
@@ -330,8 +309,7 @@ impl<'ctx> CodeGen<'ctx> {
             // Call viper_init
             let _ = self.builder.build_call(init_func, &[], "call_init");
 
-            self.ir_builder
-                .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
+            self.ir_builder.build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
         }
 
         Ok(())
@@ -341,13 +319,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn declare_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         for stmt in stmts {
             match stmt {
-                Stmt::Function {
-                    name,
-                    params,
-                    return_type,
-                    body,
-                    ..
-                } => {
+                Stmt::Function { name, params, return_type, body, .. } => {
                     crate::codegen::functions::declare_function(
                         self.context,
                         &mut self.module,
@@ -361,16 +333,9 @@ impl<'ctx> CodeGen<'ctx> {
                     // Recursively declare nested functions in the body
                     self.declare_all_functions(body)?;
                 }
-                Stmt::Extern {
-                    name,
-                    params,
-                    return_type,
-                    ..
-                } => {
-                    let param_types: Vec<Type> = params
-                        .iter()
-                        .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
-                        .collect();
+                Stmt::Extern { name, params, return_type, .. } => {
+                    let param_types: Vec<Type> =
+                        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect();
                     let mangled_name = mangle_function_name(name, &param_types);
                     crate::codegen::functions::declare_function(
                         self.context,
@@ -384,9 +349,7 @@ impl<'ctx> CodeGen<'ctx> {
                     )?;
                 }
                 // Recursively search for nested functions in compound statements
-                Stmt::If {
-                    body, else_body, ..
-                } => {
+                Stmt::If { body, else_body, .. } => {
                     self.declare_all_functions(body)?;
                     if let Some(else_stmts) = else_body {
                         self.declare_all_functions(else_stmts)?;
@@ -433,12 +396,7 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::UnaryOp { operand, .. } => {
                 self.declare_functions_in_expr(operand)?;
             }
-            Expr::Conditional {
-                condition,
-                then_expr,
-                else_expr,
-                ..
-            } => {
+            Expr::Conditional { condition, then_expr, else_expr, .. } => {
                 self.declare_functions_in_expr(condition)?;
                 self.declare_functions_in_expr(then_expr)?;
                 self.declare_functions_in_expr(else_expr)?;
@@ -469,16 +427,9 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::Int(n, _) => self.ir_builder.i64_const(*n).as_basic_value_enum(),
             Expr::Float(n, _) => self.ir_builder.f64_const(*n).as_basic_value_enum(),
             Expr::Bool(b, _) => self.ir_builder.bool_const(*b).as_basic_value_enum(),
-            Expr::Str(s, _) => self
-                .ir_builder
-                .string_const(&self.module, s)
-                .as_basic_value_enum(),
+            Expr::Str(s, _) => self.ir_builder.string_const(&self.module, s).as_basic_value_enum(),
             Expr::None(_) => self.ir_builder.i64_const(0).as_basic_value_enum(),
-            _ => {
-                return Err(format!(
-                    "Cannot create global constant from non-literal expression"
-                ))
-            }
+            _ => return Err(format!("Cannot create global constant from non-literal expression")),
         };
 
         let global = self.module.add_global(val.get_type(), None, name);

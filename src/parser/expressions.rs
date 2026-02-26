@@ -12,11 +12,7 @@ pub struct PrattParser<'a> {
 
 impl<'a> PrattParser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self {
-            tokens,
-            pos: 0,
-            eof_token: Token::new(TokenKind::Eof, Span::empty(0, 0)),
-        }
+        Self { tokens, pos: 0, eof_token: Token::new(TokenKind::Eof, Span::empty(0, 0)) }
     }
 
     pub fn pos(&self) -> usize {
@@ -34,6 +30,17 @@ impl<'a> PrattParser<'a> {
     ) -> Result<Expr, String> {
         // Handle postfix operators (function calls, indexing, attribute access)
         loop {
+            // Stop at statement boundaries (newlines, dedents, etc.)
+            // Check if we're at a dedent or if the next token is on a different line
+            if matches!(self.current().kind, TokenKind::Dedent) {
+                break;
+            }
+            // Check if the current token is on a different line than the left expression
+            // This handles Python-style statement boundaries without explicit Newline tokens
+            if self.current().span.line > left.span().line {
+                break;
+            }
+
             if self.match_token(&TokenKind::LParen) {
                 // Function call
                 let mut args = Vec::new();
@@ -47,11 +54,7 @@ impl<'a> PrattParser<'a> {
                     self.expect(&TokenKind::RParen)?;
                 }
                 let call_span = left.span().merge(self.previous().span);
-                left = Expr::Call {
-                    func: Box::new(left),
-                    args,
-                    span: call_span,
-                };
+                left = Expr::Call { func: Box::new(left), args, span: call_span };
             } else if self.match_token(&TokenKind::LBracket) {
                 // Indexing or slicing
                 let _index_span_start = self.current().span;
@@ -69,16 +72,17 @@ impl<'a> PrattParser<'a> {
                     if !matches!(self.current().kind, TokenKind::Colon) {
                         start = Some(Box::new(self.parse_expr(Precedence::MIN)?));
                     }
-                    
+
                     // Expect first colon
                     self.expect(&TokenKind::Colon)?;
-                    
+
                     // Parse end (optional)
-                    if !matches!(self.current().kind, TokenKind::RBracket) && 
-                       !matches!(self.current().kind, TokenKind::Colon) {
+                    if !matches!(self.current().kind, TokenKind::RBracket)
+                        && !matches!(self.current().kind, TokenKind::Colon)
+                    {
                         end = Some(Box::new(self.parse_expr(Precedence::MIN)?));
                     }
-                    
+
                     // Check for step
                     if matches!(self.current().kind, TokenKind::Colon) {
                         self.expect(&TokenKind::Colon)?;
@@ -87,16 +91,10 @@ impl<'a> PrattParser<'a> {
                             step = Some(Box::new(self.parse_expr(Precedence::MIN)?));
                         }
                     }
-                    
+
                     self.expect(&TokenKind::RBracket)?;
                     let index_span = left.span().merge(self.previous().span);
-                    left = Expr::Slice {
-                        obj: Box::new(left),
-                        start,
-                        end,
-                        step,
-                        span: index_span,
-                    };
+                    left = Expr::Slice { obj: Box::new(left), start, end, step, span: index_span };
                 } else {
                     // Regular indexing
                     let index = self.parse_expr(Precedence::MIN)?;
@@ -114,14 +112,26 @@ impl<'a> PrattParser<'a> {
                     let attr = attr.clone();
                     self.advance();
                     let attr_span = left.span().merge(self.previous().span);
-                    left = Expr::Attribute {
-                        obj: Box::new(left),
-                        attr,
-                        span: attr_span,
-                    };
+                    left = Expr::Attribute { obj: Box::new(left), attr, span: attr_span };
                 } else {
                     return Err("Expected attribute name after '.'".to_string());
                 }
+            } else if self.match_token(&TokenKind::PlusPlus) {
+                // Postfix increment: x++
+                let inc_span = left.span().merge(self.previous().span);
+                left = Expr::UnaryOp {
+                    op: UnaryOp::PostIncrement,
+                    operand: Box::new(left),
+                    span: inc_span,
+                };
+            } else if self.match_token(&TokenKind::MinusMinus) {
+                // Postfix decrement: x--
+                let dec_span = left.span().merge(self.previous().span);
+                left = Expr::UnaryOp {
+                    op: UnaryOp::PostDecrement,
+                    operand: Box::new(left),
+                    span: dec_span,
+                };
             } else {
                 break;
             }
@@ -142,11 +152,7 @@ impl<'a> PrattParser<'a> {
                     let right = self.parse_expr(Precedence(Precedence::PIPELINE.0 + 1))?;
                     // Transform: left |> right  =>  right(left)
                     let span = left.span().merge(right.span());
-                    left = Expr::Call {
-                        func: Box::new(right),
-                        args: vec![left],
-                        span,
-                    };
+                    left = Expr::Call { func: Box::new(right), args: vec![left], span };
                     continue;
                 }
 
@@ -161,12 +167,7 @@ impl<'a> PrattParser<'a> {
                 let right = self.parse_expr(next_min_prec)?;
                 let span = left.span().merge(right.span());
 
-                left = Expr::BinOp {
-                    left: Box::new(left),
-                    op,
-                    right: Box::new(right),
-                    span,
-                };
+                left = Expr::BinOp { left: Box::new(left), op, right: Box::new(right), span };
             } else {
                 break;
             }
@@ -230,6 +231,7 @@ impl<'a> PrattParser<'a> {
         let _kind = token.kind.clone();
         let span = token.span;
         let token_kind = &token.kind;
+
 
         match token_kind {
             TokenKind::Int(n) => {
@@ -358,11 +360,7 @@ impl<'a> PrattParser<'a> {
                 self.expect(&TokenKind::Colon)?;
                 let body = self.parse_expr(Precedence::MIN)?;
                 let merged_span = span.merge(body.span());
-                Ok(Expr::Lambda {
-                    params,
-                    body: Box::new(body),
-                    span: merged_span,
-                })
+                Ok(Expr::Lambda { params, body: Box::new(body), span: merged_span })
             }
             TokenKind::Ident(name) => {
                 let name = name.clone();
@@ -393,10 +391,7 @@ impl<'a> PrattParser<'a> {
                     self.expect(&TokenKind::RParen)?;
                     let last_span = self.previous().span;
                     let merged_span = span.merge(last_span);
-                    return Ok(Expr::Tuple {
-                        elements,
-                        span: merged_span,
-                    });
+                    return Ok(Expr::Tuple { elements, span: merged_span });
                 }
 
                 self.expect(&TokenKind::RParen)?;
@@ -485,16 +480,9 @@ impl<'a> PrattParser<'a> {
 
                 // Use Array node for fixed-size arrays, List for dynamic lists
                 if size.is_some() {
-                    Ok(Expr::Array {
-                        elements,
-                        size,
-                        span: merged_span,
-                    })
+                    Ok(Expr::Array { elements, size, span: merged_span })
                 } else {
-                    Ok(Expr::List {
-                        elements,
-                        span: merged_span,
-                    })
+                    Ok(Expr::List { elements, span: merged_span })
                 }
             }
             TokenKind::LBrace => {
@@ -505,10 +493,7 @@ impl<'a> PrattParser<'a> {
                 if self.match_token(&TokenKind::RBrace) {
                     let last_span = self.previous().span;
                     let merged_span = span.merge(last_span);
-                    return Ok(Expr::Dict {
-                        pairs,
-                        span: merged_span,
-                    });
+                    return Ok(Expr::Dict { pairs, span: merged_span });
                 }
 
                 // Parse key-value pairs
@@ -532,10 +517,7 @@ impl<'a> PrattParser<'a> {
                 let last_span = self.previous().span;
                 let merged_span = span.merge(last_span);
 
-                Ok(Expr::Dict {
-                    pairs,
-                    span: merged_span,
-                })
+                Ok(Expr::Dict { pairs, span: merged_span })
             }
             TokenKind::Minus => {
                 self.advance();
@@ -561,10 +543,7 @@ impl<'a> PrattParser<'a> {
                 self.advance();
                 let future = self.parse_expr(Precedence::UNARY)?;
                 let merged_span = span.merge(future.span());
-                Ok(Expr::Await {
-                    future: Box::new(future),
-                    span: merged_span,
-                })
+                Ok(Expr::Await { future: Box::new(future), span: merged_span })
             }
             TokenKind::Plus => {
                 self.advance();
@@ -582,6 +561,28 @@ impl<'a> PrattParser<'a> {
                 let merged_span = span.merge(operand.span());
                 Ok(Expr::UnaryOp {
                     op: UnaryOp::Invert,
+                    operand: Box::new(operand),
+                    span: merged_span,
+                })
+            }
+            TokenKind::PlusPlus => {
+                // Prefix increment: ++x
+                self.advance();
+                let operand = self.parse_expr(Precedence::UNARY)?;
+                let merged_span = span.merge(operand.span());
+                Ok(Expr::UnaryOp {
+                    op: UnaryOp::PreIncrement,
+                    operand: Box::new(operand),
+                    span: merged_span,
+                })
+            }
+            TokenKind::MinusMinus => {
+                // Prefix decrement: --x
+                self.advance();
+                let operand = self.parse_expr(Precedence::UNARY)?;
+                let merged_span = span.merge(operand.span());
+                Ok(Expr::UnaryOp {
+                    op: UnaryOp::PreDecrement,
                     operand: Box::new(operand),
                     span: merged_span,
                 })
@@ -696,11 +697,7 @@ impl<'a> PrattParser<'a> {
             self.advance();
             Ok(())
         } else {
-            Err(format!(
-                "Expressions: Expected {:?}, found {:?}",
-                kind,
-                self.current().kind
-            ))
+            Err(format!("Expressions: Expected {:?}, found {:?}", kind, self.current().kind))
         }
     }
 
@@ -711,7 +708,7 @@ impl<'a> PrattParser<'a> {
         // We need to handle nested brackets/parens
         let mut pos = self.pos;
         let mut bracket_depth = 1;
-        
+
         while pos < self.tokens.len() {
             match &self.tokens[pos].kind {
                 TokenKind::Colon if bracket_depth == 1 => return true,
@@ -729,7 +726,7 @@ impl<'a> PrattParser<'a> {
             }
             pos += 1;
         }
-        
+
         false
     }
 }

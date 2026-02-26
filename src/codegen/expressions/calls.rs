@@ -9,7 +9,6 @@ use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 
-
 /// Generate lambda expression
 pub fn generate_lambda<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -40,14 +39,8 @@ pub fn generate_lambda<'ctx>(
     let mut old_vars = Vec::new();
     for (i, param_name) in params.iter().enumerate() {
         let param_value = func.get_nth_param(i as u32).unwrap();
-        let alloca = state
-            .builder
-            .build_alloca(i64_type, param_name)
-            .expect("alloca");
-        state
-            .builder
-            .build_store(alloca, param_value)
-            .expect("store");
+        let alloca = state.builder.build_alloca(i64_type, param_name).expect("alloca");
+        state.builder.build_store(alloca, param_value).expect("store");
 
         let old_var = state.variables.insert(
             param_name.clone(),
@@ -167,12 +160,13 @@ pub fn generate_call<'ctx>(
         if let Some(func_val) = func_val {
             let arg_values: Vec<_> = args
                 .iter()
-                .map(|a| generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+                .map(|a| {
+                    generate_expr(state, a)
+                        .map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+                })
                 .collect::<Result<_, _>>()?;
 
-            let result = state
-                .ir_builder
-                .build_call(state.builder, func_val, &arg_values, "call");
+            let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "call");
             return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
         }
 
@@ -187,7 +181,9 @@ pub fn generate_call<'ctx>(
     if var_val.is_pointer_value() {
         let arg_values: Vec<_> = args
             .iter()
-            .map(|a| generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+            .map(|a| {
+                generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+            })
             .collect::<Result<_, _>>()?;
 
         let i64_type = state.context.i64_type();
@@ -226,10 +222,7 @@ pub fn generate_method_call<'ctx>(
     match method_name {
         "append" => {
             if args.len() != 1 {
-                return Err(format!(
-                    "append() takes exactly 1 argument, got {}",
-                    args.len()
-                ));
+                return Err(format!("append() takes exactly 1 argument, got {}", args.len()));
             }
             let val = generate_expr(state, &args[0])?.into_int_value();
             let list_append = state
@@ -246,10 +239,7 @@ pub fn generate_method_call<'ctx>(
         }
         "insert" => {
             if args.len() != 2 {
-                return Err(format!(
-                    "insert() takes exactly 2 arguments, got {}",
-                    args.len()
-                ));
+                return Err(format!("insert() takes exactly 2 arguments, got {}", args.len()));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
             let val = generate_expr(state, &args[1])?.into_int_value();
@@ -267,10 +257,7 @@ pub fn generate_method_call<'ctx>(
         }
         "remove" => {
             if args.len() != 1 {
-                return Err(format!(
-                    "remove() takes exactly 1 argument, got {}",
-                    args.len()
-                ));
+                return Err(format!("remove() takes exactly 1 argument, got {}", args.len()));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
             let list_remove = state
@@ -294,9 +281,7 @@ pub fn generate_method_call<'ctx>(
                 .get_function("vp_list_pop")
                 .ok_or_else(|| "vp_list_pop not declared".to_string())?;
             let result =
-                state
-                    .ir_builder
-                    .build_call(state.builder, list_pop, &[obj_val.into()], "list_pop");
+                state.ir_builder.build_call(state.builder, list_pop, &[obj_val.into()], "list_pop");
             Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
         }
         "clear" => {
@@ -307,9 +292,7 @@ pub fn generate_method_call<'ctx>(
                 .module
                 .get_function("vp_list_clear")
                 .ok_or_else(|| "vp_list_clear not declared".to_string())?;
-            state
-                .ir_builder
-                .build_call(state.builder, list_clear, &[obj_val.into()], "list_clear");
+            state.ir_builder.build_call(state.builder, list_clear, &[obj_val.into()], "list_clear");
             Ok(obj_val)
         }
         "upper" => {
@@ -318,9 +301,7 @@ pub fn generate_method_call<'ctx>(
             }
             let func = state.module.get_function("vp_str_upper").unwrap();
             let result =
-                state
-                    .ir_builder
-                    .build_call(state.builder, func, &[obj_val.into()], "str_upper");
+                state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "str_upper");
             Ok(result.unwrap())
         }
         "lower" => {
@@ -329,9 +310,7 @@ pub fn generate_method_call<'ctx>(
             }
             let func = state.module.get_function("vp_str_lower").unwrap();
             let result =
-                state
-                    .ir_builder
-                    .build_call(state.builder, func, &[obj_val.into()], "str_lower");
+                state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "str_lower");
             Ok(result.unwrap())
         }
         "split" => {
@@ -367,4 +346,3 @@ pub fn generate_method_call<'ctx>(
         _ => Err(format!("Unknown method: {}", method_name)),
     }
 }
-

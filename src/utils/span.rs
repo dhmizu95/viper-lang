@@ -9,21 +9,11 @@ pub struct Span {
 
 impl Span {
     pub fn new(start: usize, end: usize, line: usize, column: usize) -> Self {
-        Self {
-            start,
-            end,
-            line,
-            column,
-        }
+        Self { start, end, line, column }
     }
 
     pub fn empty(line: usize, column: usize) -> Self {
-        Self {
-            start: 0,
-            end: 0,
-            line,
-            column,
-        }
+        Self { start: 0, end: 0, line, column }
     }
 
     pub fn merge(self, other: Span) -> Span {

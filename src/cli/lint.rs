@@ -43,10 +43,7 @@ pub fn run_lint(args: &LintArgs) -> Result<(), String> {
         for error in type_checker.errors() {
             eprintln!("Error: {:?}", error);
         }
-        return Err(format!(
-            "{} type error(s) found",
-            type_checker.errors().len()
-        ));
+        return Err(format!("{} type error(s) found", type_checker.errors().len()));
     }
 
     Ok(())
@@ -73,12 +70,7 @@ fn collect_stmt_vars(stmt: &crate::ast::Stmt, vars: &mut std::collections::HashS
                 collect_stmt_vars(s, vars);
             }
         }
-        crate::ast::Stmt::If {
-            body,
-            elif_blocks,
-            else_body,
-            ..
-        } => {
+        crate::ast::Stmt::If { body, elif_blocks, else_body, .. } => {
             for s in body {
                 collect_stmt_vars(s, vars);
             }
@@ -131,12 +123,7 @@ fn collect_stmt_usage(stmt: &crate::ast::Stmt, vars: &mut std::collections::Hash
                 collect_stmt_usage(s, vars);
             }
         }
-        Stmt::If {
-            body,
-            elif_blocks,
-            else_body,
-            ..
-        } => {
+        Stmt::If { body, elif_blocks, else_body, .. } => {
             for s in body {
                 collect_stmt_usage(s, vars);
             }
@@ -157,9 +144,7 @@ fn collect_stmt_usage(stmt: &crate::ast::Stmt, vars: &mut std::collections::Hash
                 collect_stmt_usage(s, vars);
             }
         }
-        Stmt::While {
-            condition, body, ..
-        } => {
+        Stmt::While { condition, body, .. } => {
             collect_expr_usage(condition, vars);
             for s in body {
                 collect_stmt_usage(s, vars);
@@ -209,12 +194,7 @@ fn collect_expr_usage(expr: &crate::ast::Expr, vars: &mut std::collections::Hash
         Expr::Lambda { body, .. } => {
             collect_expr_usage(body, vars);
         }
-        Expr::Conditional {
-            condition,
-            then_expr,
-            else_expr,
-            ..
-        } => {
+        Expr::Conditional { condition, then_expr, else_expr, .. } => {
             collect_expr_usage(condition, vars);
             collect_expr_usage(then_expr, vars);
             collect_expr_usage(else_expr, vars);

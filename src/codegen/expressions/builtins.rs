@@ -9,7 +9,6 @@ use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 
-
 /// Generate print call - handles multiple arguments
 pub fn generate_print_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -20,10 +19,7 @@ pub fn generate_print_call<'ctx>(
             .module
             .get_function("vp_print_newline")
             .ok_or_else(|| "vp_print_newline not declared".to_string())?;
-        state
-            .builder
-            .build_call(newline_func, &[], "print_newline")
-            .expect("vp_print_newline");
+        state.builder.build_call(newline_func, &[], "print_newline").expect("vp_print_newline");
         return Ok(state.ir_builder.i64_const(0).into());
     }
 
@@ -36,19 +32,13 @@ pub fn generate_print_call<'ctx>(
                 .module
                 .get_function("vp_print_i64")
                 .ok_or_else(|| "vp_print_i64 not declared".to_string())?;
-            state
-                .builder
-                .build_call(print_func, &[val.into()], "print_i64")
-                .expect("vp_print_i64");
+            state.builder.build_call(print_func, &[val.into()], "print_i64").expect("vp_print_i64");
         } else if val.is_float_value() {
             let print_func = state
                 .module
                 .get_function("vp_print_f64")
                 .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
-            state
-                .builder
-                .build_call(print_func, &[val.into()], "print_f64")
-                .expect("vp_print_f64");
+            state.builder.build_call(print_func, &[val.into()], "print_f64").expect("vp_print_f64");
         } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
             let print_func = state
                 .module
@@ -85,7 +75,7 @@ pub fn generate_print_call<'ctx>(
                     .ir_builder
                     .build_call(state.builder, to_str_func, &[val.into()], "bigint_to_str")
                     .unwrap();
-                
+
                 // Print the string
                 let print_func = state
                     .module
@@ -115,10 +105,7 @@ pub fn generate_print_call<'ctx>(
                     .expect("vp_print_str");
             }
         } else {
-            return Err(format!(
-                "print() does not support type {:?}",
-                val.get_type()
-            ));
+            return Err(format!("print() does not support type {:?}", val.get_type()));
         }
 
         // Add space between arguments (but not after the last one)
@@ -134,12 +121,7 @@ pub fn generate_print_call<'ctx>(
                 .ok_or_else(|| "vp_str_create not declared".to_string())?;
             let space_val = state
                 .ir_builder
-                .build_call(
-                    state.builder,
-                    create_func,
-                    &[space_str_const.into()],
-                    "space_create",
-                )
+                .build_call(state.builder, create_func, &[space_str_const.into()], "space_create")
                 .unwrap();
             state
                 .builder
@@ -153,10 +135,7 @@ pub fn generate_print_call<'ctx>(
         .module
         .get_function("vp_print_newline")
         .ok_or_else(|| "vp_print_newline not declared".to_string())?;
-    state
-        .builder
-        .build_call(newline_func, &[], "print_newline")
-        .expect("vp_print_newline");
+    state.builder.build_call(newline_func, &[], "print_newline").expect("vp_print_newline");
 
     return Ok(state.ir_builder.i64_const(0).into());
 }
@@ -167,10 +146,7 @@ pub fn generate_len_call<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!(
-            "len() takes exactly 1 argument, got {}",
-            args.len()
-        ));
+        return Err(format!("len() takes exactly 1 argument, got {}", args.len()));
     }
 
     let obj_expr = &args[0];
@@ -191,9 +167,7 @@ pub fn generate_len_call<'ctx>(
             .get_function("vp_list_len")
             .ok_or_else(|| "vp_list_len not declared".to_string())?;
         let result =
-            state
-                .ir_builder
-                .build_call(state.builder, list_len, &[obj_val.into()], "list_len");
+            state.ir_builder.build_call(state.builder, list_len, &[obj_val.into()], "list_len");
         return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
     }
 
@@ -205,9 +179,7 @@ pub fn generate_len_call<'ctx>(
             .get_function("vp_str_len")
             .ok_or_else(|| "vp_str_len not declared".to_string())?;
         let result =
-            state
-                .ir_builder
-                .build_call(state.builder, str_len, &[obj_val.into()], "str_len");
+            state.ir_builder.build_call(state.builder, str_len, &[obj_val.into()], "str_len");
         return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
     }
 
@@ -217,9 +189,7 @@ pub fn generate_len_call<'ctx>(
         .get_function("vp_list_len")
         .ok_or_else(|| "vp_list_len not declared".to_string())?;
     let result =
-        state
-            .ir_builder
-            .build_call(state.builder, list_len, &[obj_val.into()], "list_len");
+        state.ir_builder.build_call(state.builder, list_len, &[obj_val.into()], "list_len");
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
 }
 
@@ -230,11 +200,7 @@ pub fn generate_type_convert<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!(
-            "{}() takes exactly 1 argument, got {}",
-            name,
-            args.len()
-        ));
+        return Err(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
     }
 
     let arg_val = generate_expr(state, &args[0])?;
@@ -291,10 +257,7 @@ pub fn generate_str_call<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!(
-            "str() takes exactly 1 argument, got {}",
-            args.len()
-        ));
+        return Err(format!("str() takes exactly 1 argument, got {}", args.len()));
     }
 
     let arg = &args[0];
@@ -350,11 +313,7 @@ pub fn generate_math_builtin<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!(
-            "{}() takes exactly 1 argument, got {}",
-            name,
-            args.len()
-        ));
+        return Err(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
     }
 
     let arg_val = generate_expr(state, &args[0])?;
@@ -384,9 +343,7 @@ pub fn generate_math_builtin<'ctx>(
         .ok_or_else(|| format!("{} not declared", func_name))?;
 
     let result =
-        state
-            .ir_builder
-            .build_call(state.builder, math_func, &[arg_float.into()], "math_result");
+        state.ir_builder.build_call(state.builder, math_func, &[arg_float.into()], "math_result");
     Ok(result.unwrap_or(state.ir_builder.f64_const(0.0).into()))
 }
 
@@ -469,4 +426,3 @@ pub fn generate_struct_unpack<'ctx>(
 
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
 }
-

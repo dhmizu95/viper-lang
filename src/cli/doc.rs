@@ -19,10 +19,8 @@ pub fn run_doc(args: &DocArgs) -> Result<(), String> {
         .map_err(|e| format!("Failed to create output directory: {}", e))?;
 
     // Generate markdown file
-    let input_stem = Path::new(&args.input)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("module");
+    let input_stem =
+        Path::new(&args.input).file_stem().and_then(|s| s.to_str()).unwrap_or("module");
 
     let output_path = Path::new(&args.output).join(format!("{}.md", input_stem));
 
@@ -60,21 +58,14 @@ fn extract_docstrings_simple(source: &str) -> Vec<(String, String)> {
             let next_line = lines[i + 1].trim();
             if next_line.starts_with("\"\"\"") || next_line.starts_with("'''") {
                 // Extract function name
-                let name_part = line
-                    .trim_start_matches("def ")
-                    .split('(')
-                    .next()
-                    .unwrap_or("unknown");
+                let name_part =
+                    line.trim_start_matches("def ").split('(').next().unwrap_or("unknown");
                 let name = name_part.trim().to_string();
 
                 // Extract docstring
                 let mut doc = String::new();
                 let mut j = i + 1;
-                let closing = if next_line.starts_with("\"\"\"") {
-                    "\"\"\""
-                } else {
-                    "'''"
-                };
+                let closing = if next_line.starts_with("\"\"\"") { "\"\"\"" } else { "'''" };
 
                 // Skip opening quote
                 j += 1;

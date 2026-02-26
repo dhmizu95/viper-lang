@@ -2,10 +2,10 @@
 
 use super::*;
 use crate::ast::{Expr, Type};
-use crate::utils::mangle_function_name;
-use inkwell::values::BasicValueEnum;
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarStorage, VarType};
+use crate::utils::mangle_function_name;
+use inkwell::values::BasicValueEnum;
 
 pub fn infer_expr_type(expr: &Expr) -> Type {
     match expr {
@@ -15,7 +15,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::None(_) => Type::None,
-        Expr::Ident(_, _) => Type::Infer,  // Will be resolved during codegen
+        Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
@@ -41,9 +41,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         }
         Expr::Tuple { elements, .. } => Type::Tuple(elements.iter().map(infer_expr_type).collect()),
         Expr::Dict { .. } => Type::Var("dict".to_string()),
-        Expr::BinOp {
-            op: _, left, right, ..
-        } => {
+        Expr::BinOp { op: _, left, right, .. } => {
             let lt = infer_expr_type(left);
             let rt = infer_expr_type(right);
             if lt == Type::F64 || rt == Type::F64 {
@@ -146,18 +144,12 @@ pub fn generate_expr<'ctx>(
                         match var_info.var_type {
                             VarType::Float => {
                                 let f64_type = state.context.f64_type();
-                                Ok(state
-                                    .builder
-                                    .build_load(f64_type, *alloca, name)
-                                    .expect("load"))
+                                Ok(state.builder.build_load(f64_type, *alloca, name).expect("load"))
                             }
                             VarType::Pointer | VarType::BigInt => {
                                 let ptr_type =
                                     state.context.ptr_type(inkwell::AddressSpace::default());
-                                Ok(state
-                                    .builder
-                                    .build_load(ptr_type, *alloca, name)
-                                    .expect("load"))
+                                Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load"))
                             }
                             VarType::Bool => {
                                 let bool_type = state.context.bool_type();
@@ -168,10 +160,7 @@ pub fn generate_expr<'ctx>(
                             }
                             VarType::Int => {
                                 let i64_type = state.context.i64_type();
-                                Ok(state
-                                    .builder
-                                    .build_load(i64_type, *alloca, name)
-                                    .expect("load"))
+                                Ok(state.builder.build_load(i64_type, *alloca, name).expect("load"))
                             }
                         }
                     }
@@ -181,11 +170,7 @@ pub fn generate_expr<'ctx>(
             }
         }
         Expr::List { elements, span: _ } => generate_list(state, elements),
-        Expr::Array {
-            elements,
-            size,
-            span: _,
-        } => generate_array(state, elements, *size),
+        Expr::Array { elements, size, span: _ } => generate_array(state, elements, *size),
         Expr::Tuple { elements, span: _ } => {
             if elements.is_empty() {
                 Ok(state.ir_builder.i64_const(0).into())
@@ -194,41 +179,21 @@ pub fn generate_expr<'ctx>(
             }
         }
         Expr::Dict { pairs, span: _ } => generate_dict(state, pairs),
-        Expr::Index {
-            obj,
-            index,
-            span: _,
-        } => generate_index(state, obj, index),
-        Expr::Slice {
-            obj,
-            start,
-            end,
-            step,
-            span: _,
-        } => generate_slice(state, obj, start, end, step),
-        Expr::BinOp {
-            left, op, right, ..
-        } => generate_binop(state, left, op, right),
+        Expr::Index { obj, index, span: _ } => generate_index(state, obj, index),
+        Expr::Slice { obj, start, end, step, span: _ } => {
+            generate_slice(state, obj, start, end, step)
+        }
+        Expr::BinOp { left, op, right, .. } => generate_binop(state, left, op, right),
         Expr::UnaryOp { op, operand, .. } => generate_unary(state, op, operand),
-        Expr::Conditional {
-            condition,
-            then_expr,
-            else_expr,
-            span: _,
-        } => generate_conditional(state, condition, then_expr, else_expr),
+        Expr::Conditional { condition, then_expr, else_expr, span: _ } => {
+            generate_conditional(state, condition, then_expr, else_expr)
+        }
         Expr::Call { func, args, span } => generate_call(state, func, args, *span),
-        Expr::Attribute {
-            obj,
-            attr: _,
-            span: _,
-        } => generate_expr(state, obj),
+        Expr::Attribute { obj, attr: _, span: _ } => generate_expr(state, obj),
         Expr::Await { future, span: _ } => generate_await(state, future),
         Expr::Lambda { params, body, span } => generate_lambda(state, params, body, *span),
-        Expr::ListComprehension {
-            element,
-            var,
-            iter,
-            span,
-        } => generate_list_comprehension(state, element, var, iter, *span),
+        Expr::ListComprehension { element, var, iter, span } => {
+            generate_list_comprehension(state, element, var, iter, *span)
+        }
     }
 }

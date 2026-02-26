@@ -37,10 +37,7 @@ pub enum Type {
     /// WaitGroup type (for synchronization)
     WaitGroup,
     /// Struct type
-    Struct {
-        name: String,
-        fields: Vec<(String, Type)>,
-    },
+    Struct { name: String, fields: Vec<(String, Type)> },
     /// Future type (for async/await)
     Future(Box<Type>),
     /// Type variable (for generics)

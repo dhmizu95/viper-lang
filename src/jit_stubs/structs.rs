@@ -1,4 +1,3 @@
-
 // Struct module stubs for JIT
 pub extern "C" fn vp_struct_pack(
     _format: *const std::ffi::c_char,
@@ -21,4 +20,3 @@ pub extern "C" fn vp_struct_unpack(
     }
     unsafe { *(data as *const i64) }
 }
-

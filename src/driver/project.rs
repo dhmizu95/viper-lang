@@ -1,5 +1,3 @@
-
-
 /// Initialize a new Viper project
 pub fn init_project(name: &str) -> Result<(), String> {
     // Create project directory
@@ -32,4 +30,3 @@ edition = "2021"
     println!("   cd {} && viper run src/main.vp", name);
     Ok(())
 }
-

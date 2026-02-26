@@ -1,6 +1,6 @@
+use crate::codegen;
 use crate::lexer;
 use crate::parser;
-use crate::codegen;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use std::path::Path;
@@ -21,11 +21,7 @@ pub fn compile_and_run(input_path: &str) -> Result<(), String> {
 pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
     use inkwell::targets::{InitializationConfig, Target};
 
-    println!(
-        "🐍 Viper Compiler {} (JIT -O{})",
-        env!("CARGO_PKG_VERSION"),
-        opt_level
-    );
+    println!("🐍 Viper Compiler {} (JIT -O{})", env!("CARGO_PKG_VERSION"), opt_level);
     println!("   Running: {}", input_path);
 
     let source = std::fs::read_to_string(input_path)
@@ -40,14 +36,14 @@ pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), Strin
     // Semantic Analysis (Type Checking)
     let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
     type_checker.check(&ast).map_err(|e| {
-        format!("Type errors found:\n{}", e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n"))
+        format!(
+            "Type errors found:\n{}",
+            e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
+        )
     })?;
 
     let context = Context::create();
-    let module_name = Path::new(input_path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main");
+    let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
     codegen.generate(&ast)?;

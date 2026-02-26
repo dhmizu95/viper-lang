@@ -118,7 +118,8 @@ fn declare_list_functions<'ctx>(
     let list_len_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_list_len", list_len_type, None);
 
-    let list_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    let list_slice_type = ptr_type
+        .fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_list_slice", list_slice_type, None);
 
     let list_set_type =

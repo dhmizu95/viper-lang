@@ -24,7 +24,8 @@ pub(crate) fn generate_declare<'ctx>(
                 // Lists return pointers, but so do strings - need to distinguish
                 if let Expr::Ident(func_name, _) = func.as_ref() {
                     // Built-in list functions
-                    if func_name == "vp_list_create" || func_name == "vp_list_create_f64"
+                    if func_name == "vp_list_create"
+                        || func_name == "vp_list_create_f64"
                         || func_name == "vp_list_create_with_capacity"
                     {
                         true
@@ -74,18 +75,11 @@ pub(crate) fn generate_declare<'ctx>(
 
         if !use_stack {
             // Use SSA register allocation for non-escaping variables or non-mutable scalars
-            state
-                .variables
-                .insert(name.to_string(), VarInfo::new_register(val, var_type));
+            state.variables.insert(name.to_string(), VarInfo::new_register(val, var_type));
         } else {
             // Use stack allocation (alloca) for escaping variables or mutable scalars
             // Create alloca in function entry block to satisfy LLVM dominance
-            let func = state
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_parent()
-                .unwrap();
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
             let entry_block = func.get_first_basic_block().unwrap();
             let old_builder_pos = state.builder.get_insert_block();
 
@@ -101,9 +95,7 @@ pub(crate) fn generate_declare<'ctx>(
             }
 
             state.builder.build_store(alloca, val).expect("store");
-            state
-                .variables
-                .insert(name.to_string(), VarInfo::new_stack(alloca, var_type));
+            state.variables.insert(name.to_string(), VarInfo::new_stack(alloca, var_type));
 
             // Insert ARC retain if this is a reference type that escapes
             if is_ref_type && state.needs_arc(name) {

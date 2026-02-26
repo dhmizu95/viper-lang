@@ -1,4 +1,3 @@
-
 /// String concatenation stub for JIT
 /// Uses CString to ensure proper null-terminated string layout
 pub extern "C" fn vp_str_concat_stub(
@@ -121,4 +120,3 @@ pub extern "C" fn vp_str_replace_stub(
         c_str.into_raw()
     }
 }
-

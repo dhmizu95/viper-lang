@@ -1,4 +1,3 @@
-
 // Runtime function implementations for JIT
 pub extern "C" fn vp_print_i64(val: i64) {
     use std::io::{self, Write};
@@ -35,4 +34,3 @@ pub extern "C" fn vp_print_str_stub(s: *mut std::ffi::c_void) {
         }
     }
 }
-

@@ -23,7 +23,8 @@ pub(crate) fn generate_assign<'ctx>(
                 // Check if calling a list-returning function
                 if let Expr::Ident(func_name, _) = func.as_ref() {
                     // Built-in list functions
-                    if func_name == "vp_list_create" || func_name == "vp_list_create_f64"
+                    if func_name == "vp_list_create"
+                        || func_name == "vp_list_create_f64"
                         || func_name == "vp_list_create_with_capacity"
                     {
                         true
@@ -53,36 +54,42 @@ pub(crate) fn generate_assign<'ctx>(
             Expr::BigInt(_, _) => true,
             Expr::BinOp { op, .. } => {
                 // Arithmetic operations on BigInts produce BigInt results
-                matches!(op, crate::ast::BinOp::Add | crate::ast::BinOp::Sub | 
-                         crate::ast::BinOp::Mul | crate::ast::BinOp::Div | 
-                         crate::ast::BinOp::Mod | crate::ast::BinOp::Pow) &&
-                val.is_pointer_value()
+                matches!(
+                    op,
+                    crate::ast::BinOp::Add
+                        | crate::ast::BinOp::Sub
+                        | crate::ast::BinOp::Mul
+                        | crate::ast::BinOp::Div
+                        | crate::ast::BinOp::Mod
+                        | crate::ast::BinOp::Pow
+                ) && val.is_pointer_value()
             }
             Expr::UnaryOp { op, operand, .. } => {
                 // Negation of BigInt produces BigInt
-                matches!(op, crate::ast::UnaryOp::Neg) &&
-                matches!(operand.as_ref(), Expr::BigInt(_, _)) &&
-                val.is_pointer_value()
+                matches!(op, crate::ast::UnaryOp::Neg)
+                    && matches!(operand.as_ref(), Expr::BigInt(_, _))
+                    && val.is_pointer_value()
             }
             _ => false,
         };
 
         // Check if variable exists and get its info
         let var_exists = state.variables.contains_key(name);
-        
+
         if var_exists {
             // Get info we need before mutable borrow
             let old_is_ref;
             let old_needs_arc;
             let storage;
-            
+
             {
                 let var_info = state.variables.get(name).unwrap();
-                old_is_ref = var_info.var_type == VarType::Pointer || var_info.var_type == VarType::BigInt;
+                old_is_ref =
+                    var_info.var_type == VarType::Pointer || var_info.var_type == VarType::BigInt;
                 old_needs_arc = state.needs_arc(name);
                 storage = var_info.storage.clone();
             }
-            
+
             // Update var_type if this is a BigInt assignment
             if is_bigint {
                 if let Some(var_info) = state.variables.get_mut(name) {
@@ -148,12 +155,7 @@ pub(crate) fn generate_assign<'ctx>(
             // if the variable is register-allocated. Stack alloca + store/load
             // is the correct approach; LLVM `mem2reg` will promote them back to
             // registers during optimization.
-            let func = state
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_parent()
-                .unwrap();
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
             let entry_block = func.get_first_basic_block().unwrap();
             let old_pos = state.builder.get_insert_block();
             match entry_block.get_first_instruction() {
@@ -165,9 +167,7 @@ pub(crate) fn generate_assign<'ctx>(
                 state.builder.position_at_end(pos);
             }
             state.builder.build_store(alloca, val).expect("store");
-            state
-                .variables
-                .insert(name.clone(), VarInfo::new_stack(alloca, var_type));
+            state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
 
             // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
             if is_ref_type && state.needs_arc(name) {
@@ -192,9 +192,7 @@ pub(crate) fn generate_assign<'ctx>(
             let elem_type = value_val.get_type();
 
             let elem_ptr = unsafe {
-                state
-                    .builder
-                    .build_in_bounds_gep(elem_type, obj_ptr, &[index_val], "array_elem")
+                state.builder.build_in_bounds_gep(elem_type, obj_ptr, &[index_val], "array_elem")
             }
             .map_err(|e| format!("Failed to build array index GEP: {:?}", e))?;
 
@@ -242,17 +240,11 @@ pub(crate) fn generate_aug_assign<'ctx>(
                         match var_type {
                             VarType::Float => {
                                 let f64_type = state.context.f64_type();
-                                state
-                                    .builder
-                                    .build_load(f64_type, *alloca, name)
-                                    .expect("load")
+                                state.builder.build_load(f64_type, *alloca, name).expect("load")
                             }
                             VarType::Int => {
                                 let i64_type = state.context.i64_type();
-                                state
-                                    .builder
-                                    .build_load(i64_type, *alloca, name)
-                                    .expect("load")
+                                state.builder.build_load(i64_type, *alloca, name).expect("load")
                             }
                             _ => return Err("Invalid var type".to_string()),
                         }
@@ -264,10 +256,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 // For pointers, load from stack
                 if let VarStorage::Stack(alloca) = &var_info.storage {
                     let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-                    state
-                        .builder
-                        .build_load(ptr_type, *alloca, name)
-                        .expect("load")
+                    state.builder.build_load(ptr_type, *alloca, name).expect("load")
                 } else {
                     return Err("Reference types must be stack allocated".to_string());
                 }
@@ -279,30 +268,17 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 let lhs = current.into_float_value();
                 let rhs = new_val.into_float_value();
                 match op {
-                    BinOp::Add => state
-                        .builder
-                        .build_float_add(lhs, rhs, "fadd")
-                        .expect("fadd"),
-                    BinOp::Sub => state
-                        .builder
-                        .build_float_sub(lhs, rhs, "fsub")
-                        .expect("fsub"),
-                    BinOp::Mul => state
-                        .builder
-                        .build_float_mul(lhs, rhs, "fmul")
-                        .expect("fmul"),
-                    BinOp::Div => state
-                        .builder
-                        .build_float_div(lhs, rhs, "fdiv")
-                        .expect("fdiv"),
+                    BinOp::Add => state.builder.build_float_add(lhs, rhs, "fadd").expect("fadd"),
+                    BinOp::Sub => state.builder.build_float_sub(lhs, rhs, "fsub").expect("fsub"),
+                    BinOp::Mul => state.builder.build_float_mul(lhs, rhs, "fmul").expect("fmul"),
+                    BinOp::Div => state.builder.build_float_div(lhs, rhs, "fdiv").expect("fdiv"),
                     BinOp::FloorDiv => {
                         // For float, floor division is floor(lhs / rhs)
-                        let div = state
-                            .builder
-                            .build_float_div(lhs, rhs, "fdiv")
-                            .expect("fdiv");
+                        let div = state.builder.build_float_div(lhs, rhs, "fdiv").expect("fdiv");
                         // Call vp_math_floor
-                        let floor_func = state.module.get_function("vp_math_floor")
+                        let floor_func = state
+                            .module
+                            .get_function("vp_math_floor")
                             .expect("vp_math_floor not found");
                         let result = state
                             .ir_builder
@@ -312,8 +288,8 @@ pub(crate) fn generate_aug_assign<'ctx>(
                     }
                     BinOp::Pow => {
                         // Call vp_pow for float exponentiation
-                        let pow_func = state.module.get_function("vp_pow")
-                            .expect("vp_pow not found");
+                        let pow_func =
+                            state.module.get_function("vp_pow").expect("vp_pow not found");
                         let result = state
                             .ir_builder
                             .build_call(state.builder, pow_func, &[lhs.into(), rhs.into()], "pow")
@@ -336,22 +312,22 @@ pub(crate) fn generate_aug_assign<'ctx>(
                     BinOp::Sub => state.ir_builder.build_sub(state.builder, lhs, rhs, "sub"),
                     BinOp::Mul => state.ir_builder.build_mul(state.builder, lhs, rhs, "mul"),
                     BinOp::Div => state.ir_builder.build_div(state.builder, lhs, rhs, "div"),
-                    BinOp::Mod => state
-                        .builder
-                        .build_int_signed_rem(lhs, rhs, "mod")
-                        .expect("mod"),
+                    BinOp::Mod => state.builder.build_int_signed_rem(lhs, rhs, "mod").expect("mod"),
                     BinOp::FloorDiv => {
-                        state
-                            .ir_builder
-                            .build_div(state.builder, lhs, rhs, "floordiv")
+                        state.ir_builder.build_div(state.builder, lhs, rhs, "floordiv")
                     }
                     BinOp::Pow => {
                         // For integer power, call vp_pow_i64
-                        let pow_i64_func = state.module.get_function("vp_pow_i64")
-                            .expect("vp_pow_i64 not found");
+                        let pow_i64_func =
+                            state.module.get_function("vp_pow_i64").expect("vp_pow_i64 not found");
                         let result = state
                             .ir_builder
-                            .build_call(state.builder, pow_i64_func, &[lhs.into(), rhs.into()], "pow")
+                            .build_call(
+                                state.builder,
+                                pow_i64_func,
+                                &[lhs.into(), rhs.into()],
+                                "pow",
+                            )
                             .expect("pow call");
                         result.into_int_value()
                     }
@@ -383,10 +359,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 }
             }
         } else {
-            return Err(format!(
-                "Undefined variable in augmented assignment: {}",
-                name
-            ));
+            return Err(format!("Undefined variable in augmented assignment: {}", name));
         }
     }
     Ok(())

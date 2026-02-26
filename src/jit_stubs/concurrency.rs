@@ -58,4 +58,3 @@ pub extern "C" fn vp_future_await(future: i64) -> i64 {
     // A full implementation would suspend and resume the coroutine
     future
 }
-

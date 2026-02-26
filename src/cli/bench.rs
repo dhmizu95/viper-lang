@@ -42,10 +42,7 @@ pub fn run_bench(args: &BenchArgs) -> Result<(), String> {
 }
 
 fn run_single_benchmark(path: &Path, iterations: u32) -> Result<(), String> {
-    let name = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown");
+    let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
 
     print!("{}: ", name);
 

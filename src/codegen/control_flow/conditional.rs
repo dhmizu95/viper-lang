@@ -8,12 +8,7 @@ fn generate_if_chain<'ctx>(
     else_body: &Option<Vec<Stmt>>,
     merge_block: inkwell::basic_block::BasicBlock<'ctx>,
 ) -> Result<(), String> {
-    let func = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_parent()
-        .unwrap();
+    let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
 
     if elif_blocks.is_empty() {
         // No more elif blocks, handle else body
@@ -32,23 +27,11 @@ fn generate_if_chain<'ctx>(
                     stmt,
                 )?;
             }
-            if state
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_terminator()
-                .is_none()
-            {
+            if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
                 state.ir_builder.build_branch(state.builder, merge_block);
             }
         } else {
-            if state
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_terminator()
-                .is_none()
-            {
+            if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
                 state.ir_builder.build_branch(state.builder, merge_block);
             }
         }
@@ -69,9 +52,7 @@ fn generate_if_chain<'ctx>(
         merge_block
     };
 
-    state
-        .ir_builder
-        .build_cond_branch(state.builder, elif_cond_val, elif_then, elif_else);
+    state.ir_builder.build_cond_branch(state.builder, elif_cond_val, elif_then, elif_else);
 
     // Generate then block for this elif
     state.builder.position_at_end(elif_then);
@@ -89,13 +70,7 @@ fn generate_if_chain<'ctx>(
             stmt,
         )?;
     }
-    if state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_terminator()
-        .is_none()
-    {
+    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, merge_block);
     }
 
@@ -112,12 +87,7 @@ pub fn generate_if<'ctx>(
     elif_blocks: &[(Expr, Vec<Stmt>)],
     else_body: &Option<Vec<Stmt>>,
 ) -> Result<(), String> {
-    let func = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_parent()
-        .unwrap();
+    let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let cond_val = crate::codegen::expressions::generate_expr(state, condition)?.into_int_value();
 
     let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
@@ -138,9 +108,7 @@ pub fn generate_if<'ctx>(
     let else_block = state.context.append_basic_block(func, "else");
     let merge_block = state.context.append_basic_block(func, "if_cont");
 
-    state
-        .ir_builder
-        .build_cond_branch(state.builder, cond_i1, then_block, else_block);
+    state.ir_builder.build_cond_branch(state.builder, cond_i1, then_block, else_block);
 
     // Then block
     state.builder.position_at_end(then_block);
@@ -158,13 +126,7 @@ pub fn generate_if<'ctx>(
             stmt,
         )?;
     }
-    if state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_terminator()
-        .is_none()
-    {
+    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, merge_block);
     }
 

@@ -7,12 +7,12 @@ fn main() {
 
     let mut lexer = viper_lang::lexer::Lexer::new(source);
     let tokens = lexer.tokenize().unwrap();
-    
+
     println!("Tokens:");
     for (i, token) in tokens.iter().enumerate() {
         println!("{:3}: {:?}", i, token.kind);
     }
-    
+
     println!("\n---\nParsing...");
     let mut parser = viper_lang::parser::Parser::new(tokens);
     match parser.parse() {

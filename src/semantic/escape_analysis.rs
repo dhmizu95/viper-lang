@@ -206,13 +206,7 @@ impl EscapeAnalyzer {
                 self.analyze_expr(target, ctx, EscapeState::MayEscape);
                 self.analyze_expr(value, ctx, EscapeState::MayEscape);
             }
-            Stmt::Declare {
-                name,
-                value,
-                type_ann,
-                mutable,
-                span,
-            } => {
+            Stmt::Declare { name, value, type_ann, mutable, span } => {
                 ctx.variables.insert(
                     name.clone(),
                     VariableEscapeInfo::new(type_ann.clone(), *mutable, span.line),
@@ -226,13 +220,7 @@ impl EscapeAnalyzer {
                     self.analyze_return_expr(expr, ctx);
                 }
             }
-            Stmt::If {
-                condition,
-                body,
-                elif_blocks,
-                else_body,
-                ..
-            } => {
+            Stmt::If { condition, body, elif_blocks, else_body, .. } => {
                 self.analyze_expr(condition, ctx, EscapeState::None);
                 for stmt in body {
                     self.analyze_stmt(stmt, ctx);
@@ -249,17 +237,13 @@ impl EscapeAnalyzer {
                     }
                 }
             }
-            Stmt::While {
-                condition, body, ..
-            } => {
+            Stmt::While { condition, body, .. } => {
                 self.analyze_expr(condition, ctx, EscapeState::None);
                 for stmt in body {
                     self.analyze_stmt(stmt, ctx);
                 }
             }
-            Stmt::For {
-                target, iter, body, ..
-            } => {
+            Stmt::For { target, iter, body, .. } => {
                 self.analyze_expr(iter, ctx, EscapeState::MayEscape);
                 // Target variable is assigned in loop
                 if let Expr::Ident(name, _) = target.as_ref() {
@@ -325,8 +309,7 @@ impl EscapeAnalyzer {
 
                     // Ensure variable exists in context
                     if !ctx.variables.contains_key(name) {
-                        ctx.variables
-                            .insert(name.clone(), VariableEscapeInfo::new(None, true, 0));
+                        ctx.variables.insert(name.clone(), VariableEscapeInfo::new(None, true, 0));
                     }
                 }
             }
@@ -384,11 +367,7 @@ impl EscapeAnalyzer {
             Expr::UnaryOp { operand, .. } => {
                 self.analyze_expr(operand, ctx, EscapeState::None);
             }
-            Expr::Conditional {
-                then_expr,
-                else_expr,
-                ..
-            } => {
+            Expr::Conditional { then_expr, else_expr, .. } => {
                 self.analyze_return_expr(then_expr, ctx);
                 self.analyze_return_expr(else_expr, ctx);
             }
@@ -459,9 +438,7 @@ impl EscapeAnalyzer {
                 // Await - the future escapes
                 self.analyze_expr(future, ctx, state);
             }
-            Expr::BinOp {
-                left, right, op, ..
-            } => {
+            Expr::BinOp { left, right, op, .. } => {
                 // For membership operators, the container may be accessed
                 let container_state = if matches!(op, BinOp::In | BinOp::NotIn) {
                     EscapeState::MayEscape
@@ -485,12 +462,7 @@ impl EscapeAnalyzer {
                 // Lambda - conservative: assume captured vars may escape
                 self.analyze_expr(body, ctx, EscapeState::MayEscape);
             }
-            Expr::Conditional {
-                condition,
-                then_expr,
-                else_expr,
-                ..
-            } => {
+            Expr::Conditional { condition, then_expr, else_expr, .. } => {
                 self.analyze_expr(condition, ctx, EscapeState::None);
                 self.analyze_expr(then_expr, ctx, state);
                 self.analyze_expr(else_expr, ctx, state);
@@ -519,9 +491,7 @@ impl EscapeAnalyzer {
         function_name: &str,
         var_name: &str,
     ) -> Option<&VariableEscapeInfo> {
-        self.function_contexts
-            .get(function_name)
-            .and_then(|ctx| ctx.variables.get(var_name))
+        self.function_contexts.get(function_name).and_then(|ctx| ctx.variables.get(var_name))
     }
 
     /// Check if a variable can be stack-allocated
@@ -533,17 +503,12 @@ impl EscapeAnalyzer {
 
     /// Get all escaping parameters for a function
     pub fn get_escaping_params(&self, function_name: &str) -> Option<&HashSet<String>> {
-        self.function_contexts
-            .get(function_name)
-            .map(|ctx| &ctx.escaping_params)
+        self.function_contexts.get(function_name).map(|ctx| &ctx.escaping_params)
     }
 
     /// Check if a function's return value escapes
     pub fn return_escapes(&self, function_name: &str) -> bool {
-        self.function_contexts
-            .get(function_name)
-            .map(|ctx| ctx.return_escapes)
-            .unwrap_or(false)
+        self.function_contexts.get(function_name).map(|ctx| ctx.return_escapes).unwrap_or(false)
     }
 
     /// Check if a variable needs ARC retain/release operations
@@ -606,26 +571,11 @@ mod tests {
 
     #[test]
     fn test_escape_state_merge() {
-        assert_eq!(
-            EscapeState::None.merge(EscapeState::None),
-            EscapeState::None
-        );
-        assert_eq!(
-            EscapeState::None.merge(EscapeState::MayEscape),
-            EscapeState::MayEscape
-        );
-        assert_eq!(
-            EscapeState::None.merge(EscapeState::Escapes),
-            EscapeState::Escapes
-        );
-        assert_eq!(
-            EscapeState::MayEscape.merge(EscapeState::Escapes),
-            EscapeState::Escapes
-        );
-        assert_eq!(
-            EscapeState::Escapes.merge(EscapeState::None),
-            EscapeState::Escapes
-        );
+        assert_eq!(EscapeState::None.merge(EscapeState::None), EscapeState::None);
+        assert_eq!(EscapeState::None.merge(EscapeState::MayEscape), EscapeState::MayEscape);
+        assert_eq!(EscapeState::None.merge(EscapeState::Escapes), EscapeState::Escapes);
+        assert_eq!(EscapeState::MayEscape.merge(EscapeState::Escapes), EscapeState::Escapes);
+        assert_eq!(EscapeState::Escapes.merge(EscapeState::None), EscapeState::Escapes);
     }
 
     #[test]

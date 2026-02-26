@@ -3,11 +3,11 @@ use inkwell::context::Context;
 use inkwell::values::{FunctionValue, GlobalValue};
 use std::collections::{HashMap, HashSet};
 
+use super::*;
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{LoopContext, VarInfo};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
-use super::*;
 
 /// Generate code for a statement
 pub fn generate_stmt<'ctx>(
@@ -81,29 +81,16 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::Assign { target, value, .. } => {
             generate_assign(state, target, value)?;
         }
-        Stmt::AugAssign {
-            target, op, value, ..
-        } => {
+        Stmt::AugAssign { target, op, value, .. } => {
             generate_aug_assign(state, target, op, value)?;
         }
-        Stmt::Declare {
-            name,
-            value,
-            mutable,
-            ..
-        } => {
+        Stmt::Declare { name, value, mutable, .. } => {
             generate_declare(state, name, *mutable, value)?;
         }
         Stmt::Return { value, .. } => {
             return crate::codegen::control_flow::generate_return(state, value);
         }
-        Stmt::If {
-            condition,
-            body,
-            elif_blocks,
-            else_body,
-            ..
-        } => {
+        Stmt::If { condition, body, elif_blocks, else_body, .. } => {
             return crate::codegen::control_flow::generate_if(
                 state,
                 condition,
@@ -112,18 +99,10 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                 else_body,
             );
         }
-        Stmt::While {
-            condition, body, ..
-        } => {
+        Stmt::While { condition, body, .. } => {
             return crate::codegen::control_flow::generate_while(state, condition, body);
         }
-        Stmt::For {
-            target,
-            iter,
-            body,
-            is_async,
-            ..
-        } => {
+        Stmt::For { target, iter, body, is_async, .. } => {
             if *is_async {
                 return crate::codegen::control_flow::generate_async_for(state, target, iter, body);
             }
@@ -177,11 +156,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::WgWait { wg, .. } => {
             return generate_wg_wait(state, wg);
         }
-        Stmt::Match {
-            subject,
-            cases,
-            span: _,
-        } => {
+        Stmt::Match { subject, cases, span: _ } => {
             let subject_val = crate::codegen::expressions::generate_expr(state, subject)?;
 
             // Generate each case as a simple if statement
@@ -189,20 +164,12 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                 let matches = generate_match_pattern(state, &case.pattern, subject_val)?;
 
                 // Create blocks for then and else
-                let func = state
-                    .builder
-                    .get_insert_block()
-                    .unwrap()
-                    .get_parent()
-                    .unwrap();
+                let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
                 let then_bb = state.context.append_basic_block(func, "match_then");
                 let else_bb = state.context.append_basic_block(func, "match_else");
 
                 // Generate the conditional branch
-                state
-                    .builder
-                    .build_conditional_branch(matches, then_bb, else_bb)
-                    .unwrap();
+                state.builder.build_conditional_branch(matches, then_bb, else_bb).unwrap();
 
                 // Generate then block (case body)
                 state.builder.position_at_end(then_bb);
@@ -222,13 +189,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                 }
 
                 // If no terminator, add one to else
-                if state
-                    .builder
-                    .get_insert_block()
-                    .unwrap()
-                    .get_terminator()
-                    .is_none()
-                {
+                if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
                     state.builder.build_unconditional_branch(else_bb).unwrap();
                 }
 

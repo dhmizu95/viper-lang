@@ -1,6 +1,6 @@
+use crate::codegen;
 use crate::lexer;
 use crate::parser;
-use crate::codegen;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use std::fs;
@@ -49,7 +49,10 @@ pub fn compile_file_aot(
     println!("   [2.2/4] Type checking...");
     let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
     type_checker.check(&ast).map_err(|e| {
-        format!("Type errors found:\n{}", e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n"))
+        format!(
+            "Type errors found:\n{}",
+            e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
+        )
     })?;
 
     // Apply Dead Code Elimination optimization
@@ -57,18 +60,12 @@ pub fn compile_file_aot(
         println!("   [2.5/4] Running DCE optimization...");
         let mut dce = codegen::DeadCodeEliminator::new();
         ast = dce.optimize(&ast);
-        println!(
-            "   ✓ DCE complete, {} statements remaining",
-            ast.statements.len()
-        );
+        println!("   ✓ DCE complete, {} statements remaining", ast.statements.len());
     }
 
     println!("   [3/4] Generating LLVM IR...");
     let context = Context::create();
-    let module_name = Path::new(input_path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main");
+    let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
     codegen.generate(&ast)?;
@@ -100,13 +97,8 @@ pub fn compile_file_aot(
 
         // Add aggressive optimization passes for better performance
         // LLVM 20 uses --passes= syntax for the new pass manager
-        let mut opt_args = vec![
-            "-mtriple=x86_64-pc-linux-gnu",
-            "-mcpu=native",
-            &bc_path,
-            "-o",
-            &opt_bc,
-        ];
+        let mut opt_args =
+            vec!["-mtriple=x86_64-pc-linux-gnu", "-mcpu=native", &bc_path, "-o", &opt_bc];
 
         // Build the passes string based on optimization level
         // -O1: Basic optimizations with mem2reg for stack-to-register promotion
@@ -128,10 +120,7 @@ pub fn compile_file_aot(
             .map_err(|e| format!("opt failed: {}", e))?;
 
         if !opt_output.status.success() {
-            eprintln!(
-                "   ⚠ opt stderr: {}",
-                String::from_utf8_lossy(&opt_output.stderr)
-            );
+            eprintln!("   ⚠ opt stderr: {}", String::from_utf8_lossy(&opt_output.stderr));
             return Err(format!("opt optimization failed"));
         }
 
@@ -145,10 +134,7 @@ pub fn compile_file_aot(
         if emit_llvm {
             let opt_ll_path = format!("{}.opt.ll", module_name);
             opt_module.print_to_file(&opt_ll_path).map_err(|e| {
-                format!(
-                    "Failed to write optimized LLVM IR to '{}': {}",
-                    opt_ll_path, e
-                )
+                format!("Failed to write optimized LLVM IR to '{}': {}", opt_ll_path, e)
             })?;
             println!("   ✓ Emitted optimized LLVM IR: {}", opt_ll_path);
         }
@@ -190,14 +176,7 @@ pub fn emit_object_file(
     };
 
     let target_machine = target
-        .create_target_machine(
-            &target_triple,
-            "",
-            "",
-            llvm_opt,
-            RelocMode::PIC,
-            CodeModel::Default,
-        )
+        .create_target_machine(&target_triple, "", "", llvm_opt, RelocMode::PIC, CodeModel::Default)
         .ok_or_else(|| "Failed to create target machine".to_string())?;
 
     let obj_path = format!("{}.o", output);
@@ -235,10 +214,8 @@ pub fn link_with_gcc(
         "/opt/viper/lib",
     ];
 
-    let mut runtime_path: Option<String> = runtime_paths
-        .iter()
-        .find(|p| Path::new(p).exists())
-        .map(|p| p.to_string());
+    let mut runtime_path: Option<String> =
+        runtime_paths.iter().find(|p| Path::new(p).exists()).map(|p| p.to_string());
 
     // Check $HOME/.local/lib/viper
     if runtime_path.is_none() {
@@ -305,10 +282,7 @@ pub fn link_with_gcc(
         .map_err(|e| format!("GCC linking failed: {}", e))?;
 
     if !output.status.success() {
-        return Err(format!(
-            "GCC linking failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        return Err(format!("GCC linking failed: {}", String::from_utf8_lossy(&output.stderr)));
     }
 
     println!("   ✓ Linked binary: {}", bin_path);
@@ -338,10 +312,7 @@ pub fn link_with_gcc(
 }
 
 pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
-    println!(
-        "🐍 Viper Compiler {} (AOT + opt)",
-        env!("CARGO_PKG_VERSION")
-    );
+    println!("🐍 Viper Compiler {} (AOT + opt)", env!("CARGO_PKG_VERSION"));
     println!("   Compiling: {}", input_path);
 
     let source = fs::read_to_string(input_path)
@@ -360,17 +331,11 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     println!("   [2.5/5] Running DCE optimization...");
     let mut dce = codegen::DeadCodeEliminator::new();
     ast = dce.optimize(&ast);
-    println!(
-        "   ✓ DCE complete, {} statements remaining",
-        ast.statements.len()
-    );
+    println!("   ✓ DCE complete, {} statements remaining", ast.statements.len());
 
     println!("   [3/5] Generating LLVM IR...");
     let context = Context::create();
-    let module_name = Path::new(input_path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main");
+    let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
     codegen.generate(&ast)?;
@@ -411,10 +376,7 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
             println!("   ✓ LLVM optimizations complete");
         }
         Ok(output) => {
-            eprintln!(
-                "   ⚠ opt warnings: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
+            eprintln!("   ⚠ opt warnings: {}", String::from_utf8_lossy(&output.stderr));
         }
         Err(e) => {
             eprintln!("   ⚠ opt not found or failed: {}", e);
@@ -442,17 +404,11 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
                 println!("✅ Compilation successful!");
                 println!();
                 println!("   To link and run:");
-                println!(
-                    "   $ gcc {} -o {}_bin -L./runtime -lviper -lm",
-                    obj_path, module_name
-                );
+                println!("   $ gcc {} -o {}_bin -L./runtime -lviper -lm", obj_path, module_name);
                 println!("   $ ./{}_bin", module_name);
             }
             Ok(output) => {
-                return Err(format!(
-                    "llc failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                ));
+                return Err(format!("llc failed: {}", String::from_utf8_lossy(&output.stderr)));
             }
             Err(e) => {
                 return Err(format!("llc not found: {}", e));
@@ -464,4 +420,3 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
 
     Ok(())
 }
-

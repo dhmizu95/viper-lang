@@ -1,5 +1,3 @@
-
-
 // Math builtins stubs for JIT
 pub extern "C" fn vp_math_sqrt(x: f64) -> f64 {
     x.sqrt()
@@ -39,11 +37,11 @@ pub extern "C" fn vp_pow_i64_stub(base: i64, exponent: i64) -> i64 {
     if exponent == 0 {
         return 1;
     }
-    
+
     let mut result = 1;
     let mut b = base;
     let mut e = exponent;
-    
+
     while e > 0 {
         if e & 1 == 1 {
             result *= b;
@@ -51,7 +49,6 @@ pub extern "C" fn vp_pow_i64_stub(base: i64, exponent: i64) -> i64 {
         b *= b;
         e >>= 1;
     }
-    
+
     result
 }
-

@@ -16,10 +16,7 @@ impl Parser {
     /// Parse the token stream into an AST
     pub fn parse(&mut self) -> Result<Module, String> {
         if self.tokens.is_empty() {
-            return Ok(Module {
-                statements: Vec::new(),
-                span: Span::empty(0, 0),
-            });
+            return Ok(Module { statements: Vec::new(), span: Span::empty(0, 0) });
         }
 
         let mut stmt_parser = StatementParser::new(&self.tokens);

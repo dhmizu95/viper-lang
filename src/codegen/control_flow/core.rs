@@ -17,7 +17,7 @@ pub fn generate_return<'ctx>(
                 return Ok(());
             }
         }
-        
+
         let v = crate::codegen::expressions::generate_expr(state, val)?;
         state.ir_builder.build_return(state.builder, Some(&v));
     } else {

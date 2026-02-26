@@ -68,13 +68,7 @@ mod tests {
 
     #[test]
     fn test_mangle_multiple_params() {
-        assert_eq!(
-            mangle_function_name("add", &[Type::I64, Type::I64]),
-            "add_i64_i64"
-        );
-        assert_eq!(
-            mangle_function_name("foo", &[Type::I64, Type::F64]),
-            "foo_i64_f64"
-        );
+        assert_eq!(mangle_function_name("add", &[Type::I64, Type::I64]), "add_i64_i64");
+        assert_eq!(mangle_function_name("foo", &[Type::I64, Type::F64]), "foo_i64_f64");
     }
 }

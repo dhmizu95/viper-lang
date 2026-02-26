@@ -22,30 +22,13 @@ pub enum Expr {
     /// Identifier/variable reference
     Ident(String, Span),
     /// Binary operation
-    BinOp {
-        left: Box<Expr>,
-        op: BinOp,
-        right: Box<Expr>,
-        span: Span,
-    },
+    BinOp { left: Box<Expr>, op: BinOp, right: Box<Expr>, span: Span },
     /// Unary operation
-    UnaryOp {
-        op: UnaryOp,
-        operand: Box<Expr>,
-        span: Span,
-    },
+    UnaryOp { op: UnaryOp, operand: Box<Expr>, span: Span },
     /// Function call
-    Call {
-        func: Box<Expr>,
-        args: Vec<Expr>,
-        span: Span,
-    },
+    Call { func: Box<Expr>, args: Vec<Expr>, span: Span },
     /// Index access (list[i])
-    Index {
-        obj: Box<Expr>,
-        index: Box<Expr>,
-        span: Span,
-    },
+    Index { obj: Box<Expr>, index: Box<Expr>, span: Span },
     /// Slice access (list[start:end] or list[start:end:step])
     Slice {
         obj: Box<Expr>,
@@ -55,46 +38,21 @@ pub enum Expr {
         span: Span,
     },
     /// Attribute access (obj.attr)
-    Attribute {
-        obj: Box<Expr>,
-        attr: String,
-        span: Span,
-    },
+    Attribute { obj: Box<Expr>, attr: String, span: Span },
     /// List literal
     List { elements: Vec<Expr>, span: Span },
     /// Tuple literal
     Tuple { elements: Vec<Expr>, span: Span },
     /// Dictionary literal
-    Dict {
-        pairs: Vec<(Expr, Expr)>,
-        span: Span,
-    },
+    Dict { pairs: Vec<(Expr, Expr)>, span: Span },
     /// Array literal (fixed-size): [value; size] or [elements...]
-    Array {
-        elements: Vec<Expr>,
-        size: Option<usize>,
-        span: Span,
-    },
+    Array { elements: Vec<Expr>, size: Option<usize>, span: Span },
     /// Lambda expression
-    Lambda {
-        params: Vec<String>,
-        body: Box<Expr>,
-        span: Span,
-    },
+    Lambda { params: Vec<String>, body: Box<Expr>, span: Span },
     /// List comprehension: [expr for var in iter]
-    ListComprehension {
-        element: Box<Expr>,
-        var: String,
-        iter: Box<Expr>,
-        span: Span,
-    },
+    ListComprehension { element: Box<Expr>, var: String, iter: Box<Expr>, span: Span },
     /// Conditional expression (a if cond else b)
-    Conditional {
-        condition: Box<Expr>,
-        then_expr: Box<Expr>,
-        else_expr: Box<Expr>,
-        span: Span,
-    },
+    Conditional { condition: Box<Expr>, then_expr: Box<Expr>, else_expr: Box<Expr>, span: Span },
     /// Await expression (await future)
     Await { future: Box<Expr>, span: Span },
 }
@@ -200,6 +158,10 @@ pub enum UnaryOp {
     Neg,
     Pos,
     Invert,
+    PreIncrement,
+    PreDecrement,
+    PostIncrement,
+    PostDecrement,
 }
 
 /// Abstract Syntax Tree node for statements
@@ -208,26 +170,11 @@ pub enum Stmt {
     /// Expression statement (expression as statement)
     Expr(Expr),
     /// Variable assignment: x = expr
-    Assign {
-        target: Box<Expr>,
-        value: Box<Expr>,
-        span: Span,
-    },
+    Assign { target: Box<Expr>, value: Box<Expr>, span: Span },
     /// Augmented assignment: x += expr
-    AugAssign {
-        target: Box<Expr>,
-        op: BinOp,
-        value: Box<Expr>,
-        span: Span,
-    },
+    AugAssign { target: Box<Expr>, op: BinOp, value: Box<Expr>, span: Span },
     /// Variable declaration with type: x: i64 = expr
-    Declare {
-        name: String,
-        type_ann: Option<Type>,
-        value: Option<Expr>,
-        mutable: bool,
-        span: Span,
-    },
+    Declare { name: String, type_ann: Option<Type>, value: Option<Expr>, mutable: bool, span: Span },
     /// If statement
     If {
         condition: Expr,
@@ -237,12 +184,7 @@ pub enum Stmt {
         span: Span,
     },
     /// While loop
-    While {
-        condition: Expr,
-        body: Vec<Stmt>,
-        else_body: Option<Vec<Stmt>>,
-        span: Span,
-    },
+    While { condition: Expr, body: Vec<Stmt>, else_body: Option<Vec<Stmt>>, span: Span },
     /// For loop
     For {
         target: Box<Expr>,
@@ -263,12 +205,7 @@ pub enum Stmt {
         is_async: bool,
     },
     /// External C function declaration: extern "C" fn name(args...) -> ret
-    Extern {
-        name: String,
-        params: Vec<Param>,
-        return_type: Option<Type>,
-        span: Span,
-    },
+    Extern { name: String, params: Vec<Param>, return_type: Option<Type>, span: Span },
     /// Return statement
     Return { value: Option<Expr>, span: Span },
     /// Break statement
@@ -278,30 +215,13 @@ pub enum Stmt {
     /// Pass statement
     Pass(Span),
     /// Import statement
-    Import {
-        module: String,
-        alias: Option<String>,
-        span: Span,
-    },
+    Import { module: String, alias: Option<String>, span: Span },
     /// From import
-    FromImport {
-        module: String,
-        names: Vec<(String, Option<String>)>,
-        span: Span,
-    },
+    FromImport { module: String, names: Vec<(String, Option<String>)>, span: Span },
     /// Class definition
-    Class {
-        name: String,
-        bases: Vec<Expr>,
-        body: Vec<Stmt>,
-        span: Span,
-    },
+    Class { name: String, bases: Vec<Expr>, body: Vec<Stmt>, span: Span },
     /// Struct definition
-    Struct {
-        name: String,
-        fields: Vec<(String, Type)>,
-        span: Span,
-    },
+    Struct { name: String, fields: Vec<(String, Type)>, span: Span },
     /// Try-except block
     Try {
         body: Vec<Stmt>,
@@ -317,31 +237,19 @@ pub enum Stmt {
     /// Channel creation: chan(size)
     Chan { size: Expr, span: Span },
     /// Channel send: send(chan, value)
-    Send {
-        chan: Box<Expr>,
-        value: Box<Expr>,
-        span: Span,
-    },
+    Send { chan: Box<Expr>, value: Box<Expr>, span: Span },
     /// Channel receive: recv(chan)
     Recv { chan: Box<Expr>, span: Span },
     /// WaitGroup creation
     WaitGroup { span: Span },
     /// WaitGroup add: add(wg, n)
-    WgAdd {
-        wg: Box<Expr>,
-        n: Box<Expr>,
-        span: Span,
-    },
+    WgAdd { wg: Box<Expr>, n: Box<Expr>, span: Span },
     /// WaitGroup done: done(wg)
     WgDone { wg: Box<Expr>, span: Span },
     /// WaitGroup wait: wait(wg)
     WgWait { wg: Box<Expr>, span: Span },
     /// Match statement: match value { case pattern: ... }
-    Match {
-        subject: Box<Expr>,
-        cases: Vec<MatchCase>,
-        span: Span,
-    },
+    Match { subject: Box<Expr>, cases: Vec<MatchCase>, span: Span },
     /// Select statement for channels: select { case recv(c1): ... case send(c2, v): ... }
     Select { cases: Vec<SelectCase>, span: Span },
 }
@@ -367,20 +275,11 @@ pub enum MatchPattern {
     /// Tuple pattern: (a, b)
     Tuple(Vec<MatchPattern>),
     /// List pattern: [a, b, ...rest]
-    List {
-        elements: Vec<MatchPattern>,
-        rest: Option<String>,
-    },
+    List { elements: Vec<MatchPattern>, rest: Option<String> },
     /// Type check pattern: Type(value)
-    TypeCheck {
-        type_name: String,
-        binding: Option<String>,
-    },
+    TypeCheck { type_name: String, binding: Option<String> },
     /// Range pattern: 1..5
-    Range {
-        start: Option<i64>,
-        end: Option<i64>,
-    },
+    Range { start: Option<i64>, end: Option<i64> },
 }
 
 /// A single case in a select statement
@@ -395,10 +294,7 @@ pub struct SelectCase {
 #[derive(Debug, Clone)]
 pub enum SelectCaseKind {
     /// Receive from channel: case x = recv(chan):
-    Recv {
-        chan: Box<Expr>,
-        var: Option<String>,
-    },
+    Recv { chan: Box<Expr>, var: Option<String> },
     /// Send to channel: case send(chan, value):
     Send { chan: Box<Expr>, value: Box<Expr> },
     /// Default case: case default:

@@ -8,8 +8,6 @@ use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 
-
-
 /* ============================================ */
 /* Concurrency Builtins (Phase 3)               */
 /* ============================================ */
@@ -20,10 +18,7 @@ pub fn generate_chan_create<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!(
-            "chan() takes 1 argument (capacity), got {}",
-            args.len()
-        ));
+        return Err(format!("chan() takes 1 argument (capacity), got {}", args.len()));
     }
 
     let size_val = generate_expr(state, &args[0])?;
@@ -32,9 +27,7 @@ pub fn generate_chan_create<'ctx>(
         .get_function("vp_chan_create")
         .ok_or_else(|| "vp_chan_create not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, chan_func, &[size_val.into()], "chan");
+    let result = state.ir_builder.build_call(state.builder, chan_func, &[size_val.into()], "chan");
     // Return the pointer value directly
     Ok(result.expect("chan_create"))
 }
@@ -45,10 +38,7 @@ pub fn generate_chan_send<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 2 {
-        return Err(format!(
-            "send() takes 2 arguments (chan, value), got {}",
-            args.len()
-        ));
+        return Err(format!("send() takes 2 arguments (chan, value), got {}", args.len()));
     }
 
     let chan_val = generate_expr(state, &args[0])?;
@@ -73,10 +63,7 @@ pub fn generate_chan_recv<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
-        return Err(format!(
-            "recv() takes 1 argument (chan), got {}",
-            args.len()
-        ));
+        return Err(format!("recv() takes 1 argument (chan), got {}", args.len()));
     }
 
     let chan_val = generate_expr(state, &args[0])?;
@@ -86,9 +73,7 @@ pub fn generate_chan_recv<'ctx>(
         .ok_or_else(|| "vp_chan_recv not declared".to_string())?;
 
     let result =
-        state
-            .ir_builder
-            .build_call(state.builder, recv_func, &[chan_val.into()], "recv_val");
+        state.ir_builder.build_call(state.builder, recv_func, &[chan_val.into()], "recv_val");
     // Return the pointer value directly (received value is a pointer)
     Ok(result.expect("recv"))
 }
@@ -99,10 +84,7 @@ pub fn generate_waitgroup_create<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if !args.is_empty() {
-        return Err(format!(
-            "WaitGroup() takes no arguments, got {}",
-            args.len()
-        ));
+        return Err(format!("WaitGroup() takes no arguments, got {}", args.len()));
     }
 
     let wg_func = state
@@ -110,9 +92,7 @@ pub fn generate_waitgroup_create<'ctx>(
         .get_function("vp_waitgroup_create")
         .ok_or_else(|| "vp_waitgroup_create not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, wg_func, &[], "wg");
+    let result = state.ir_builder.build_call(state.builder, wg_func, &[], "wg");
     // Return the pointer value directly
     Ok(result.expect("wg_create"))
 }
@@ -123,10 +103,7 @@ pub fn generate_waitgroup_add<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 2 {
-        return Err(format!(
-            "add() takes 2 arguments (wg, n), got {}",
-            args.len()
-        ));
+        return Err(format!("add() takes 2 arguments (wg, n), got {}", args.len()));
     }
 
     let wg_val = generate_expr(state, &args[0])?;
@@ -136,12 +113,7 @@ pub fn generate_waitgroup_add<'ctx>(
         .get_function("vp_waitgroup_add")
         .ok_or_else(|| "vp_waitgroup_add not declared".to_string())?;
 
-    state.ir_builder.build_call(
-        state.builder,
-        add_func,
-        &[wg_val.into(), n_val.into()],
-        "wg_add",
-    );
+    state.ir_builder.build_call(state.builder, add_func, &[wg_val.into(), n_val.into()], "wg_add");
     Ok(state.ir_builder.i64_const(0).into())
 }
 
@@ -160,9 +132,7 @@ pub fn generate_waitgroup_done<'ctx>(
         .get_function("vp_waitgroup_done")
         .ok_or_else(|| "vp_waitgroup_done not declared".to_string())?;
 
-    state
-        .ir_builder
-        .build_call(state.builder, done_func, &[wg_val.into()], "wg_done");
+    state.ir_builder.build_call(state.builder, done_func, &[wg_val.into()], "wg_done");
     Ok(state.ir_builder.i64_const(0).into())
 }
 
@@ -181,9 +151,7 @@ pub fn generate_waitgroup_wait<'ctx>(
         .get_function("vp_waitgroup_wait")
         .ok_or_else(|| "vp_waitgroup_wait not declared".to_string())?;
 
-    state
-        .ir_builder
-        .build_call(state.builder, wait_func, &[wg_val.into()], "wg_wait");
+    state.ir_builder.build_call(state.builder, wait_func, &[wg_val.into()], "wg_wait");
     Ok(state.ir_builder.i64_const(0).into())
 }
 
@@ -210,4 +178,3 @@ pub fn generate_await<'ctx>(
 
     Ok(result.unwrap())
 }
-

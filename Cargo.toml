@@ -49,6 +49,7 @@ thiserror = "1.0"
 
 # Find executables in PATH
 which = "6.0"
+rustyline = "14"
 
 [build-dependencies]
 cc = "1.0"

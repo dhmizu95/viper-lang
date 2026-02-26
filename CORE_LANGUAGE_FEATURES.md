@@ -56,6 +56,7 @@
 | Logical | `and`, `or`, `not` (short-circuiting) | Phase 1 |
 | Bitwise | `&`, `|`, `^`, `~`, `<<`, `>>` | Phase 2 |
 | Assignment | `=`, `+=`, `-=`, `*=`, `/=`, etc. | Phase 1 |
+| Increment/Decrement | `++`, `--` (prefix and postfix) | Phase 1 |
 | Identity | `is`, `is not` | Phase 2 |
 | Membership | `in`, `not in` | Phase 2 |
 | Ternary | `x if cond else y` | Phase 2 |

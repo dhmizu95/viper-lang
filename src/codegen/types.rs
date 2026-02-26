@@ -55,10 +55,7 @@ impl<'ctx> TypeMapper<'ctx> {
             | Type::WaitGroup
             | Type::List(_)
             | Type::Dict(_, _)
-            | Type::Fn(_, _) => self
-                .context
-                .ptr_type(inkwell::AddressSpace::default())
-                .into(),
+            | Type::Fn(_, _) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             Type::Array(elem_type, size) => {
                 let elem_llvm_type = self.llvm_type(elem_type);
                 // array_type is a method on the element type in newer Inkwell
@@ -81,11 +78,9 @@ impl<'ctx> TypeMapper<'ctx> {
             | Some(Type::Chan(_))
             | Some(Type::WaitGroup)
             | Some(Type::List(_))
-            | Some(Type::Dict(_, _)) => Some(
-                self.context
-                    .ptr_type(inkwell::AddressSpace::default())
-                    .into(),
-            ),
+            | Some(Type::Dict(_, _)) => {
+                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+            }
             Some(Type::None) | None => None,
             _ => Some(self.context.i64_type().into()),
         }

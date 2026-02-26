@@ -11,22 +11,11 @@ pub fn generate_while<'ctx>(
     condition: &Expr,
     body: &[Stmt],
 ) -> Result<(), String> {
-    let func = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_parent()
-        .unwrap();
+    let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let while_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let cond_block = state
-        .context
-        .append_basic_block(func, &format!("while_cond{}", while_num));
-    let body_block = state
-        .context
-        .append_basic_block(func, &format!("while_body{}", while_num));
-    let exit_block = state
-        .context
-        .append_basic_block(func, &format!("while_exit{}", while_num));
+    let cond_block = state.context.append_basic_block(func, &format!("while_cond{}", while_num));
+    let body_block = state.context.append_basic_block(func, &format!("while_body{}", while_num));
+    let exit_block = state.context.append_basic_block(func, &format!("while_exit{}", while_num));
 
     state.ir_builder.build_branch(state.builder, cond_block);
 
@@ -46,14 +35,10 @@ pub fn generate_while<'ctx>(
             )
             .expect("icmp")
     };
-    state
-        .ir_builder
-        .build_cond_branch(state.builder, cond_i1, body_block, exit_block);
+    state.ir_builder.build_cond_branch(state.builder, cond_i1, body_block, exit_block);
 
     state.builder.position_at_end(body_block);
-    state
-        .loop_stack
-        .push(LoopContext::new(exit_block, cond_block));
+    state.loop_stack.push(LoopContext::new(exit_block, cond_block));
 
     for stmt in body {
         crate::codegen::statements::generate_stmt(
@@ -71,13 +56,7 @@ pub fn generate_while<'ctx>(
     }
 
     state.loop_stack.pop();
-    if state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_terminator()
-        .is_none()
-    {
+    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, cond_block);
     }
     state.builder.position_at_end(exit_block);
@@ -124,28 +103,18 @@ pub fn generate_for<'ctx>(
                     ),
                 };
 
-                let func_ctx = state
-                    .builder
-                    .get_insert_block()
-                    .unwrap()
-                    .get_parent()
-                    .unwrap();
+                let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
                 let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-                let init_block = state
-                    .context
-                    .append_basic_block(func_ctx, &format!("for_init{}", for_num));
-                let cond_block = state
-                    .context
-                    .append_basic_block(func_ctx, &format!("for_cond{}", for_num));
-                let body_block = state
-                    .context
-                    .append_basic_block(func_ctx, &format!("for_body{}", for_num));
-                let step_block = state
-                    .context
-                    .append_basic_block(func_ctx, &format!("for_step{}", for_num));
-                let exit_block = state
-                    .context
-                    .append_basic_block(func_ctx, &format!("for_exit{}", for_num));
+                let init_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
+                let cond_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
+                let body_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
+                let step_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
+                let exit_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
                 state.ir_builder.build_branch(state.builder, init_block);
                 state.builder.position_at_end(init_block);
@@ -153,10 +122,7 @@ pub fn generate_for<'ctx>(
                     .builder
                     .build_alloca(state.context.i64_type(), "for_counter")
                     .expect("alloca");
-                state
-                    .builder
-                    .build_store(counter, start_val)
-                    .expect("store");
+                state.builder.build_store(counter, start_val).expect("store");
                 state.ir_builder.build_branch(state.builder, cond_block);
 
                 state.builder.position_at_end(cond_block);
@@ -166,20 +132,14 @@ pub fn generate_for<'ctx>(
                     .expect("load")
                     .into_int_value();
                 let cond =
-                    state
-                        .ir_builder
-                        .build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
-                state
-                    .ir_builder
-                    .build_cond_branch(state.builder, cond, body_block, exit_block);
+                    state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
+                state.ir_builder.build_cond_branch(state.builder, cond, body_block, exit_block);
 
                 state.builder.position_at_end(body_block);
 
                 // Push loop context for break/continue support
                 // continue should jump to step block to increment counter
-                state
-                    .loop_stack
-                    .push(LoopContext::new(exit_block, step_block));
+                state.loop_stack.push(LoopContext::new(exit_block, step_block));
 
                 let old_var = if let Expr::Ident(target_name, _) = target {
                     // Try to construct a new VarInfo. Use state.variables.insert which returns the old value
@@ -211,13 +171,7 @@ pub fn generate_for<'ctx>(
 
                 state.loop_stack.pop();
 
-                if state
-                    .builder
-                    .get_insert_block()
-                    .unwrap()
-                    .get_terminator()
-                    .is_none()
-                {
+                if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
                     state.ir_builder.build_branch(state.builder, step_block);
                 }
 
@@ -234,13 +188,7 @@ pub fn generate_for<'ctx>(
                     "next_counter",
                 );
                 state.builder.build_store(counter, next_val).expect("store");
-                if state
-                    .builder
-                    .get_insert_block()
-                    .unwrap()
-                    .get_terminator()
-                    .is_none()
-                {
+                if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
                     state.ir_builder.build_branch(state.builder, cond_block);
                 }
 
@@ -262,54 +210,34 @@ pub fn generate_for<'ctx>(
 
     // Default to list/iterable iteration
     let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
-    
+
     // Call vp_list_len to get length
     let list_len_func = state
         .module
         .get_function("vp_list_len")
         .ok_or_else(|| "vp_list_len not declared".to_string())?;
-    
+
     let end_val = state
         .ir_builder
         .build_call(state.builder, list_len_func, &[iter_val.into()], "len")
         .unwrap()
         .into_int_value();
-        
+
     let start_val = state.ir_builder.i64_const(0);
-    
-    let func_ctx = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_parent()
-        .unwrap();
+
+    let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let init_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("for_init{}", for_num));
-    let cond_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("for_cond{}", for_num));
-    let body_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("for_body{}", for_num));
-    let step_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("for_step{}", for_num));
-    let exit_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("for_exit{}", for_num));
+    let init_block = state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
+    let cond_block = state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
+    let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
+    let step_block = state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
+    let exit_block = state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
     state.ir_builder.build_branch(state.builder, init_block);
     state.builder.position_at_end(init_block);
-    let counter = state
-        .builder
-        .build_alloca(state.context.i64_type(), "for_counter")
-        .expect("alloca");
-    state
-        .builder
-        .build_store(counter, start_val)
-        .expect("store");
+    let counter =
+        state.builder.build_alloca(state.context.i64_type(), "for_counter").expect("alloca");
+    state.builder.build_store(counter, start_val).expect("store");
     state.ir_builder.build_branch(state.builder, cond_block);
 
     state.builder.position_at_end(cond_block);
@@ -318,13 +246,8 @@ pub fn generate_for<'ctx>(
         .build_load(state.context.i64_type(), counter, "counter_val")
         .expect("load")
         .into_int_value();
-    let cond =
-        state
-            .ir_builder
-            .build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
-    state
-        .ir_builder
-        .build_cond_branch(state.builder, cond, body_block, exit_block);
+    let cond = state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
+    state.ir_builder.build_cond_branch(state.builder, cond, body_block, exit_block);
 
     state.builder.position_at_end(body_block);
 
@@ -347,14 +270,9 @@ pub fn generate_for<'ctx>(
     // Bind item_val to target (like 'val')
     let old_var = if let Expr::Ident(target_name, _) = target {
         // Allocate space for the element value
-        let val_alloca = state
-            .builder
-            .build_alloca(state.context.i64_type(), &target_name)
-            .expect("alloca");
-        state
-            .builder
-            .build_store(val_alloca, item_val)
-            .expect("store");
+        let val_alloca =
+            state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
+        state.builder.build_store(val_alloca, item_val).expect("store");
 
         // Use state.variables.insert which returns the old value
         state.variables.insert(
@@ -370,9 +288,7 @@ pub fn generate_for<'ctx>(
 
     // Push loop context for break/continue support
     // continue should jump to step block to increment counter
-    state
-        .loop_stack
-        .push(LoopContext::new(exit_block, step_block));
+    state.loop_stack.push(LoopContext::new(exit_block, step_block));
 
     for stmt in body {
         crate::codegen::statements::generate_stmt(
@@ -391,13 +307,7 @@ pub fn generate_for<'ctx>(
 
     state.loop_stack.pop();
 
-    if state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_terminator()
-        .is_none()
-    {
+    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, step_block);
     }
 
@@ -414,13 +324,7 @@ pub fn generate_for<'ctx>(
         "next_counter",
     );
     state.builder.build_store(counter, next_val).expect("store");
-    if state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_terminator()
-        .is_none()
-    {
+    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, cond_block);
     }
 
@@ -452,29 +356,19 @@ pub fn generate_async_for<'ctx>(
     iter: &Expr,
     body: &[Stmt],
 ) -> Result<(), String> {
-    let func_ctx = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_parent()
-        .unwrap();
+    let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
 
-    let init_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("async_for_init{}", for_num));
-    let cond_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("async_for_cond{}", for_num));
-    let body_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("async_for_body{}", for_num));
-    let step_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("async_for_step{}", for_num));
-    let exit_block = state
-        .context
-        .append_basic_block(func_ctx, &format!("async_for_exit{}", for_num));
+    let init_block =
+        state.context.append_basic_block(func_ctx, &format!("async_for_init{}", for_num));
+    let cond_block =
+        state.context.append_basic_block(func_ctx, &format!("async_for_cond{}", for_num));
+    let body_block =
+        state.context.append_basic_block(func_ctx, &format!("async_for_body{}", for_num));
+    let step_block =
+        state.context.append_basic_block(func_ctx, &format!("async_for_step{}", for_num));
+    let exit_block =
+        state.context.append_basic_block(func_ctx, &format!("async_for_exit{}", for_num));
 
     // Branch to init block
     state.ir_builder.build_branch(state.builder, init_block);
@@ -536,12 +430,7 @@ pub fn generate_async_for<'ctx>(
                     .ok_or_else(|| "vp_async_iter not declared".to_string())?;
                 state
                     .ir_builder
-                    .build_call(
-                        state.builder,
-                        aiter_func,
-                        &[iter_val.into()],
-                        "async_iterator",
-                    )
+                    .build_call(state.builder, aiter_func, &[iter_val.into()], "async_iterator")
                     .ok_or_else(|| "vp_async_iter failed".to_string())?
                     .into_pointer_value()
             }
@@ -554,12 +443,7 @@ pub fn generate_async_for<'ctx>(
                 .ok_or_else(|| "vp_async_iter not declared".to_string())?;
             state
                 .ir_builder
-                .build_call(
-                    state.builder,
-                    aiter_func,
-                    &[iter_val.into()],
-                    "async_iterator",
-                )
+                .build_call(state.builder, aiter_func, &[iter_val.into()], "async_iterator")
                 .ok_or_else(|| "vp_async_iter failed".to_string())?
                 .into_pointer_value()
         }
@@ -572,34 +456,22 @@ pub fn generate_async_for<'ctx>(
             .ok_or_else(|| "vp_async_iter not declared".to_string())?;
         state
             .ir_builder
-            .build_call(
-                state.builder,
-                aiter_func,
-                &[iter_val.into()],
-                "async_iterator",
-            )
+            .build_call(state.builder, aiter_func, &[iter_val.into()], "async_iterator")
             .ok_or_else(|| "vp_async_iter failed".to_string())?
             .into_pointer_value()
     };
 
     // Store iterator in alloca
-    let iterator_ptr = state
-        .builder
-        .build_alloca(iterator.get_type(), "iterator_ptr")
-        .expect("alloca");
-    state
-        .builder
-        .build_store(iterator_ptr, iterator)
-        .expect("store");
+    let iterator_ptr =
+        state.builder.build_alloca(iterator.get_type(), "iterator_ptr").expect("alloca");
+    state.builder.build_store(iterator_ptr, iterator).expect("store");
 
     state.ir_builder.build_branch(state.builder, cond_block);
 
     // Cond block: call __anext__ and check for StopAsyncIteration
     state.builder.position_at_end(cond_block);
-    let iterator_val = state
-        .builder
-        .build_load(iterator.get_type(), iterator_ptr, "iterator_val")
-        .expect("load");
+    let iterator_val =
+        state.builder.build_load(iterator.get_type(), iterator_ptr, "iterator_val").expect("load");
 
     // Call __anext__ on the iterator
     let anext_func = state
@@ -608,12 +480,7 @@ pub fn generate_async_for<'ctx>(
         .ok_or_else(|| "vp_async_next not declared".to_string())?;
     let next_future = state
         .ir_builder
-        .build_call(
-            state.builder,
-            anext_func,
-            &[iterator_val.into()],
-            "anext_future",
-        )
+        .build_call(state.builder, anext_func, &[iterator_val.into()], "anext_future")
         .ok_or_else(|| "async for: anext failed".to_string())?;
 
     // The result is directly the next value (or 0 for StopAsyncIteration)
@@ -631,23 +498,16 @@ pub fn generate_async_for<'ctx>(
         )
         .expect("icmp");
 
-    state
-        .ir_builder
-        .build_cond_branch(state.builder, is_not_done, body_block, exit_block);
+    state.ir_builder.build_cond_branch(state.builder, is_not_done, body_block, exit_block);
 
     // Body block: execute the loop body with the item
     state.builder.position_at_end(body_block);
 
     // Allocate storage for the iteration variable and store the value
     let item_alloca = if let Expr::Ident(target_name, _) = target {
-        let alloca = state
-            .builder
-            .build_alloca(state.context.i64_type(), &target_name)
-            .expect("alloca");
-        state
-            .builder
-            .build_store(alloca, item.into_int_value())
-            .expect("store");
+        let alloca =
+            state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
+        state.builder.build_store(alloca, item.into_int_value()).expect("store");
         Some((target_name.clone(), alloca))
     } else {
         None
@@ -668,9 +528,7 @@ pub fn generate_async_for<'ctx>(
 
     // Push loop context for break/continue support
     // continue should jump to step block for next iteration
-    state
-        .loop_stack
-        .push(LoopContext::new(exit_block, step_block));
+    state.loop_stack.push(LoopContext::new(exit_block, step_block));
 
     for stmt in body {
         crate::codegen::statements::generate_stmt(
@@ -689,13 +547,7 @@ pub fn generate_async_for<'ctx>(
 
     state.loop_stack.pop();
 
-    if state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_terminator()
-        .is_none()
-    {
+    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, step_block);
     }
 

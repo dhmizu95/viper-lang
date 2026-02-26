@@ -18,8 +18,7 @@ pub fn run_fmt(args: &FmtArgs) -> Result<(), String> {
     if let Some(ref output) = args.output {
         let mut file = fs::File::create(output)
             .map_err(|e| format!("Failed to create '{}': {}", output, e))?;
-        file.write_all(formatted.as_bytes())
-            .map_err(|e| format!("Failed to write: {}", e))?;
+        file.write_all(formatted.as_bytes()).map_err(|e| format!("Failed to write: {}", e))?;
     } else {
         println!("{}", formatted);
     }

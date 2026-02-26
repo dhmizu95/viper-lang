@@ -1,6 +1,6 @@
+use crate::ast::MatchPattern;
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarType};
-use crate::ast::MatchPattern;
 
 pub(crate) fn generate_match_pattern<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -47,24 +47,14 @@ pub(crate) fn generate_match_pattern<'ctx>(
 
             let cmp = state
                 .builder
-                .build_int_compare(
-                    inkwell::IntPredicate::EQ,
-                    subject_int,
-                    const_int,
-                    "pattern_eq",
-                )
+                .build_int_compare(inkwell::IntPredicate::EQ, subject_int, const_int, "pattern_eq")
                 .unwrap();
             Ok(cmp)
         }
         MatchPattern::Variable(name) => {
-            let alloca = state
-                .builder
-                .build_alloca(subject_val.get_type(), name)
-                .unwrap();
+            let alloca = state.builder.build_alloca(subject_val.get_type(), name).unwrap();
             state.builder.build_store(alloca, subject_val).unwrap();
-            state
-                .variables
-                .insert(name.clone(), VarInfo::new_stack(alloca, VarType::Pointer));
+            state.variables.insert(name.clone(), VarInfo::new_stack(alloca, VarType::Pointer));
             Ok(state.context.bool_type().const_int(1, false))
         }
         MatchPattern::Tuple(_) => Ok(state.context.bool_type().const_int(1, false)),

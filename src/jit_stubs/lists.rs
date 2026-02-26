@@ -1,4 +1,3 @@
-
 // Stub implementations for list functions (Phase 2 MVP)
 // Using Box<Vec<i64>> as the internal representation
 pub extern "C" fn vp_list_create_stub() -> *mut std::ffi::c_void {
@@ -191,25 +190,34 @@ pub extern "C" fn vp_list_repeat_stub(elem: i64, count: i64) -> *mut std::ffi::c
 }
 
 // List slice stub - creates a new list with elements from start to end with step
-pub extern "C" fn vp_list_slice_stub(list: *mut std::ffi::c_void, start: i64, end: i64, step: i64) -> *mut std::ffi::c_void {
+pub extern "C" fn vp_list_slice_stub(
+    list: *mut std::ffi::c_void,
+    start: i64,
+    end: i64,
+    step: i64,
+) -> *mut std::ffi::c_void {
     if list.is_null() {
         return vp_list_create_stub();
     }
     unsafe {
         let vec = &*(list as *mut Vec<i64>);
         let len = vec.len() as i64;
-        
+
         // Normalize negative indices
         let mut s = if start < 0 { (start + len).max(0) } else { start.min(len) };
         let mut e = if end < 0 { (end + len).max(0) } else { end.min(len) };
-        
+
         // Clamp to valid range
-        if s < 0 { s = 0; }
-        if e > len { e = len; }
+        if s < 0 {
+            s = 0;
+        }
+        if e > len {
+            e = len;
+        }
         if s >= e {
             return vp_list_create_stub();
         }
-        
+
         let step = if step <= 0 { 1 } else { step };
         let mut result = Vec::<i64>::new();
         let mut i = s;
@@ -217,7 +225,7 @@ pub extern "C" fn vp_list_slice_stub(list: *mut std::ffi::c_void, start: i64, en
             result.push(vec[i as usize]);
             i += step;
         }
-        
+
         let boxed = Box::new(result);
         Box::into_raw(boxed) as *mut std::ffi::c_void
     }
@@ -230,4 +238,3 @@ pub extern "C" fn vp_retain_stub(_ptr: *mut std::ffi::c_void) {
 pub extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
     // No-op for JIT
 }
-

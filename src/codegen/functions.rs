@@ -16,10 +16,7 @@ fn infer_return_type_from_body(body: &[Stmt]) -> Option<Type> {
                 return Some(infer_type_from_expr(expr));
             }
         }
-        if let Stmt::If {
-            body, else_body, ..
-        } = stmt
-        {
+        if let Stmt::If { body, else_body, .. } = stmt {
             if let Some(rt) = infer_return_type_from_body(body) {
                 return Some(rt);
             }
@@ -56,9 +53,18 @@ fn infer_type_from_expr(expr: &Expr) -> Type {
         Expr::BinOp { op, left, right, .. } => {
             // Comparison and logical operators return Bool
             match op {
-                BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq |
-                BinOp::Is | BinOp::IsNot | BinOp::In | BinOp::NotIn |
-                BinOp::And | BinOp::Or => Type::Bool,
+                BinOp::Eq
+                | BinOp::NotEq
+                | BinOp::Lt
+                | BinOp::Gt
+                | BinOp::LtEq
+                | BinOp::GtEq
+                | BinOp::Is
+                | BinOp::IsNot
+                | BinOp::In
+                | BinOp::NotIn
+                | BinOp::And
+                | BinOp::Or => Type::Bool,
                 _ => {
                     // Arithmetic operators: check for float operands
                     let lt = infer_type_from_expr(left);
@@ -78,21 +84,24 @@ fn infer_type_from_expr(expr: &Expr) -> Type {
 
 /// Infer parameter types from function body by analyzing how parameters are used
 pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type> {
-    params.iter().map(|param| {
-        // If parameter has explicit type annotation, use it
-        if let Some(ref ty) = param.type_ann {
-            return ty.clone();
-        }
-        
-        // Otherwise, try to infer from usage in body
-        // For now, check if parameter is used with index operations (indicating a list)
-        if param_is_used_as_list(&param.name, body) {
-            return Type::List(Box::new(Type::Infer));
-        }
-        
-        // Default to I64 for unannotated parameters
-        Type::I64
-    }).collect()
+    params
+        .iter()
+        .map(|param| {
+            // If parameter has explicit type annotation, use it
+            if let Some(ref ty) = param.type_ann {
+                return ty.clone();
+            }
+
+            // Otherwise, try to infer from usage in body
+            // For now, check if parameter is used with index operations (indicating a list)
+            if param_is_used_as_list(&param.name, body) {
+                return Type::List(Box::new(Type::Infer));
+            }
+
+            // Default to I64 for unannotated parameters
+            Type::I64
+        })
+        .collect()
 }
 
 /// Check if a parameter is used as a list (indexed with [])
@@ -110,12 +119,15 @@ fn stmt_contains_list_index(param_name: &str, stmt: &Stmt) -> bool {
     match stmt {
         Stmt::Expr(expr) => expr_contains_list_index(param_name, expr),
         Stmt::Assign { target, value, .. } => {
-            expr_contains_list_index(param_name, target) || expr_contains_list_index(param_name, value)
+            expr_contains_list_index(param_name, target)
+                || expr_contains_list_index(param_name, value)
         }
         Stmt::If { condition, body, else_body, .. } => {
             expr_contains_list_index(param_name, condition)
                 || body.iter().any(|s| stmt_contains_list_index(param_name, s))
-                || else_body.as_ref().map_or(false, |eb| eb.iter().any(|s| stmt_contains_list_index(param_name, s)))
+                || else_body
+                    .as_ref()
+                    .map_or(false, |eb| eb.iter().any(|s| stmt_contains_list_index(param_name, s)))
         }
         Stmt::While { condition, body, .. } => {
             expr_contains_list_index(param_name, condition)
@@ -129,9 +141,7 @@ fn stmt_contains_list_index(param_name: &str, stmt: &Stmt) -> bool {
         Stmt::Declare { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_list_index(param_name, v))
         }
-        Stmt::AugAssign { value, .. } => {
-            expr_contains_list_index(param_name, value)
-        }
+        Stmt::AugAssign { value, .. } => expr_contains_list_index(param_name, value),
         _ => false,
     }
 }
@@ -150,18 +160,15 @@ fn expr_contains_list_index(param_name: &str, expr: &Expr) -> bool {
             expr_contains_list_index(param_name, obj)
         }
         Expr::BinOp { left, right, .. } => {
-            expr_contains_list_index(param_name, left) || expr_contains_list_index(param_name, right)
+            expr_contains_list_index(param_name, left)
+                || expr_contains_list_index(param_name, right)
         }
-        Expr::UnaryOp { operand, .. } => {
-            expr_contains_list_index(param_name, operand)
-        }
+        Expr::UnaryOp { operand, .. } => expr_contains_list_index(param_name, operand),
         Expr::Call { func, args, .. } => {
             expr_contains_list_index(param_name, func)
                 || args.iter().any(|arg| expr_contains_list_index(param_name, arg))
         }
-        Expr::Attribute { obj, .. } => {
-            expr_contains_list_index(param_name, obj)
-        }
+        Expr::Attribute { obj, .. } => expr_contains_list_index(param_name, obj),
         _ => false,
     }
 }
@@ -181,10 +188,7 @@ pub fn declare_function<'ctx>(
     let param_types = if let Some(body) = body {
         infer_param_types_from_body(params, body)
     } else {
-        params
-            .iter()
-            .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
-            .collect()
+        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect()
     };
 
     let param_llvm_types: Vec<_> = param_types

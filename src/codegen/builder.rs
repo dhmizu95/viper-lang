@@ -100,9 +100,7 @@ impl<'ctx> IRBuilder<'ctx> {
         rhs: IntValue<'ctx>,
         name: &str,
     ) -> IntValue<'ctx> {
-        builder
-            .build_int_compare(inkwell::IntPredicate::EQ, lhs, rhs, name)
-            .expect("eq")
+        builder.build_int_compare(inkwell::IntPredicate::EQ, lhs, rhs, name).expect("eq")
     }
 
     /// Build a comparison (less than)
@@ -113,9 +111,7 @@ impl<'ctx> IRBuilder<'ctx> {
         rhs: IntValue<'ctx>,
         name: &str,
     ) -> IntValue<'ctx> {
-        builder
-            .build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, name)
-            .expect("lt")
+        builder.build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, name).expect("lt")
     }
 
     /// Build a conditional branch
@@ -126,9 +122,7 @@ impl<'ctx> IRBuilder<'ctx> {
         then_block: inkwell::basic_block::BasicBlock<'ctx>,
         else_block: inkwell::basic_block::BasicBlock<'ctx>,
     ) {
-        builder
-            .build_conditional_branch(cond, then_block, else_block)
-            .expect("cond_br");
+        builder.build_conditional_branch(cond, then_block, else_block).expect("cond_br");
     }
 
     /// Build an unconditional branch

@@ -48,18 +48,9 @@ impl TypeChecker {
 
         // First pass: collect function declarations
         for stmt in &module.statements {
-            if let Stmt::Function {
-                name,
-                params,
-                return_type,
-                span,
-                ..
-            } = stmt
-            {
-                let param_types: Vec<Type> = params
-                    .iter()
-                    .map(|p| p.type_ann.clone().unwrap_or(Type::Infer))
-                    .collect();
+            if let Stmt::Function { name, params, return_type, span, .. } = stmt {
+                let param_types: Vec<Type> =
+                    params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Infer)).collect();
 
                 let symbol = Symbol::new_function(
                     name.clone(),
@@ -91,10 +82,7 @@ impl TypeChecker {
         // Use span as a rough identifier for the expression
         let span = expr.span();
         // Try to find in our type map or infer from the expression itself
-        self.expr_types
-            .get(&(span.start as usize))
-            .cloned()
-            .or_else(|| self.infer_expr_type(expr))
+        self.expr_types.get(&(span.start as usize)).cloned().or_else(|| self.infer_expr_type(expr))
     }
 
     /// Infer the type of an expression
@@ -111,8 +99,7 @@ impl TypeChecker {
                 if elements.is_empty() {
                     Some(Type::List(Box::new(Type::Infer)))
                 } else {
-                    self.infer_expr_type(&elements[0])
-                        .map(|t| Type::List(Box::new(t)))
+                    self.infer_expr_type(&elements[0]).map(|t| Type::List(Box::new(t)))
                 }
             }
             Expr::Array { elements, size, .. } => {
@@ -124,10 +111,8 @@ impl TypeChecker {
                 }
             }
             Expr::Tuple { elements, .. } => {
-                let types: Vec<Type> = elements
-                    .iter()
-                    .filter_map(|e| self.infer_expr_type(e))
-                    .collect();
+                let types: Vec<Type> =
+                    elements.iter().filter_map(|e| self.infer_expr_type(e)).collect();
                 if types.len() == elements.len() {
                     Some(Type::Var(format!("tuple({:?})", types)))
                 } else {
@@ -139,11 +124,7 @@ impl TypeChecker {
                 // Await returns the type of the future
                 self.infer_expr_type(future)
             }
-            Expr::Call {
-                func,
-                args: _,
-                span: _,
-            } => {
+            Expr::Call { func, args: _, span: _ } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
                     // Handle concurrency builtins (Phase 3)
                     match name.as_str() {
@@ -181,18 +162,14 @@ impl TypeChecker {
                     None
                 }
             }
-            Expr::BinOp {
-                op, left, right, ..
-            } => match op {
+            Expr::BinOp { op, left, right, .. } => match op {
                 BinOp::Add
                 | BinOp::Sub
                 | BinOp::Mul
                 | BinOp::Div
                 | BinOp::Mod
                 | BinOp::FloorDiv
-                | BinOp::Pow => self
-                    .infer_expr_type(left)
-                    .or_else(|| self.infer_expr_type(right)),
+                | BinOp::Pow => self.infer_expr_type(left).or_else(|| self.infer_expr_type(right)),
                 BinOp::Eq
                 | BinOp::NotEq
                 | BinOp::Lt
@@ -233,11 +210,7 @@ impl TypeChecker {
             Stmt::Expr(expr) => {
                 self.check_expr(expr);
             }
-            Stmt::Assign {
-                target,
-                value,
-                span,
-            } => {
+            Stmt::Assign { target, value, span } => {
                 let value_type = self.check_expr(value);
                 let target_type = self.check_expr(target);
 
@@ -257,11 +230,9 @@ impl TypeChecker {
 
                 if let (Some(tt), Some(vt)) = (target_type, value_type) {
                     if !self.is_compatible(&tt, &vt) {
-                        self.errors.push(TypeError::new(
-                            format!("Cannot assign {} to {}", vt, tt),
-                            *span,
-                        ));
-                        } else {
+                        self.errors
+                            .push(TypeError::new(format!("Cannot assign {} to {}", vt, tt), *span));
+                    } else {
                         // Add bounds checking for integers
                         if let Expr::Int(n, _) = value.as_ref() {
                             let out_of_bounds = match tt {
@@ -280,13 +251,7 @@ impl TypeChecker {
                     }
                 }
             }
-            Stmt::Declare {
-                name,
-                type_ann,
-                value,
-                mutable,
-                span,
-            } => {
+            Stmt::Declare { name, type_ann, value, mutable, span } => {
                 if let Some(val) = value {
                     let value_type = self.check_expr(val);
 
@@ -309,7 +274,10 @@ impl TypeChecker {
                                     };
                                     if out_of_bounds {
                                         self.errors.push(TypeError::new(
-                                            format!("Value {} is out of bounds for type {}", n, ann_type),
+                                            format!(
+                                                "Value {} is out of bounds for type {}",
+                                                n, ann_type
+                                            ),
                                             val.span(),
                                         ));
                                     }
@@ -320,27 +288,14 @@ impl TypeChecker {
                 }
 
                 // Insert variable into symbol table
-                let kind = SymbolKind::Variable {
-                    mutable: *mutable,
-                    type_ann: type_ann.clone(),
-                };
-                let symbol = Symbol::new(
-                    name.clone(),
-                    kind,
-                    *span,
-                    self.symbol_table.current_scope_id(),
-                );
+                let kind = SymbolKind::Variable { mutable: *mutable, type_ann: type_ann.clone() };
+                let symbol =
+                    Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
                 if let Err(e) = self.symbol_table.insert(symbol) {
                     self.errors.push(TypeError::new(e, *span));
                 }
             }
-            Stmt::If {
-                condition,
-                body,
-                elif_blocks,
-                else_body,
-                span,
-            } => {
+            Stmt::If { condition, body, elif_blocks, else_body, span } => {
                 let cond_type = self.check_expr(condition);
                 if let Some(t) = cond_type {
                     if t != Type::Bool {
@@ -382,12 +337,7 @@ impl TypeChecker {
                     self.symbol_table.exit_scope();
                 }
             }
-            Stmt::While {
-                condition,
-                body,
-                span,
-                ..
-            } => {
+            Stmt::While { condition, body, span, .. } => {
                 let cond_type = self.check_expr(condition);
                 if let Some(t) = cond_type {
                     if t != Type::Bool {
@@ -404,21 +354,12 @@ impl TypeChecker {
                 }
                 self.symbol_table.exit_scope();
             }
-            Stmt::For {
-                target,
-                iter,
-                body,
-                span,
-                ..
-            } => {
+            Stmt::For { target, iter, body, span, .. } => {
                 self.check_expr(iter);
 
                 // Bind loop variable
                 if let Expr::Ident(name, _) = target.as_ref() {
-                    let kind = SymbolKind::Variable {
-                        mutable: true,
-                        type_ann: Some(Type::I64),
-                    };
+                    let kind = SymbolKind::Variable { mutable: true, type_ann: Some(Type::I64) };
                     let symbol = Symbol::new(
                         name.clone(),
                         kind,
@@ -450,9 +391,7 @@ impl TypeChecker {
 
                 // Add parameters to scope
                 for param in params {
-                    let kind = SymbolKind::Parameter {
-                        type_ann: param.type_ann.clone(),
-                    };
+                    let kind = SymbolKind::Parameter { type_ann: param.type_ann.clone() };
                     let symbol = Symbol::new(
                         param.name.clone(),
                         kind,
@@ -482,12 +421,7 @@ impl TypeChecker {
             Stmt::Break(_) | Stmt::Continue(_) | Stmt::Pass(_) => {
                 // No type checking needed
             }
-            Stmt::AugAssign {
-                target,
-                op: _,
-                value,
-                span: _,
-            } => {
+            Stmt::AugAssign { target, op: _, value, span: _ } => {
                 self.check_expr(target);
                 self.check_expr(value);
             }
@@ -507,11 +441,7 @@ impl TypeChecker {
                 // Channel creation - type will be inferred from send/recv usage
                 // For now, mark as Chan[Infer]
             }
-            Stmt::Send {
-                chan,
-                value,
-                span: _,
-            } => {
+            Stmt::Send { chan, value, span: _ } => {
                 let _chan_type = self.check_expr(chan);
                 let _value_type = self.check_expr(value);
                 // Type checking for send is deferred to runtime
@@ -571,11 +501,7 @@ impl TypeChecker {
                     }
                 }
             }
-            Stmt::Match {
-                subject,
-                cases,
-                span,
-            } => {
+            Stmt::Match { subject, cases, span } => {
                 self.check_expr(subject);
 
                 for case in cases {
@@ -644,18 +570,10 @@ impl TypeChecker {
 
         // Store the inferred type
         let span = expr.span();
-        self.expr_types.insert(
-            span.start as usize,
-            expr_type.clone().unwrap_or(Type::Infer),
-        );
+        self.expr_types.insert(span.start as usize, expr_type.clone().unwrap_or(Type::Infer));
 
         match expr {
-            Expr::BinOp {
-                left,
-                right,
-                op,
-                span,
-            } => {
+            Expr::BinOp { left, right, op, span } => {
                 let left_type = self.check_expr(left);
                 let right_type = self.check_expr(right);
 
@@ -741,10 +659,8 @@ impl TypeChecker {
 
                 if let Some(it) = index_type {
                     if it != Type::I64 {
-                        self.errors.push(TypeError::new(
-                            format!("Index must be i64, got {}", it),
-                            *span,
-                        ));
+                        self.errors
+                            .push(TypeError::new(format!("Index must be i64, got {}", it), *span));
                     }
                 }
             }
@@ -769,12 +685,7 @@ impl TypeChecker {
                     self.check_expr(value);
                 }
             }
-            Expr::Conditional {
-                condition,
-                then_expr,
-                else_expr,
-                span,
-            } => {
+            Expr::Conditional { condition, then_expr, else_expr, span } => {
                 let cond_type = self.check_expr(condition);
                 if let Some(t) = cond_type {
                     if t != Type::Bool {

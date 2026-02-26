@@ -6,21 +6,10 @@ use std::collections::HashMap;
 /// Kind of symbol (variable, function, parameter)
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {
-    Variable {
-        mutable: bool,
-        type_ann: Option<Type>,
-    },
-    Function {
-        params: Vec<Type>,
-        return_type: Option<Type>,
-        mangled_name: String,
-    },
-    Parameter {
-        type_ann: Option<Type>,
-    },
-    Builtin {
-        signature: BuiltinSignature,
-    },
+    Variable { mutable: bool, type_ann: Option<Type> },
+    Function { params: Vec<Type>, return_type: Option<Type>, mangled_name: String },
+    Parameter { type_ann: Option<Type> },
+    Builtin { signature: BuiltinSignature },
 }
 
 /// Built-in function signatures
@@ -61,12 +50,7 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn new(name: String, kind: SymbolKind, span: Span, scope_id: usize) -> Self {
-        Self {
-            name,
-            kind,
-            span,
-            scope_id,
-        }
+        Self { name, kind, span, scope_id }
     }
 
     pub fn new_function(
@@ -79,11 +63,7 @@ impl Symbol {
         let mangled_name = mangle_function_name(&name, &params);
         Self {
             name,
-            kind: SymbolKind::Function {
-                params,
-                return_type,
-                mangled_name,
-            },
+            kind: SymbolKind::Function { params, return_type, mangled_name },
             span,
             scope_id,
         }
@@ -132,11 +112,8 @@ pub struct SymbolTable {
 
 impl SymbolTable {
     pub fn new() -> Self {
-        let mut table = Self {
-            scopes: vec![HashMap::new()],
-            current_scope: 0,
-            scope_chain: vec![0],
-        };
+        let mut table =
+            Self { scopes: vec![HashMap::new()], current_scope: 0, scope_chain: vec![0] };
         table.insert_builtins();
         table
     }
@@ -144,97 +121,22 @@ impl SymbolTable {
     /// Insert built-in functions
     fn insert_builtins(&mut self) {
         let builtins = vec![
-            (
-                "print",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::Print,
-                },
-            ),
-            (
-                "range",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::Range,
-                },
-            ),
-            (
-                "len",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::Len,
-                },
-            ),
-            (
-                "str",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::Str,
-                },
-            ),
-            (
-                "int",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::Int,
-                },
-            ),
-            (
-                "float",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::Float,
-                },
-            ),
-            (
-                "bool",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::Bool,
-                },
-            ),
-            (
-                "list",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::List,
-                },
-            ),
+            ("print", SymbolKind::Builtin { signature: BuiltinSignature::Print }),
+            ("range", SymbolKind::Builtin { signature: BuiltinSignature::Range }),
+            ("len", SymbolKind::Builtin { signature: BuiltinSignature::Len }),
+            ("str", SymbolKind::Builtin { signature: BuiltinSignature::Str }),
+            ("int", SymbolKind::Builtin { signature: BuiltinSignature::Int }),
+            ("float", SymbolKind::Builtin { signature: BuiltinSignature::Float }),
+            ("bool", SymbolKind::Builtin { signature: BuiltinSignature::Bool }),
+            ("list", SymbolKind::Builtin { signature: BuiltinSignature::List }),
             // Concurrency builtins (Phase 3)
-            (
-                "chan",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::ChanCreate,
-                },
-            ),
-            (
-                "send",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::ChanSend,
-                },
-            ),
-            (
-                "recv",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::ChanRecv,
-                },
-            ),
-            (
-                "WaitGroup",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::WaitGroupCreate,
-                },
-            ),
-            (
-                "add",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::WaitGroupAdd,
-                },
-            ),
-            (
-                "done",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::WaitGroupDone,
-                },
-            ),
-            (
-                "wait",
-                SymbolKind::Builtin {
-                    signature: BuiltinSignature::WaitGroupWait,
-                },
-            ),
+            ("chan", SymbolKind::Builtin { signature: BuiltinSignature::ChanCreate }),
+            ("send", SymbolKind::Builtin { signature: BuiltinSignature::ChanSend }),
+            ("recv", SymbolKind::Builtin { signature: BuiltinSignature::ChanRecv }),
+            ("WaitGroup", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupCreate }),
+            ("add", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupAdd }),
+            ("done", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupDone }),
+            ("wait", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupWait }),
         ];
 
         let span = Span::empty(0, 0);

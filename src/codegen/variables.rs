@@ -21,18 +21,12 @@ pub struct VarInfo<'ctx> {
 impl<'ctx> VarInfo<'ctx> {
     /// Create a new variable with stack allocation
     pub fn new_stack(alloca: PointerValue<'ctx>, var_type: VarType) -> Self {
-        Self {
-            storage: VarStorage::Stack(alloca),
-            var_type,
-        }
+        Self { storage: VarStorage::Stack(alloca), var_type }
     }
 
     /// Create a new variable with register allocation
     pub fn new_register(value: BasicValueEnum<'ctx>, var_type: VarType) -> Self {
-        Self {
-            storage: VarStorage::Register(value),
-            var_type,
-        }
+        Self { storage: VarStorage::Register(value), var_type }
     }
 
     /// Get the alloca pointer if this variable uses stack allocation
@@ -73,9 +67,6 @@ impl<'ctx> LoopContext<'ctx> {
         break_block: inkwell::basic_block::BasicBlock<'ctx>,
         continue_block: inkwell::basic_block::BasicBlock<'ctx>,
     ) -> Self {
-        Self {
-            break_block,
-            continue_block,
-        }
+        Self { break_block, continue_block }
     }
 }

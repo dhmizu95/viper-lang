@@ -1,64 +1,78 @@
-use std::io::{self, Write};
+use std::error::Error;
+use rustyline::error::ReadlineError;
+use rustyline::{DefaultEditor, Result as RlResult};
+
+use crate::repl::{InputState, LineStatus, ReplSession};
 
 pub fn run_repl() -> Result<(), String> {
-    println!("Viper REPL v0.2.3");
-    println!("Type :quit to exit, :clear to clear\n");
+    println!("🐍 Viper REPL v0.2.3");
+    println!("Type :quit to exit, :clear to clear, :help for commands\n");
 
-    let mut history: Vec<String> = Vec::new();
+    let mut editor = DefaultEditor::new().map_err(|e| e.to_string())?;
+    
+    // We intentionally don't load history file here as Viper doesn't have a reliable 
+    // home directory expansion built-in, but rustyline keeps session history anyway.
+
+    let mut input_state = InputState::new();
+    let mut session = ReplSession::new();
+    let mut prompt = ">>> ";
 
     loop {
-        print!(">>> ");
-        io::stdout().flush().map_err(|e| e.to_string())?;
+        let readline = editor.readline(prompt);
+        match readline {
+            Ok(line) => {
+                let trimmed = line.trim();
+                
+                // Handle REPL commands when not in a block
+                if prompt == ">>> " && trimmed.starts_with(':') {
+                    editor.add_history_entry(line.as_str()).unwrap();
+                    match handle_command(trimmed, &mut session, &mut input_state) {
+                        CommandResult::Continue => continue,
+                        CommandResult::Quit => break,
+                    }
+                }
 
-        let mut line = String::new();
-        io::stdin()
-            .read_line(&mut line)
-            .map_err(|e| e.to_string())?;
+                // Normal code execution
+                if !trimmed.is_empty() {
+                    editor.add_history_entry(line.as_str()).unwrap();
+                }
 
-        let line = line.trim();
-
-        if line.is_empty() {
-            continue;
-        }
-
-        match line {
-            ":quit" | ":q" => {
+                match input_state.feed(&line) {
+                    LineStatus::Complete => {
+                        let source = input_state.take_buffer();
+                        execute_source(&mut session, &source);
+                        prompt = ">>> ";
+                    }
+                    LineStatus::Incomplete => {
+                        prompt = "... ";
+                    }
+                    LineStatus::Empty => {
+                        let source = input_state.take_buffer();
+                        execute_source(&mut session, &source);
+                        prompt = ">>> ";
+                    }
+                }
+            }
+            Err(ReadlineError::Interrupted) => {
+                // Ctrl-C
+                if prompt == "... " {
+                    // Cancel block
+                    println!("KeyboardInterrupt");
+                    input_state.force_complete();
+                    input_state.take_buffer();
+                    prompt = ">>> ";
+                } else {
+                    println!("KeyboardInterrupt");
+                }
+            }
+            Err(ReadlineError::Eof) => {
+                // Ctrl-D
                 println!("Goodbye!");
                 break;
             }
-            ":clear" => {
-                print!("\x1B[2J\x1B[1J");
-                println!("Viper REPL v0.2.3");
-                println!("Type :quit to exit, :clear to clear\n");
-                continue;
-            }
-            ":help" => {
-                println!("REPL Commands:");
-                println!("  :quit, :q   - Exit the REPL");
-                println!("  :clear      - Clear the screen");
-                println!("  :help       - Show this help");
-                println!("  :history    - Show command history");
-                println!();
-                continue;
-            }
-            ":history" => {
-                for (i, cmd) in history.iter().enumerate() {
-                    println!("  {}: {}", i + 1, cmd);
-                }
-                continue;
-            }
-            _ => {}
-        }
-
-        history.push(line.to_string());
-
-        // Try to evaluate the expression
-        match eval_expression(line) {
-            Ok(result) => {
-                println!("{}", result);
-            }
-            Err(e) => {
-                eprintln!("Error: {}", e);
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                break;
             }
         }
     }
@@ -66,16 +80,52 @@ pub fn run_repl() -> Result<(), String> {
     Ok(())
 }
 
-fn eval_expression(line: &str) -> Result<String, String> {
-    // Try to parse and evaluate simple expressions
-    let source = format!("def __repl__(): {}", line);
+fn execute_source(session: &mut ReplSession, source: &str) {
+    if let Err(e) = session.execute_chunk(source) {
+        eprintln!("Error: {}", e);
+    }
+}
 
-    let mut lexer = crate::lexer::Lexer::new(&source);
-    let tokens = lexer.tokenize()?;
+enum CommandResult {
+    Continue,
+    Quit,
+}
 
-    let mut parser = crate::parser::Parser::new(tokens);
-    let _ast = parser.parse()?;
-
-    // For now, just echo back what we parsed
-    Ok(format!("parsed: {}", line))
+fn handle_command(cmd: &str, session: &mut ReplSession, input_state: &mut InputState) -> CommandResult {
+    match cmd {
+        ":quit" | ":q" => {
+            CommandResult::Quit
+        }
+        ":clear" | ":c" => {
+            print!("\x1B[2J\x1B[1J");
+            println!("🐍 Viper REPL v0.2.3");
+            println!("Type :quit to exit, :clear to clear, :help for commands\n");
+            CommandResult::Continue
+        }
+        ":reset" => {
+            session.reset();
+            input_state.force_complete();
+            input_state.take_buffer(); // clear buffer
+            println!("Environment reset.");
+            CommandResult::Continue
+        }
+        ":vars" => {
+            println!("Variables are not currently persisted globally in this stub.");
+            CommandResult::Continue
+        }
+        ":help" | ":h" => {
+            println!("REPL Commands:");
+            println!("  :quit,   :q    - Exit the REPL");
+            println!("  :clear,  :c    - Clear the screen");
+            println!("  :reset         - Clear all variables & state");
+            println!("  :vars          - Show currently defined variables (WIP)");
+            println!("  :help,   :h    - Show this help message");
+            println!();
+            CommandResult::Continue
+        }
+        _ => {
+            println!("Unknown command: {}", cmd);
+            CommandResult::Continue
+        }
+    }
 }

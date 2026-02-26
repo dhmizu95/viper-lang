@@ -1,6 +1,6 @@
+use super::*;
 use crate::ast::{Expr, Stmt};
 use crate::codegen::state::CodeGenState;
-use super::*;
 
 pub(crate) fn generate_sync<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -36,8 +36,7 @@ pub(crate) fn generate_task<'ctx>(
                 }
 
                 // Create a struct type to pack all arguments
-                let arg_types: Vec<_> =
-                    arg_values.iter().map(|v| v.get_type().into()).collect();
+                let arg_types: Vec<_> = arg_values.iter().map(|v| v.get_type().into()).collect();
                 let struct_type = state.context.struct_type(&arg_types, false);
 
                 // Generate wrapper function: void wrapper(void* args)
@@ -45,10 +44,7 @@ pub(crate) fn generate_task<'ctx>(
                 let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
                 let wrapper_fn_type = void_type.fn_type(&[ptr_type.into()], false);
                 let wrapper_name = format!("__task_wrapper_{}_{}", name, span.start);
-                let wrapper_fn =
-                    state
-                        .module
-                        .add_function(&wrapper_name, wrapper_fn_type, None);
+                let wrapper_fn = state.module.add_function(&wrapper_name, wrapper_fn_type, None);
 
                 // Generate wrapper body
                 let wrapper_entry = state.context.append_basic_block(wrapper_fn, "entry");
@@ -64,10 +60,7 @@ pub(crate) fn generate_task<'ctx>(
                         .builder
                         .build_struct_gep(struct_type, arg_ptr, i as u32, "struct_gep")
                         .unwrap();
-                    let val = state
-                        .builder
-                        .build_load(arg_val.get_type(), gep, "arg")
-                        .unwrap();
+                    let val = state.builder.build_load(arg_val.get_type(), gep, "arg").unwrap();
                     call_args.push(val.into());
                 }
 
@@ -77,9 +70,7 @@ pub(crate) fn generate_task<'ctx>(
 
                 // Free the args struct
                 let free_func = state.module.get_function("free").unwrap();
-                let _ = state
-                    .builder
-                    .build_call(free_func, &[arg_ptr.into()], "free");
+                let _ = state.builder.build_call(free_func, &[arg_ptr.into()], "free");
 
                 let _ = state.builder.build_return(None);
 
@@ -91,10 +82,8 @@ pub(crate) fn generate_task<'ctx>(
                 // Call malloc to allocate struct on heap
                 let malloc_func = state.module.get_function("malloc").unwrap();
                 let struct_size = struct_type.size_of().unwrap();
-                let malloc_call = state
-                    .builder
-                    .build_call(malloc_func, &[struct_size.into()], "malloc")
-                    .unwrap();
+                let malloc_call =
+                    state.builder.build_call(malloc_func, &[struct_size.into()], "malloc").unwrap();
                 let heap_ptr = match malloc_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(val) => val.into_pointer_value(),
                     _ => panic!("Expected pointer from malloc"),
@@ -139,14 +128,9 @@ pub(crate) fn generate_chan<'ctx>(
 ) -> Result<(), String> {
     // Channel creation - call runtime function
     let size_val = crate::codegen::expressions::generate_expr(state, size)?;
-    let chan_func = state
-        .module
-        .get_function("vp_chan_create")
-        .ok_or("vp_chan_create not declared")?;
-    state
-        .builder
-        .build_call(chan_func, &[size_val.into()], "chan")
-        .expect("call vp_chan_create");
+    let chan_func =
+        state.module.get_function("vp_chan_create").ok_or("vp_chan_create not declared")?;
+    state.builder.build_call(chan_func, &[size_val.into()], "chan").expect("call vp_chan_create");
     Ok(())
 }
 
@@ -158,10 +142,7 @@ pub(crate) fn generate_send<'ctx>(
     // Channel send
     let chan_val = crate::codegen::expressions::generate_expr(state, chan)?;
     let val_val = crate::codegen::expressions::generate_expr(state, value)?;
-    let send_func = state
-        .module
-        .get_function("vp_chan_send")
-        .ok_or("vp_chan_send not declared")?;
+    let send_func = state.module.get_function("vp_chan_send").ok_or("vp_chan_send not declared")?;
     state
         .builder
         .build_call(send_func, &[chan_val.into(), val_val.into()], "")
@@ -175,29 +156,18 @@ pub(crate) fn generate_recv<'ctx>(
 ) -> Result<(), String> {
     // Channel receive - returns value from channel
     let chan_val = crate::codegen::expressions::generate_expr(state, chan)?;
-    let recv_func = state
-        .module
-        .get_function("vp_chan_recv")
-        .ok_or("vp_chan_recv not declared")?;
-    state
-        .builder
-        .build_call(recv_func, &[chan_val.into()], "recv_val")
-        .expect("call vp_chan_recv");
+    let recv_func = state.module.get_function("vp_chan_recv").ok_or("vp_chan_recv not declared")?;
+    state.builder.build_call(recv_func, &[chan_val.into()], "recv_val").expect("call vp_chan_recv");
     Ok(())
 }
 
-pub(crate) fn generate_waitgroup<'ctx>(
-    state: &mut CodeGenState<'_, 'ctx>,
-) -> Result<(), String> {
+pub(crate) fn generate_waitgroup<'ctx>(state: &mut CodeGenState<'_, 'ctx>) -> Result<(), String> {
     // WaitGroup creation - returns a pointer to WaitGroup struct
     let wg_func = state
         .module
         .get_function("vp_waitgroup_create")
         .ok_or("vp_waitgroup_create not declared")?;
-    state
-        .builder
-        .build_call(wg_func, &[], "wg")
-        .expect("call vp_waitgroup_create");
+    state.builder.build_call(wg_func, &[], "wg").expect("call vp_waitgroup_create");
     Ok(())
 }
 
@@ -209,10 +179,8 @@ pub(crate) fn generate_wg_add<'ctx>(
     // WaitGroup add
     let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
     let n_val = crate::codegen::expressions::generate_expr(state, n)?;
-    let add_func = state
-        .module
-        .get_function("vp_waitgroup_add")
-        .ok_or("vp_waitgroup_add not declared")?;
+    let add_func =
+        state.module.get_function("vp_waitgroup_add").ok_or("vp_waitgroup_add not declared")?;
     state
         .builder
         .build_call(add_func, &[wg_val.into(), n_val.into()], "")
@@ -226,14 +194,9 @@ pub(crate) fn generate_wg_done<'ctx>(
 ) -> Result<(), String> {
     // WaitGroup done
     let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
-    let done_func = state
-        .module
-        .get_function("vp_waitgroup_done")
-        .ok_or("vp_waitgroup_done not declared")?;
-    state
-        .builder
-        .build_call(done_func, &[wg_val.into()], "")
-        .expect("call vp_waitgroup_done");
+    let done_func =
+        state.module.get_function("vp_waitgroup_done").ok_or("vp_waitgroup_done not declared")?;
+    state.builder.build_call(done_func, &[wg_val.into()], "").expect("call vp_waitgroup_done");
     Ok(())
 }
 
@@ -243,13 +206,8 @@ pub(crate) fn generate_wg_wait<'ctx>(
 ) -> Result<(), String> {
     // WaitGroup wait
     let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
-    let wait_func = state
-        .module
-        .get_function("vp_waitgroup_wait")
-        .ok_or("vp_waitgroup_wait not declared")?;
-    state
-        .builder
-        .build_call(wait_func, &[wg_val.into()], "")
-        .expect("call vp_waitgroup_wait");
+    let wait_func =
+        state.module.get_function("vp_waitgroup_wait").ok_or("vp_waitgroup_wait not declared")?;
+    state.builder.build_call(wait_func, &[wg_val.into()], "").expect("call vp_waitgroup_wait");
     Ok(())
 }

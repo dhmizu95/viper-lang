@@ -99,38 +99,22 @@ impl DeadCodeEliminator {
         for (idx, stmt) in stmts.iter().enumerate() {
             match stmt {
                 Stmt::Declare { name, value, .. } => {
-                    let has_side_effects = value
-                        .as_ref()
-                        .map(|v| self.has_side_effects(v))
-                        .unwrap_or(false);
+                    let has_side_effects =
+                        value.as_ref().map(|v| self.has_side_effects(v)).unwrap_or(false);
                     self.var_defs.insert(
                         name.clone(),
-                        VarDef {
-                            stmt_idx: idx,
-                            is_used: false,
-                            has_side_effects,
-                        },
+                        VarDef { stmt_idx: idx, is_used: false, has_side_effects },
                     );
-                    self.var_stores
-                        .entry(name.clone())
-                        .or_insert_with(Vec::new)
-                        .push(idx);
+                    self.var_stores.entry(name.clone()).or_insert_with(Vec::new).push(idx);
                 }
                 Stmt::Assign { target, value, .. } => {
                     if let Expr::Ident(name, _) = target.as_ref() {
                         let has_side_effects = self.has_side_effects(value);
                         self.var_defs.insert(
                             name.clone(),
-                            VarDef {
-                                stmt_idx: idx,
-                                is_used: false,
-                                has_side_effects,
-                            },
+                            VarDef { stmt_idx: idx, is_used: false, has_side_effects },
                         );
-                        self.var_stores
-                            .entry(name.clone())
-                            .or_insert_with(Vec::new)
-                            .push(idx);
+                        self.var_stores.entry(name.clone()).or_insert_with(Vec::new).push(idx);
                     }
                 }
                 _ => {}
@@ -173,13 +157,7 @@ impl DeadCodeEliminator {
                 self.mark_expr_vars(value);
             }
             // Control flow - analyze all branches
-            Stmt::If {
-                condition,
-                body,
-                elif_blocks,
-                else_body,
-                ..
-            } => {
+            Stmt::If { condition, body, elif_blocks, else_body, .. } => {
                 self.mark_expr_vars(condition);
                 self.find_used_vars_backward(body);
                 for (_, elif_body) in elif_blocks {
@@ -189,9 +167,7 @@ impl DeadCodeEliminator {
                     self.find_used_vars_backward(else_body);
                 }
             }
-            Stmt::While {
-                condition, body, ..
-            } => {
+            Stmt::While { condition, body, .. } => {
                 self.mark_expr_vars(condition);
                 self.find_used_vars_backward(body);
             }
@@ -261,12 +237,7 @@ impl DeadCodeEliminator {
                     self.mark_expr_vars(elem);
                 }
             }
-            Expr::Conditional {
-                condition,
-                then_expr,
-                else_expr,
-                ..
-            } => {
+            Expr::Conditional { condition, then_expr, else_expr, .. } => {
                 self.mark_expr_vars(condition);
                 self.mark_expr_vars(then_expr);
                 self.mark_expr_vars(else_expr);
@@ -301,11 +272,7 @@ impl DeadCodeEliminator {
     /// Mark dead stores - stores that are overwritten before being used
     fn mark_dead_stores(&mut self, stmts: &[Stmt]) {
         // Clone store indices to avoid borrow checker issues
-        let stores: Vec<_> = self
-            .var_stores
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
+        let stores: Vec<_> = self.var_stores.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
 
         // For each variable with multiple stores
         for (var_name, store_indices) in stores {
@@ -339,10 +306,9 @@ impl DeadCodeEliminator {
     /// Check if the value being assigned in a statement has side effects
     fn stmt_value_has_side_effects(&self, stmt: &Stmt) -> bool {
         match stmt {
-            Stmt::Declare { value, .. } => value
-                .as_ref()
-                .map(|v| self.has_side_effects(v))
-                .unwrap_or(false),
+            Stmt::Declare { value, .. } => {
+                value.as_ref().map(|v| self.has_side_effects(v)).unwrap_or(false)
+            }
             Stmt::Assign { value, .. } => self.has_side_effects(value),
             _ => false,
         }
@@ -396,39 +362,25 @@ impl DeadCodeEliminator {
     /// Check if a statement reads a variable
     fn stmt_reads_var(&self, stmt: &Stmt, var_name: &str) -> bool {
         match stmt {
-            Stmt::Return { value, .. } => value
-                .as_ref()
-                .map(|e| self.expr_contains_var(e, var_name))
-                .unwrap_or(false),
+            Stmt::Return { value, .. } => {
+                value.as_ref().map(|e| self.expr_contains_var(e, var_name)).unwrap_or(false)
+            }
             Stmt::Expr(expr) => self.expr_contains_var(expr, var_name),
             Stmt::Assign { value, .. } => self.expr_contains_var(value, var_name),
             Stmt::AugAssign { target, value, .. } => {
                 // AugAssign reads the target
                 self.expr_contains_var(target, var_name) || self.expr_contains_var(value, var_name)
             }
-            Stmt::Declare { value, .. } => value
-                .as_ref()
-                .map(|e| self.expr_contains_var(e, var_name))
-                .unwrap_or(false),
-            Stmt::If {
-                condition,
-                body,
-                elif_blocks,
-                else_body,
-                ..
-            } => {
+            Stmt::Declare { value, .. } => {
+                value.as_ref().map(|e| self.expr_contains_var(e, var_name)).unwrap_or(false)
+            }
+            Stmt::If { condition, body, elif_blocks, else_body, .. } => {
                 self.expr_contains_var(condition, var_name)
                     || self.block_reads_var(body, var_name)
-                    || elif_blocks
-                        .iter()
-                        .any(|(_, b)| self.block_reads_var(b, var_name))
-                    || else_body
-                        .as_ref()
-                        .map_or(false, |b| self.block_reads_var(b, var_name))
+                    || elif_blocks.iter().any(|(_, b)| self.block_reads_var(b, var_name))
+                    || else_body.as_ref().map_or(false, |b| self.block_reads_var(b, var_name))
             }
-            Stmt::While {
-                condition, body, ..
-            } => {
+            Stmt::While { condition, body, .. } => {
                 self.expr_contains_var(condition, var_name) || self.block_reads_var(body, var_name)
             }
             Stmt::For { iter, body, .. } => {
@@ -481,12 +433,7 @@ impl DeadCodeEliminator {
             Expr::Tuple { elements, .. } => {
                 elements.iter().any(|e| self.expr_contains_var(e, var_name))
             }
-            Expr::Conditional {
-                condition,
-                then_expr,
-                else_expr,
-                ..
-            } => {
+            Expr::Conditional { condition, then_expr, else_expr, .. } => {
                 self.expr_contains_var(condition, var_name)
                     || self.expr_contains_var(then_expr, var_name)
                     || self.expr_contains_var(else_expr, var_name)
@@ -555,12 +502,7 @@ impl DeadCodeEliminator {
                 effects
             }
             Expr::Attribute { obj, .. } => self.has_side_effects(obj),
-            Expr::Conditional {
-                condition,
-                then_expr,
-                else_expr,
-                ..
-            } => {
+            Expr::Conditional { condition, then_expr, else_expr, .. } => {
                 self.has_side_effects(condition)
                     || self.has_side_effects(then_expr)
                     || self.has_side_effects(else_expr)
@@ -579,19 +521,18 @@ impl DeadCodeEliminator {
             .statements
             .iter()
             .enumerate()
-            .filter_map(|(idx, stmt)| {
-                if self.dead_stmts.contains(&idx) {
-                    None
-                } else {
-                    Some(stmt.clone())
-                }
-            })
+            .filter_map(
+                |(idx, stmt)| {
+                    if self.dead_stmts.contains(&idx) {
+                        None
+                    } else {
+                        Some(stmt.clone())
+                    }
+                },
+            )
             .collect();
 
-        Module {
-            statements: new_statements,
-            span: module.span,
-        }
+        Module { statements: new_statements, span: module.span }
     }
 }
 

@@ -3,12 +3,11 @@
 use super::*;
 
 use crate::ast::{BinOp, Expr, UnaryOp};
-use crate::codegen::variables::VarType;
+use crate::codegen::variables::{VarStorage, VarType};
 
 use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
-
 
 /// Generate binary operation
 pub fn generate_binop<'ctx>(
@@ -121,9 +120,11 @@ pub fn generate_binop<'ctx>(
     }
 
     // Handle boolean comparisons (both operands are i1)
-    if lhs_val.is_int_value() && rhs_val.is_int_value() 
+    if lhs_val.is_int_value()
+        && rhs_val.is_int_value()
         && lhs_val.get_type().into_int_type().get_bit_width() == 1
-        && rhs_val.get_type().into_int_type().get_bit_width() == 1 {
+        && rhs_val.get_type().into_int_type().get_bit_width() == 1
+    {
         return generate_bool_binop(state, lhs_val, rhs_val, op);
     }
 
@@ -164,12 +165,7 @@ pub fn generate_str_concat<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            str_concat,
-            &[lhs.into(), rhs.into()],
-            "str_concat",
-        )
+        .build_call(state.builder, str_concat, &[lhs.into(), rhs.into()], "str_concat")
         .ok_or_else(|| "build call failed".to_string())?;
 
     Ok(result)
@@ -187,12 +183,7 @@ pub fn generate_logical_op<'ctx>(
 
     let lhs_val = generate_expr(state, left)?.into_int_value();
 
-    let func = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_parent()
-        .unwrap();
+    let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
 
     let is_and = *op == BinOp::And;
 
@@ -206,34 +197,20 @@ pub fn generate_logical_op<'ctx>(
         .builder
         .build_conditional_branch(
             lhs_val,
-            if is_and {
-                evaluate_rhs_block
-            } else {
-                end_block
-            },
-            if is_and {
-                end_block
-            } else {
-                evaluate_rhs_block
-            },
+            if is_and { evaluate_rhs_block } else { end_block },
+            if is_and { end_block } else { evaluate_rhs_block },
         )
         .expect("branch");
 
     // Evaluate rhs block
     state.builder.position_at_end(evaluate_rhs_block);
     let rhs_val = generate_expr(state, right)?.into_int_value();
-    state
-        .builder
-        .build_unconditional_branch(end_block)
-        .expect("branch");
+    state.builder.build_unconditional_branch(end_block).expect("branch");
     let rhs_block_end = state.builder.get_insert_block().unwrap();
 
     // Build phi in end block
     state.builder.position_at_end(end_block);
-    let phi = state
-        .builder
-        .build_phi(state.context.bool_type(), "logic_result")
-        .expect("phi");
+    let phi = state.builder.build_phi(state.context.bool_type(), "logic_result").expect("phi");
 
     // For both AND and OR:
     // - From lhs_block: if short-circuit happens (lhs decides result), use lhs_val
@@ -262,11 +239,7 @@ pub fn generate_membership_op<'ctx>(
         state.builder,
         list_contains,
         &[list_val.into(), value_val.into()],
-        if matches!(op, BinOp::In) {
-            "list_contains"
-        } else {
-            "not_in_contains"
-        },
+        if matches!(op, BinOp::In) { "list_contains" } else { "not_in_contains" },
     );
     let contains_val: BasicValueEnum = result.unwrap_or(state.ir_builder.i64_const(0).into());
 
@@ -293,22 +266,10 @@ pub fn generate_float_binop<'ctx>(
     let rhs = rhs.into_float_value();
 
     match op {
-        BinOp::Add => Ok(builder
-            .build_float_add(lhs, rhs, "fadd")
-            .expect("fadd")
-            .into()),
-        BinOp::Sub => Ok(builder
-            .build_float_sub(lhs, rhs, "fsub")
-            .expect("fsub")
-            .into()),
-        BinOp::Mul => Ok(builder
-            .build_float_mul(lhs, rhs, "fmul")
-            .expect("fmul")
-            .into()),
-        BinOp::Div => Ok(builder
-            .build_float_div(lhs, rhs, "fdiv")
-            .expect("fdiv")
-            .into()),
+        BinOp::Add => Ok(builder.build_float_add(lhs, rhs, "fadd").expect("fadd").into()),
+        BinOp::Sub => Ok(builder.build_float_sub(lhs, rhs, "fsub").expect("fsub").into()),
+        BinOp::Mul => Ok(builder.build_float_mul(lhs, rhs, "fmul").expect("fmul").into()),
+        BinOp::Div => Ok(builder.build_float_div(lhs, rhs, "fdiv").expect("fdiv").into()),
         BinOp::Eq => Ok(builder
             .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, "feq")
             .expect("feq")
@@ -353,12 +314,12 @@ pub fn generate_float_binop<'ctx>(
                 .module
                 .get_function("vp_pow")
                 .ok_or_else(|| "vp_pow not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(state.builder, pow_func, &[lhs.into(), rhs.into()], "pow")
                 .ok_or_else(|| "build call failed".to_string())?;
-            
+
             Ok(result)
         }
         BinOp::In | BinOp::NotIn => {
@@ -379,26 +340,13 @@ pub fn generate_bool_binop<'ctx>(
     let rhs = rhs.into_int_value();
 
     match op {
-        BinOp::Eq => Ok(state
-            .ir_builder
-            .build_icmp_eq(state.builder, lhs, rhs, "bool_eq")
-            .into()),
+        BinOp::Eq => Ok(state.ir_builder.build_icmp_eq(state.builder, lhs, rhs, "bool_eq").into()),
         BinOp::NotEq => {
-            let eq = state
-                .ir_builder
-                .build_icmp_eq(state.builder, lhs, rhs, "bool_eq");
+            let eq = state.ir_builder.build_icmp_eq(state.builder, lhs, rhs, "bool_eq");
             Ok(state.builder.build_not(eq, "bool_neq").expect("not").into())
         }
-        BinOp::And => Ok(state
-            .builder
-            .build_and(lhs, rhs, "bool_and")
-            .expect("and")
-            .into()),
-        BinOp::Or => Ok(state
-            .builder
-            .build_or(lhs, rhs, "bool_or")
-            .expect("or")
-            .into()),
+        BinOp::And => Ok(state.builder.build_and(lhs, rhs, "bool_and").expect("and").into()),
+        BinOp::Or => Ok(state.builder.build_or(lhs, rhs, "bool_or").expect("or").into()),
         _ => Err(format!("Unsupported boolean operator: {:?}", op)),
     }
 }
@@ -414,36 +362,16 @@ pub fn generate_int_binop<'ctx>(
     let rhs = rhs.into_int_value();
 
     match op {
-        BinOp::Add => Ok(state
-            .ir_builder
-            .build_add(state.builder, lhs, rhs, "add")
-            .into()),
-        BinOp::Sub => Ok(state
-            .ir_builder
-            .build_sub(state.builder, lhs, rhs, "sub")
-            .into()),
-        BinOp::Mul => Ok(state
-            .ir_builder
-            .build_mul(state.builder, lhs, rhs, "mul")
-            .into()),
-        BinOp::Div => Ok(state
-            .ir_builder
-            .build_div(state.builder, lhs, rhs, "div")
-            .into()),
-        BinOp::Eq => Ok(state
-            .ir_builder
-            .build_icmp_eq(state.builder, lhs, rhs, "eq")
-            .into()),
+        BinOp::Add => Ok(state.ir_builder.build_add(state.builder, lhs, rhs, "add").into()),
+        BinOp::Sub => Ok(state.ir_builder.build_sub(state.builder, lhs, rhs, "sub").into()),
+        BinOp::Mul => Ok(state.ir_builder.build_mul(state.builder, lhs, rhs, "mul").into()),
+        BinOp::Div => Ok(state.ir_builder.build_div(state.builder, lhs, rhs, "div").into()),
+        BinOp::Eq => Ok(state.ir_builder.build_icmp_eq(state.builder, lhs, rhs, "eq").into()),
         BinOp::NotEq => {
-            let eq = state
-                .ir_builder
-                .build_icmp_eq(state.builder, lhs, rhs, "eq");
+            let eq = state.ir_builder.build_icmp_eq(state.builder, lhs, rhs, "eq");
             Ok(state.builder.build_not(eq, "neq").expect("not").into())
         }
-        BinOp::Lt => Ok(state
-            .ir_builder
-            .build_icmp_lt(state.builder, lhs, rhs, "lt")
-            .into()),
+        BinOp::Lt => Ok(state.ir_builder.build_icmp_lt(state.builder, lhs, rhs, "lt").into()),
         BinOp::Gt => Ok(state
             .builder
             .build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, "gt")
@@ -459,66 +387,36 @@ pub fn generate_int_binop<'ctx>(
             .build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "gte")
             .expect("gte")
             .into()),
-        BinOp::Is => Ok(state
-            .ir_builder
-            .build_icmp_eq(state.builder, lhs, rhs, "is_cmp")
-            .into()),
+        BinOp::Is => Ok(state.ir_builder.build_icmp_eq(state.builder, lhs, rhs, "is_cmp").into()),
         BinOp::IsNot => {
-            let eq = state
-                .ir_builder
-                .build_icmp_eq(state.builder, lhs, rhs, "isnot_cmp");
-            Ok(state
-                .builder
-                .build_not(eq, "isnot_result")
-                .expect("not")
-                .into())
+            let eq = state.ir_builder.build_icmp_eq(state.builder, lhs, rhs, "isnot_cmp");
+            Ok(state.builder.build_not(eq, "isnot_result").expect("not").into())
         }
-        BinOp::Mod => Ok(state
-            .builder
-            .build_int_signed_rem(lhs, rhs, "mod")
-            .expect("mod")
-            .into()),
-        BinOp::FloorDiv => Ok(state
-            .ir_builder
-            .build_div(state.builder, lhs, rhs, "floordiv")
-            .into()),
-        BinOp::BitAnd => Ok(state
-            .builder
-            .build_and(lhs, rhs, "bitand")
-            .expect("bitand")
-            .into()),
-        BinOp::BitOr => Ok(state
-            .builder
-            .build_or(lhs, rhs, "bitor")
-            .expect("bitor")
-            .into()),
-        BinOp::BitXor => Ok(state
-            .builder
-            .build_xor(lhs, rhs, "bitxor")
-            .expect("bitxor")
-            .into()),
-        BinOp::LShift => Ok(state
-            .builder
-            .build_left_shift(lhs, rhs, "lshift")
-            .expect("lshift")
-            .into()),
-        BinOp::RShift => Ok(state
-            .builder
-            .build_right_shift(lhs, rhs, false, "rshift")
-            .expect("rshift")
-            .into()),
+        BinOp::Mod => Ok(state.builder.build_int_signed_rem(lhs, rhs, "mod").expect("mod").into()),
+        BinOp::FloorDiv => {
+            Ok(state.ir_builder.build_div(state.builder, lhs, rhs, "floordiv").into())
+        }
+        BinOp::BitAnd => Ok(state.builder.build_and(lhs, rhs, "bitand").expect("bitand").into()),
+        BinOp::BitOr => Ok(state.builder.build_or(lhs, rhs, "bitor").expect("bitor").into()),
+        BinOp::BitXor => Ok(state.builder.build_xor(lhs, rhs, "bitxor").expect("bitxor").into()),
+        BinOp::LShift => {
+            Ok(state.builder.build_left_shift(lhs, rhs, "lshift").expect("lshift").into())
+        }
+        BinOp::RShift => {
+            Ok(state.builder.build_right_shift(lhs, rhs, false, "rshift").expect("rshift").into())
+        }
         BinOp::Pow => {
             // Call vp_pow_i64(base, exponent)
             let pow_func = state
                 .module
                 .get_function("vp_pow_i64")
                 .ok_or_else(|| "vp_pow_i64 not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(state.builder, pow_func, &[lhs.into(), rhs.into()], "pow")
                 .ok_or_else(|| "build call failed".to_string())?;
-            
+
             Ok(result.into())
         }
         _ => Err(format!("Unsupported int operator: {:?}", op)),
@@ -589,6 +487,17 @@ pub fn generate_unary<'ctx>(
     op: &UnaryOp,
     operand: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
+    // Handle increment and decrement operators specially
+    if matches!(
+        op,
+        UnaryOp::PreIncrement
+            | UnaryOp::PreDecrement
+            | UnaryOp::PostIncrement
+            | UnaryOp::PostDecrement
+    ) {
+        return generate_incdec(state, op, operand);
+    }
+
     let val = generate_expr(state, operand)?;
 
     // Check if this is a BigInt (pointer value from BigInt expression)
@@ -620,25 +529,24 @@ pub fn generate_unary<'ctx>(
     if val.is_float_value() {
         let float_val = val.into_float_value();
         match op {
-            UnaryOp::Neg => Ok(state
-                .builder
-                .build_float_neg(float_val, "fneg")
-                .expect("fneg")
-                .into()),
+            UnaryOp::Neg => {
+                Ok(state.builder.build_float_neg(float_val, "fneg").expect("fneg").into())
+            }
             UnaryOp::Pos => Ok(val),
-            UnaryOp::Not | UnaryOp::Invert => Err(format!(
-                "Unary operator {:?} not supported for float types",
-                op
-            )),
+            UnaryOp::Not | UnaryOp::Invert => {
+                Err(format!("Unary operator {:?} not supported for float types", op))
+            }
+            UnaryOp::PreIncrement
+            | UnaryOp::PreDecrement
+            | UnaryOp::PostIncrement
+            | UnaryOp::PostDecrement => {
+                unreachable!("Increment/Decrement handled earlier")
+            }
         }
     } else {
         let int_val = val.into_int_value();
         match op {
-            UnaryOp::Neg => Ok(state
-                .builder
-                .build_int_neg(int_val, "neg")
-                .expect("neg")
-                .into()),
+            UnaryOp::Neg => Ok(state.builder.build_int_neg(int_val, "neg").expect("neg").into()),
             UnaryOp::Not => Ok(state.builder.build_not(int_val, "not").expect("not").into()),
             UnaryOp::Pos => Ok(val),
             UnaryOp::Invert => Ok(state
@@ -646,7 +554,81 @@ pub fn generate_unary<'ctx>(
                 .build_xor(int_val, state.context.i64_type().const_all_ones(), "invert")
                 .expect("invert")
                 .into()),
+            UnaryOp::PreIncrement
+            | UnaryOp::PreDecrement
+            | UnaryOp::PostIncrement
+            | UnaryOp::PostDecrement => {
+                unreachable!("Increment/Decrement handled earlier")
+            }
         }
+    }
+}
+
+/// Generate increment/decrement operation
+fn generate_incdec<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    op: &UnaryOp,
+    operand: &Expr,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    
+    // Increment/decrement only works on variables
+    let (name, alloca, var_type) = match operand {
+        Expr::Ident(name, _) => {
+            if let Some(var_info) = state.variables.get(name) {
+                match &var_info.storage {
+                    VarStorage::Stack(alloca) => (name, *alloca, var_info.var_type),
+                    VarStorage::Register(value) => {
+                        // For register-allocated variables, we need to create an alloca
+                        // and store the value there, then use that for inc/dec operations
+                        let alloca = state
+                            .builder
+                            .build_alloca(value.get_type(), &format!("{}_incdec", name))
+                            .expect("alloca");
+                        state.builder.build_store(alloca, *value).expect("store");
+                        (name, alloca, var_info.var_type)
+                    }
+                }
+            } else {
+                return Err(format!("Undefined variable: {}", name));
+            }
+        }
+        _ => {
+            return Err("Increment/decrement only supported on variables".to_string());
+        }
+    };
+
+    // Only support integer types for now
+    if var_type != VarType::Int {
+        return Err(format!(
+            "Increment/decrement only supported on integer variables, found {:?}",
+            var_type
+        ));
+    }
+
+    let i64_type = state.context.i64_type();
+    let one = i64_type.const_int(1, false);
+
+    // Load current value
+    let current = state.builder.build_load(i64_type, alloca, name).expect("load").into_int_value();
+
+    // Calculate new value
+    let new_val = match op {
+        UnaryOp::PreIncrement | UnaryOp::PostIncrement => {
+            state.builder.build_int_add(current, one, "inc").expect("inc")
+        }
+        UnaryOp::PreDecrement | UnaryOp::PostDecrement => {
+            state.builder.build_int_sub(current, one, "dec").expect("dec")
+        }
+        _ => return Err("Expected Increment or Decrement".to_string()),
+    };
+
+    // Store new value
+    state.builder.build_store(alloca, new_val).expect("store");
+
+    // Return old value for postfix, new value for prefix
+    match op {
+        UnaryOp::PostIncrement | UnaryOp::PostDecrement => Ok(current.into()),
+        _ => Ok(new_val.into()),
     }
 }
 
@@ -657,12 +639,7 @@ pub fn generate_conditional<'ctx>(
     then_expr: &Expr,
     else_expr: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    let func = state
-        .builder
-        .get_insert_block()
-        .unwrap()
-        .get_parent()
-        .unwrap();
+    let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let cond_val = generate_expr(state, condition)?.into_int_value();
 
     let then_block = state.context.append_basic_block(func, "ternary_then");
@@ -683,9 +660,7 @@ pub fn generate_conditional<'ctx>(
             .expect("ternary_cond")
     };
 
-    state
-        .ir_builder
-        .build_cond_branch(state.builder, cond_i1, then_block, else_block);
+    state.ir_builder.build_cond_branch(state.builder, cond_i1, then_block, else_block);
 
     state.builder.position_at_end(then_block);
     let then_val = generate_expr(state, then_expr)?;
@@ -698,10 +673,7 @@ pub fn generate_conditional<'ctx>(
     state.ir_builder.build_branch(state.builder, merge_block);
 
     state.builder.position_at_end(merge_block);
-    let phi = state
-        .builder
-        .build_phi(then_val.get_type(), "ternary_result")
-        .expect("phi");
+    let phi = state.builder.build_phi(then_val.get_type(), "ternary_result").expect("phi");
     phi.add_incoming(&[(&then_val, then_block_end), (&else_val, else_block_end)]);
 
     Ok(phi.as_basic_value())
@@ -718,7 +690,7 @@ pub fn generate_bigint_binop<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let _ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
     let i64_type = state.context.i64_type();
-    
+
     // Get the appropriate BigInt operation function
     let func_name = match op {
         BinOp::Add => "vp_bigint_add",
@@ -733,7 +705,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .module
                 .get_function("vp_bigint_cmp")
                 .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(
@@ -743,14 +715,19 @@ pub fn generate_bigint_binop<'ctx>(
                     "bigint_cmp",
                 )
                 .unwrap();
-            
+
             // Compare result to 0
             let zero = i64_type.const_zero();
             let eq = state
                 .builder
-                .build_int_compare(inkwell::IntPredicate::EQ, result.into_int_value(), zero, "bigint_eq")
+                .build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    result.into_int_value(),
+                    zero,
+                    "bigint_eq",
+                )
                 .expect("bigint_eq");
-            
+
             return Ok(eq.into());
         }
         BinOp::NotEq => {
@@ -758,7 +735,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .module
                 .get_function("vp_bigint_cmp")
                 .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(
@@ -768,13 +745,18 @@ pub fn generate_bigint_binop<'ctx>(
                     "bigint_cmp",
                 )
                 .unwrap();
-            
+
             let zero = i64_type.const_zero();
             let eq = state
                 .builder
-                .build_int_compare(inkwell::IntPredicate::EQ, result.into_int_value(), zero, "bigint_eq")
+                .build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    result.into_int_value(),
+                    zero,
+                    "bigint_eq",
+                )
                 .expect("bigint_eq");
-            
+
             let neq = state.builder.build_not(eq, "bigint_neq").expect("bigint_neq");
             return Ok(neq.into());
         }
@@ -783,7 +765,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .module
                 .get_function("vp_bigint_cmp")
                 .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(
@@ -793,14 +775,19 @@ pub fn generate_bigint_binop<'ctx>(
                     "bigint_cmp",
                 )
                 .unwrap();
-            
+
             // result < 0
             let zero = i64_type.const_zero();
             let lt = state
                 .builder
-                .build_int_compare(inkwell::IntPredicate::SLT, result.into_int_value(), zero, "bigint_lt")
+                .build_int_compare(
+                    inkwell::IntPredicate::SLT,
+                    result.into_int_value(),
+                    zero,
+                    "bigint_lt",
+                )
                 .expect("bigint_lt");
-            
+
             return Ok(lt.into());
         }
         BinOp::LtEq => {
@@ -808,7 +795,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .module
                 .get_function("vp_bigint_cmp")
                 .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(
@@ -818,14 +805,19 @@ pub fn generate_bigint_binop<'ctx>(
                     "bigint_cmp",
                 )
                 .unwrap();
-            
+
             // result <= 0
             let zero = i64_type.const_zero();
             let le = state
                 .builder
-                .build_int_compare(inkwell::IntPredicate::SLE, result.into_int_value(), zero, "bigint_le")
+                .build_int_compare(
+                    inkwell::IntPredicate::SLE,
+                    result.into_int_value(),
+                    zero,
+                    "bigint_le",
+                )
                 .expect("bigint_le");
-            
+
             return Ok(le.into());
         }
         BinOp::Gt => {
@@ -833,7 +825,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .module
                 .get_function("vp_bigint_cmp")
                 .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(
@@ -843,14 +835,19 @@ pub fn generate_bigint_binop<'ctx>(
                     "bigint_cmp",
                 )
                 .unwrap();
-            
+
             // result > 0
             let zero = i64_type.const_zero();
             let gt = state
                 .builder
-                .build_int_compare(inkwell::IntPredicate::SGT, result.into_int_value(), zero, "bigint_gt")
+                .build_int_compare(
+                    inkwell::IntPredicate::SGT,
+                    result.into_int_value(),
+                    zero,
+                    "bigint_gt",
+                )
                 .expect("bigint_gt");
-            
+
             return Ok(gt.into());
         }
         BinOp::GtEq => {
@@ -858,7 +855,7 @@ pub fn generate_bigint_binop<'ctx>(
                 .module
                 .get_function("vp_bigint_cmp")
                 .ok_or_else(|| "vp_bigint_cmp not declared".to_string())?;
-            
+
             let result = state
                 .ir_builder
                 .build_call(
@@ -868,34 +865,33 @@ pub fn generate_bigint_binop<'ctx>(
                     "bigint_cmp",
                 )
                 .unwrap();
-            
+
             // result >= 0
             let zero = i64_type.const_zero();
             let ge = state
                 .builder
-                .build_int_compare(inkwell::IntPredicate::SGE, result.into_int_value(), zero, "bigint_ge")
+                .build_int_compare(
+                    inkwell::IntPredicate::SGE,
+                    result.into_int_value(),
+                    zero,
+                    "bigint_ge",
+                )
                 .expect("bigint_ge");
-            
+
             return Ok(ge.into());
         }
         _ => return Err(format!("Unsupported BigInt operator: {:?}", op)),
     };
-    
+
     let func = state
         .module
         .get_function(func_name)
         .ok_or_else(|| format!("{} not declared", func_name))?;
-    
+
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs_val.into(), rhs_val.into()],
-            "bigint_op",
-        )
+        .build_call(state.builder, func, &[lhs_val.into(), rhs_val.into()], "bigint_op")
         .unwrap();
-    
+
     Ok(result)
 }
-

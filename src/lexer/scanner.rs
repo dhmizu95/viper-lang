@@ -188,15 +188,21 @@ impl<'a> Lexer<'a> {
                 '.' => TokenKind::Dot,
                 '@' => TokenKind::At,
                 '+' => {
-                    if self.peek() == Some('=') {
+                    if self.peek() == Some('+') {
+                        self.advance();
+                        TokenKind::PlusPlus
+                    } else if self.peek() == Some('=') {
                         self.advance();
                         TokenKind::PlusEq
                     } else {
                         TokenKind::Plus
                     }
-                },
+                }
                 '-' => {
-                    if self.peek() == Some('=') {
+                    if self.peek() == Some('-') {
+                        self.advance();
+                        TokenKind::MinusMinus
+                    } else if self.peek() == Some('=') {
                         self.advance();
                         TokenKind::MinusEq
                     } else if self.peek() == Some('>') {
@@ -205,7 +211,7 @@ impl<'a> Lexer<'a> {
                     } else {
                         TokenKind::Minus
                     }
-                },
+                }
                 '%' => {
                     if self.peek() == Some('=') {
                         self.advance();
@@ -213,7 +219,7 @@ impl<'a> Lexer<'a> {
                     } else {
                         TokenKind::Percent
                     }
-                },
+                }
 
                 // Potentially double-character tokens
                 '*' => {
@@ -461,7 +467,11 @@ impl<'a> Lexer<'a> {
                                         .map_err(|_| format!("Invalid hex escape: \\x{}", hex))?;
                                     s.push(code as char);
                                 } else {
-                                    return Err(format!("Invalid hex escape: \\x{} (expected 2 hex digits, got {})", hex, hex.len()));
+                                    return Err(format!(
+                                        "Invalid hex escape: \\x{} (expected 2 hex digits, got {})",
+                                        hex,
+                                        hex.len()
+                                    ));
                                 }
                             }
                             _ => {

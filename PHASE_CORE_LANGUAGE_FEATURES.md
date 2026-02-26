@@ -47,6 +47,7 @@ Features that form the foundation of the language.
 | Comparison | `==`, `!=`, `<`, `>`, `<=`, `>=` |
 | Logical | `and`, `or`, `not` (short-circuiting) |
 | Assignment | `=`, `+=`, `-=`, `*=`, `/=`, etc. |
+| Increment/Decrement | `++`, `--` (prefix and postfix) |
 
 ### Control Flow
 

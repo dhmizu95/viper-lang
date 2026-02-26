@@ -6,7 +6,7 @@ use crate::utils::Span;
 pub enum TokenKind {
     // Literals
     Int(i128),
-    BigInt(String),  // Arbitrary precision integer literal (as decimal string)
+    BigInt(String), // Arbitrary precision integer literal (as decimal string)
     Float(f64),
     Str(String),
     FString(String),
@@ -61,13 +61,15 @@ pub enum TokenKind {
     Percent,
     DoubleStar,
     DoubleSlash,
-    PlusEq,     // +=
-    MinusEq,    // -=
-    StarEq,     // *=
-    SlashEq,    // /=
-    PercentEq,  // %=
-    DoubleStarEq,   // **=
-    DoubleSlashEq,  // //=
+    PlusPlus,      // ++
+    MinusMinus,    // --
+    PlusEq,        // +=
+    MinusEq,       // -=
+    StarEq,        // *=
+    SlashEq,       // /=
+    PercentEq,     // %=
+    DoubleStarEq,  // **=
+    DoubleSlashEq, // //=
     Eq,
     EqEq,
     NotEq,
@@ -131,17 +133,11 @@ impl Token {
     }
 
     pub fn eof(span: Span) -> Self {
-        Self {
-            kind: TokenKind::Eof,
-            span,
-        }
+        Self { kind: TokenKind::Eof, span }
     }
 
     pub fn error(msg: String, span: Span) -> Self {
-        Self {
-            kind: TokenKind::Error(msg),
-            span,
-        }
+        Self { kind: TokenKind::Error(msg), span }
     }
 }
 
@@ -201,6 +197,8 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Percent => write!(f, "%"),
             TokenKind::DoubleStar => write!(f, "**"),
             TokenKind::DoubleSlash => write!(f, "//"),
+            TokenKind::PlusPlus => write!(f, "++"),
+            TokenKind::MinusMinus => write!(f, "--"),
             TokenKind::PlusEq => write!(f, "+="),
             TokenKind::MinusEq => write!(f, "-="),
             TokenKind::StarEq => write!(f, "*="),

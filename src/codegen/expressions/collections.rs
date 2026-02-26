@@ -8,17 +8,13 @@ use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 
-
 /// Generate list creation
 pub fn generate_list<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     // Determine if this is a float list by checking the first element
-    let is_float_list = elements
-        .first()
-        .map(|e| matches!(e, Expr::Float(..)))
-        .unwrap_or(false);
+    let is_float_list = elements.first().map(|e| matches!(e, Expr::Float(..))).unwrap_or(false);
 
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
@@ -31,10 +27,7 @@ pub fn generate_list<'ctx>(
         .get_function(list_func_name)
         .ok_or_else(|| format!("{} not declared", list_func_name))?;
 
-    let list_val = state
-        .ir_builder
-        .build_call(state.builder, list_func, &[], "new_list")
-        .unwrap();
+    let list_val = state.ir_builder.build_call(state.builder, list_func, &[], "new_list").unwrap();
 
     let append_func = state
         .module
@@ -101,10 +94,8 @@ pub fn generate_list_comprehension<'ctx>(
         .get_function(list_func_name)
         .ok_or_else(|| format!("{} not declared", list_func_name))?;
 
-    let result_list = state
-        .ir_builder
-        .build_call(state.builder, list_func, &[], "comp_result")
-        .unwrap();
+    let result_list =
+        state.ir_builder.build_call(state.builder, list_func, &[], "comp_result").unwrap();
 
     // Append function
     let append_func = state
@@ -152,27 +143,16 @@ pub fn generate_list_comprehension<'ctx>(
     let after_loop_block = state.context.append_basic_block(func, "list_comp_after");
 
     // Branch to init block
-    state
-        .builder
-        .build_unconditional_branch(init_block)
-        .expect("branch to init");
+    state.builder.build_unconditional_branch(init_block).expect("branch to init");
 
     // Init block: create counter variable
     state.builder.position_at_end(init_block);
-    let counter = state
-        .builder
-        .build_alloca(state.context.i64_type(), "comp_counter")
-        .expect("alloca");
-    state
-        .builder
-        .build_store(counter, start_val)
-        .expect("store counter");
+    let counter =
+        state.builder.build_alloca(state.context.i64_type(), "comp_counter").expect("alloca");
+    state.builder.build_store(counter, start_val).expect("store counter");
 
     // Branch to condition
-    state
-        .builder
-        .build_unconditional_branch(cond_block)
-        .expect("branch to cond");
+    state.builder.build_unconditional_branch(cond_block).expect("branch to cond");
 
     // Condition block
     state.builder.position_at_end(cond_block);
@@ -185,32 +165,22 @@ pub fn generate_list_comprehension<'ctx>(
         .into_int_value();
 
     // Check if counter < end
-    let cond = state
-        .ir_builder
-        .build_icmp_lt(state.builder, counter_val, end_val, "comp_cond");
+    let cond = state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "comp_cond");
 
     // Branch based on condition: if true -> body, if false -> after
-    state
-        .ir_builder
-        .build_cond_branch(state.builder, cond, body_block, after_loop_block);
+    state.ir_builder.build_cond_branch(state.builder, cond, body_block, after_loop_block);
 
     // Body block
     state.builder.position_at_end(body_block);
 
     // Create a separate variable for the loop variable (copy counter value)
-    let var_ptr = state
-        .builder
-        .build_alloca(state.context.i64_type(), var)
-        .expect("alloca");
+    let var_ptr = state.builder.build_alloca(state.context.i64_type(), var).expect("alloca");
     let counter_val = state
         .builder
         .build_load(state.context.i64_type(), counter, "counter_for_var")
         .expect("load counter")
         .into_int_value();
-    state
-        .builder
-        .build_store(var_ptr, counter_val)
-        .expect("store var");
+    state.builder.build_store(var_ptr, counter_val).expect("store var");
 
     // Set up the loop variable in the symbol table
     let old_var = state.variables.insert(
@@ -252,10 +222,7 @@ pub fn generate_list_comprehension<'ctx>(
     }
 
     // Branch to step block
-    state
-        .builder
-        .build_unconditional_branch(step_block)
-        .expect("branch to step");
+    state.builder.build_unconditional_branch(step_block).expect("branch to step");
 
     // Step block: increment counter
     state.builder.position_at_end(step_block);
@@ -270,16 +237,10 @@ pub fn generate_list_comprehension<'ctx>(
         state.context.i64_type().const_int(1, false),
         "next_counter",
     );
-    state
-        .builder
-        .build_store(counter, next_val)
-        .expect("store counter");
+    state.builder.build_store(counter, next_val).expect("store counter");
 
     // Branch back to condition
-    state
-        .builder
-        .build_unconditional_branch(cond_block)
-        .expect("branch back to cond");
+    state.builder.build_unconditional_branch(cond_block).expect("branch back to cond");
 
     // After loop
     state.builder.position_at_end(after_loop_block);
@@ -297,10 +258,8 @@ pub fn generate_dict<'ctx>(
         .get_function("vp_dict_create")
         .ok_or_else(|| "vp_dict_create not declared".to_string())?;
 
-    let dict_val = state
-        .ir_builder
-        .build_call(state.builder, dict_create_func, &[], "new_dict")
-        .unwrap();
+    let dict_val =
+        state.ir_builder.build_call(state.builder, dict_create_func, &[], "new_dict").unwrap();
 
     for (i, (key_expr, value_expr)) in pairs.iter().enumerate() {
         let key_val = generate_expr(state, key_expr)?;
@@ -308,18 +267,14 @@ pub fn generate_dict<'ctx>(
 
         // Choose the appropriate dict_set function based on key and value types
         let set_func = match (key_expr, value_expr) {
-            (Expr::Str(_, _), Expr::Int(_, _)) => {
-                state
-                    .module
-                    .get_function("vp_dict_set_str_i64")
-                    .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?
-            }
-            (Expr::Str(_, _), Expr::Str(_, _)) => {
-                state
-                    .module
-                    .get_function("vp_dict_set_str_str")
-                    .ok_or_else(|| "vp_dict_set_str_str not declared".to_string())?
-            }
+            (Expr::Str(_, _), Expr::Int(_, _)) => state
+                .module
+                .get_function("vp_dict_set_str_i64")
+                .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?,
+            (Expr::Str(_, _), Expr::Str(_, _)) => state
+                .module
+                .get_function("vp_dict_set_str_str")
+                .ok_or_else(|| "vp_dict_set_str_str not declared".to_string())?,
             (Expr::Str(_, _), _) => {
                 // String key with other value types - use str_i64 for now
                 // TODO: Add more specialized functions for other value types
@@ -445,12 +400,7 @@ pub fn generate_index<'ctx>(
 
         let result = state
             .ir_builder
-            .build_call(
-                state.builder,
-                dict_get,
-                &[obj_val.into(), index_val.into()],
-                "dict_get",
-            )
+            .build_call(state.builder, dict_get, &[obj_val.into(), index_val.into()], "dict_get")
             .ok_or_else(|| "build call failed".to_string())?;
 
         return Ok(result);
@@ -479,12 +429,7 @@ pub fn generate_index<'ctx>(
 
         let result = state
             .ir_builder
-            .build_call(
-                state.builder,
-                list_get,
-                &[obj_val.into(), index_val.into()],
-                "list_get",
-            )
+            .build_call(state.builder, list_get, &[obj_val.into(), index_val.into()], "list_get")
             .ok_or_else(|| "build call failed".to_string())?;
 
         return Ok(result);
@@ -498,9 +443,7 @@ pub fn generate_index<'ctx>(
         let elem_type = state.context.i8_type();
 
         let elem_ptr = unsafe {
-            state
-                .builder
-                .build_in_bounds_gep(elem_type, obj_ptr, &[index_val], "array_elem")
+            state.builder.build_in_bounds_gep(elem_type, obj_ptr, &[index_val], "array_elem")
         }
         .map_err(|e| format!("Failed to build array index GEP: {:?}", e))?;
 
@@ -527,12 +470,7 @@ pub fn generate_index<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            list_get,
-            &[obj_val.into(), index_val.into()],
-            "list_get",
-        )
+        .build_call(state.builder, list_get, &[obj_val.into(), index_val.into()], "list_get")
         .ok_or_else(|| "build call failed".to_string())?;
 
     Ok(result)
@@ -567,12 +505,7 @@ pub fn generate_slice<'ctx>(
 
         let result = state
             .ir_builder
-            .build_call(
-                state.builder,
-                list_len,
-                &[obj_val.into()],
-                "list_len",
-            )
+            .build_call(state.builder, list_len, &[obj_val.into()], "list_len")
             .ok_or_else(|| "build call failed".to_string())?;
         result
     };
@@ -595,16 +528,10 @@ pub fn generate_slice<'ctx>(
         .build_call(
             state.builder,
             list_slice,
-            &[
-                obj_val.into(),
-                start_val.into(),
-                end_val.into(),
-                step_val.into(),
-            ],
+            &[obj_val.into(), start_val.into(), end_val.into(), step_val.into()],
             "list_slice",
         )
         .ok_or_else(|| "build call failed".to_string())?;
 
     Ok(result)
 }
-
