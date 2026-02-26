@@ -465,23 +465,6 @@ typedef enum {
     FMT_STRING,
 } FormatType;
 
-static FormatType parse_format_char(char c) {
-    switch (c) {
-        case 'b': return FMT_INT8;
-        case 'B': return FMT_UINT8;
-        case 'h': return FMT_INT16;
-        case 'H': return FMT_UINT16;
-        case 'i': case 'l': return FMT_INT32;
-        case 'I': case 'L': return FMT_UINT32;
-        case 'q': return FMT_INT64;
-        case 'Q': return FMT_UINT64;
-        case 'f': return FMT_FLOAT32;
-        case 'd': return FMT_FLOAT64;
-        case 's': return FMT_STRING;
-        default: return FMT_INT32;
-    }
-}
-
 static int get_format_size(char c) {
     switch (c) {
         case 'b': case 'B': return 1;
@@ -493,29 +476,6 @@ static int get_format_size(char c) {
 }
 
 /* Calculate total size needed for pack */
-static int calculate_pack_size(const char* format) {
-    int size = 0;
-    int count = 1;
-    
-    for (int i = 0; format[i]; i++) {
-        if (format[i] >= '0' && format[i] <= '9') {
-            count = count * 10 + (format[i] - '0');
-            continue;
-        }
-        
-        if (format[i] == 's') {
-            /* String: count bytes */
-            size += count;
-        } else {
-            size += get_format_size(format[i]) * count;
-        }
-        count = 1;
-    }
-    
-    return size;
-}
-
-/* Pack values into binary buffer */
 char* vp_struct_pack(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -647,15 +607,18 @@ char* vp_struct_pack(const char* format, ...) {
     return buffer;
 }
 
-/* Unpack values from binary buffer - returns list of values */
-/* For simplicity, returns packed buffer with parsed values interpreted */
-char* vp_struct_unpack(const char* _format, const char* data, int data_len) {
-    /* Simplified implementation: just return the int32 at the start */
-    /* A full implementation would parse and return multiple values */
-    if (!data || data_len < 4) return 0;
+/* Unpack values from binary buffer - returns allocated buffer with unpacked data */
+/* Note: format parameter reserved for future use */
+char* vp_struct_unpack(const char* format, const char* data, int data_len) {
+    (void)format; /* Reserved for future use */
+    /* Simplified implementation: return a copy of the data */
+    /* A full implementation would parse the format and unpack values */
+    if (!data || data_len <= 0) return NULL;
+
+    char* buffer = (char*)malloc((size_t)data_len + 1);
+    if (!buffer) return NULL;
     
-    /* Return first value based on format */
-    int32_t val;
-    memcpy(&val, data, 4);
-    return (int64_t)val;
+    memcpy(buffer, data, (size_t)data_len);
+    buffer[data_len] = '\0';
+    return buffer;
 }

@@ -17,7 +17,7 @@
 /* Global State                                 */
 /* ============================================ */
 
-static _Atomic ViperThreadPool* g_thread_pool = NULL;
+static ViperThreadPool* _Atomic g_thread_pool = NULL;
 
 /* ============================================ */
 /* Channel Operations                           */

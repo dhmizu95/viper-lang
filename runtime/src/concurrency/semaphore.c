@@ -63,7 +63,6 @@ bool vp_sem_try_wait(VpSemaphore* sem) {
     if (!sem) return false;
 
     pthread_mutex_t* mutex = (pthread_mutex_t*)sem->mutex;
-    pthread_cond_t* cond = (pthread_cond_t*)sem->cond;
 
     pthread_mutex_lock(mutex);
 

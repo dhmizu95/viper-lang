@@ -308,11 +308,9 @@ void vp_async_range_free(ViperAsyncRange* range) {
 /* Returns pointer to the async iterator state, or NULL on error */
 void* vp_async_iter(void* obj) {
     if (!obj) return NULL;
-    
+
     /* If obj is already a ViperAsyncRange*, just return it */
     /* The caller will use vp_async_range_next on it */
-    ViperAsyncRange* range = (ViperAsyncRange*)obj;
-    
     /* Sanity check: if the "step" field looks like a valid step value, treat as async range */
     /* This is a simple heuristic - in real implementation we'd have type tags */
     return obj;

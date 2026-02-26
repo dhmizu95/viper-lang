@@ -407,7 +407,7 @@ fn generate_tuple_unpack<'ctx>(
             // Cast to i8* first, then calculate offset
             let i8_ptr = state.builder.build_pointer_cast(
                 tuple_ptr,
-                state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                state.context.ptr_type(inkwell::AddressSpace::default()),
                 "tuple_i8_ptr",
             ).map_err(|e| format!("Failed to cast tuple pointer: {:?}", e))?;
 
@@ -426,7 +426,7 @@ fn generate_tuple_unpack<'ctx>(
             // Cast back to i64*
             let elem_ptr = state.builder.build_pointer_cast(
                 elem_i8_ptr,
-                state.context.i64_type().ptr_type(inkwell::AddressSpace::default()),
+                state.context.ptr_type(inkwell::AddressSpace::default()),
                 &format!("elem_{}_ptr", i),
             ).map_err(|e| format!("Failed to cast element pointer: {:?}", e))?;
 

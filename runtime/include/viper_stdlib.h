@@ -40,7 +40,6 @@ ViperList* vp_list_create(void);
 ViperList* vp_list_create_with_capacity(int64_t cap);
 void vp_list_free(ViperList* list);
 void vp_list_append(ViperList* list, int64_t value);
-extern inline void vp_list_append_inline(ViperList* list, int64_t value);
 void vp_list_insert(ViperList* list, int64_t index, int64_t value);
 int64_t vp_list_remove(ViperList* list, int64_t index);
 int64_t vp_list_pop(ViperList* list);

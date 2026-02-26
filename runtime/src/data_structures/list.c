@@ -93,19 +93,6 @@ void vp_list_append(ViperList* list, int64_t value) {
     list->data[list->length++] = value;
 }
 
-/**
- * FAST-PATH: Inline-friendly append with compiler hint
- * Use this when the compiler can inline for better performance
- * The alwaysinline attribute encourages inlining even at lower optimization levels
- */
-__attribute__((always_inline))
-inline void vp_list_append_inline(ViperList* list, int64_t value) {
-    if (list->length >= list->capacity) {
-        vp_list_grow(list);
-    }
-    list->data[list->length++] = value;
-}
-
 void vp_list_insert(ViperList* list, int64_t index, int64_t value) {
     if (!list) {
         vp_panic("Cannot insert into NULL list");
