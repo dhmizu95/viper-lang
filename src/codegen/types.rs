@@ -11,6 +11,7 @@ pub enum VarType {
     Int,
     Float,
     Pointer,
+    Bool,
 }
 
 impl VarType {
@@ -18,6 +19,7 @@ impl VarType {
     pub fn from_ast_type(ty: &Type) -> Self {
         match ty {
             Type::F32 | Type::F64 => VarType::Float,
+            Type::Bool => VarType::Bool,
             Type::Str
             | Type::Chan(_)
             | Type::WaitGroup

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Viper System-Wide Installation Script
 # Installs to $HOME/.local (no sudo required)
+# Always performs a clean install
 
 set -e
 
@@ -13,15 +14,18 @@ echo "🐍 Viper Installation Script"
 echo "============================"
 echo ""
 
+# Clean previous installation
+echo "Cleaning previous installation..."
+rm -rf "$VIPER_BIN/viper" "$VIPER_LIB"/* "$VIPER_INCLUDE"/*
+
 # Create directories
 echo "Creating directories..."
 mkdir -p "$VIPER_BIN" "$VIPER_LIB" "$VIPER_INCLUDE"
 
-# Build release binary if it doesn't exist
-if [ ! -f "target/release/viper" ]; then
-    echo "Building release binary..."
-    cargo build --release
-fi
+# Clean and build release binary
+echo "Building release binary (clean build)..."
+cargo clean
+cargo build --release
 
 # Copy binary
 echo "Installing viper binary..."
@@ -31,12 +35,15 @@ if [ ! -f "target/release/viper" ]; then
 fi
 cp "target/release/viper" "$VIPER_BIN/"
 
+# Clean and build runtime library
+echo "Building runtime library (clean build)..."
+cd runtime
+make clean
+make
+cd ..
+
 # Copy runtime library
 echo "Installing runtime library..."
-if [ ! -f "runtime/obj/libviper.a" ]; then
-    echo "Building runtime library..."
-    cd runtime && make && cd ..
-fi
 if [ ! -f "runtime/obj/libviper.a" ]; then
     echo "❌ Error: runtime/obj/libviper.a not found"
     exit 1

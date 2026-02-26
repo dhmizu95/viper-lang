@@ -146,6 +146,13 @@ pub fn generate_expr<'ctx>(
                                     .build_load(ptr_type, *alloca, name)
                                     .expect("load"))
                             }
+                            VarType::Bool => {
+                                let bool_type = state.context.bool_type();
+                                Ok(state
+                                    .builder
+                                    .build_load(bool_type, *alloca, name)
+                                    .expect("load"))
+                            }
                             VarType::Int => {
                                 let i64_type = state.context.i64_type();
                                 Ok(state
@@ -977,6 +984,13 @@ fn generate_binop<'ctx>(
         return Err("Binary operators cannot be applied to pointer values (lists)".to_string());
     }
 
+    // Handle boolean comparisons (both operands are i1)
+    if lhs_val.is_int_value() && rhs_val.is_int_value() 
+        && lhs_val.get_type().into_int_type().get_bit_width() == 1
+        && rhs_val.get_type().into_int_type().get_bit_width() == 1 {
+        return generate_bool_binop(state, lhs_val, rhs_val, op);
+    }
+
     // Auto-convert int to float when one operand is float
     if lhs_val.is_float_value() && !rhs_val.is_float_value() {
         // Convert rhs (int) to float
@@ -1215,6 +1229,41 @@ fn generate_float_binop<'ctx>(
             Err("Membership operators not supported for float types".to_string())
         }
         _ => Err(format!("Unsupported float operator: {:?}", op)),
+    }
+}
+
+/// Generate boolean binary operation
+fn generate_bool_binop<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+    op: &BinOp,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let lhs = lhs.into_int_value();
+    let rhs = rhs.into_int_value();
+
+    match op {
+        BinOp::Eq => Ok(state
+            .ir_builder
+            .build_icmp_eq(state.builder, lhs, rhs, "bool_eq")
+            .into()),
+        BinOp::NotEq => {
+            let eq = state
+                .ir_builder
+                .build_icmp_eq(state.builder, lhs, rhs, "bool_eq");
+            Ok(state.builder.build_not(eq, "bool_neq").expect("not").into())
+        }
+        BinOp::And => Ok(state
+            .builder
+            .build_and(lhs, rhs, "bool_and")
+            .expect("and")
+            .into()),
+        BinOp::Or => Ok(state
+            .builder
+            .build_or(lhs, rhs, "bool_or")
+            .expect("or")
+            .into()),
+        _ => Err(format!("Unsupported boolean operator: {:?}", op)),
     }
 }
 

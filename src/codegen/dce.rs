@@ -271,6 +271,12 @@ impl DeadCodeEliminator {
                 self.mark_expr_vars(then_expr);
                 self.mark_expr_vars(else_expr);
             }
+            Expr::FString(elements, _) => {
+                // Mark all variables in f-string elements
+                for elem in elements {
+                    self.mark_expr_vars(elem);
+                }
+            }
             _ => {}
         }
     }
@@ -485,6 +491,10 @@ impl DeadCodeEliminator {
                     || self.expr_contains_var(then_expr, var_name)
                     || self.expr_contains_var(else_expr, var_name)
             }
+            Expr::FString(elements, _) => {
+                // Check all elements in the f-string
+                elements.iter().any(|e| self.expr_contains_var(e, var_name))
+            }
             _ => false,
         }
     }
@@ -554,6 +564,10 @@ impl DeadCodeEliminator {
                 self.has_side_effects(condition)
                     || self.has_side_effects(then_expr)
                     || self.has_side_effects(else_expr)
+            }
+            Expr::FString(elements, _) => {
+                // FString has side effects if any of its elements do
+                elements.iter().any(|e| self.has_side_effects(e))
             }
             _ => false,
         }

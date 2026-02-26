@@ -512,6 +512,8 @@ fn generate_assign<'ctx>(
                 VarType::Float
             } else if val.is_pointer_value() {
                 VarType::Pointer
+            } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
+                VarType::Bool
             } else {
                 VarType::Int
             };
@@ -791,6 +793,8 @@ fn generate_declare<'ctx>(
             VarType::Float
         } else if val.is_pointer_value() {
             VarType::Pointer
+        } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
+            VarType::Bool
         } else {
             VarType::Int
         };

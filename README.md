@@ -17,15 +17,18 @@ Viper is an LLVM-based compiler for the Viper programming language, providing bo
 git clone https://github.com/viper-lang/viper.git
 cd viper
 
-# Build release binary
-cargo build --release
-
 # Run the installation script (installs to ~/.local)
+# This performs a clean build of both compiler and runtime
 ./install.sh
 
 # Add to PATH (add to ~/.bashrc or ~/.zshrc)
 export PATH="$HOME/.local/bin:$PATH"
 ```
+
+**Note:** The `install.sh` script always performs a clean install:
+- Cleans and rebuilds the compiler binary
+- Cleans and rebuilds the runtime library
+- Removes previous installation files
 
 ### System-Wide Installation
 

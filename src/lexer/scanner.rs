@@ -320,6 +320,10 @@ impl<'a> Lexer<'a> {
                         let quote_char = self.advance();
                         let s = self.read_string(quote_char)?;
                         TokenKind::FString(s)
+                    } else if c == 'r' && (self.peek() == Some('"') || self.peek() == Some('\'')) {
+                        let quote_char = self.advance();
+                        let s = self.read_raw_string(quote_char)?;
+                        TokenKind::Str(s)
                     } else {
                         let mut ident = c.to_string();
                         while let Some(c) = self.peek() {
@@ -379,23 +383,44 @@ impl<'a> Lexer<'a> {
                     let ch = c;
                     if escaped {
                         match ch {
-                            'n' => s.push('\n'),
-                            't' => s.push('\t'),
-                            'r' => s.push('\r'),
-                            '\\' => s.push('\\'),
-                            '\'' => s.push('\''),
-                            '"' => s.push('"'),
+                            'n' => {
+                                s.push('\n');
+                                self.advance();
+                            }
+                            't' => {
+                                s.push('\t');
+                                self.advance();
+                            }
+                            'r' => {
+                                s.push('\r');
+                                self.advance();
+                            }
+                            '\\' => {
+                                s.push('\\');
+                                self.advance();
+                            }
+                            '\'' => {
+                                s.push('\'');
+                                self.advance();
+                            }
+                            '"' => {
+                                s.push('"');
+                                self.advance();
+                            }
                             'x' => {
                                 // Hex escape: \x41
                                 self.advance(); // consume 'x'
                                 let mut hex = String::new();
+                                // Read exactly 2 hex digits
                                 for _ in 0..2 {
-                                    if let Some(h) = self.peek() {
+                                    if let Some(h) = self.chars.peek() {
                                         if h.is_ascii_hexdigit() {
                                             hex.push(self.advance());
                                         } else {
                                             break;
                                         }
+                                    } else {
+                                        break;
                                     }
                                 }
                                 if hex.len() == 2 {
@@ -403,17 +428,40 @@ impl<'a> Lexer<'a> {
                                         .map_err(|_| format!("Invalid hex escape: \\x{}", hex))?;
                                     s.push(code as char);
                                 } else {
-                                    return Err(format!("Invalid hex escape: \\x{}", hex));
+                                    return Err(format!("Invalid hex escape: \\x{} (expected 2 hex digits, got {})", hex, hex.len()));
                                 }
                             }
-                            _ => s.push(ch),
+                            _ => {
+                                s.push(ch);
+                                self.advance();
+                            }
                         }
                         escaped = false;
-                        self.advance();
                     } else if ch == '\\' {
                         escaped = true;
                         self.advance();
                     } else if ch == quote {
+                        self.advance();
+                        break;
+                    } else {
+                        s.push(self.advance());
+                    }
+                }
+            }
+        }
+
+        Ok(s)
+    }
+
+    fn read_raw_string(&mut self, quote: char) -> Result<String, String> {
+        let mut s = String::new();
+
+        loop {
+            match self.chars.peek() {
+                None => return Err("Unterminated string".to_string()),
+                Some(&c) => {
+                    let ch = c;
+                    if ch == quote {
                         self.advance();
                         break;
                     } else {
