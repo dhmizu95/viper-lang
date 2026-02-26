@@ -248,6 +248,8 @@ pub enum Stmt {
     WgDone { wg: Box<Expr>, span: Span },
     /// WaitGroup wait: wait(wg)
     WgWait { wg: Box<Expr>, span: Span },
+    /// Type alias: type Name = Type
+    TypeAlias { name: String, type_def: Type, span: Span },
     /// Match statement: match value { case pattern: ... }
     Match { subject: Box<Expr>, cases: Vec<MatchCase>, span: Span },
     /// Select statement for channels: select { case recv(c1): ... case send(c2, v): ... }
@@ -333,6 +335,7 @@ impl Stmt {
             Stmt::WgWait { span, .. } => *span,
             Stmt::Match { span, .. } => *span,
             Stmt::Select { span, .. } => *span,
+            Stmt::TypeAlias { span, .. } => *span,
         }
     }
 }

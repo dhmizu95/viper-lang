@@ -312,6 +312,7 @@ impl<'a> Lexer<'a> {
                 }
                 '^' => TokenKind::Caret,
                 '~' => TokenKind::Tilde,
+                '?' => TokenKind::Question,
 
                 // String literals
                 '"' | '\'' => {
@@ -774,6 +775,9 @@ impl<'a> Lexer<'a> {
             "lambda" => TokenKind::Lambda,
             "fn" => TokenKind::Fn,
             "yield" => TokenKind::Ident("yield".to_string()),
+            "type" => TokenKind::Type,
+            "tuple" => TokenKind::Tuple,
+            "Optional" => TokenKind::Optional,
             _ => TokenKind::Ident(ident),
         }
     }

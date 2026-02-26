@@ -289,8 +289,9 @@ impl EscapeAnalyzer {
             | Stmt::WgDone { .. }
             | Stmt::WgWait { .. }
             | Stmt::Match { .. }
-            | Stmt::Select { .. } => {
-                // Conservative: assume may escape for concurrency operations
+            | Stmt::Select { .. }
+            | Stmt::TypeAlias { .. } => {
+                // Type aliases don't affect escape analysis
             }
         }
     }

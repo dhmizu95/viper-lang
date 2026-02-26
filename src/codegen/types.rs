@@ -55,13 +55,28 @@ impl<'ctx> TypeMapper<'ctx> {
             | Type::WaitGroup
             | Type::List(_)
             | Type::Dict(_, _)
-            | Type::Fn(_, _) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            | Type::Fn(_, _)
+            | Type::Optional(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            Type::Tuple(types) => {
+                // Tuples are represented as structs in LLVM
+                let field_types: Vec<BasicTypeEnum<'ctx>> =
+                    types.iter().map(|t| self.llvm_type(t)).collect();
+                if field_types.is_empty() {
+                    self.context.i64_type().into()
+                } else {
+                    self.context.struct_type(&field_types, false).into()
+                }
+            }
             Type::Array(elem_type, size) => {
                 let elem_llvm_type = self.llvm_type(elem_type);
                 // array_type is a method on the element type in newer Inkwell
                 elem_llvm_type.array_type(*size as u32).into()
             }
-            _ => self.context.i64_type().into(),
+            Type::Struct { .. } => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            Type::Future(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            Type::Var(_) | Type::Infer | Type::Error | Type::None => {
+                self.context.i64_type().into()
+            }
         }
     }
 
@@ -78,8 +93,18 @@ impl<'ctx> TypeMapper<'ctx> {
             | Some(Type::Chan(_))
             | Some(Type::WaitGroup)
             | Some(Type::List(_))
-            | Some(Type::Dict(_, _)) => {
+            | Some(Type::Dict(_, _))
+            | Some(Type::Optional(_)) => {
                 Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+            }
+            Some(Type::Tuple(types)) => {
+                let field_types: Vec<BasicTypeEnum<'ctx>> =
+                    types.iter().map(|t| self.llvm_type(t)).collect();
+                if field_types.is_empty() {
+                    Some(self.context.i64_type().into())
+                } else {
+                    Some(self.context.struct_type(&field_types, false).into())
+                }
             }
             Some(Type::None) | None => None,
             _ => Some(self.context.i64_type().into()),

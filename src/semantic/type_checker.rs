@@ -501,6 +501,15 @@ impl TypeChecker {
                     }
                 }
             }
+            Stmt::TypeAlias { name, type_def, span } => {
+                // Insert type alias into symbol table
+                let kind = SymbolKind::TypeAlias { type_def: type_def.clone() };
+                let symbol =
+                    Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
+                if let Err(e) = self.symbol_table.insert(symbol) {
+                    self.errors.push(TypeError::new(e, *span));
+                }
+            }
             Stmt::Match { subject, cases, span } => {
                 self.check_expr(subject);
 
@@ -741,12 +750,17 @@ impl TypeChecker {
 
     /// Check if a type is numeric
     fn is_numeric(&self, t: &Type) -> bool {
-        t.is_numeric()
+        let resolved = self.symbol_table.resolve_type_alias(t);
+        resolved.is_numeric()
     }
 
     /// Check if two types are compatible
     fn is_compatible(&self, expected: &Type, actual: &Type) -> bool {
-        match (expected, actual) {
+        // Resolve type aliases first
+        let expected_resolved = self.symbol_table.resolve_type_alias(expected);
+        let actual_resolved = self.symbol_table.resolve_type_alias(actual);
+        
+        match (&expected_resolved, &actual_resolved) {
             (Type::Infer, _) | (_, Type::Infer) => true,
             (Type::Error, _) | (_, Type::Error) => true,
             (e, a) if e.is_integer() && a.is_integer() => true,
@@ -762,6 +776,19 @@ impl TypeChecker {
             }
             // WaitGroup is only compatible with itself
             (Type::WaitGroup, Type::WaitGroup) => true,
+            // Optional types: T? is compatible with T (and vice versa for assignments)
+            (Type::Optional(inner_expected), Type::Optional(inner_actual)) => {
+                self.is_compatible(inner_expected, inner_actual)
+            }
+            // Non-optional can be assigned to Optional (Some value)
+            (Type::Optional(inner), _) => self.is_compatible(inner, &actual_resolved),
+            // Tuple types
+            (Type::Tuple(expected_types), Type::Tuple(actual_types)) => {
+                if expected_types.len() != actual_types.len() {
+                    return false;
+                }
+                expected_types.iter().zip(actual_types.iter()).all(|(e, a)| self.is_compatible(e, a))
+            }
             _ => false,
         }
     }

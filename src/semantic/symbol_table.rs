@@ -10,6 +10,7 @@ pub enum SymbolKind {
     Function { params: Vec<Type>, return_type: Option<Type>, mangled_name: String },
     Parameter { type_ann: Option<Type> },
     Builtin { signature: BuiltinSignature },
+    TypeAlias { type_def: Type },
 }
 
 /// Built-in function signatures
@@ -98,6 +99,7 @@ impl Symbol {
                 BuiltinSignature::WaitGroupDone => Some(Type::None),
                 BuiltinSignature::WaitGroupWait => Some(Type::None),
             },
+            SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
         }
     }
 }
@@ -223,6 +225,41 @@ impl SymbolTable {
     /// Get all symbols in current scope
     pub fn get_current_scope_symbols(&self) -> Vec<&Symbol> {
         self.scopes[self.current_scope].values().collect()
+    }
+
+    /// Resolve a type alias to its underlying type
+    pub fn resolve_type_alias(&self, ty: &Type) -> Type {
+        match ty {
+            Type::Var(name) => {
+                // Check if this is a type alias
+                if let Some(symbol) = self.lookup(name) {
+                    if let SymbolKind::TypeAlias { type_def } = &symbol.kind {
+                        // Recursively resolve in case of nested aliases
+                        return self.resolve_type_alias(type_def);
+                    }
+                }
+                ty.clone()
+            }
+            Type::List(inner) => Type::List(Box::new(self.resolve_type_alias(inner))),
+            Type::Dict(k, v) => Type::Dict(
+                Box::new(self.resolve_type_alias(k)),
+                Box::new(self.resolve_type_alias(v)),
+            ),
+            Type::Optional(inner) => Type::Optional(Box::new(self.resolve_type_alias(inner))),
+            Type::Tuple(types) => {
+                Type::Tuple(types.iter().map(|t| self.resolve_type_alias(t)).collect())
+            }
+            Type::Array(elem, size) => {
+                Type::Array(Box::new(self.resolve_type_alias(elem)), *size)
+            }
+            Type::Fn(params, ret) => Type::Fn(
+                params.iter().map(|t| self.resolve_type_alias(t)).collect(),
+                Box::new(self.resolve_type_alias(ret)),
+            ),
+            Type::Chan(inner) => Type::Chan(Box::new(self.resolve_type_alias(inner))),
+            Type::Future(inner) => Type::Future(Box::new(self.resolve_type_alias(inner))),
+            _ => ty.clone(),
+        }
     }
 }
 

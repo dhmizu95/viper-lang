@@ -44,6 +44,7 @@ fn mangle_type(ty: &Type) -> String {
         }
         Type::Chan(t) => format!("chan_{}", mangle_type(t)),
         Type::WaitGroup => "waitgroup".to_string(),
+        Type::Optional(t) => format!("opt_{}", mangle_type(t)),
         Type::Struct { name, .. } => format!("struct_{}", name),
         Type::Future(t) => format!("future_{}", mangle_type(t)),
         Type::Var(name) => format!("var_{}", name),

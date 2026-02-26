@@ -52,6 +52,9 @@ pub enum TokenKind {
     Unless,
     Pipeline,
     DotDot,
+    Type,      // type keyword for type aliases
+    Tuple,     // tuple keyword for tuple types
+    Optional,  // Optional keyword for optional types
 
     // Operators
     Plus,
@@ -227,6 +230,9 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Question => write!(f, "?"),
             TokenKind::Lambda => write!(f, "lambda"),
             TokenKind::Fn => write!(f, "fn"),
+            TokenKind::Type => write!(f, "type"),
+            TokenKind::Tuple => write!(f, "tuple"),
+            TokenKind::Optional => write!(f, "Optional"),
             TokenKind::LParen => write!(f, "("),
             TokenKind::RParen => write!(f, ")"),
             TokenKind::LBracket => write!(f, "["),

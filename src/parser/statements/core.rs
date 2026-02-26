@@ -139,6 +139,7 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         TokenKind::Match => parse_match_stmt(parser),
         TokenKind::Select => parse_select_stmt(parser),
         TokenKind::Unless => parse_unless_stmt(parser),
+        TokenKind::Type => parse_type_alias(parser),
         TokenKind::Await => {
             // Await expression as statement
             let expr = parse_expression(parser)?;

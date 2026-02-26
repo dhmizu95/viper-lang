@@ -180,6 +180,30 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
         return Ok(Type::Array(Box::new(elem_type), size));
     }
 
+    // Handle tuple type: tuple[type1, type2, ...]
+    if parser.match_token(&TokenKind::Tuple) {
+        parser.expect(&TokenKind::LBracket)?;
+        let mut types = Vec::new();
+        if !parser.match_token(&TokenKind::RBracket) {
+            loop {
+                types.push(parse_type_annotation(parser)?);
+                if !parser.match_token(&TokenKind::Comma) {
+                    break;
+                }
+            }
+        }
+        parser.expect(&TokenKind::RBracket)?;
+        return Ok(Type::Tuple(types));
+    }
+
+    // Handle Optional type: Optional[type]
+    if parser.match_token(&TokenKind::Optional) {
+        parser.expect(&TokenKind::LBracket)?;
+        let inner_type = parse_type_annotation(parser)?;
+        parser.expect(&TokenKind::RBracket)?;
+        return Ok(Type::Optional(Box::new(inner_type)));
+    }
+
     let token = parser.current();
     let ty = match &token.kind {
         TokenKind::Ident(name) => match name.as_str() {
@@ -215,6 +239,12 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
         _ => return Err(format!("Expected type name, found {:?}", token.kind)),
     };
     parser.advance();
+
+    // Handle Optional suffix: T?
+    if parser.match_token(&TokenKind::Question) {
+        return Ok(Type::Optional(Box::new(ty)));
+    }
+
     Ok(ty)
 }
 pub fn parse_class_def(parser: &mut StatementParser) -> Result<Stmt, String> {

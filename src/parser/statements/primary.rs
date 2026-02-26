@@ -698,3 +698,17 @@ pub fn is_slice_pattern(parser: &mut StatementParser) -> bool {
 
     false
 }
+
+/// Parse type alias: type Name = Type
+pub fn parse_type_alias(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Type)?;
+
+    let name = parser.expect_ident()?;
+
+    parser.expect(&TokenKind::Eq)?;
+
+    let type_def = parse_type_annotation(parser)?;
+
+    Ok(Stmt::TypeAlias { name, type_def, span })
+}
