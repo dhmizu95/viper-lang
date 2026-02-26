@@ -73,6 +73,59 @@ impl Type {
     pub fn is_error(&self) -> bool {
         matches!(self, Type::Error)
     }
+
+    /// Check if a type is hashable (can be used as dict key or set element)
+    /// 
+    /// Hashable types:
+    /// - int, float, bool, str, bytes
+    /// - tuple (if all elements are hashable)
+    /// - frozenset
+    /// 
+    /// Non-hashable types:
+    /// - list, dict, set
+    /// - mutable custom objects
+    pub fn is_hashable(&self) -> bool {
+        matches!(
+            self,
+            Type::I8
+                | Type::I16
+                | Type::I32
+                | Type::I64
+                | Type::BigInt
+                | Type::F32
+                | Type::F64
+                | Type::Bool
+                | Type::Str
+        )
+    }
+
+    /// Check if a type is a tuple with all hashable elements
+    pub fn is_hashable_tuple(&self) -> bool {
+        match self {
+            Type::Tuple(types) => types.iter().all(|t| t.is_hashable() || t.is_hashable_tuple()),
+            _ => false,
+        }
+    }
+
+    /// Check if a type is completely hashable (including nested structures)
+    pub fn is_fully_hashable(&self) -> bool {
+        match self {
+            Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::BigInt
+            | Type::F32
+            | Type::F64
+            | Type::Bool
+            | Type::Str => true,
+            Type::Tuple(types) => types.iter().all(|t| t.is_fully_hashable()),
+            // List, Dict, Array are not hashable
+            Type::List(_) | Type::Dict(_, _) | Type::Array(_, _) => false,
+            // Other types are not hashable by default
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Display for Type {

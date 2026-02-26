@@ -13,6 +13,7 @@ pub fn declare_runtime_functions<'ctx>(
     declare_dict_functions(context, module)?;
     declare_memory_functions(context, module)?;
     declare_math_functions(context, module)?;
+    declare_hash_functions(context, module)?;
     declare_concurrency_functions(context, module)?;
     declare_bigint_functions(context, module)?;
     Ok(())
@@ -278,6 +279,39 @@ fn declare_math_functions<'ctx>(
     // pow_i64(base, exponent) - power function for integers
     let pow_i64_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     module.add_function("vp_pow_i64", pow_i64_type, None);
+
+    Ok(())
+}
+
+/// Declare hash builtin runtime functions
+fn declare_hash_functions<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> Result<(), String> {
+    let i64_type = context.i64_type();
+    let f64_type = context.f64_type();
+    let bool_type = context.bool_type();
+    let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+
+    // hash(i64) -> i64
+    let hash_i64_type = i64_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_hash_i64", hash_i64_type, None);
+
+    // hash(f64) -> i64
+    let hash_f64_type = i64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_hash_f64", hash_f64_type, None);
+
+    // hash(bool) -> i64
+    let hash_bool_type = i64_type.fn_type(&[bool_type.into()], false);
+    module.add_function("vp_hash_bool", hash_bool_type, None);
+
+    // hash(str) -> i64
+    let hash_str_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_hash_str", hash_str_type, None);
+
+    // hash(None) -> i64 (no arguments)
+    let hash_none_type = i64_type.fn_type(&[], false);
+    module.add_function("vp_hash_none", hash_none_type, None);
 
     Ok(())
 }

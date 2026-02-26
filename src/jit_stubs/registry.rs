@@ -216,6 +216,28 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_dict_free as *const () as usize);
     }
 
+    // Hash functions
+    if let Some(func) = module.get_function("vp_hash_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hash_f64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_f64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hash_bool") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_bool as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hash_str") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_str as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hash_none") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_none as *const () as usize);
+    }
+
     if let Some(func) = module.get_function("vp_chan_create") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_chan_create as *const () as usize);

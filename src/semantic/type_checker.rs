@@ -737,10 +737,20 @@ impl TypeChecker {
                     self.check_expr(elem);
                 }
             }
-            Expr::Dict { pairs, .. } => {
+            Expr::Dict { pairs, span: _ } => {
                 for (key, value) in pairs {
                     self.check_expr(key);
                     self.check_expr(value);
+                    
+                    // Check that key type is hashable
+                    if let Some(key_type) = self.get_expr_type(key) {
+                        if !key_type.is_fully_hashable() {
+                            self.errors.push(TypeError::new(
+                                format!("Dictionary keys must be hashable, got {}", key_type),
+                                key.span(),
+                            ));
+                        }
+                    }
                 }
             }
             Expr::Conditional { condition, then_expr, else_expr, span } => {

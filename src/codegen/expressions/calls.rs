@@ -98,6 +98,10 @@ pub fn generate_call<'ctx>(
             return generate_len_call(state, args);
         }
 
+        if name == "hash" {
+            return generate_hash_call(state, args);
+        }
+
         if name == "str" {
             return generate_str_call(state, args);
         }
