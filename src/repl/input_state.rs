@@ -1,4 +1,4 @@
-use crate::lexer::indent_stack::IndentStack;
+use crate::lexer::indent_stack::{IndentChange, IndentStack};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum LineStatus {
@@ -81,7 +81,12 @@ impl InputState {
             }
         }
 
-        let _ = self.indent_stack.process_indent(indent);
+        let indent_change = self.indent_stack.process_indent(indent);
+
+        // If we dedented to level 0, we're no longer inside a block
+        if indent == 0 {
+            self.inside_block = false;
+        }
 
         // Check if inside block (ends with :)
         // We strip comments to check for the trailing colon
@@ -91,8 +96,12 @@ impl InputState {
             self.inside_block = true;
         }
 
-        // Empty line at indent > 0 or after block resolves block
-        // This is handled by the caller manually calling complete_block
+        // Handle dedent - if we dedented, check if we're out of all blocks
+        if let IndentChange::Dedent | IndentChange::DedentCount(_) = indent_change {
+            if self.indent_stack.depth() == 0 {
+                self.inside_block = false;
+            }
+        }
 
         if self.bracket_depth > 0 || self.inside_block || self.indent_stack.depth() > 0 {
             LineStatus::Incomplete
