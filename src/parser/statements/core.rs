@@ -177,13 +177,25 @@ pub fn parse_return_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Return)?;
 
-    let value = if parser.match_token(&TokenKind::Newline)
+    if parser.match_token(&TokenKind::Newline)
         || parser.match_token(&TokenKind::Dedent)
         || parser.is_at_end()
     {
-        None
+        return Ok(Stmt::Return { value: None, span });
+    }
+
+    let first_expr = parse_expression(parser)?;
+    let value = if parser.match_token(&TokenKind::Comma) {
+        let mut elements = vec![first_expr];
+        loop {
+            elements.push(parse_expression(parser)?);
+            if !parser.match_token(&TokenKind::Comma) {
+                break;
+            }
+        }
+        Some(Expr::Tuple { elements, span })
     } else {
-        Some(parse_expression(parser)?)
+        Some(first_expr)
     };
 
     Ok(Stmt::Return { value, span })

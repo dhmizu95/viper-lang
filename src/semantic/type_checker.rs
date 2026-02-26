@@ -115,7 +115,7 @@ impl TypeChecker {
                 let types: Vec<Type> =
                     elements.iter().filter_map(|e| self.infer_expr_type(e)).collect();
                 if types.len() == elements.len() {
-                    Some(Type::Var(format!("tuple({:?})", types)))
+                    Some(Type::Tuple(types))
                 } else {
                     None
                 }
@@ -808,7 +808,7 @@ impl TypeChecker {
         // Resolve type aliases first
         let expected_resolved = self.symbol_table.resolve_type_alias(expected);
         let actual_resolved = self.symbol_table.resolve_type_alias(actual);
-        
+
         match (&expected_resolved, &actual_resolved) {
             (Type::Infer, _) | (_, Type::Infer) => true,
             (Type::Error, _) | (_, Type::Error) => true,
@@ -836,7 +836,10 @@ impl TypeChecker {
                 if expected_types.len() != actual_types.len() {
                     return false;
                 }
-                expected_types.iter().zip(actual_types.iter()).all(|(e, a)| self.is_compatible(e, a))
+                expected_types
+                    .iter()
+                    .zip(actual_types.iter())
+                    .all(|(e, a)| self.is_compatible(e, a))
             }
             _ => false,
         }

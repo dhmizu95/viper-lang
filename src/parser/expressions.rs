@@ -232,7 +232,6 @@ impl<'a> PrattParser<'a> {
         let span = token.span;
         let token_kind = &token.kind;
 
-
         match token_kind {
             TokenKind::Int(n) => {
                 let n = *n;

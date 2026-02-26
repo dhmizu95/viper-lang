@@ -249,9 +249,7 @@ impl SymbolTable {
             Type::Tuple(types) => {
                 Type::Tuple(types.iter().map(|t| self.resolve_type_alias(t)).collect())
             }
-            Type::Array(elem, size) => {
-                Type::Array(Box::new(self.resolve_type_alias(elem)), *size)
-            }
+            Type::Array(elem, size) => Type::Array(Box::new(self.resolve_type_alias(elem)), *size),
             Type::Fn(params, ret) => Type::Fn(
                 params.iter().map(|t| self.resolve_type_alias(t)).collect(),
                 Box::new(self.resolve_type_alias(ret)),

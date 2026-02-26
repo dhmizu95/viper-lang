@@ -9,19 +9,19 @@ use std::collections::HashMap;
 
 use crate::codegen::types::TypeMapper;
 
-fn infer_return_type_from_body(body: &[Stmt]) -> Option<Type> {
+fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) -> Option<Type> {
     for stmt in body {
         if let Stmt::Return { value, .. } = stmt {
             if let Some(expr) = value {
-                return Some(infer_type_from_expr(expr));
+                return Some(infer_type_from_expr(expr, param_types));
             }
         }
         if let Stmt::If { body, else_body, .. } = stmt {
-            if let Some(rt) = infer_return_type_from_body(body) {
+            if let Some(rt) = infer_return_type_from_body(body, param_types) {
                 return Some(rt);
             }
             if let Some(else_stmts) = else_body {
-                if let Some(rt) = infer_return_type_from_body(else_stmts) {
+                if let Some(rt) = infer_return_type_from_body(else_stmts, param_types) {
                     return Some(rt);
                 }
             }
@@ -30,7 +30,7 @@ fn infer_return_type_from_body(body: &[Stmt]) -> Option<Type> {
     None
 }
 
-fn infer_type_from_expr(expr: &Expr) -> Type {
+fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
     use crate::ast::BinOp;
 
     match expr {
@@ -39,45 +39,47 @@ fn infer_type_from_expr(expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::None(_) => Type::None,
-        Expr::Ident(_, _) => Type::Infer,
+        Expr::Ident(name, _) => param_types
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, t)| t.clone())
+            .unwrap_or(Type::Infer),
         Expr::List { elements, .. } => {
-            // Infer element type from first element, default to I64
             if let Some(first) = elements.first() {
-                let elem_type = infer_type_from_expr(first);
+                let elem_type = infer_type_from_expr(first, param_types);
                 Type::List(Box::new(elem_type))
             } else {
                 Type::List(Box::new(Type::Infer))
             }
         }
         Expr::ListComprehension { .. } => Type::List(Box::new(Type::Infer)),
-        Expr::BinOp { op, left, right, .. } => {
-            // Comparison and logical operators return Bool
-            match op {
-                BinOp::Eq
-                | BinOp::NotEq
-                | BinOp::Lt
-                | BinOp::Gt
-                | BinOp::LtEq
-                | BinOp::GtEq
-                | BinOp::Is
-                | BinOp::IsNot
-                | BinOp::In
-                | BinOp::NotIn
-                | BinOp::And
-                | BinOp::Or => Type::Bool,
-                _ => {
-                    // Arithmetic operators: check for float operands
-                    let lt = infer_type_from_expr(left);
-                    let rt = infer_type_from_expr(right);
-                    if lt == Type::F64 || rt == Type::F64 {
-                        Type::F64
-                    } else {
-                        Type::I64
-                    }
+        Expr::BinOp { op, left, right, .. } => match op {
+            BinOp::Eq
+            | BinOp::NotEq
+            | BinOp::Lt
+            | BinOp::Gt
+            | BinOp::LtEq
+            | BinOp::GtEq
+            | BinOp::Is
+            | BinOp::IsNot
+            | BinOp::In
+            | BinOp::NotIn
+            | BinOp::And
+            | BinOp::Or => Type::Bool,
+            _ => {
+                let lt = infer_type_from_expr(left, param_types);
+                let rt = infer_type_from_expr(right, param_types);
+                if lt == Type::F64 || rt == Type::F64 {
+                    Type::F64
+                } else {
+                    Type::I64
                 }
             }
+        },
+        Expr::UnaryOp { operand, .. } => infer_type_from_expr(operand, param_types),
+        Expr::Tuple { elements, .. } => {
+            Type::Tuple(elements.iter().map(|e| infer_type_from_expr(e, param_types)).collect())
         }
-        Expr::UnaryOp { operand, .. } => infer_type_from_expr(operand),
         _ => Type::Infer,
     }
 }
@@ -197,9 +199,11 @@ pub fn declare_function<'ctx>(
         .collect();
 
     // If no return type annotation, try to infer from body
+    let param_type_pairs: Vec<(String, Type)> =
+        params.iter().zip(param_types.iter()).map(|(p, t)| (p.name.clone(), t.clone())).collect();
     let inferred_return_type = if return_type.is_none() {
         if let Some(body) = body {
-            infer_return_type_from_body(body)
+            infer_return_type_from_body(body, &param_type_pairs)
         } else {
             None
         }

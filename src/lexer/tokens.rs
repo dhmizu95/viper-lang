@@ -54,9 +54,9 @@ pub enum TokenKind {
     DotDot,
     Global,
     Const,
-    Type,      // type keyword for type aliases
-    Tuple,     // tuple keyword for tuple types
-    Optional,  // Optional keyword for optional types
+    Type,     // type keyword for type aliases
+    Tuple,    // tuple keyword for tuple types
+    Optional, // Optional keyword for optional types
 
     // Operators
     Plus,

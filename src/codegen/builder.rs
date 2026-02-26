@@ -1,6 +1,9 @@
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::values::{BasicValue, FloatValue, FunctionValue, IntValue, PointerValue};
+use inkwell::types::StructType;
+use inkwell::values::{
+    BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
+};
 
 /// Helper methods for building LLVM IR
 pub struct IRBuilder<'ctx> {
@@ -160,5 +163,14 @@ impl<'ctx> IRBuilder<'ctx> {
             inkwell::values::ValueKind::Basic(bv) => Some(bv),
             _ => None,
         }
+    }
+
+    /// Build a struct constant from element values
+    pub fn build_struct_constant(
+        &self,
+        struct_type: StructType<'ctx>,
+        elements: &[BasicValueEnum<'ctx>],
+    ) -> StructValue<'ctx> {
+        struct_type.const_named_struct(elements)
     }
 }

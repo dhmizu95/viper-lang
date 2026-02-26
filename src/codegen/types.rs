@@ -74,9 +74,7 @@ impl<'ctx> TypeMapper<'ctx> {
             }
             Type::Struct { .. } => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             Type::Future(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-            Type::Var(_) | Type::Infer | Type::Error | Type::None => {
-                self.context.i64_type().into()
-            }
+            Type::Var(_) | Type::Infer | Type::Error | Type::None => self.context.i64_type().into(),
         }
     }
 

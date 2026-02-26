@@ -255,12 +255,7 @@ pub fn generate_type_convert<'ctx>(
                 let zero = state.context.i64_type().const_int(0, false);
                 let result = state
                     .builder
-                    .build_int_compare(
-                        inkwell::IntPredicate::NE,
-                        int_val,
-                        zero,
-                        "to_bool",
-                    )
+                    .build_int_compare(inkwell::IntPredicate::NE, int_val, zero, "to_bool")
                     .expect("int to bool comparison");
                 Ok(result.into())
             } else if arg_val.is_float_value() {
@@ -269,17 +264,13 @@ pub fn generate_type_convert<'ctx>(
                 let zero = state.context.f64_type().const_float(0.0);
                 let result = state
                     .builder
-                    .build_float_compare(
-                        inkwell::FloatPredicate::ONE,
-                        float_val,
-                        zero,
-                        "to_bool",
-                    )
+                    .build_float_compare(inkwell::FloatPredicate::ONE, float_val, zero, "to_bool")
                     .expect("float to bool comparison");
                 Ok(result.into())
             } else if arg_val.is_pointer_value() {
                 // For pointers: null is false, non-null is true
-                let null_ptr = state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                let null_ptr =
+                    state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
                 let ptr_as_int = state
                     .builder
                     .build_ptr_to_int(
