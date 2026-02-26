@@ -175,6 +175,12 @@ pub fn generate_for<'ctx>(
 
                 state.builder.position_at_end(body_block);
 
+                // Push loop context for break/continue support
+                // continue should jump to step block to increment counter
+                state
+                    .loop_stack
+                    .push(LoopContext::new(exit_block, step_block));
+
                 let old_var = if let Expr::Ident(target_name, _) = target {
                     // Try to construct a new VarInfo. Use state.variables.insert which returns the old value
                     state.variables.insert(
@@ -202,6 +208,8 @@ pub fn generate_for<'ctx>(
                         stmt,
                     )?;
                 }
+
+                state.loop_stack.pop();
 
                 if state
                     .builder
@@ -347,7 +355,7 @@ pub fn generate_for<'ctx>(
             .builder
             .build_store(val_alloca, item_val)
             .expect("store");
-            
+
         // Use state.variables.insert which returns the old value
         state.variables.insert(
             target_name.clone(),
@@ -359,6 +367,12 @@ pub fn generate_for<'ctx>(
     } else {
         None
     };
+
+    // Push loop context for break/continue support
+    // continue should jump to step block to increment counter
+    state
+        .loop_stack
+        .push(LoopContext::new(exit_block, step_block));
 
     for stmt in body {
         crate::codegen::statements::generate_stmt(
@@ -374,6 +388,8 @@ pub fn generate_for<'ctx>(
             stmt,
         )?;
     }
+
+    state.loop_stack.pop();
 
     if state
         .builder
@@ -650,6 +666,12 @@ pub fn generate_async_for<'ctx>(
         None
     };
 
+    // Push loop context for break/continue support
+    // continue should jump to step block for next iteration
+    state
+        .loop_stack
+        .push(LoopContext::new(exit_block, step_block));
+
     for stmt in body {
         crate::codegen::statements::generate_stmt(
             state.context,
@@ -664,6 +686,8 @@ pub fn generate_async_for<'ctx>(
             stmt,
         )?;
     }
+
+    state.loop_stack.pop();
 
     if state
         .builder
