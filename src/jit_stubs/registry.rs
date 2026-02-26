@@ -253,6 +253,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_dict_free as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_dict_print") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_dict_print as *const () as usize);
+    }
 
     // Hash functions
     if let Some(func) = module.get_function("vp_hash_i64") {

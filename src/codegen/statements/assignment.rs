@@ -65,6 +65,25 @@ pub(crate) fn generate_assign<'ctx>(
             state.list_vars.remove(name);
         }
 
+        // Track dict variables
+        let is_dict = match value {
+            Expr::Dict { .. } => true,
+            Expr::Ident(other, _) => state.is_dict(other),
+            Expr::Call { func, .. } => {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "vp_dict_create" || func_name == "vp_dict_create_with_capacity"
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+        if is_dict {
+            state.mark_as_dict(name.clone());
+        } else {
+            state.dict_vars.remove(name);
+        }
+
         // Check if value is BigInt before borrowing state
         // BigInt values are pointers from BigInt literals or operations
         // We detect BigInt by checking the expression type and value type

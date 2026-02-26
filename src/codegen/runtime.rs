@@ -246,6 +246,10 @@ fn declare_dict_functions<'ctx>(
     let dict_clear_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_dict_clear", dict_clear_type, None);
 
+    // Dict print function
+    let dict_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_dict_print", dict_print_type, None);
+
     Ok(())
 }
 

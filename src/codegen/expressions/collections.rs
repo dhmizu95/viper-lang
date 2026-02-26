@@ -266,38 +266,54 @@ pub fn generate_dict<'ctx>(
         let value_val = generate_expr(state, value_expr)?;
 
         // Choose the appropriate dict_set function based on key and value types
-        let set_func = match (key_expr, value_expr) {
-            (Expr::Str(_, _), Expr::Int(_, _)) => state
-                .module
-                .get_function("vp_dict_set_str_i64")
-                .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?,
-            (Expr::Str(_, _), Expr::Str(_, _)) => state
-                .module
-                .get_function("vp_dict_set_str_str")
-                .ok_or_else(|| "vp_dict_set_str_str not declared".to_string())?,
-            (Expr::Str(_, _), _) => {
-                // String key with other value types - use str_i64 for now
-                // TODO: Add more specialized functions for other value types
-                state
+        match (key_expr, value_expr) {
+            (Expr::Str(_, _), Expr::Int(_, _)) => {
+                // String key (already a Viper string) with i64 value
+                let set_func = state
                     .module
                     .get_function("vp_dict_set_str_i64")
-                    .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?
+                    .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?;
+                
+                let _ = state.ir_builder.build_call(
+                    state.builder,
+                    set_func,
+                    &[dict_val.into(), key_val.into(), value_val.into()],
+                    &format!("dict_set_{}", i),
+                );
+            }
+            (Expr::Str(_, _), Expr::Str(_, _)) => {
+                // Both key and value are strings (already Viper strings)
+                let set_func = state
+                    .module
+                    .get_function("vp_dict_set_str_str")
+                    .ok_or_else(|| "vp_dict_set_str_str not declared".to_string())?;
+                
+                let _ = state.ir_builder.build_call(
+                    state.builder,
+                    set_func,
+                    &[dict_val.into(), key_val.into(), value_val.into()],
+                    &format!("dict_set_{}", i),
+                );
+            }
+            (Expr::Str(_, _), _) => {
+                // String key with other value types
+                let set_func = state
+                    .module
+                    .get_function("vp_dict_set_str_i64")
+                    .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?;
+                
+                let _ = state.ir_builder.build_call(
+                    state.builder,
+                    set_func,
+                    &[dict_val.into(), key_val.into(), value_val.into()],
+                    &format!("dict_set_{}", i),
+                );
             }
             _ => {
-                // Fallback to original function (for non-string keys)
-                state
-                    .module
-                    .get_function("vp_dict_set_i64")
-                    .ok_or_else(|| "vp_dict_set_i64 not declared".to_string())?
+                // Fallback for non-string keys (not yet supported)
+                return Err("Dict keys must be strings".to_string());
             }
-        };
-
-        let _ = state.ir_builder.build_call(
-            state.builder,
-            set_func,
-            &[dict_val.into(), key_val.into(), value_val.into()],
-            &format!("dict_set_{}", i),
-        );
+        }
     }
 
     Ok(dict_val)

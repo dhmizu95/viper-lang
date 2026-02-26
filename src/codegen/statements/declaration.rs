@@ -48,6 +48,23 @@ pub(crate) fn generate_declare<'ctx>(
             state.mark_as_list(name.to_string());
         }
 
+        // Track dict variables
+        let is_dict = match expr {
+            Expr::Dict { .. } => true,
+            Expr::Ident(other, _) => state.is_dict(other),
+            Expr::Call { func, .. } => {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "vp_dict_create" || func_name == "vp_dict_create_with_capacity"
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+        if is_dict {
+            state.mark_as_dict(name.to_string());
+        }
+
         // Lists are ALWAYS heap-allocated with ARC since they can be mutated via method calls
         // This prevents stack allocation issues with in-place mutations like sort() and reverse()
         let can_stack_alloc = if is_list {

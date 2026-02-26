@@ -19,6 +19,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub global_constants: &'a mut HashMap<String, GlobalValue<'ctx>>,
     pub loop_stack: &'a mut Vec<LoopContext<'ctx>>,
     pub list_vars: &'a mut HashSet<String>,
+    pub dict_vars: &'a mut HashSet<String>,
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
 }
@@ -35,6 +36,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         global_constants: &'a mut HashMap<String, GlobalValue<'ctx>>,
         loop_stack: &'a mut Vec<LoopContext<'ctx>>,
         list_vars: &'a mut HashSet<String>,
+        dict_vars: &'a mut HashSet<String>,
     ) -> Self {
         Self {
             context,
@@ -46,6 +48,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             global_constants,
             loop_stack,
             list_vars,
+            dict_vars,
             escape_analyzer: None,
             current_function: None,
         }
@@ -63,6 +66,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         global_constants: &'a mut HashMap<String, GlobalValue<'ctx>>,
         loop_stack: &'a mut Vec<LoopContext<'ctx>>,
         list_vars: &'a mut HashSet<String>,
+        dict_vars: &'a mut HashSet<String>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
     ) -> Self {
@@ -76,6 +80,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             global_constants,
             loop_stack,
             list_vars,
+            dict_vars,
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
         }
@@ -124,9 +129,19 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         self.list_vars.insert(name);
     }
 
+    /// Mark a variable as a dict
+    pub fn mark_as_dict(&mut self, name: String) {
+        self.dict_vars.insert(name);
+    }
+
     /// Check if a variable is a list
     pub fn is_list(&self, name: &str) -> bool {
         self.list_vars.contains(name)
+    }
+
+    /// Check if a variable is a dict
+    pub fn is_dict(&self, name: &str) -> bool {
+        self.dict_vars.contains(name)
     }
 
     /// Generate ARC retain call for a value

@@ -51,6 +51,7 @@ pub fn generate_while<'ctx>(
             state.global_constants,
             state.loop_stack,
             state.list_vars,
+            state.dict_vars,
             stmt,
         )?;
     }
@@ -165,6 +166,7 @@ pub fn generate_for<'ctx>(
                         state.global_constants,
                         state.loop_stack,
                         state.list_vars,
+                        state.dict_vars,
                         stmt,
                     )?;
                 }
@@ -301,6 +303,7 @@ pub fn generate_for<'ctx>(
             state.global_constants,
             state.loop_stack,
             state.list_vars,
+            state.dict_vars,
             stmt,
         )?;
     }
@@ -541,6 +544,7 @@ pub fn generate_async_for<'ctx>(
             state.global_constants,
             state.loop_stack,
             state.list_vars,
+            state.dict_vars,
             stmt,
         )?;
     }

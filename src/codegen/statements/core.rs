@@ -20,6 +20,7 @@ pub fn generate_stmt<'ctx>(
     global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
     loop_stack: &mut Vec<LoopContext<'ctx>>,
     list_vars: &mut HashSet<String>,
+    dict_vars: &mut HashSet<String>,
     stmt: &Stmt,
 ) -> Result<(), String> {
     let mut state = CodeGenState::new(
@@ -32,6 +33,7 @@ pub fn generate_stmt<'ctx>(
         global_constants,
         loop_stack,
         list_vars,
+        dict_vars,
     );
 
     generate_stmt_internal(&mut state, stmt)
@@ -48,6 +50,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
     loop_stack: &mut Vec<LoopContext<'ctx>>,
     list_vars: &mut HashSet<String>,
+    dict_vars: &mut HashSet<String>,
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
@@ -62,6 +65,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         global_constants,
         loop_stack,
         list_vars,
+        dict_vars,
         escape_analyzer,
         current_function,
     );
@@ -195,6 +199,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                         state.global_constants,
                         state.loop_stack,
                         state.list_vars,
+                        state.dict_vars,
                         stmt,
                     )?;
                 }

@@ -24,6 +24,7 @@ fn generate_if_chain<'ctx>(
                     state.global_constants,
                     state.loop_stack,
                     state.list_vars,
+                    state.dict_vars,
                     stmt,
                 )?;
             }
@@ -67,6 +68,7 @@ fn generate_if_chain<'ctx>(
             state.global_constants,
             state.loop_stack,
             state.list_vars,
+            state.dict_vars,
             stmt,
         )?;
     }
@@ -123,6 +125,7 @@ pub fn generate_if<'ctx>(
             state.global_constants,
             state.loop_stack,
             state.list_vars,
+            state.dict_vars,
             stmt,
         )?;
     }

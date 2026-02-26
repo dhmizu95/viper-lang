@@ -76,3 +76,29 @@ pub extern "C" fn vp_dict_free(dict_ptr: *mut std::ffi::c_void) {
     let id = dict_ptr as usize;
     get_jit_dicts().as_mut().unwrap().remove(&id);
 }
+
+pub extern "C" fn vp_dict_print(dict_ptr: *mut std::ffi::c_void) {
+    if dict_ptr.is_null() {
+        print!("{{}}");
+        return;
+    }
+    
+    let id = dict_ptr as usize;
+    let dicts = get_jit_dicts();
+    let dict = dicts.as_ref().unwrap().get(&id);
+    
+    if let Some(dict) = dict {
+        print!("{{");
+        let mut first = true;
+        for (key, value) in dict.iter() {
+            if !first {
+                print!(", ");
+            }
+            first = false;
+            print!("'{}': {}", key, value);
+        }
+        print!("}}");
+    } else {
+        print!("{{}}");
+    }
+}

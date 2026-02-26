@@ -377,3 +377,80 @@ bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value)
 
     return true;
 }
+
+/* ============================================ */
+/* Dict Print Function                          */
+/* ============================================ */
+
+void vp_dict_print(ViperDict* dict) {
+    if (!dict) {
+        printf("{}");
+        return;
+    }
+
+    if (!dict->buckets) {
+        printf("{}");
+        return;
+    }
+
+    printf("{");
+    
+    bool first = true;
+    int64_t count = 0;
+    
+    for (int64_t i = 0; i < dict->size && count < dict->count; i++) {
+        if (!dict->buckets[i]) continue;
+        
+        DictEntry* entry = dict->buckets[i];
+        while (entry) {
+            if (!first) {
+                printf(", ");
+            }
+            first = false;
+            count++;
+            
+            /* Print key */
+            if (entry->key) {
+                printf("'%s': ", entry->key);
+            } else {
+                printf("<null_key>: ");
+            }
+            
+            /* Print value based on type */
+            switch (entry->value.type) {
+                case VIPER_TYPE_I64:
+                    printf("%ld", (long)entry->value.data.as_i64);
+                    break;
+                case VIPER_TYPE_F64:
+                    printf("%f", entry->value.data.as_f64);
+                    break;
+                case VIPER_TYPE_BOOL:
+                    printf("%s", entry->value.data.as_bool ? "True" : "False");
+                    break;
+                case VIPER_TYPE_STR:
+                    if (entry->value.data.as_str) {
+                        printf("'%s'", entry->value.data.as_str);
+                    } else {
+                        printf("<null_str>");
+                    }
+                    break;
+                case VIPER_TYPE_NONE:
+                    printf("None");
+                    break;
+                case VIPER_TYPE_LIST:
+                    printf("<list>");
+                    break;
+                case VIPER_TYPE_DICT:
+                    printf("<dict>");
+                    break;
+                default:
+                    printf("<unknown>");
+                    break;
+            }
+            
+            entry = entry->next;
+        }
+    }
+    
+    printf("}");
+}

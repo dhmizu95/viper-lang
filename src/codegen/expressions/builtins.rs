@@ -56,6 +56,13 @@ pub fn generate_print_call<'ctx>(
                 _ => false,
             };
 
+            // Check if this is a dict
+            let is_dict_arg = match arg {
+                Expr::Ident(name, _) => state.is_dict(name),
+                Expr::Dict { .. } => true,
+                _ => false,
+            };
+
             // Check if this is a BigInt (including BigInt operations)
             let is_bigint_arg = match arg {
                 Expr::BigInt(_, _) => true,
@@ -96,6 +103,15 @@ pub fn generate_print_call<'ctx>(
                     .builder
                     .build_call(print_func, &[str_val.into()], "print_bigint_str")
                     .expect("vp_print_str");
+            } else if is_dict_arg {
+                let print_func = state
+                    .module
+                    .get_function("vp_dict_print")
+                    .ok_or_else(|| "vp_dict_print not declared".to_string())?;
+                state
+                    .builder
+                    .build_call(print_func, &[val.into()], "print_dict")
+                    .expect("vp_dict_print");
             } else if is_list_arg {
                 let print_func = state
                     .module

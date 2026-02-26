@@ -23,6 +23,7 @@ pub struct CodeGen<'ctx> {
     global_constants: HashMap<String, GlobalValue<'ctx>>,
     loop_stack: Vec<LoopContext<'ctx>>,
     list_vars: HashSet<String>,
+    dict_vars: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
     current_function: Option<String>,
 }
@@ -45,6 +46,7 @@ impl<'ctx> CodeGen<'ctx> {
             global_constants: HashMap::new(),
             loop_stack: Vec::new(),
             list_vars: HashSet::new(),
+            dict_vars: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
         }
@@ -86,6 +88,7 @@ impl<'ctx> CodeGen<'ctx> {
                             &mut self.global_constants,
                             &mut self.loop_stack,
                             &mut self.list_vars,
+                            &mut self.dict_vars,
                         ),
                         value,
                     )?;
@@ -117,6 +120,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.global_constants,
                                 &mut self.loop_stack,
                                 &mut self.list_vars,
+                                &mut self.dict_vars,
                             ),
                             value,
                         )?;
@@ -277,6 +281,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.global_constants,
                 &mut self.loop_stack,
                 &mut self.list_vars,
+                &mut self.dict_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 name,
@@ -356,6 +361,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.global_constants,
                 &mut self.loop_stack,
                 &mut self.list_vars,
+                &mut self.dict_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 "__module_level__",

@@ -77,6 +77,7 @@ bool vp_dict_remove(ViperDict* dict, const char* key);
 void vp_dict_clear(ViperDict* dict);
 int64_t vp_dict_len(ViperDict* dict);
 ViperDict* vp_dict_copy(ViperDict* dict);
+void vp_dict_print(ViperDict* dict);
 
 /* Dict set with ViperString key (for compiler codegen) */
 void vp_dict_set_str_i64(ViperDict* dict, void* viper_str, int64_t value);

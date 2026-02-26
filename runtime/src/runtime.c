@@ -45,14 +45,11 @@ void vp_print_newline(void) {
 
 char* vp_str_create(const char* str) {
     if (!str) {
-        fprintf(stderr, "vp_str_create: NULL input\n");
         return NULL;
     }
 
     size_t len = strlen(str);
-    fprintf(stderr, "vp_str_create: str='%s' len=%zu\n", str, len);
     char* new_str = (char*)vp_arc_alloc(len + 1);
-    fprintf(stderr, "vp_str_create: allocated at %p\n", (void*)new_str);
     strcpy(new_str, str);
     return new_str;
 }
@@ -394,14 +391,12 @@ void vp_dict_set_i64(ViperDict* dict, const char* key, int64_t value) {
 /* Wrapper for dict set with string key (from vp_str_create) and i64 value */
 void vp_dict_set_str_i64(ViperDict* dict, void* str_ptr, int64_t value) {
     if (!dict || !str_ptr) {
-        fprintf(stderr, "vp_dict_set_str_i64: NULL dict=%p str_ptr=%p\n", (void*)dict, (void*)str_ptr);
         return;
     }
-    
+
     /* vp_str_create returns a plain char*, not ViperString struct */
     const char* key = (const char*)str_ptr;
-    fprintf(stderr, "vp_dict_set_str_i64: dict=%p key='%s' value=%ld\n", (void*)dict, key, (long)value);
-    
+
     ViperValue val;
     val.type = VIPER_TYPE_I64;
     val.data.as_i64 = value;
@@ -412,15 +407,13 @@ void vp_dict_set_str_i64(ViperDict* dict, void* str_ptr, int64_t value) {
 /* Wrapper for dict set with string key and string value (both from vp_str_create) */
 void vp_dict_set_str_str(ViperDict* dict, void* key_str, void* value_str) {
     if (!dict || !key_str || !value_str) {
-        fprintf(stderr, "vp_dict_set_str_str: NULL dict=%p\n", (void*)dict);
         return;
     }
-    
+
     /* vp_str_create returns plain char* */
     const char* key = (const char*)key_str;
     char* val_str = (char*)value_str;
-    fprintf(stderr, "vp_dict_set_str_str: dict=%p key='%s' value='%s'\n", (void*)dict, key, val_str);
-    
+
     /* Create ViperValue with string type */
     ViperValue val;
     val.type = VIPER_TYPE_STR;
