@@ -67,11 +67,7 @@ pub(crate) fn generate_declare<'ctx>(
 
         // Lists are ALWAYS heap-allocated with ARC since they can be mutated via method calls
         // This prevents stack allocation issues with in-place mutations like sort() and reverse()
-        let can_stack_alloc = if is_list {
-            false
-        } else {
-            state.can_stack_allocate(name)
-        };
+        let can_stack_alloc = if is_list { false } else { state.can_stack_allocate(name) };
 
         // Determine if this is a reference type (pointer)
         // Chan[T] and WaitGroup are always pointer types
@@ -200,7 +196,9 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
                     VarType::Float
                 } else if elem_val.is_pointer_value() {
                     VarType::Pointer
-                } else if elem_val.is_int_value() && elem_val.get_type().into_int_type().get_bit_width() == 1 {
+                } else if elem_val.is_int_value()
+                    && elem_val.get_type().into_int_type().get_bit_width() == 1
+                {
                     VarType::Bool
                 } else {
                     VarType::Int

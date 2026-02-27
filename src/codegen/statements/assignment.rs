@@ -424,11 +424,14 @@ fn generate_tuple_unpack<'ctx>(
         if let Expr::Ident(name, _) = target {
             // Get the element from the tuple using array GEP
             // Cast to i8* first, then calculate offset
-            let i8_ptr = state.builder.build_pointer_cast(
-                tuple_ptr,
-                state.context.ptr_type(inkwell::AddressSpace::default()),
-                "tuple_i8_ptr",
-            ).map_err(|e| format!("Failed to cast tuple pointer: {:?}", e))?;
+            let i8_ptr = state
+                .builder
+                .build_pointer_cast(
+                    tuple_ptr,
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
+                    "tuple_i8_ptr",
+                )
+                .map_err(|e| format!("Failed to cast tuple pointer: {:?}", e))?;
 
             // For simplicity, assume all elements are i64 (8 bytes)
             // This is a limitation - proper implementation would need to track element types
@@ -440,17 +443,23 @@ fn generate_tuple_unpack<'ctx>(
                     &[state.context.i64_type().const_int(offset as u64, false)],
                     &format!("elem_{}_i8_ptr", i),
                 )
-            }.map_err(|e| format!("Failed to build GEP for tuple unpacking: {:?}", e))?;
+            }
+            .map_err(|e| format!("Failed to build GEP for tuple unpacking: {:?}", e))?;
 
             // Cast back to i64*
-            let elem_ptr = state.builder.build_pointer_cast(
-                elem_i8_ptr,
-                state.context.ptr_type(inkwell::AddressSpace::default()),
-                &format!("elem_{}_ptr", i),
-            ).map_err(|e| format!("Failed to cast element pointer: {:?}", e))?;
+            let elem_ptr = state
+                .builder
+                .build_pointer_cast(
+                    elem_i8_ptr,
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
+                    &format!("elem_{}_ptr", i),
+                )
+                .map_err(|e| format!("Failed to cast element pointer: {:?}", e))?;
 
             // Load the element value
-            let elem_val = state.builder.build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
+            let elem_val = state
+                .builder
+                .build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
                 .map_err(|e| format!("Failed to load tuple element: {:?}", e))?;
 
             // Store in variable

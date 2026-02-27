@@ -128,8 +128,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_list_sort_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_list_reverse") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_reverse_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_reverse_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_list_copy") {
         execution_engine

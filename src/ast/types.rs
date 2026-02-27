@@ -75,12 +75,12 @@ impl Type {
     }
 
     /// Check if a type is hashable (can be used as dict key or set element)
-    /// 
+    ///
     /// Hashable types:
     /// - int, float, bool, str, bytes
     /// - tuple (if all elements are hashable)
     /// - frozenset
-    /// 
+    ///
     /// Non-hashable types:
     /// - list, dict, set
     /// - mutable custom objects

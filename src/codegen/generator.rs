@@ -267,6 +267,12 @@ impl<'ctx> CodeGen<'ctx> {
                 VarType::Int
             };
             self.variables.insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
+
+            // If parameter is a pointer type, mark it as a list for indexing purposes
+            // This is needed because list parameters passed from callers are pointers
+            if param_value.is_pointer_value() {
+                self.list_vars.insert(param.name.clone());
+            }
         }
 
         // Generate body using escape analysis
@@ -524,10 +530,9 @@ impl<'ctx> CodeGen<'ctx> {
             | Expr::Str(..)
             | Expr::None(..)
             | Expr::BigInt(..) => true,
-            Expr::UnaryOp { operand, .. } => matches!(
-                operand.as_ref(),
-                Expr::Int(..) | Expr::Float(..) | Expr::BigInt(..)
-            ),
+            Expr::UnaryOp { operand, .. } => {
+                matches!(operand.as_ref(), Expr::Int(..) | Expr::Float(..) | Expr::BigInt(..))
+            }
             _ => false,
         }
     }

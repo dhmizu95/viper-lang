@@ -73,10 +73,14 @@ pub fn generate_print_call<'ctx>(
                 Expr::BinOp { left, right, .. } => {
                     // Check if either operand is BigInt
                     let left_is_bigint = matches!(left.as_ref(), Expr::BigInt(_, _))
-                        || state.variables.get(left.as_ident().unwrap_or(&String::new()))
+                        || state
+                            .variables
+                            .get(left.as_ident().unwrap_or(&String::new()))
                             .map_or(false, |v| v.var_type == VarType::BigInt);
                     let right_is_bigint = matches!(right.as_ref(), Expr::BigInt(_, _))
-                        || state.variables.get(right.as_ident().unwrap_or(&String::new()))
+                        || state
+                            .variables
+                            .get(right.as_ident().unwrap_or(&String::new()))
                             .map_or(false, |v| v.var_type == VarType::BigInt);
                     left_is_bigint || right_is_bigint
                 }
@@ -536,7 +540,7 @@ pub fn generate_hash_call<'ctx>(
             .ir_builder
             .build_call(state.builder, to_str_func, &[arg_val.into()], "bigint_to_str")
             .unwrap();
-        
+
         let hash_func = state
             .module
             .get_function("vp_hash_str")
@@ -565,9 +569,8 @@ pub fn generate_hash_call<'ctx>(
         .get_function(hash_func_name)
         .ok_or_else(|| format!("{} not declared", hash_func_name))?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, hash_func, &[arg_val.into()], "hash_result");
-    
+    let result =
+        state.ir_builder.build_call(state.builder, hash_func, &[arg_val.into()], "hash_result");
+
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
 }

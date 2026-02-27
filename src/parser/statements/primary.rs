@@ -255,7 +255,7 @@ pub fn parse_value_expr(parser: &mut StatementParser) -> Result<Expr, String> {
 /// Used for assignment right-hand sides: a, b = 1, 2
 pub fn parse_value_or_tuple(parser: &mut StatementParser) -> Result<Expr, String> {
     let first = parse_primary_expr(parser)?;
-    
+
     // Check for comma - indicates a tuple
     if parser.match_token(&TokenKind::Comma) {
         let first_span = first.span();
@@ -270,7 +270,7 @@ pub fn parse_value_or_tuple(parser: &mut StatementParser) -> Result<Expr, String
         let merged_span = first_span.merge(last_span);
         return Ok(Expr::Tuple { elements, span: merged_span });
     }
-    
+
     // Otherwise parse as a regular value expression
     parse_value_expr_with_left(parser, first)
 }

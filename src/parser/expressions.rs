@@ -376,12 +376,12 @@ impl<'a> PrattParser<'a> {
             }
             TokenKind::LParen => {
                 self.advance();
-                
+
                 // Check for empty tuple
                 if self.match_token(&TokenKind::RParen) {
                     return Ok(Expr::Tuple { elements: vec![], span });
                 }
-                
+
                 let expr = self.parse_expr(Precedence::MIN)?;
 
                 // Check for tuple (including single-element tuple with trailing comma)

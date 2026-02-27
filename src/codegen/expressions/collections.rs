@@ -273,7 +273,7 @@ pub fn generate_dict<'ctx>(
                     .module
                     .get_function("vp_dict_set_str_i64")
                     .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?;
-                
+
                 let _ = state.ir_builder.build_call(
                     state.builder,
                     set_func,
@@ -287,7 +287,7 @@ pub fn generate_dict<'ctx>(
                     .module
                     .get_function("vp_dict_set_str_str")
                     .ok_or_else(|| "vp_dict_set_str_str not declared".to_string())?;
-                
+
                 let _ = state.ir_builder.build_call(
                     state.builder,
                     set_func,
@@ -301,7 +301,7 @@ pub fn generate_dict<'ctx>(
                     .module
                     .get_function("vp_dict_set_str_i64")
                     .ok_or_else(|| "vp_dict_set_str_i64 not declared".to_string())?;
-                
+
                 let _ = state.ir_builder.build_call(
                     state.builder,
                     set_func,

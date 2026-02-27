@@ -57,7 +57,7 @@ impl ReplSession {
         // Extract variable assignments from AST to update shadow store
         // This happens BEFORE execution - we assume execution will succeed
         self.extract_assignments_from_ast(&ast);
-        
+
         // Extract function definitions and variable assignments from source for FUTURE chunks
         self.extract_definitions_and_assignments(source);
 
@@ -134,7 +134,7 @@ impl ReplSession {
     fn extract_definitions_and_assignments(&mut self, source: &str) {
         // Extract function definitions
         self.extract_function_definitions(source);
-        
+
         // Extract variable assignments (for re-execution in future chunks)
         self.extract_variable_assignments(source);
     }
@@ -144,20 +144,20 @@ impl ReplSession {
         // Simple regex-like extraction: find "def name(" patterns and extract the function
         let chars: Vec<char> = source.chars().collect();
         let mut i = 0;
-        
+
         while i < chars.len() {
             // Look for "def " at current position
-            if i + 4 <= chars.len() && chars[i..i+4].iter().collect::<String>() == "def " {
+            if i + 4 <= chars.len() && chars[i..i + 4].iter().collect::<String>() == "def " {
                 let start = i;
                 // Find the end of the function (matching indentation or end of source)
                 let func_end = self.find_function_end(&chars, i);
                 let func_source: String = chars[start..func_end].iter().collect();
-                
+
                 // Extract function name
                 if let Some(name) = self.extract_function_name(&func_source) {
                     self.function_sources.insert(name.clone(), func_source);
                 }
-                
+
                 i = func_end;
             } else {
                 i += 1;
@@ -169,10 +169,10 @@ impl ReplSession {
     fn find_function_end(&self, chars: &[char], start: usize) -> usize {
         let mut i = start;
         let mut found_body = false;
-        
+
         // First, find the colon and get the indentation of the def line
         let def_line_indent = self.get_line_indent(chars, start);
-        
+
         while i < chars.len() {
             if chars[i] == ':' && !found_body {
                 found_body = true;
@@ -185,14 +185,16 @@ impl ReplSession {
                 }
                 continue;
             }
-            
+
             if found_body {
                 // Check indentation of current line
                 let line_start = i;
                 let line_indent = self.get_line_indent(chars, i);
-                
+
                 // Skip empty lines
-                if line_indent == chars.len() - line_start || chars[line_start..].iter().take_while(|&&c| c == '\n').count() > 0 {
+                if line_indent == chars.len() - line_start
+                    || chars[line_start..].iter().take_while(|&&c| c == '\n').count() > 0
+                {
                     while i < chars.len() && chars[i] != '\n' {
                         i += 1;
                     }
@@ -201,21 +203,24 @@ impl ReplSession {
                     }
                     continue;
                 }
-                
+
                 // If indentation is less than or equal to def line and not empty, function ended
                 if line_indent <= def_line_indent && line_indent < chars.len() - line_start {
                     // Check if this is a new def, class, or other top-level statement
                     let rest: String = chars[line_start..].iter().take(10).collect();
-                    if rest.trim().starts_with("def ") || rest.trim().starts_with("class ") || 
-                       rest.trim().starts_with("struct ") || rest.trim().starts_with("type ") {
+                    if rest.trim().starts_with("def ")
+                        || rest.trim().starts_with("class ")
+                        || rest.trim().starts_with("struct ")
+                        || rest.trim().starts_with("type ")
+                    {
                         return line_start;
                     }
                 }
             }
-            
+
             i += 1;
         }
-        
+
         i
     }
 
@@ -249,38 +254,47 @@ impl ReplSession {
         let lines: Vec<&str> = source.lines().collect();
         let mut in_function = false;
         let mut function_indent = 0;
-        
+
         for line in lines {
             // Calculate indentation
             let indent = line.chars().take_while(|c| *c == ' ' || *c == '\t').count();
             let trimmed = line.trim();
-            
+
             // Track function boundaries
             if trimmed.starts_with("def ") {
                 in_function = true;
                 function_indent = indent;
                 continue;
             }
-            
+
             // Check if we've exited the function (non-empty line at same or lower indent)
-            if in_function && !trimmed.is_empty() && indent <= function_indent && !trimmed.starts_with('#') {
+            if in_function
+                && !trimmed.is_empty()
+                && indent <= function_indent
+                && !trimmed.starts_with('#')
+            {
                 in_function = false;
             }
-            
+
             // Skip empty lines, comments, and lines inside functions
             if trimmed.is_empty() || trimmed.starts_with('#') || in_function {
                 continue;
             }
-            
+
             // Skip other top-level statements
-            if trimmed.starts_with("def ") || trimmed.starts_with("class ") || 
-               trimmed.starts_with("struct ") || trimmed.starts_with("if ") || 
-               trimmed.starts_with("while ") || trimmed.starts_with("for ") || 
-               trimmed.starts_with("return ") || trimmed.starts_with("print(") || 
-               trimmed.starts_with(":") {
+            if trimmed.starts_with("def ")
+                || trimmed.starts_with("class ")
+                || trimmed.starts_with("struct ")
+                || trimmed.starts_with("if ")
+                || trimmed.starts_with("while ")
+                || trimmed.starts_with("for ")
+                || trimmed.starts_with("return ")
+                || trimmed.starts_with("print(")
+                || trimmed.starts_with(":")
+            {
                 continue;
             }
-            
+
             // Look for "name = " pattern at top level
             if let Some(eq_pos) = trimmed.find(" = ") {
                 let name = trimmed[..eq_pos].trim();
