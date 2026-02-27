@@ -1,0 +1,24 @@
+# Benchmark 17: Fibonacci
+# Big Integer Benchmark - Tests arithmetic and iteration
+# Note: Uses n=50 due to i64 limits (Viper needs BigInt support for larger)
+
+def fibonacci(n):
+    a = 0
+    b = 1
+    i = 0
+    while i < n:
+        temp = a + b
+        a = b
+        b = temp
+        i = i + 1
+    return a
+
+def main():
+    N = 50  # Limited by i64 max (would need BigInt for 1,000,000)
+    
+    print("Computing Fibonacci(" + str(N) + ")...")
+    
+    result = fibonacci(N)
+    
+    print("Fibonacci(" + str(N) + ") = " + str(result))
+    print("Note: Viper needs BigInt support for fibonacci(1000000)")

@@ -1,0 +1,49 @@
+# Benchmark 66: BFS on Graph
+# Graph Theory Benchmark - Tests data structures and memory access
+# Note: Uses reduced graph size for current Viper capabilities
+
+def main():
+    NUM_NODES = 10000  # Reduced from 10M for feasibility
+    
+    print("Building graph with " + str(NUM_NODES) + " nodes...")
+    
+    # Build adjacency list as list of lists
+    graph = [[]] * NUM_NODES
+    
+    # Build a structured graph (grid-like)
+    i = 0
+    while i < NUM_NODES:
+        # Connect to nearby nodes
+        if i + 1 < NUM_NODES:
+            graph[i] = graph[i] + [i + 1]
+            graph[i + 1] = graph[i + 1] + [i]
+        if i + 2 < NUM_NODES:
+            graph[i] = graph[i] + [i + 2]
+            graph[i + 2] = graph[i + 2] + [i]
+        i = i + 1
+    
+    print("Running BFS from node 0...")
+    
+    # BFS
+    visited = [False] * NUM_NODES
+    queue = [0]
+    visited[0] = True
+    visited_count = 0
+    head = 0
+    
+    while head < len(queue):
+        node = queue[head]
+        head = head + 1
+        visited_count = visited_count + 1
+        
+        # Process neighbors
+        i = 0
+        while i < len(graph[node]):
+            neighbor = graph[node][i]
+            if not visited[neighbor]:
+                visited[neighbor] = True
+                queue = queue + [neighbor]
+            i = i + 1
+    
+    print("Visited " + str(visited_count) + " nodes")
+    print("Queue final size: " + str(len(queue)))

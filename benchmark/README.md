@@ -1,10 +1,12 @@
 # Viper Language Benchmark Suite
 
-A comprehensive benchmark suite comparing **Viper**, **C**, **Go**, and **Rust** across 15 different computational problems.
+A comprehensive benchmark suite comparing **Viper**, **C**, **Go**, and **Rust** across 22 different computational problems.
 
 ## Overview
 
 This benchmark suite tests various aspects of programming language performance:
+
+### Original Benchmarks (01-15)
 
 | # | Benchmark | Category | What it Tests |
 |---|-----------|----------|---------------|
@@ -24,6 +26,18 @@ This benchmark suite tests various aspects of programming language performance:
 | 14 | Champernowne | Number Theory | String conversion, concatenation |
 | 15 | Euler Sum | Numerical Analysis | Floating-point summation, precision |
 
+### New Benchmarks (16-96)
+
+| # | Benchmark | Category | What it Tests |
+|---|-----------|----------|---------------|
+| 16 | Factorial | Big Integer | Arbitrary precision arithmetic, memory |
+| 17 | Fibonacci (Big) | Big Integer | Arbitrary precision, iterative computation |
+| 26 | Monte Carlo Pi | Floating Point | FP performance, random numbers |
+| 41 | Matrix 1000×1000 | Linear Algebra | Memory bandwidth, vectorization |
+| 66 | BFS | Graph Theory | Data structures, memory access |
+| 86 | FFT | Signal Processing | Recursion, FP math, arrays |
+| 96 | Cellular Automata | Simulation | Array operations, parallel patterns |
+
 ## Directory Structure
 
 ```
@@ -35,13 +49,26 @@ benchmark/
 │   └── sieve.vp         # Viper implementation
 ├── 02_fibonacci/
 │   └── ...
-...
+├── 16_factorial/
+│   ├── factorial.c      # C (requires GMP)
+│   ├── factorial.go     # Go (big.Int)
+│   ├── factorial.rs     # Rust (num-bigint)
+│   └── factorial.vp     # Viper (i64 limited)
+├── 17_fibonacci_big/
+│   └── ... (same structure)
+├── 26_monte_carlo_pi/
+│   └── ...
+├── 41_matrix_1000/
+│   └── ...
+├── 66_bfs/
+│   └── ...
+├── 86_fft/
+│   └── ...
+├── 96_cellular_automata/
+│   └── ...
+├── Cargo.toml           # Rust workspace for new benchmarks
 ├── build_all.sh         # Build all benchmarks
 ├── run_all.sh           # Run all benchmarks
-├── build_c.sh           # Build C only
-├── build_go.sh          # Build Go only
-├── build_rust.sh        # Build Rust only
-├── build_viper.sh       # Build Viper only
 └── README.md            # This file
 ```
 
@@ -113,6 +140,13 @@ cd 01_prime_sieve
 | Mandelbrot | 1000×1000 | 200×200 | Nested loop perf |
 | N-Body | 500 bodies | 50 bodies | O(n²) complexity |
 | QuickSort | 100k | 10k | Recursion depth |
+| Factorial | 1,000,000 | 20 | Needs BigInt support |
+| Fibonacci (Big) | 1,000,000 | 50 | Needs BigInt support |
+| Monte Carlo Pi | 1B samples | 1M samples | Loop performance |
+| Matrix 1000×1000 | 1000×1000 | 200×200 | Memory/performance |
+| BFS | 10M nodes | 10K nodes | Memory limits |
+| FFT | 1M samples | 256 samples | Needs math functions |
+| Cellular Automata | 4096×4096 | 100×100 | Nested loop perf |
 
 When comparing results, consider these scale differences. **The goal is to identify performance characteristics and missing features, not raw speed comparison.**
 
@@ -150,14 +184,16 @@ This benchmark suite helps identify:
 
 Based on benchmark implementation:
 
-1. **No math functions** - `sqrt()`, `ln()`, `abs()` need builtins
-2. **No modulo for floats** - Limited numeric operations
-3. **No array slicing with step** - Limited list operations
-4. **No dictionaries/maps** - Must use alternative data structures
-5. **No string formatting** - Concatenation only
-6. **No struct types** - Using parallel arrays instead
-7. **No closures** - Limited functional programming
-8. **No standard library** - Missing common functions
+1. **No BigInt support** - Limited to i64/f64 ranges
+2. **No math functions** - `sqrt()`, `ln()`, `abs()`, `sin()`, `cos()` need builtins
+3. **No modulo for floats** - Limited numeric operations
+4. **No array slicing with step** - Limited list operations
+5. **No dictionaries/maps** - Must use alternative data structures
+6. **No string formatting** - Concatenation only
+7. **No struct types** - Using parallel arrays instead
+8. **No closures** - Limited functional programming
+9. **No standard library** - Missing common functions
+10. **No random number generation** - Must implement manually
 
 ## Contributing
 
