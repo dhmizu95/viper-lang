@@ -364,6 +364,11 @@ impl<'a> Lexer<'a> {
                         let quote_char = self.advance();
                         let s = self.read_raw_string(quote_char)?;
                         TokenKind::Str(s)
+                    } else if c == 'b' && (self.peek() == Some('"') || self.peek() == Some('\'')) {
+                        // Byte literal: b"bytes" or b'bytes'
+                        let quote_char = self.advance();
+                        let bytes = self.read_byte_string(quote_char)?;
+                        TokenKind::Bytes(bytes)
                     } else {
                         let mut ident = c.to_string();
                         while let Some(c) = self.peek() {
@@ -516,6 +521,93 @@ impl<'a> Lexer<'a> {
         }
 
         Ok(s)
+    }
+
+    fn read_byte_string(&mut self, quote: char) -> Result<Vec<u8>, String> {
+        let mut bytes = Vec::new();
+        let mut escaped = false;
+
+        loop {
+            match self.chars.peek() {
+                None => return Err("Unterminated byte string".to_string()),
+                Some(&c) => {
+                    let ch = c;
+                    if escaped {
+                        match ch {
+                            'n' => {
+                                bytes.push(b'\n');
+                                self.advance();
+                            }
+                            't' => {
+                                bytes.push(b'\t');
+                                self.advance();
+                            }
+                            'r' => {
+                                bytes.push(b'\r');
+                                self.advance();
+                            }
+                            '\\' => {
+                                bytes.push(b'\\');
+                                self.advance();
+                            }
+                            '\'' => {
+                                bytes.push(b'\'');
+                                self.advance();
+                            }
+                            '"' => {
+                                bytes.push(b'"');
+                                self.advance();
+                            }
+                            'x' => {
+                                // Hex escape: \x41
+                                self.advance(); // consume 'x'
+                                let mut hex = String::new();
+                                // Read exactly 2 hex digits
+                                for _ in 0..2 {
+                                    if let Some(h) = self.chars.peek() {
+                                        if h.is_ascii_hexdigit() {
+                                            hex.push(self.advance());
+                                        } else {
+                                            break;
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                if hex.len() == 2 {
+                                    let code = u8::from_str_radix(&hex, 16)
+                                        .map_err(|_| format!("Invalid hex escape: \\x{}", hex))?;
+                                    bytes.push(code);
+                                } else {
+                                    return Err(format!(
+                                        "Invalid hex escape: \\x{} (expected 2 hex digits, got {})",
+                                        hex,
+                                        hex.len()
+                                    ));
+                                }
+                            }
+                            _ => {
+                                bytes.push(ch as u8);
+                                self.advance();
+                            }
+                        }
+                        escaped = false;
+                    } else if ch == '\\' {
+                        escaped = true;
+                        self.advance();
+                    } else if ch == quote {
+                        self.advance();
+                        break;
+                    } else if !ch.is_ascii() {
+                        return Err("Byte strings must contain only ASCII characters".to_string());
+                    } else {
+                        bytes.push(self.advance() as u8);
+                    }
+                }
+            }
+        }
+
+        Ok(bytes)
     }
 
     fn read_number(&mut self, first: char) -> Result<TokenKind, String> {

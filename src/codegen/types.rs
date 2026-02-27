@@ -13,6 +13,7 @@ pub enum VarType {
     Float,
     Pointer,
     Bool,
+    Bytes,
 }
 
 impl VarType {
@@ -22,6 +23,7 @@ impl VarType {
             Type::F32 | Type::F64 => VarType::Float,
             Type::Bool => VarType::Bool,
             Type::BigInt => VarType::BigInt,
+            Type::Bytes => VarType::Bytes,
             Type::Str
             | Type::Chan(_)
             | Type::WaitGroup
@@ -51,6 +53,7 @@ impl<'ctx> TypeMapper<'ctx> {
             Type::Bool => self.context.bool_type().into(),
             Type::BigInt
             | Type::Str
+            | Type::Bytes
             | Type::Chan(_)
             | Type::WaitGroup
             | Type::List(_)

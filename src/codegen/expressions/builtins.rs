@@ -87,7 +87,26 @@ pub fn generate_print_call<'ctx>(
                 _ => false,
             };
 
-            if is_bigint_arg {
+            // Check if this is a bytes literal
+            let is_bytes_arg = match arg {
+                Expr::Bytes(_, _) => true,
+                Expr::Ident(name, _) => {
+                    state.variables.get(name).map_or(false, |v| v.var_type == VarType::Bytes)
+                }
+                _ => false,
+            };
+
+            if is_bytes_arg {
+                // Print bytes using vp_bytes_print
+                let print_func = state
+                    .module
+                    .get_function("vp_bytes_print")
+                    .ok_or_else(|| "vp_bytes_print not declared".to_string())?;
+                state
+                    .builder
+                    .build_call(print_func, &[val.into()], "print_bytes")
+                    .expect("vp_bytes_print");
+            } else if is_bigint_arg {
                 // Convert BigInt to string using vp_bigint_to_str
                 let to_str_func = state
                     .module

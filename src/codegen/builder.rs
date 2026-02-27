@@ -51,6 +51,31 @@ impl<'ctx> IRBuilder<'ctx> {
         global.as_pointer_value()
     }
 
+    /// Create a bytes constant (byte array without null terminator)
+    pub fn bytes_const(&self, module: &Module<'ctx>, bytes: &[u8]) -> PointerValue<'ctx> {
+        let len = if bytes.is_empty() { 1 } else { bytes.len() };
+        let bytes_type = self.context.i8_type().array_type(len as u32);
+        let global = module.add_global(bytes_type, None, "bytes");
+
+        let byte_values: Vec<_> = if bytes.is_empty() {
+            vec![self.context.i8_type().const_int(0, false)]
+        } else {
+            bytes
+                .iter()
+                .map(|&b| self.context.i8_type().const_int(b as u64, false))
+                .collect()
+        };
+
+        let const_array = self.context.i8_type().const_array(&byte_values);
+
+        global.set_initializer(&const_array);
+        global.set_constant(true);
+        global.set_unnamed_addr(true);
+        global.set_linkage(inkwell::module::Linkage::Private);
+
+        global.as_pointer_value()
+    }
+
     /// Build an addition
     pub fn build_add(
         &self,

@@ -352,6 +352,11 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
 
             Expr::FString(elements, span)
         }
+        TokenKind::Bytes(b) => {
+            let b = b.clone();
+            parser.advance();
+            Expr::Bytes(b, span)
+        }
         TokenKind::Bool(b) => {
             let b = *b;
             parser.advance();

@@ -170,6 +170,12 @@ pub(crate) fn generate_assign<'ctx>(
             _ => false,
         };
 
+        // Check if value is Bytes
+        let is_bytes = match value {
+            Expr::Bytes(_, _) => true,
+            _ => false,
+        };
+
         // Check if variable exists and get its info
         let var_exists = state.variables.contains_key(name);
 
@@ -191,6 +197,13 @@ pub(crate) fn generate_assign<'ctx>(
             if is_bigint {
                 if let Some(var_info) = state.variables.get_mut(name) {
                     var_info.var_type = VarType::BigInt;
+                }
+            }
+
+            // Update var_type if this is a Bytes assignment
+            if is_bytes {
+                if let Some(var_info) = state.variables.get_mut(name) {
+                    var_info.var_type = VarType::Bytes;
                 }
             }
 
@@ -235,6 +248,8 @@ pub(crate) fn generate_assign<'ctx>(
             // Use the is_bigint check defined earlier
             let var_type = if is_bigint {
                 VarType::BigInt
+            } else if is_bytes {
+                VarType::Bytes
             } else if val.is_float_value() {
                 VarType::Float
             } else if val.is_pointer_value() {

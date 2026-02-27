@@ -80,7 +80,12 @@ pub(crate) fn generate_declare<'ctx>(
         // Set reference type flag in escape analyzer
         state.set_reference_type(name, is_ref_type);
 
-        let var_type = if val.is_float_value() {
+        // Check if this is a Bytes literal
+        let is_bytes = matches!(expr, Expr::Bytes(_, _));
+
+        let var_type = if is_bytes {
+            VarType::Bytes
+        } else if val.is_float_value() {
             VarType::Float
         } else if val.is_pointer_value() {
             VarType::Pointer
