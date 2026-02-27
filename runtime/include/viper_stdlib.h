@@ -96,13 +96,13 @@ ViperList* vp_bitvec_create(void);
 ViperList* vp_bitvec_create_with_capacity(int64_t cap);
 ViperList* vp_bitvec_repeat(bool elem, int64_t count);
 void vp_bitvec_free(ViperList* vec);
-void vp_bitvec_append(ViperList* vec, bool value);
+void vp_bitvec_append(ViperList* vec, bool value);  /* always_inline in .c */
 void vp_bitvec_insert(ViperList* vec, int64_t index, bool value);
 bool vp_bitvec_remove(ViperList* vec, int64_t index);
 bool vp_bitvec_pop(ViperList* vec);
 void vp_bitvec_clear(ViperList* vec);
-bool vp_bitvec_get(ViperList* vec, int64_t index);
-void vp_bitvec_set(ViperList* vec, int64_t index, bool value);
+bool vp_bitvec_get(ViperList* vec, int64_t index);  /* always_inline in .c */
+void vp_bitvec_set(ViperList* vec, int64_t index, bool value);  /* always_inline in .c */
 bool vp_bitvec_contains(ViperList* vec, bool value);
 ViperList* vp_bitvec_copy(ViperList* vec);
 ViperList* vp_bitvec_slice(ViperList* vec, int64_t start, int64_t end, int64_t step);
