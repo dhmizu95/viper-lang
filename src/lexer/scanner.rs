@@ -646,17 +646,11 @@ impl<'a> Lexer<'a> {
                             break;
                         }
                     }
-                    // Parse as hex integer - try i64 first, fall back to BigInt
+                    // Parse as hex integer
                     if let Ok(v) = i64::from_str_radix(&s[2..], 16) {
                         return Ok(TokenKind::Int(v as i128));
                     } else {
-                        // For hex, we need to store the full string representation
-                        // Convert to decimal string for BigInt
-                        if let Ok(v) = u128::from_str_radix(&s[2..], 16) {
-                            return Ok(TokenKind::BigInt(v.to_string()));
-                        } else {
-                            return Err(format!("Hex literal too large: {}", s));
-                        }
+                        return Err(format!("Hex literal too large: {}", s));
                     }
                 }
                 'b' | 'B' => {
@@ -675,15 +669,11 @@ impl<'a> Lexer<'a> {
                     if s.len() < 3 {
                         return Err(format!("Invalid binary literal: {}", s));
                     }
-                    // Parse as binary integer - try i64 first, fall back to BigInt
+                    // Parse as binary integer
                     if let Ok(v) = i64::from_str_radix(&s[2..], 2) {
                         return Ok(TokenKind::Int(v as i128));
                     } else {
-                        if let Ok(v) = u128::from_str_radix(&s[2..], 2) {
-                            return Ok(TokenKind::BigInt(v.to_string()));
-                        } else {
-                            return Err(format!("Binary literal too large: {}", s));
-                        }
+                        return Err(format!("Binary literal too large: {}", s));
                     }
                 }
                 'o' | 'O' => {
@@ -702,15 +692,11 @@ impl<'a> Lexer<'a> {
                     if s.len() < 3 {
                         return Err(format!("Invalid octal literal: {}", s));
                     }
-                    // Parse as octal integer - try i64 first, fall back to BigInt
+                    // Parse as octal integer
                     if let Ok(v) = i64::from_str_radix(&s[2..], 8) {
                         return Ok(TokenKind::Int(v as i128));
                     } else {
-                        if let Ok(v) = u128::from_str_radix(&s[2..], 8) {
-                            return Ok(TokenKind::BigInt(v.to_string()));
-                        } else {
-                            return Err(format!("Octal literal too large: {}", s));
-                        }
+                        return Err(format!("Octal literal too large: {}", s));
                     }
                 }
                 _ => {}
@@ -774,12 +760,9 @@ impl<'a> Lexer<'a> {
         if is_float {
             Ok(TokenKind::Float(s.parse().unwrap()))
         } else {
-            // Try i64 first; fall back to BigInt for large literals
-            if let Ok(v) = s.parse::<i64>() {
-                Ok(TokenKind::Int(v as i128))
-            } else {
-                Ok(TokenKind::BigInt(s))
-            }
+            Ok(TokenKind::Int(s.parse::<i128>().map_err(|_| {
+                format!("Integer literal too large: {}", s)
+            })?))
         }
     }
 

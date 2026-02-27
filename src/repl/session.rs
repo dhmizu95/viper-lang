@@ -323,10 +323,6 @@ impl ReplSession {
                 // We can't easily store the string value in the shadow store
                 self.str_vars.insert(name.to_string(), ptr::null_mut());
             }
-            Expr::BigInt(_, _) => {
-                // BigInt is a pointer type, just track existence
-                self.str_vars.insert(name.to_string(), ptr::null_mut());
-            }
             Expr::List { .. } | Expr::ListComprehension { .. } => {
                 // List type, just track existence
                 self.str_vars.insert(name.to_string(), ptr::null_mut());

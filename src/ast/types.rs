@@ -10,8 +10,6 @@ pub enum Type {
     I32,
     /// 64-bit integer
     I64,
-    /// Arbitrary precision integer
-    BigInt,
     /// 32-bit float
     F32,
     /// 64-bit float
@@ -54,14 +52,11 @@ pub enum Type {
 
 impl Type {
     pub fn is_numeric(&self) -> bool {
-        matches!(
-            self,
-            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::BigInt | Type::F32 | Type::F64
-        )
+        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64)
     }
 
     pub fn is_integer(&self) -> bool {
-        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::BigInt)
+        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64)
     }
 
     pub fn is_float(&self) -> bool {
@@ -93,7 +88,6 @@ impl Type {
                 | Type::I16
                 | Type::I32
                 | Type::I64
-                | Type::BigInt
                 | Type::F32
                 | Type::F64
                 | Type::Bool
@@ -117,7 +111,6 @@ impl Type {
             | Type::I16
             | Type::I32
             | Type::I64
-            | Type::BigInt
             | Type::F32
             | Type::F64
             | Type::Bool
@@ -138,7 +131,6 @@ impl std::fmt::Display for Type {
             Type::I16 => write!(f, "i16"),
             Type::I32 => write!(f, "i32"),
             Type::I64 => write!(f, "i64"),
-            Type::BigInt => write!(f, "BigInt"),
             Type::F32 => write!(f, "f32"),
             Type::F64 => write!(f, "f64"),
             Type::Bool => write!(f, "bool"),

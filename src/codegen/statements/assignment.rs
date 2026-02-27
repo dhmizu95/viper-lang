@@ -144,32 +144,6 @@ pub(crate) fn generate_assign<'ctx>(
             state.dict_vars.remove(name);
         }
 
-        // Check if value is BigInt before borrowing state
-        // BigInt values are pointers from BigInt literals or operations
-        // We detect BigInt by checking the expression type and value type
-        let is_bigint = match value {
-            Expr::BigInt(_, _) => true,
-            Expr::BinOp { op, .. } => {
-                // Arithmetic operations on BigInts produce BigInt results
-                matches!(
-                    op,
-                    crate::ast::BinOp::Add
-                        | crate::ast::BinOp::Sub
-                        | crate::ast::BinOp::Mul
-                        | crate::ast::BinOp::Div
-                        | crate::ast::BinOp::Mod
-                        | crate::ast::BinOp::Pow
-                ) && val.is_pointer_value()
-            }
-            Expr::UnaryOp { op, operand, .. } => {
-                // Negation of BigInt produces BigInt
-                matches!(op, crate::ast::UnaryOp::Neg)
-                    && matches!(operand.as_ref(), Expr::BigInt(_, _))
-                    && val.is_pointer_value()
-            }
-            _ => false,
-        };
-
         // Check if value is Bytes
         let is_bytes = match value {
             Expr::Bytes(_, _) => true,
@@ -187,17 +161,9 @@ pub(crate) fn generate_assign<'ctx>(
 
             {
                 let var_info = state.variables.get(name).unwrap();
-                old_is_ref =
-                    var_info.var_type == VarType::Pointer || var_info.var_type == VarType::BigInt;
+                old_is_ref = var_info.var_type == VarType::Pointer;
                 old_needs_arc = state.needs_arc(name);
                 storage = var_info.storage.clone();
-            }
-
-            // Update var_type if this is a BigInt assignment
-            if is_bigint {
-                if let Some(var_info) = state.variables.get_mut(name) {
-                    var_info.var_type = VarType::BigInt;
-                }
             }
 
             // Update var_type if this is a Bytes assignment
@@ -245,10 +211,8 @@ pub(crate) fn generate_assign<'ctx>(
             // Set reference type flag in escape analyzer
             state.set_reference_type(name, is_ref_type);
 
-            // Use the is_bigint check defined earlier
-            let var_type = if is_bigint {
-                VarType::BigInt
-            } else if is_bytes {
+            // Determine variable type
+            let var_type = if is_bytes {
                 VarType::Bytes
             } else if val.is_float_value() {
                 VarType::Float

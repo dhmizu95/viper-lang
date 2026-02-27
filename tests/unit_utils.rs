@@ -139,7 +139,6 @@ fn test_mangle_all_primitive_types() {
     assert_eq!(mangle_function_name("fn", &[Type::I16]), "fn_i16");
     assert_eq!(mangle_function_name("fn", &[Type::I32]), "fn_i32");
     assert_eq!(mangle_function_name("fn", &[Type::I64]), "fn_i64");
-    assert_eq!(mangle_function_name("fn", &[Type::BigInt]), "fn_bigint");
     assert_eq!(mangle_function_name("fn", &[Type::F32]), "fn_f32");
     assert_eq!(mangle_function_name("fn", &[Type::F64]), "fn_f64");
     assert_eq!(mangle_function_name("fn", &[Type::Bool]), "fn_bool");

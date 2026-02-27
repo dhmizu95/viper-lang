@@ -59,7 +59,6 @@ pub fn generate_tuple<'ctx>(
 pub fn infer_expr_type(expr: &Expr) -> Type {
     match expr {
         Expr::Int(_, _) => Type::I64,
-        Expr::BigInt(_, _) => Type::BigInt,
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
@@ -120,19 +119,6 @@ pub fn generate_expr<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     match expr {
         Expr::Int(n, _) => Ok(state.ir_builder.i64_const(*n).into()),
-        Expr::BigInt(s, _) => {
-            // Create BigInt from string literal
-            let str_val = state.ir_builder.string_const(state.module, s);
-            let create_func = state
-                .module
-                .get_function("vp_bigint_from_str")
-                .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
-            let result = state
-                .ir_builder
-                .build_call(state.builder, create_func, &[str_val.into()], "bigint_create")
-                .unwrap();
-            Ok(result)
-        }
         Expr::Float(n, _) => Ok(state.ir_builder.f64_const(*n).into()),
         Expr::Bool(b, _) => Ok(state.ir_builder.bool_const(*b).into()),
         Expr::None(_) => Ok(state.ir_builder.i64_const(0).into()),
@@ -209,7 +195,7 @@ pub fn generate_expr<'ctx>(
                                 let f64_type = state.context.f64_type();
                                 Ok(state.builder.build_load(f64_type, *alloca, name).expect("load"))
                             }
-                            VarType::Pointer | VarType::BigInt | VarType::Bytes => {
+                            VarType::Pointer | VarType::Bytes => {
                                 let ptr_type =
                                     state.context.ptr_type(inkwell::AddressSpace::default());
                                 Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load"))

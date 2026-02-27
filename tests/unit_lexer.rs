@@ -101,7 +101,6 @@ fn test_indent_stack_depth() {
 #[test]
 fn test_token_kind_display_literals() {
     assert_eq!(format!("{}", TokenKind::Int(42)), "Int(42)");
-    assert_eq!(format!("{}", TokenKind::BigInt("12345678901234567890".to_string())), "BigInt(12345678901234567890)");
     assert_eq!(format!("{}", TokenKind::Float(3.14)), "Float(3.14)");
     assert_eq!(format!("{}", TokenKind::Str("hello".to_string())), "Str(hello)");
     assert_eq!(format!("{}", TokenKind::FString("world".to_string())), "FString(world)");

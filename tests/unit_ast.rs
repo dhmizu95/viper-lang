@@ -14,10 +14,9 @@ fn test_type_is_numeric() {
     assert!(Type::I16.is_numeric());
     assert!(Type::I32.is_numeric());
     assert!(Type::I64.is_numeric());
-    assert!(Type::BigInt.is_numeric());
     assert!(Type::F32.is_numeric());
     assert!(Type::F64.is_numeric());
-    
+
     assert!(!Type::Bool.is_numeric());
     assert!(!Type::Str.is_numeric());
     assert!(!Type::None.is_numeric());
@@ -29,8 +28,7 @@ fn test_type_is_integer() {
     assert!(Type::I16.is_integer());
     assert!(Type::I32.is_integer());
     assert!(Type::I64.is_integer());
-    assert!(Type::BigInt.is_integer());
-    
+
     assert!(!Type::F32.is_integer());
     assert!(!Type::F64.is_integer());
     assert!(!Type::Bool.is_integer());
@@ -40,9 +38,8 @@ fn test_type_is_integer() {
 fn test_type_is_float() {
     assert!(Type::F32.is_float());
     assert!(Type::F64.is_float());
-    
+
     assert!(!Type::I64.is_float());
-    assert!(!Type::BigInt.is_float());
 }
 
 #[test]
@@ -65,12 +62,11 @@ fn test_type_is_hashable() {
     assert!(Type::I16.is_hashable());
     assert!(Type::I32.is_hashable());
     assert!(Type::I64.is_hashable());
-    assert!(Type::BigInt.is_hashable());
     assert!(Type::F32.is_hashable());
     assert!(Type::F64.is_hashable());
     assert!(Type::Bool.is_hashable());
     assert!(Type::Str.is_hashable());
-    
+
     assert!(!Type::List(Box::new(Type::I64)).is_hashable());
     assert!(!Type::Dict(Box::new(Type::I64), Box::new(Type::I64)).is_hashable());
 }
@@ -105,7 +101,6 @@ fn test_type_display_primitives() {
     assert_eq!(format!("{}", Type::I16), "i16");
     assert_eq!(format!("{}", Type::I32), "i32");
     assert_eq!(format!("{}", Type::I64), "i64");
-    assert_eq!(format!("{}", Type::BigInt), "BigInt");
     assert_eq!(format!("{}", Type::F32), "f32");
     assert_eq!(format!("{}", Type::F64), "f64");
     assert_eq!(format!("{}", Type::Bool), "bool");
@@ -286,12 +281,6 @@ fn test_expr_span_str() {
 #[test]
 fn test_expr_span_bool() {
     let expr = Expr::Bool(true, test_span());
-    assert_eq!(expr.span(), test_span());
-}
-
-#[test]
-fn test_expr_span_bigint() {
-    let expr = Expr::BigInt("12345678901234567890".to_string(), test_span());
     assert_eq!(expr.span(), test_span());
 }
 

@@ -418,8 +418,7 @@ impl EscapeAnalyzer {
             | Expr::Str(_, _)
             | Expr::Bytes(_, _)
             | Expr::Bool(_, _)
-            | Expr::None(_)
-            | Expr::BigInt(_, _) => {
+            | Expr::None(_) => {
                 // Literals don't escape
             }
             Expr::Ident(name, _) => {

@@ -9,7 +9,6 @@ pub mod dicts;
 pub mod memory;
 pub mod math;
 pub mod concurrency;
-pub mod bigint;
 
 pub use print::declare_print_functions;
 pub use lists::declare_list_functions;
@@ -17,7 +16,6 @@ pub use dicts::declare_dict_functions;
 pub use memory::declare_memory_functions;
 pub use math::{declare_math_functions, declare_hash_functions};
 pub use concurrency::declare_concurrency_functions;
-pub use bigint::declare_bigint_functions;
 
 /// Declare all runtime library functions
 pub fn declare_runtime_functions<'ctx>(
@@ -31,6 +29,5 @@ pub fn declare_runtime_functions<'ctx>(
     declare_math_functions(context, module)?;
     declare_hash_functions(context, module)?;
     declare_concurrency_functions(context, module)?;
-    declare_bigint_functions(context, module)?;
     Ok(())
 }

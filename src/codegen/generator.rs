@@ -593,10 +593,9 @@ impl<'ctx> CodeGen<'ctx> {
             | Expr::Bool(..)
             | Expr::Str(..)
             | Expr::Bytes(..)
-            | Expr::None(..)
-            | Expr::BigInt(..) => true,
+            | Expr::None(..) => true,
             Expr::UnaryOp { operand, .. } => {
-                matches!(operand.as_ref(), Expr::Int(..) | Expr::Float(..) | Expr::BigInt(..))
+                matches!(operand.as_ref(), Expr::Int(..) | Expr::Float(..))
             }
             _ => false,
         }

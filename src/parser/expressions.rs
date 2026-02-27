@@ -266,11 +266,6 @@ impl<'a> PrattParser<'a> {
                 }
                 Ok(Expr::Int(n as i64, span))
             }
-            TokenKind::BigInt(s) => {
-                let s = s.clone();
-                self.advance();
-                Ok(Expr::BigInt(s, span))
-            }
             TokenKind::Float(n) => {
                 let n = *n;
                 self.advance();

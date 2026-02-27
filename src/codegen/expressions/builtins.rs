@@ -63,30 +63,6 @@ pub fn generate_print_call<'ctx>(
                 _ => false,
             };
 
-            // Check if this is a BigInt (including BigInt operations)
-            let is_bigint_arg = match arg {
-                Expr::BigInt(_, _) => true,
-                Expr::Ident(name, _) => {
-                    state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
-                }
-                // BigInt operations produce BigInt results
-                Expr::BinOp { left, right, .. } => {
-                    // Check if either operand is BigInt
-                    let left_is_bigint = matches!(left.as_ref(), Expr::BigInt(_, _))
-                        || state
-                            .variables
-                            .get(left.as_ident().unwrap_or(&String::new()))
-                            .map_or(false, |v| v.var_type == VarType::BigInt);
-                    let right_is_bigint = matches!(right.as_ref(), Expr::BigInt(_, _))
-                        || state
-                            .variables
-                            .get(right.as_ident().unwrap_or(&String::new()))
-                            .map_or(false, |v| v.var_type == VarType::BigInt);
-                    left_is_bigint || right_is_bigint
-                }
-                _ => false,
-            };
-
             // Check if this is a bytes literal
             let is_bytes_arg = match arg {
                 Expr::Bytes(_, _) => true,
@@ -106,26 +82,6 @@ pub fn generate_print_call<'ctx>(
                     .builder
                     .build_call(print_func, &[val.into()], "print_bytes")
                     .expect("vp_bytes_print");
-            } else if is_bigint_arg {
-                // Convert BigInt to string using vp_bigint_to_str
-                let to_str_func = state
-                    .module
-                    .get_function("vp_bigint_to_str")
-                    .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
-                let str_val = state
-                    .ir_builder
-                    .build_call(state.builder, to_str_func, &[val.into()], "bigint_to_str")
-                    .unwrap();
-
-                // Print the string
-                let print_func = state
-                    .module
-                    .get_function("vp_print_str")
-                    .ok_or_else(|| "vp_print_str not declared".to_string())?;
-                state
-                    .builder
-                    .build_call(print_func, &[str_val.into()], "print_bigint_str")
-                    .expect("vp_print_str");
             } else if is_dict_arg {
                 let print_func = state
                     .module
@@ -390,28 +346,6 @@ pub fn generate_str_call<'ctx>(
     let arg = &args[0];
     let arg_val = generate_expr(state, arg)?;
 
-    // Check if this is a BigInt
-    let is_bigint = match arg {
-        Expr::BigInt(_, _) => true,
-        Expr::Ident(name, _) => {
-            state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
-        }
-        _ => false,
-    };
-
-    if is_bigint {
-        // Convert BigInt to string using vp_bigint_to_str
-        let to_str_func = state
-            .module
-            .get_function("vp_bigint_to_str")
-            .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
-        let result = state
-            .ir_builder
-            .build_call(state.builder, to_str_func, &[arg_val.into()], "bigint_to_str")
-            .unwrap();
-        return Ok(result);
-    }
-
     let func_name = if arg_val.is_float_value() {
         "vp_str_from_f64"
     } else if arg_val.is_pointer_value() {
@@ -566,37 +500,8 @@ pub fn generate_hash_call<'ctx>(
     let arg = &args[0];
     let arg_val = generate_expr(state, arg)?;
 
-    // Check if this is a BigInt
-    let is_bigint = match arg {
-        Expr::BigInt(_, _) => true,
-        Expr::Ident(name, _) => {
-            state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
-        }
-        _ => false,
-    };
-
     // Choose the appropriate hash function based on the type
-    let hash_func_name = if is_bigint {
-        // For BigInt, hash the string representation
-        let to_str_func = state
-            .module
-            .get_function("vp_bigint_to_str")
-            .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
-        let str_val = state
-            .ir_builder
-            .build_call(state.builder, to_str_func, &[arg_val.into()], "bigint_to_str")
-            .unwrap();
-
-        let hash_func = state
-            .module
-            .get_function("vp_hash_str")
-            .ok_or_else(|| "vp_hash_str not declared".to_string())?;
-        let result = state
-            .ir_builder
-            .build_call(state.builder, hash_func, &[str_val.into()], "hash_bigint")
-            .unwrap();
-        return Ok(result);
-    } else if arg_val.is_float_value() {
+    let hash_func_name = if arg_val.is_float_value() {
         "vp_hash_f64"
     } else if arg_val.is_int_value() && arg_val.get_type().into_int_type().get_bit_width() == 1 {
         // Check for bool (i1) before general i64

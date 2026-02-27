@@ -3,11 +3,9 @@
 use crate::ast::{BinOp, Expr, UnaryOp};
 use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
-use crate::codegen::variables::VarType;
 use inkwell::values::BasicValueEnum;
 
 pub mod arithmetic;
-pub mod bigint;
 pub mod comparison;
 pub mod incdec;
 pub mod logical;
@@ -36,21 +34,6 @@ pub fn generate_binop<'ctx>(
     if matches!(op, BinOp::NullCoalesce) {
         return logical::generate_null_coalesce_op(state, left, right);
     }
-
-    // Helper to check if an expression is BigInt type
-    let expr_is_bigint = |expr: &Expr, state: &CodeGenState<'_, 'ctx>| -> bool {
-        match expr {
-            Expr::BigInt(_, _) => true,
-            Expr::Ident(name, _) => {
-                state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
-            }
-            _ => false,
-        }
-    };
-
-    // Check if either operand is BigInt BEFORE generating code
-    let lhs_is_bigint = expr_is_bigint(left, state);
-    let rhs_is_bigint = expr_is_bigint(right, state);
 
     // Special case: Handle list * int for list/array literals: [elem] * n
     // This must be checked BEFORE generating the left operand to avoid generating
@@ -127,10 +110,6 @@ pub fn generate_binop<'ctx>(
     // Generate both operands for other operations
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
-
-    if lhs_is_bigint || rhs_is_bigint {
-        return bigint::generate_bigint_binop(state, left, op, right, lhs_val, rhs_val);
-    }
 
     // Handle string concatenation with + operator
     if *op == BinOp::Add {
@@ -256,32 +235,6 @@ pub fn generate_unary<'ctx>(
     }
 
     let val = generate_expr(state, operand)?;
-
-    // Check if this is a BigInt (pointer value from BigInt expression)
-    let is_bigint = match operand {
-        Expr::BigInt(_, _) => true,
-        Expr::Ident(name, _) => {
-            state.variables.get(name).map_or(false, |v| v.var_type == VarType::BigInt)
-        }
-        Expr::UnaryOp { operand, .. } => {
-            // Check if operand is BigInt
-            matches!(operand.as_ref(), Expr::BigInt(_, _))
-        }
-        _ => false,
-    };
-
-    if is_bigint && *op == UnaryOp::Neg {
-        // Call vp_bigint_neg for BigInt negation
-        let neg_func = state
-            .module
-            .get_function("vp_bigint_neg")
-            .ok_or_else(|| "vp_bigint_neg not declared".to_string())?;
-        let result = state
-            .ir_builder
-            .build_call(state.builder, neg_func, &[val.into()], "bigint_neg")
-            .unwrap();
-        return Ok(result);
-    }
 
     if val.is_float_value() {
         let float_val = val.into_float_value();
