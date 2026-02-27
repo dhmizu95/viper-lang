@@ -116,6 +116,16 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         }
     }
 
+    /// Check if a variable is shared across threads
+    pub fn is_thread_shared(&self, var_name: &str) -> bool {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
+        {
+            analyzer.is_thread_shared(func, var_name)
+        } else {
+            true // Default to atomic ARC safely
+        }
+    }
+
     /// Set reference type flag for a variable
     pub fn set_reference_type(&mut self, var_name: &str, is_ref: bool) {
         if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_mut(), self.current_function)
@@ -146,7 +156,17 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Generate ARC retain call for a value
     pub fn build_retain(&self, value: inkwell::values::BasicValueEnum<'ctx>, name: &str) {
-        if let Some(retain_func) = self.module.get_function("vp_retain") {
+        if !self.needs_arc(name) {
+            return;
+        }
+
+        let func_name = if self.is_thread_shared(name) {
+            "vp_retain"
+        } else {
+            "vp_retain_local"
+        };
+
+        if let Some(retain_func) = self.module.get_function(func_name) {
             self.builder
                 .build_call(retain_func, &[value.into()], &format!("retain_{}", name))
                 .expect("build retain call");
@@ -155,16 +175,32 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Generate ARC release call for a value (with null destructor)
     pub fn build_release(&self, value: inkwell::values::BasicValueEnum<'ctx>, name: &str) {
-        if let Some(release_func) = self.module.get_function("vp_release") {
-            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-            let null_ptr = ptr_type.const_null();
-            self.builder
-                .build_call(
-                    release_func,
-                    &[value.into(), null_ptr.into()],
-                    &format!("release_{}", name),
-                )
-                .expect("build release call");
+        if !self.needs_arc(name) {
+            return;
+        }
+
+        if self.is_thread_shared(name) {
+            if let Some(release_func) = self.module.get_function("vp_release") {
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let null_ptr = ptr_type.const_null();
+                self.builder
+                    .build_call(
+                        release_func,
+                        &[value.into(), null_ptr.into()],
+                        &format!("release_{}", name),
+                    )
+                    .expect("build release call");
+            }
+        } else {
+            if let Some(release_func) = self.module.get_function("vp_release_local") {
+                self.builder
+                    .build_call(
+                        release_func,
+                        &[value.into()],
+                        &format!("release_{}", name),
+                    )
+                    .expect("build release_local call");
+            }
         }
     }
 

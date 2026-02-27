@@ -13,6 +13,7 @@ pub enum VarStorage<'ctx> {
 }
 
 /// Variable info: stores the storage strategy and LLVM type
+#[derive(Debug, Clone)]
 pub struct VarInfo<'ctx> {
     pub storage: VarStorage<'ctx>,
     pub var_type: VarType,

@@ -494,10 +494,67 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Generate ARC cleanup code for local variables at function exit
-    fn generate_arc_cleanup(&mut self, _function_name: &str) {
-        // ARC cleanup is disabled: channels, lists, and other pointer types currently
-        // don't have an ARC header, so calling vp_release on them causes a segfault.
-        // When proper ARC allocation is wired up for user objects, re-enable this.
+    fn generate_arc_cleanup(&mut self, function_name: &str) {
+        // Find variables that need cleanup
+        let vars_needing_cleanup = self.escape_analyzer.get_vars_needing_cleanup(function_name);
+        if vars_needing_cleanup.is_empty() {
+            return;
+        }
+
+        let mut local_vars = Vec::new();
+        let mut shared_vars = Vec::new();
+
+        for var_name in vars_needing_cleanup {
+            if let Some(var_info) = self.variables.get(var_name) {
+                // If the variable might be shared across threads, it needs atomic release
+                if self.escape_analyzer.is_thread_shared(function_name, var_name) {
+                    shared_vars.push(var_info.clone());
+                } else {
+                    local_vars.push(var_info.clone());
+                }
+            }
+        }
+
+        let i64_type = self.context.i64_type();
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+
+        // Helper function for batch release
+        let emit_batch = |vars: &[VarInfo<'ctx>], batch_func_name: &str, builder: &inkwell::builder::Builder<'ctx>| {
+            if vars.is_empty() {
+                return;
+            }
+            if let Some(release_batch_func) = self.module.get_function(batch_func_name) {
+                let array_size = i64_type.const_int(vars.len() as u64, false);
+                // Allocate array of pointers for the batch release
+                let ptrs_array = builder.build_array_alloca(ptr_type, array_size, "batch_ptrs").unwrap();
+
+                for (i, var) in vars.iter().enumerate() {
+                    let index = i64_type.const_int(i as u64, false);
+                    let gep = unsafe {
+                        builder.build_in_bounds_gep(ptr_type, ptrs_array, &[index], "gep").unwrap()
+                    };
+
+                    // Load the pointer from the variable
+                    let value = match &var.storage {
+                        crate::codegen::variables::VarStorage::Stack(ptr) => {
+                            builder.build_load(ptr_type, *ptr, &format!("load_var_{}", i)).unwrap()
+                        }
+                        crate::codegen::variables::VarStorage::Register(val) => *val,
+                    };
+
+                    if let inkwell::values::BasicValueEnum::PointerValue(alloca_ptr) = value {
+                        builder.build_store(gep, alloca_ptr).unwrap();
+                    }
+                }
+
+                builder.build_call(release_batch_func, &[ptrs_array.into(), array_size.into()], "call_batch").unwrap();
+            }
+        };
+
+        // Enable ARC cleanup for local variables at function exit
+        // This releases all reference-counted objects when the function returns
+        emit_batch(&local_vars, "vp_release_batch_local", &self.builder);
+        emit_batch(&shared_vars, "vp_release_batch", &self.builder);
     }
 
     /// Create a global constant from a literal expression

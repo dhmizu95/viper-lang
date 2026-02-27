@@ -27,18 +27,21 @@ use std::collections::{HashMap, HashSet};
 pub enum EscapeState {
     /// Variable does not escape - safe for stack allocation
     None,
-    /// Variable may escape - conservative estimate
+    /// Variable escapes to the calling function (returned) - needs ARC, but is thread-local
+    Returned,
+    /// Variable may escape into unknown contexts - conservative estimate, requires atomic ARC
     MayEscape,
-    /// Variable definitely escapes - requires heap allocation
-    Escapes,
+    /// Variable definitely escapes to global or concurrent context - requires atomic ARC
+    Shared,
 }
 
 impl EscapeState {
     /// Merge two escape states (take the more conservative one)
     pub fn merge(self, other: EscapeState) -> EscapeState {
         match (self, other) {
-            (EscapeState::Escapes, _) | (_, EscapeState::Escapes) => EscapeState::Escapes,
+            (EscapeState::Shared, _) | (_, EscapeState::Shared) => EscapeState::Shared,
             (EscapeState::MayEscape, _) | (_, EscapeState::MayEscape) => EscapeState::MayEscape,
+            (EscapeState::Returned, _) | (_, EscapeState::Returned) => EscapeState::Returned,
             (EscapeState::None, EscapeState::None) => EscapeState::None,
         }
     }
@@ -179,10 +182,13 @@ impl EscapeAnalyzer {
             self.analyze_stmt(stmt, &mut ctx);
         }
 
-        // Mark returned variables as escaping
+        // Mark returned variables as EscapesToParent (Returned)
         for var_name in &self.returned_vars {
             if let Some(var_info) = ctx.variables.get_mut(var_name) {
-                var_info.escape_state = EscapeState::Escapes;
+                // If it's already Shared or MayEscape, keep it that way
+                if var_info.escape_state == EscapeState::None {
+                    var_info.escape_state = EscapeState::Returned;
+                }
             }
             ctx.escaping_params.insert(var_name.clone());
         }
@@ -217,15 +223,17 @@ impl EscapeAnalyzer {
             }
             Stmt::Global { names, .. } => {
                 // Global keyword marks variables as module-level
-                // They escape by definition - mark them as escaping
+                // They escape by definition - mark them as Shared
                 for name in names {
-                    // Mark as escaping by adding to variables with Escapes state
                     ctx.variables.insert(name.clone(), VariableEscapeInfo::new(None, true, 0));
+                    if let Some(var_info) = ctx.variables.get_mut(name) {
+                        var_info.escape_state = EscapeState::Shared;
+                    }
                 }
             }
             Stmt::Const { value, .. } => {
                 // Constants are immutable, but their values may escape
-                self.analyze_expr(value, ctx, EscapeState::Escapes);
+                self.analyze_expr(value, ctx, EscapeState::Shared);
             }
             Stmt::Return { value, .. } => {
                 if let Some(expr) = value {
@@ -281,8 +289,8 @@ impl EscapeAnalyzer {
                 }
             }
             Stmt::Task { call, .. } => {
-                // Task spawns concurrent work - conservative
-                self.analyze_expr(call, ctx, EscapeState::MayEscape);
+                // Task spawns concurrent work - variables implicitly captured escape to a thread
+                self.analyze_expr(call, ctx, EscapeState::Shared);
             }
             Stmt::Import { .. }
             | Stmt::FromImport { .. }
@@ -315,7 +323,7 @@ impl EscapeAnalyzer {
                 // Check if assigning to a global
                 if self.global_vars.contains(name) {
                     // Value escapes to global scope
-                    self.analyze_expr(value, ctx, EscapeState::Escapes);
+                    self.analyze_expr(value, ctx, EscapeState::Shared);
                 } else {
                     // Local assignment - analyze value
                     self.analyze_expr(value, ctx, EscapeState::None);
@@ -349,11 +357,8 @@ impl EscapeAnalyzer {
     fn analyze_return_expr(&mut self, expr: &Expr, ctx: &mut FunctionEscapeContext) {
         match expr {
             Expr::Ident(name, _) => {
-                // Returning a variable - mark as escaping
+                // Returning a variable - mark as escaping to parent
                 self.returned_vars.insert(name.clone());
-                if let Some(var_info) = ctx.variables.get_mut(name) {
-                    var_info.escape_state = EscapeState::Escapes;
-                }
             }
             Expr::List { elements, .. } => {
                 // List literal being returned - elements escape
@@ -529,7 +534,17 @@ impl EscapeAnalyzer {
     pub fn needs_arc(&self, function_name: &str, var_name: &str) -> bool {
         self.get_variable_escape_info(function_name, var_name)
             .map(|info| info.needs_arc())
-            .unwrap_or(false)
+            .unwrap_or(true) // Default to true if unknown
+    }
+
+    /// Check if a variable is shared across threads
+    /// Returns true if it escapes to a global or thread (Shared or MayEscape)
+    pub fn is_thread_shared(&self, function_name: &str, var_name: &str) -> bool {
+        self.get_variable_escape_info(function_name, var_name)
+            .map(|info| {
+                matches!(info.escape_state, EscapeState::Shared | EscapeState::MayEscape)
+            })
+            .unwrap_or(true) // Default to shared if unknown
     }
 
     /// Check if a variable needs ARC cleanup at function exit
@@ -586,16 +601,17 @@ mod tests {
     fn test_escape_state_merge() {
         assert_eq!(EscapeState::None.merge(EscapeState::None), EscapeState::None);
         assert_eq!(EscapeState::None.merge(EscapeState::MayEscape), EscapeState::MayEscape);
-        assert_eq!(EscapeState::None.merge(EscapeState::Escapes), EscapeState::Escapes);
-        assert_eq!(EscapeState::MayEscape.merge(EscapeState::Escapes), EscapeState::Escapes);
-        assert_eq!(EscapeState::Escapes.merge(EscapeState::None), EscapeState::Escapes);
+        assert_eq!(EscapeState::None.merge(EscapeState::Shared), EscapeState::Shared);
+        assert_eq!(EscapeState::MayEscape.merge(EscapeState::Shared), EscapeState::Shared);
+        assert_eq!(EscapeState::Shared.merge(EscapeState::None), EscapeState::Shared);
     }
 
     #[test]
     fn test_can_stack_allocate() {
         assert!(EscapeState::None.can_stack_allocate());
+        assert!(!EscapeState::Returned.can_stack_allocate());
         assert!(!EscapeState::MayEscape.can_stack_allocate());
-        assert!(!EscapeState::Escapes.can_stack_allocate());
+        assert!(!EscapeState::Shared.can_stack_allocate());
     }
 
     #[test]
@@ -621,7 +637,7 @@ mod tests {
 
         // Variable x escapes because it's returned
         let info = analyzer.get_variable_escape_info("foo", "x").unwrap();
-        assert_eq!(info.escape_state, EscapeState::Escapes);
+        assert_eq!(info.escape_state, EscapeState::Returned);
     }
 
     #[test]
@@ -663,6 +679,6 @@ mod tests {
 
         // y escapes because it's returned
         let y_info = analyzer.get_variable_escape_info("foo", "y").unwrap();
-        assert_eq!(y_info.escape_state, EscapeState::Escapes);
+        assert_eq!(y_info.escape_state, EscapeState::Returned);
     }
 }
