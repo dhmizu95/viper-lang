@@ -44,7 +44,7 @@ pub fn get_list_data_ptr<'ctx>(
         .builder
         .build_pointer_cast(
             list_val,
-            i8_type.ptr_type(inkwell::AddressSpace::default()),
+            state.context.ptr_type(inkwell::AddressSpace::default()),
             "list_as_i8_ptr",
         )
         .map_err(|e| format!("Failed to cast list pointer: {:?}", e))?;
@@ -277,7 +277,7 @@ fn get_length_ptr<'ctx>(
     let i8_ptr = state.builder
         .build_pointer_cast(
             list_val,
-            i8_type.ptr_type(inkwell::AddressSpace::default()),
+            state.context.ptr_type(inkwell::AddressSpace::default()),
             "list_as_i8_ptr",
         )
         .map_err(|e| format!("Failed to cast list pointer: {:?}", e))?;
@@ -294,11 +294,10 @@ fn get_length_ptr<'ctx>(
     .map_err(|e| format!("Failed to build GEP for length: {:?}", e))?;
 
     // Cast back to i64*
-    let i64_type = state.context.i64_type();
     let length_ptr = state.builder
         .build_pointer_cast(
             length_ptr_i8,
-            i64_type.ptr_type(inkwell::AddressSpace::default()),
+            state.context.ptr_type(inkwell::AddressSpace::default()),
             "length_ptr_i64",
         )
         .map_err(|e| format!("Failed to cast length pointer: {:?}", e))?;
@@ -316,7 +315,7 @@ fn get_capacity_ptr<'ctx>(
     let i8_ptr = state.builder
         .build_pointer_cast(
             list_val,
-            i8_type.ptr_type(inkwell::AddressSpace::default()),
+            state.context.ptr_type(inkwell::AddressSpace::default()),
             "list_as_i8_ptr",
         )
         .map_err(|e| format!("Failed to cast list pointer: {:?}", e))?;
@@ -333,11 +332,10 @@ fn get_capacity_ptr<'ctx>(
     .map_err(|e| format!("Failed to build GEP for capacity: {:?}", e))?;
 
     // Cast back to i64*
-    let i64_type = state.context.i64_type();
     let capacity_ptr = state.builder
         .build_pointer_cast(
             capacity_ptr_i8,
-            i64_type.ptr_type(inkwell::AddressSpace::default()),
+            state.context.ptr_type(inkwell::AddressSpace::default()),
             "capacity_ptr_i64",
         )
         .map_err(|e| format!("Failed to cast capacity pointer: {:?}", e))?;
@@ -424,7 +422,7 @@ pub fn inline_i64_list_append<'ctx>(
     let data_ptr_i64 = state.builder
         .build_pointer_cast(
             data_ptr,
-            i64_type.ptr_type(inkwell::AddressSpace::default()),
+            state.context.ptr_type(inkwell::AddressSpace::default()),
             "data_i64_ptr",
         )
         .map_err(|e| format!("Failed to cast data pointer: {:?}", e))?;

@@ -135,8 +135,8 @@ pub extern "C" fn vp_re_search(
 
 #[no_mangle]
 pub extern "C" fn vp_re_findall(
-    pattern: *mut ViperPattern,
-    string: *const i8,
+    _pattern: *mut ViperPattern,
+    _string: *const i8,
 ) -> *mut std::ffi::c_void {
     // Returns ViperList* - simplified, returns null for now
     // Full implementation would create list of matches
@@ -145,8 +145,8 @@ pub extern "C" fn vp_re_findall(
 
 #[no_mangle]
 pub extern "C" fn vp_re_split(
-    pattern: *mut ViperPattern,
-    string: *const i8,
+    _pattern: *mut ViperPattern,
+    _string: *const i8,
 ) -> *mut std::ffi::c_void {
     // Returns ViperList* - simplified, returns null for now
     std::ptr::null_mut()

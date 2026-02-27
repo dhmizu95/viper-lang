@@ -1,12 +1,16 @@
 //! Core expression code generation and type inference
 
-use super::*;
 use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::types::TypeMapper;
 use crate::codegen::variables::{VarStorage, VarType};
 use crate::utils::mangle_function_name;
 use inkwell::values::BasicValueEnum;
+use crate::codegen::expressions::builtins::*;
+use crate::codegen::expressions::calls::*;
+use crate::codegen::expressions::collections::*;
+use crate::codegen::expressions::concurrency::*;
+use crate::codegen::expressions::operators::*;
 
 pub fn generate_tuple<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,

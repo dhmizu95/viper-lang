@@ -2,8 +2,6 @@
 use std::env;
 use std::fs;
 use std::path::Path;
-use std::io;
-
 pub extern "C" fn vp_os_getcwd() -> *mut i8 {
     match env::current_dir() {
         Ok(path) => {
@@ -33,7 +31,7 @@ pub extern "C" fn vp_os_chdir(path: *const i8) -> i64 {
     }
 }
 
-pub extern "C" fn vp_os_listdir(path: *const i8) -> *mut std::ffi::c_void {
+pub extern "C" fn vp_os_listdir(_path: *const i8) -> *mut std::ffi::c_void {
     // Return a ViperList* - stub implementation
     // Full implementation requires Viper list integration
     std::ptr::null_mut()
@@ -75,7 +73,7 @@ pub extern "C" fn vp_os_getenv(name: *const i8) -> *const i8 {
     std::ptr::null()
 }
 
-pub extern "C" fn vp_os_mkdir(path: *const i8, mode: i64) -> i64 {
+pub extern "C" fn vp_os_mkdir(path: *const i8, _mode: i64) -> i64 {
     if path.is_null() {
         return -1;
     }
@@ -93,7 +91,7 @@ pub extern "C" fn vp_os_mkdir(path: *const i8, mode: i64) -> i64 {
     }
 }
 
-pub extern "C" fn vp_os_makedirs(path: *const i8, mode: i64) -> i64 {
+pub extern "C" fn vp_os_makedirs(path: *const i8, _mode: i64) -> i64 {
     if path.is_null() {
         return -1;
     }

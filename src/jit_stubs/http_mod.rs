@@ -2,8 +2,6 @@
 // HTTP client/server
 
 use std::collections::HashMap;
-use std::io::{Read, Write};
-use std::net::TcpStream;
 
 #[no_mangle]
 pub extern "C" fn vp_http_get(url: *const i8) -> *mut std::ffi::c_void {

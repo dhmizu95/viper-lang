@@ -3,8 +3,6 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::Duration;
-use std::io;
 
 lazy_static::lazy_static! {
     static ref FD_REGISTRY: Mutex<HashMap<i64, FdInfo>> = Mutex::new(HashMap::new());

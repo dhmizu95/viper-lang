@@ -607,11 +607,9 @@ pub extern "C" fn vp_bitvec_reversed_stub(list: *mut ViperList) -> *mut ViperLis
     if list.is_null() {
         return std::ptr::null_mut();
     }
-    unsafe {
-        let result = vp_bitvec_copy_stub(list);
-        vp_bitvec_reverse_stub(result);
-        result
-    }
+    let result = vp_bitvec_copy_stub(list);
+    vp_bitvec_reverse_stub(result);
+    result
 }
 
 /// Concatenate two bit vectors - JIT stub
@@ -619,9 +617,7 @@ pub extern "C" fn vp_bitvec_concat_stub(vec1: *mut ViperList, vec2: *mut ViperLi
     if vec1.is_null() || vec2.is_null() {
         return std::ptr::null_mut();
     }
-    unsafe {
-        let result = vp_bitvec_copy_stub(vec1);
-        vp_bitvec_extend_stub(result, vec2);
-        result
-    }
+    let result = vp_bitvec_copy_stub(vec1);
+    vp_bitvec_extend_stub(result, vec2);
+    result
 }

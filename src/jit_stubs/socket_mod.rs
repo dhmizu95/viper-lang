@@ -163,7 +163,7 @@ pub extern "C" fn vp_socket_listen(sock_id: i64, backlog: i64) -> i64 {
 pub extern "C" fn vp_socket_accept(sock_id: i64) -> i64 {
     let registry = SOCKET_REGISTRY.lock().unwrap();
     if let Some(handle_arc) = registry.get(&sock_id) {
-        let mut handle = handle_arc.lock().unwrap();
+        let handle = handle_arc.lock().unwrap();
         if let SocketHandle::TcpListener(listener) = &*handle {
             match listener.accept() {
                 Ok((stream, _)) => {

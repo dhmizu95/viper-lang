@@ -44,7 +44,7 @@ pub extern "C" fn vp_json_load_file(filename: *const i8) -> *mut std::ffi::c_voi
     std::ptr::null_mut()
 }
 
-pub extern "C" fn vp_json_dump_file(dict: *mut std::ffi::c_void, filename: *const i8) -> i64 {
+pub extern "C" fn vp_json_dump_file(_dict: *mut std::ffi::c_void, filename: *const i8) -> i64 {
     if filename.is_null() {
         return -1;
     }

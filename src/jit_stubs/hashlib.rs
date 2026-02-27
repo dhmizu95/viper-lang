@@ -2,7 +2,7 @@
 // SHA-256, MD5, SHA-512 hash functions
 
 use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::hash::Hasher;
 
 #[no_mangle]
 pub extern "C" fn vp_hash_sha256(data: *const i8, len: i64) -> *mut i8 {

@@ -279,7 +279,7 @@ pub extern "C" fn vp_math_perm(n: i64, k: i64) -> i64 {
     if k == 0 { return 1; }
     let mut result = 1;
     for i in 0..k {
-        result *= (n - i);
+        result *= n - i;
     }
     result
 }

@@ -3,8 +3,6 @@
 
 use std::collections::VecDeque;
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 /* ============================================ */
 // Deque (Double-ended queue)
@@ -330,14 +328,14 @@ pub extern "C" fn vp_ordered_dict_clear(od: *mut ViperOrderedDict) {
 }
 
 #[no_mangle]
-pub extern "C" fn vp_ordered_dict_keys(od: *mut ViperOrderedDict) -> *mut std::ffi::c_void {
+pub extern "C" fn vp_ordered_dict_keys(_od: *mut ViperOrderedDict) -> *mut std::ffi::c_void {
     // Returns a list of keys - simplified, returns null for now
     // Full implementation would create ViperList
     std::ptr::null_mut()
 }
 
 #[no_mangle]
-pub extern "C" fn vp_ordered_dict_values(od: *mut ViperOrderedDict) -> *mut std::ffi::c_void {
+pub extern "C" fn vp_ordered_dict_values(_od: *mut ViperOrderedDict) -> *mut std::ffi::c_void {
     // Returns a list of values - simplified, returns null for now
     std::ptr::null_mut()
 }

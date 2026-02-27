@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports)]
+
 pub mod concurrency;
 pub mod collections;
 pub mod decimal_mod;

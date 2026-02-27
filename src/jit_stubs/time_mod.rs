@@ -41,7 +41,7 @@ pub extern "C" fn vp_time_localtime(
     second: *mut i64,
 ) {
     let secs = timestamp as u64;
-    let datetime = UNIX_EPOCH + Duration::from_secs(secs);
+    let _datetime = UNIX_EPOCH + Duration::from_secs(secs);
     
     // Convert to system time and extract components
     // This is a simplified implementation
