@@ -1,6 +1,7 @@
 use super::*;
-use crate::ast::{Expr, Stmt};
+use crate::ast::{Expr, Stmt, Type};
 use crate::codegen::state::CodeGenState;
+use crate::utils::mangle_function_name;
 
 pub(crate) fn generate_sync<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -27,14 +28,40 @@ pub(crate) fn generate_task<'ctx>(
     // Task spawn - submit function to thread pool for parallel execution
     if let Expr::Call { func, args, .. } = call {
         if let Expr::Ident(name, _) = func.as_ref() {
-            if let Some(func_val) = state.functions.get(name) {
-                // Evaluate all arguments first
-                let mut arg_values = Vec::new();
-                for a in args {
-                    let v = crate::codegen::expressions::generate_expr(state, a)?;
-                    arg_values.push(v);
-                }
+            // Evaluate all arguments first to get their types
+            let mut arg_values = Vec::new();
+            for a in args {
+                let v = crate::codegen::expressions::generate_expr(state, a)?;
+                arg_values.push(v);
+            }
 
+            // Compute mangled name from argument types
+            let arg_types: Vec<Type> = arg_values.iter().map(|v| {
+                // Map LLVM type back to Viper Type for mangling
+                use inkwell::values::BasicValueEnum;
+                match v {
+                    BasicValueEnum::IntValue(_) => Type::I64,
+                    BasicValueEnum::FloatValue(_) => Type::F64,
+                    BasicValueEnum::PointerValue(_) => Type::Str, // Simplified
+                    _ => Type::I64, // Default
+                }
+            }).collect();
+
+            let mangled_name = mangle_function_name(name, &arg_types);
+
+            // Look up function with mangled name (with fallback)
+            let func_val = if let Some(&f) = state.functions.get(&mangled_name) {
+                Some(f)
+            } else {
+                // Fallback: find any function that starts with the name
+                state
+                    .functions
+                    .iter()
+                    .find(|(k, _)| k.starts_with(&format!("{}_", name)))
+                    .map(|(_, v)| *v)
+            };
+
+            if let Some(func_val) = func_val {
                 // Create a struct type to pack all arguments
                 let arg_types: Vec<_> = arg_values.iter().map(|v| v.get_type().into()).collect();
                 let struct_type = state.context.struct_type(&arg_types, false);
@@ -65,8 +92,7 @@ pub(crate) fn generate_task<'ctx>(
                 }
 
                 // Call actual function
-                let func_ptr = *func_val;
-                let _ = state.builder.build_call(func_ptr, &call_args, "call");
+                let _ = state.builder.build_call(func_val, &call_args, "call");
 
                 // Free the args struct
                 let free_func = state.module.get_function("free").unwrap();

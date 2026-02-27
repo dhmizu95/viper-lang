@@ -366,6 +366,15 @@ impl<'a> PrattParser<'a> {
                 self.advance();
                 Ok(Expr::Ident(name, span))
             }
+            // Handle send/recv as identifiers when used as function names
+            TokenKind::Send => {
+                self.advance();
+                Ok(Expr::Ident("send".to_string(), span))
+            }
+            TokenKind::Recv => {
+                self.advance();
+                Ok(Expr::Ident("recv".to_string(), span))
+            }
             TokenKind::True => {
                 self.advance();
                 Ok(Expr::Bool(true, span))

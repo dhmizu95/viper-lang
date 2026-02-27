@@ -458,6 +458,173 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
 
             expr
         }
+        // Handle send/recv as identifiers when used as function names
+        TokenKind::Send => {
+            parser.advance();
+            // Treat as identifier "send" for function call syntax
+            let mut expr = Expr::Ident("send".to_string(), span);
+
+            loop {
+                if parser.match_token(&TokenKind::Dot) {
+                    let attr = parser.expect_ident()?;
+                    let attr_span = parser.previous().span;
+                    expr =
+                        Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
+                } else if parser.match_token(&TokenKind::LParen) {
+                    let mut args = Vec::new();
+                    if !parser.match_token(&TokenKind::RParen) {
+                        loop {
+                            args.push(parse_expression(parser)?);
+                            if !parser.match_token(&TokenKind::Comma) {
+                                break;
+                            }
+                        }
+                        parser.expect(&TokenKind::RParen)?;
+                    }
+                    // RParen was already consumed by match_token if it matched
+                    let call_span = span.merge(parser.previous().span);
+                    expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+                } else if parser.match_token(&TokenKind::LBracket) {
+                    // Parse slice or index
+                    // Look ahead to check for ':' which indicates a slice
+                    // We need to peek past the first expression to see if there's a colon
+                    let is_slice = is_slice_pattern(parser);
+
+                    if is_slice {
+                        // Parse slice: [:], [start:], [:end], [start:end], [::step], etc.
+                        let mut start: Option<Box<Expr>> = None;
+                        let mut end: Option<Box<Expr>> = None;
+                        let mut step: Option<Box<Expr>> = None;
+
+                        // Parse start (optional)
+                        if !matches!(parser.current().kind, TokenKind::Colon) {
+                            start = Some(Box::new(parse_expression(parser)?));
+                        }
+
+                        // Expect first colon
+                        parser.expect(&TokenKind::Colon)?;
+
+                        // Parse end (optional)
+                        if !matches!(parser.current().kind, TokenKind::RBracket)
+                            && !matches!(parser.current().kind, TokenKind::Colon)
+                        {
+                            end = Some(Box::new(parse_expression(parser)?));
+                        }
+
+                        // Check for step
+                        if matches!(parser.current().kind, TokenKind::Colon) {
+                            parser.expect(&TokenKind::Colon)?;
+                            // Parse step (optional)
+                            if !matches!(parser.current().kind, TokenKind::RBracket) {
+                                step = Some(Box::new(parse_expression(parser)?));
+                            }
+                        }
+
+                        parser.expect(&TokenKind::RBracket)?;
+                        let index_span = span.merge(parser.previous().span);
+                        expr =
+                            Expr::Slice { obj: Box::new(expr), start, end, step, span: index_span };
+                    } else {
+                        // Regular indexing
+                        let index = parse_expression(parser)?;
+                        parser.expect(&TokenKind::RBracket)?;
+                        let index_span = span.merge(parser.previous().span);
+                        expr = Expr::Index {
+                            obj: Box::new(expr),
+                            index: Box::new(index),
+                            span: index_span,
+                        };
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            expr
+        }
+        TokenKind::Recv => {
+            parser.advance();
+            // Treat as identifier "recv" for function call syntax
+            let mut expr = Expr::Ident("recv".to_string(), span);
+
+            loop {
+                if parser.match_token(&TokenKind::Dot) {
+                    let attr = parser.expect_ident()?;
+                    let attr_span = parser.previous().span;
+                    expr =
+                        Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
+                } else if parser.match_token(&TokenKind::LParen) {
+                    let mut args = Vec::new();
+                    if !parser.match_token(&TokenKind::RParen) {
+                        loop {
+                            args.push(parse_expression(parser)?);
+                            if !parser.match_token(&TokenKind::Comma) {
+                                break;
+                            }
+                        }
+                        parser.expect(&TokenKind::RParen)?;
+                    }
+                    // RParen was already consumed by match_token if it matched
+                    let call_span = span.merge(parser.previous().span);
+                    expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+                } else if parser.match_token(&TokenKind::LBracket) {
+                    // Parse slice or index
+                    // Look ahead to check for ':' which indicates a slice
+                    // We need to peek past the first expression to see if there's a colon
+                    let is_slice = is_slice_pattern(parser);
+
+                    if is_slice {
+                        // Parse slice: [:], [start:], [:end], [start:end], [::step], etc.
+                        let mut start: Option<Box<Expr>> = None;
+                        let mut end: Option<Box<Expr>> = None;
+                        let mut step: Option<Box<Expr>> = None;
+
+                        // Parse start (optional)
+                        if !matches!(parser.current().kind, TokenKind::Colon) {
+                            start = Some(Box::new(parse_expression(parser)?));
+                        }
+
+                        // Expect first colon
+                        parser.expect(&TokenKind::Colon)?;
+
+                        // Parse end (optional)
+                        if !matches!(parser.current().kind, TokenKind::RBracket)
+                            && !matches!(parser.current().kind, TokenKind::Colon)
+                        {
+                            end = Some(Box::new(parse_expression(parser)?));
+                        }
+
+                        // Check for step
+                        if matches!(parser.current().kind, TokenKind::Colon) {
+                            parser.expect(&TokenKind::Colon)?;
+                            // Parse step (optional)
+                            if !matches!(parser.current().kind, TokenKind::RBracket) {
+                                step = Some(Box::new(parse_expression(parser)?));
+                            }
+                        }
+
+                        parser.expect(&TokenKind::RBracket)?;
+                        let index_span = span.merge(parser.previous().span);
+                        expr =
+                            Expr::Slice { obj: Box::new(expr), start, end, step, span: index_span };
+                    } else {
+                        // Regular indexing
+                        let index = parse_expression(parser)?;
+                        parser.expect(&TokenKind::RBracket)?;
+                        let index_span = span.merge(parser.previous().span);
+                        expr = Expr::Index {
+                            obj: Box::new(expr),
+                            index: Box::new(index),
+                            span: index_span,
+                        };
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            expr
+        }
 
         TokenKind::LParen => {
             parser.advance();
