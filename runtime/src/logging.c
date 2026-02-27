@@ -12,6 +12,9 @@
 #include <pthread.h>
 #include "viper_stdlib.h"
 
+/* Forward declaration */
+static char* json_strdup_local(const char* s, size_t len);
+
 /* ============================================ */
 /* Log Levels                                   */
 /* ============================================ */
@@ -48,7 +51,7 @@ ViperLogger* vp_logging_create_logger(const char* name, int level) {
     ViperLogger* logger = (ViperLogger*)vp_arc_alloc(sizeof(ViperLogger));
     if (!logger) return NULL;
     
-    logger->name = json_strdup(name, strlen(name));
+    logger->name = json_strdup_local(name, strlen(name));
     logger->level = level;
     logger->stream = stderr;
     logger->format = "%(levelname)s - %(name)s - %(message)s";
@@ -263,7 +266,7 @@ void vp_logging_set_format(ViperLogger* logger, const char* format) {
     if (logger->format) {
         vp_arc_release(logger->format);
     }
-    logger->format = json_strdup(format, strlen(format));
+    logger->format = json_strdup_local(format, strlen(format));
     pthread_mutex_unlock(&logger->mutex);
 }
 
@@ -340,15 +343,15 @@ ViperLogFilter* vp_logging_create_filter(const char* name) {
     ViperLogFilter* filter = (ViperLogFilter*)vp_arc_alloc(sizeof(ViperLogFilter));
     if (!filter) return NULL;
     
-    filter->name = json_strdup(name, strlen(name));
+    filter->name = json_strdup_local(name, strlen(name));
     filter->filter_fn = NULL;
-    
+
     return filter;
 }
 
 void vp_logging_filter_free(ViperLogFilter* filter) {
     if (!filter) return;
-    
+
     if (filter->name) {
         vp_arc_release(filter->name);
     }
@@ -358,4 +361,14 @@ void vp_logging_filter_free(ViperLogFilter* filter) {
 int64_t vp_logging_filter_call(ViperLogFilter* filter, const char* message) {
     if (!filter || !filter->filter_fn) return 1;
     return filter->filter_fn(message);
+}
+
+/* Helper function */
+static char* json_strdup_local(const char* s, size_t len) {
+    char* result = (char*)vp_arc_alloc(len + 1);
+    if (result) {
+        memcpy(result, s, len);
+        result[len] = '\0';
+    }
+    return result;
 }
