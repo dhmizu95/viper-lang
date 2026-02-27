@@ -1547,4 +1547,393 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_socket_shut_rdwr as *const () as usize);
     }
+
+    // ============================================
+    // Phase 3: Asyncio Module
+    // ============================================
+
+    if let Some(func) = module.get_function("vp_asyncio_init") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_init as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_cleanup") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_cleanup as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_sleep") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_sleep as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_create_task") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_create_task as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_task_done") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_task_done as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_task_cancelled") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_task_cancelled as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_task_cancel") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_task_cancel as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_gather") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_gather as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_wait") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_wait as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_run") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_run as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_stop") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_stop as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_lock_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_lock_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_lock_acquire") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_acquire as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_lock_release") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_release as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_event_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_event_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_event_is_set") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_is_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_event_set") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_event_clear") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_clear as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_event_wait") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_wait as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_queue_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_queue_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_queue_size") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_size as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_queue_empty") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_empty as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_queue_full") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_full as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_queue_put") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_put as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_queue_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_semaphore_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_semaphore_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_semaphore_acquire") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_acquire as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_semaphore_release") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_release as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_timeout_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_timeout_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_timeout_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_timeout_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_asyncio_timeout_expired") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_asyncio_timeout_expired as *const () as usize);
+    }
+
+    // ============================================
+    // Phase 3: HTTP Module
+    // ============================================
+
+    if let Some(func) = module.get_function("vp_http_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_post") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_post as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_request") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_request as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_response_status") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_response_status as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_response_text") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_response_text as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_response_json") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_response_json as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_response_header") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_response_header as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_response_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_response_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_server_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_server_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_server_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_server_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_server_serve") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_server_serve as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_server_stop") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_server_stop as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_server_is_running") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_server_is_running as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_urlencode") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_urlencode as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_urldecode") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_urldecode as *const () as usize);
+    }
+
+    // HTTP status codes
+    if let Some(func) = module.get_function("vp_http_ok") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_ok as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_created") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_created as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_no_content") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_no_content as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_moved_permanently") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_moved_permanently as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_found") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_found as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_not_modified") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_not_modified as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_bad_request") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_bad_request as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_unauthorized") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_unauthorized as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_forbidden") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_forbidden as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_not_found") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_not_found as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_method_not_allowed") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_method_not_allowed as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_conflict") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_conflict as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_internal_server_error") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_internal_server_error as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_not_implemented") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_not_implemented as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_bad_gateway") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_bad_gateway as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_http_service_unavailable") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_http_service_unavailable as *const () as usize);
+    }
+
+    // ============================================
+    // Phase 3: Select Module
+    // ============================================
+
+    if let Some(func) = module.get_function("vp_select_fdset_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_fdset_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_fdset_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_fdset_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_fdset_add") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_fdset_add as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_fdset_remove") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_fdset_remove as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_fdset_contains") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_fdset_contains as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_fdset_clear") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_fdset_clear as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_fdset_get_fds") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_fdset_get_fds as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_select") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_select as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_result_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_result_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_can_read") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_can_read as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_can_write") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_can_write as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_get_error") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_get_error as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_select_strerror") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_select_strerror as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_poll_poll") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_poll_poll as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_poll_result_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_poll_result_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epoll_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epoll_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epoll_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epoll_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epoll_ctl") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epoll_ctl as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epoll_wait") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epoll_wait as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epollin") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epollin as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epollout") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epollout as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epollerr") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epollerr as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epollhup") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epollhup as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epollet") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epollet as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epoll_ctl_add") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epoll_ctl_add as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epoll_ctl_mod") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epoll_ctl_mod as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_epoll_ctl_del") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_epoll_ctl_del as *const () as usize);
+    }
 }
