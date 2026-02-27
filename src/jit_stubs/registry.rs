@@ -182,6 +182,98 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_list_bool_free_stub as *const () as usize);
     }
 
+    // Bit vector functions (1 bit per boolean - 8x memory savings)
+    if let Some(func) = module.get_function("vp_bitvec_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_create_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_create_with_capacity") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_create_with_capacity_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bitvec_repeat") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_repeat_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_free_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_append") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_append_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_insert") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_insert_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_remove") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_remove_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_pop") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_pop_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_clear") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_clear_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_get_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_set") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_set_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_contains") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_contains_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_copy") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_copy_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_slice") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_slice_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_print") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_print_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_len") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_len_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_extend") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_extend_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_index") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_index_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_count") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_count_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_reverse") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_reverse_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_reversed") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_reversed_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bitvec_concat") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bitvec_concat_stub as *const () as usize);
+    }
+
     if let Some(func) = module.get_function("vp_range") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_range_stub as *const () as usize);

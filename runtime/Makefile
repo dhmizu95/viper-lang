@@ -13,6 +13,7 @@ MEMORY_POOL_SRC = $(SRC_DIR)/memory/pool.c
 MEMORY_ALLOCATOR_SRC = $(SRC_DIR)/memory/allocator.c
 DS_SRC = $(SRC_DIR)/data_structures/list.c
 LIST_BOOL_SRC = $(SRC_DIR)/data_structures/list_bool.c
+BITVEC_SRC = $(SRC_DIR)/data_structures/bitvec.c
 DICT_SRC = $(SRC_DIR)/data_structures/dict.c
 BIGINT_SRC = $(SRC_DIR)/bigint.c
 CONCURRENCY_SRC = $(SRC_DIR)/concurrency/concurrency.c
@@ -39,7 +40,7 @@ all: dirs $(OBJ_DIR)/libviper.a
 dirs:
 	@mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bigint.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o
+$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/bitvec.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bigint.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o
 	ar rcs $@ $^
 	@echo "Built static library: $(OBJ_DIR)/libviper.a"
 
@@ -59,6 +60,9 @@ $(OBJ_DIR)/list.o: $(DS_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
 $(OBJ_DIR)/list_bool.o: $(LIST_BOOL_SRC)
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
+
+$(OBJ_DIR)/bitvec.o: $(BITVEC_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
 $(OBJ_DIR)/dict.o: $(DICT_SRC)

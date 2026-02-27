@@ -231,19 +231,44 @@ pub fn generate_method_call<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let obj_val = generate_expr(state, obj)?;
 
+    // Check if this is a bool list (bit vector)
+    let is_bool_list = match obj {
+        Expr::Ident(name, _) => state.is_bool_list(name),
+        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::Call { func, .. } => {
+            // Check if calling a bit vector function
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name.starts_with("vp_bitvec_")
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
     match method_name {
         "append" => {
             if args.len() != 1 {
                 return Err(format!("append() takes exactly 1 argument, got {}", args.len()));
             }
-            let val = generate_expr(state, &args[0])?.into_int_value();
-            let list_append = state
-                .module
-                .get_function("vp_list_append")
-                .ok_or_else(|| "vp_list_append not declared".to_string())?;
+            let val = generate_expr(state, &args[0])?;
+            
+            // Use bit vector append for bool lists
+            let append_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_append")
+                    .ok_or_else(|| "vp_bitvec_append not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_append")
+                    .ok_or_else(|| "vp_list_append not declared".to_string())?
+            };
+            
             state.ir_builder.build_call(
                 state.builder,
-                list_append,
+                append_func,
                 &[obj_val.into(), val.into()],
                 "list_append",
             );
@@ -254,14 +279,24 @@ pub fn generate_method_call<'ctx>(
                 return Err(format!("insert() takes exactly 2 arguments, got {}", args.len()));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
-            let val = generate_expr(state, &args[1])?.into_int_value();
-            let list_insert = state
-                .module
-                .get_function("vp_list_insert")
-                .ok_or_else(|| "vp_list_insert not declared".to_string())?;
+            let val = generate_expr(state, &args[1])?;
+            
+            // Use bit vector insert for bool lists
+            let insert_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_insert")
+                    .ok_or_else(|| "vp_bitvec_insert not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_insert")
+                    .ok_or_else(|| "vp_list_insert not declared".to_string())?
+            };
+            
             state.ir_builder.build_call(
                 state.builder,
-                list_insert,
+                insert_func,
                 &[obj_val.into(), index.into(), val.into()],
                 "list_insert",
             );
@@ -272,13 +307,23 @@ pub fn generate_method_call<'ctx>(
                 return Err(format!("remove() takes exactly 1 argument, got {}", args.len()));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
-            let list_remove = state
-                .module
-                .get_function("vp_list_remove")
-                .ok_or_else(|| "vp_list_remove not declared".to_string())?;
+            
+            // Use bit vector remove for bool lists
+            let remove_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_remove")
+                    .ok_or_else(|| "vp_bitvec_remove not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_remove")
+                    .ok_or_else(|| "vp_list_remove not declared".to_string())?
+            };
+            
             let result = state.ir_builder.build_call(
                 state.builder,
-                list_remove,
+                remove_func,
                 &[obj_val.into(), index.into()],
                 "list_remove",
             );
@@ -290,13 +335,21 @@ pub fn generate_method_call<'ctx>(
             }
             if args.is_empty() {
                 // pop() - pop last element
-                let list_pop = state
-                    .module
-                    .get_function("vp_list_pop")
-                    .ok_or_else(|| "vp_list_pop not declared".to_string())?;
+                let pop_func = if is_bool_list {
+                    state
+                        .module
+                        .get_function("vp_bitvec_pop")
+                        .ok_or_else(|| "vp_bitvec_pop not declared".to_string())?
+                } else {
+                    state
+                        .module
+                        .get_function("vp_list_pop")
+                        .ok_or_else(|| "vp_list_pop not declared".to_string())?
+                };
+                
                 let result = state.ir_builder.build_call(
                     state.builder,
-                    list_pop,
+                    pop_func,
                     &[obj_val.into()],
                     "list_pop",
                 );
@@ -304,13 +357,21 @@ pub fn generate_method_call<'ctx>(
             } else {
                 // pop(i) - pop element at index
                 let index = generate_expr(state, &args[0])?.into_int_value();
-                let list_remove = state
-                    .module
-                    .get_function("vp_list_remove")
-                    .ok_or_else(|| "vp_list_remove not declared".to_string())?;
+                let remove_func = if is_bool_list {
+                    state
+                        .module
+                        .get_function("vp_bitvec_remove")
+                        .ok_or_else(|| "vp_bitvec_remove not declared".to_string())?
+                } else {
+                    state
+                        .module
+                        .get_function("vp_list_remove")
+                        .ok_or_else(|| "vp_list_remove not declared".to_string())?
+                };
+                
                 let result = state.ir_builder.build_call(
                     state.builder,
-                    list_remove,
+                    remove_func,
                     &[obj_val.into(), index.into()],
                     "list_pop_at",
                 );
@@ -333,13 +394,23 @@ pub fn generate_method_call<'ctx>(
                 return Err(format!("extend() takes exactly 1 argument, got {}", args.len()));
             }
             let other_val = generate_expr(state, &args[0])?;
-            let list_extend = state
-                .module
-                .get_function("vp_list_extend")
-                .ok_or_else(|| "vp_list_extend not declared".to_string())?;
+            
+            // Use bit vector extend for bool lists
+            let extend_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_extend")
+                    .ok_or_else(|| "vp_bitvec_extend not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_extend")
+                    .ok_or_else(|| "vp_list_extend not declared".to_string())?
+            };
+            
             state.ir_builder.build_call(
                 state.builder,
-                list_extend,
+                extend_func,
                 &[obj_val.into(), other_val.into()],
                 "list_extend",
             );
@@ -349,14 +420,24 @@ pub fn generate_method_call<'ctx>(
             if args.len() != 1 {
                 return Err(format!("index() takes exactly 1 argument, got {}", args.len()));
             }
-            let value = generate_expr(state, &args[0])?.into_int_value();
-            let list_index = state
-                .module
-                .get_function("vp_list_index")
-                .ok_or_else(|| "vp_list_index not declared".to_string())?;
+            let value = generate_expr(state, &args[0])?;
+            
+            // Use bit vector index for bool lists
+            let index_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_index")
+                    .ok_or_else(|| "vp_bitvec_index not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_index")
+                    .ok_or_else(|| "vp_list_index not declared".to_string())?
+            };
+            
             let result = state.ir_builder.build_call(
                 state.builder,
-                list_index,
+                index_func,
                 &[obj_val.into(), value.into()],
                 "list_index",
             );
@@ -366,14 +447,24 @@ pub fn generate_method_call<'ctx>(
             if args.len() != 1 {
                 return Err(format!("count() takes exactly 1 argument, got {}", args.len()));
             }
-            let value = generate_expr(state, &args[0])?.into_int_value();
-            let list_count = state
-                .module
-                .get_function("vp_list_count")
-                .ok_or_else(|| "vp_list_count not declared".to_string())?;
+            let value = generate_expr(state, &args[0])?;
+            
+            // Use bit vector count for bool lists
+            let count_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_count")
+                    .ok_or_else(|| "vp_bitvec_count not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_count")
+                    .ok_or_else(|| "vp_list_count not declared".to_string())?
+            };
+            
             let result = state.ir_builder.build_call(
                 state.builder,
-                list_count,
+                count_func,
                 &[obj_val.into(), value.into()],
                 "list_count",
             );
@@ -394,13 +485,23 @@ pub fn generate_method_call<'ctx>(
             if !args.is_empty() {
                 return Err(format!("reverse() takes no arguments, got {}", args.len()));
             }
-            let list_reverse = state
-                .module
-                .get_function("vp_list_reverse")
-                .ok_or_else(|| "vp_list_reverse not declared".to_string())?;
+            
+            // Use bit vector reverse for bool lists
+            let reverse_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_reverse")
+                    .ok_or_else(|| "vp_bitvec_reverse not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_reverse")
+                    .ok_or_else(|| "vp_list_reverse not declared".to_string())?
+            };
+            
             state.ir_builder.build_call(
                 state.builder,
-                list_reverse,
+                reverse_func,
                 &[obj_val.into()],
                 "list_reverse",
             );
@@ -410,13 +511,23 @@ pub fn generate_method_call<'ctx>(
             if !args.is_empty() {
                 return Err(format!("copy() takes no arguments, got {}", args.len()));
             }
-            let list_copy = state
-                .module
-                .get_function("vp_list_copy")
-                .ok_or_else(|| "vp_list_copy not declared".to_string())?;
+            
+            // Use bit vector copy for bool lists
+            let copy_func = if is_bool_list {
+                state
+                    .module
+                    .get_function("vp_bitvec_copy")
+                    .ok_or_else(|| "vp_bitvec_copy not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_copy")
+                    .ok_or_else(|| "vp_list_copy not declared".to_string())?
+            };
+            
             let result = state.ir_builder.build_call(
                 state.builder,
-                list_copy,
+                copy_func,
                 &[obj_val.into()],
                 "list_copy",
             );

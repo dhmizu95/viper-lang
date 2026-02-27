@@ -16,12 +16,12 @@ pub fn generate_list<'ctx>(
     // Determine element type
     let is_float_list = elements.first().map(|e| matches!(e, Expr::Float(..))).unwrap_or(false);
     let is_bool_list = elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false);
-    
+
     // For empty lists or mixed types, check all elements
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
     } else if is_bool_list {
-        ("vp_list_bool_create", "vp_list_bool_append")
+        ("vp_bitvec_create", "vp_bitvec_append")  // Use bit vector for bool lists
     } else {
         ("vp_list_create", "vp_list_append")
     };
@@ -49,8 +49,8 @@ pub fn generate_list<'ctx>(
                 .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
                 .expect("int to float conversion");
             elem_val = float_val.into();
-        } else if is_bool_list && elem_val.is_int_value() {
-            // Convert i64 to bool for bool list
+        } else if is_bool_list && elem_val.is_int_value() && elem_val.get_type().into_int_type().get_bit_width() > 1 {
+            // Convert i64 to bool for bool list (only if not already i1)
             let int_val = elem_val.into_int_value();
             let bool_val = state
                 .builder
@@ -92,7 +92,7 @@ pub fn generate_list_comprehension<'ctx>(
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
     } else if is_bool_list {
-        ("vp_list_bool_create", "vp_list_bool_append")
+        ("vp_bitvec_create", "vp_bitvec_append")  // Use bit vector for bool lists
     } else {
         ("vp_list_create", "vp_list_append")
     };
@@ -210,6 +210,19 @@ pub fn generate_list_comprehension<'ctx>(
             .builder
             .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
             .expect("int to float conversion")
+            .into()
+    } else if is_bool_list && elem_val.is_int_value() && elem_val.get_type().into_int_type().get_bit_width() > 1 {
+        // Convert i64 to bool for bool list (only if not already i1)
+        let int_val = elem_val.into_int_value();
+        state
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::NE,
+                int_val,
+                state.context.i64_type().const_zero(),
+                "i64_to_bool",
+            )
+            .expect("i64 to bool conversion")
             .into()
     } else {
         elem_val
@@ -465,14 +478,14 @@ pub fn generate_index<'ctx>(
     // Lists need to use vp_list_get because they have a ViperList struct wrapper
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {
-        // Use bool-specific get for bool lists
+        // Use bit vector get for bool lists (more memory efficient)
         // Note: Inline operations disabled due to JIT/AOT struct layout differences
         if is_bool_list {
-            let list_bool_get = state.module.get_function("vp_list_bool_get").ok_or_else(|| "vp_list_bool_get not declared".to_string())?;
+            let bitvec_get = state.module.get_function("vp_bitvec_get").ok_or_else(|| "vp_bitvec_get not declared".to_string())?;
 
             let result = state
                 .ir_builder
-                .build_call(state.builder, list_bool_get, &[obj_val.into(), index_val.into()], "list_bool_get")
+                .build_call(state.builder, bitvec_get, &[obj_val.into(), index_val.into()], "bitvec_get")
                 .ok_or_else(|| "build call failed".to_string())?;
 
             // Convert bool to i64 for compatibility with print() and other functions
@@ -547,6 +560,13 @@ pub fn generate_slice<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let obj_val = generate_expr(state, obj)?;
 
+    // Check if this is a bool list (bit vector)
+    let is_bool_list = match obj {
+        Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
+        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        _ => false,
+    };
+
     // Generate start value (default to 0)
     let start_val = if let Some(start_expr) = start {
         generate_expr(state, start_expr)?
@@ -578,17 +598,24 @@ pub fn generate_slice<'ctx>(
         state.ir_builder.i64_const(1).into()
     };
 
-    // Call vp_list_slice function
-    let list_slice = state
-        .module
-        .get_function("vp_list_slice")
-        .ok_or_else(|| "vp_list_slice not declared".to_string())?;
+    // Call appropriate slice function based on element type
+    let slice_func = if is_bool_list {
+        state
+            .module
+            .get_function("vp_bitvec_slice")
+            .ok_or_else(|| "vp_bitvec_slice not declared".to_string())?
+    } else {
+        state
+            .module
+            .get_function("vp_list_slice")
+            .ok_or_else(|| "vp_list_slice not declared".to_string())?
+    };
 
     let result = state
         .ir_builder
         .build_call(
             state.builder,
-            list_slice,
+            slice_func,
             &[obj_val.into(), start_val.into(), end_val.into(), step_val.into()],
             "list_slice",
         )

@@ -156,7 +156,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Mark a variable as a bool list
     pub fn mark_as_bool_list(&mut self, name: String) {
-        self.bool_list_vars.insert(name);
+        self.bool_list_vars.insert(name.clone());
+        self.list_vars.insert(name);  // Bool lists are also lists
     }
 
     /// Check if a variable is a bool list

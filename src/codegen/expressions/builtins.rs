@@ -194,9 +194,32 @@ pub fn generate_len_call<'ctx>(
         _ => false,
     };
 
+    // Check if it's a bool list (bit vector)
+    let is_bool_list = match obj_expr {
+        Expr::Ident(name, _) => state.is_bool_list(name),
+        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            if let Expr::List { elements, .. } = left.as_ref() {
+                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
     // Call the appropriate length function
-    if is_list {
-        // Call vp_list_len for lists
+    if is_bool_list {
+        // Use bit vector len for bool lists
+        let bitvec_len = state
+            .module
+            .get_function("vp_bitvec_len")
+            .ok_or_else(|| "vp_bitvec_len not declared".to_string())?;
+        let result =
+            state.ir_builder.build_call(state.builder, bitvec_len, &[obj_val.into()], "bitvec_len");
+        return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+    } else if is_list {
+        // Call vp_list_len for other lists
         let list_len = state
             .module
             .get_function("vp_list_len")
