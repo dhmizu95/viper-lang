@@ -121,14 +121,14 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                 else_body,
             );
         }
-        Stmt::While { condition, body, .. } => {
-            return crate::codegen::control_flow::generate_while(state, condition, body);
+        Stmt::While { condition, body, else_body, .. } => {
+            return crate::codegen::control_flow::generate_while(state, condition, body, else_body);
         }
-        Stmt::For { target, iter, body, is_async, .. } => {
+        Stmt::For { target, iter, body, else_body, is_async, .. } => {
             if *is_async {
                 return crate::codegen::control_flow::generate_async_for(state, target, iter, body);
             }
-            return crate::codegen::control_flow::generate_for(state, target, iter, body, false);
+            return crate::codegen::control_flow::generate_for(state, target, iter, body, else_body, false);
         }
         Stmt::Function { .. } => {
             // Already handled in first pass

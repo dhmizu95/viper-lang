@@ -13,20 +13,27 @@ pub fn generate_while<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     condition: &Expr,
     body: &[Stmt],
+    else_body: &Option<Vec<Stmt>>,
 ) -> Result<(), String> {
     // For now, use simple loop - LLVM's opt will handle unrolling
-    generate_while_simple(state, condition, body)
+    generate_while_simple(state, condition, body, else_body)
 }
 
 fn generate_while_simple<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     condition: &Expr,
     body: &[Stmt],
+    else_body: &Option<Vec<Stmt>>,
 ) -> Result<(), String> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let while_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
     let cond_block = state.context.append_basic_block(func, &format!("while_cond{}", while_num));
     let body_block = state.context.append_basic_block(func, &format!("while_body{}", while_num));
+    let else_block = if else_body.is_some() {
+        Some(state.context.append_basic_block(func, &format!("while_else{}", while_num)))
+    } else {
+        None
+    };
     let exit_block = state.context.append_basic_block(func, &format!("while_exit{}", while_num));
 
     state.ir_builder.build_branch(state.builder, cond_block);
@@ -47,10 +54,14 @@ fn generate_while_simple<'ctx>(
             )
             .expect("icmp")
     };
-    
-    state.ir_builder.build_cond_branch(state.builder, cond_i1, body_block, exit_block);
+
+    // If condition is true, go to body; if false, go to else (if exists) or exit
+    let next_on_false = else_block.unwrap_or(exit_block);
+    state.ir_builder.build_cond_branch(state.builder, cond_i1, body_block, next_on_false);
 
     state.builder.position_at_end(body_block);
+    // Push loop context: break goes to exit, continue goes to condition
+    // If there's an else block, we need to track that normal exit goes through else
     state.loop_stack.push(LoopContext::new(exit_block, cond_block));
 
     for stmt in body {
@@ -71,9 +82,34 @@ fn generate_while_simple<'ctx>(
     }
 
     state.loop_stack.pop();
+    // After body completes, loop back to condition
     if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, cond_block);
     }
+    
+    // Generate else block if it exists
+    if let Some(else_stmts) = else_body {
+        state.builder.position_at_end(else_block.unwrap());
+        for stmt in else_stmts {
+            crate::codegen::statements::generate_stmt(
+                state.context,
+                state.module,
+                state.builder,
+                state.ir_builder,
+                state.variables,
+                state.functions,
+                state.global_constants,
+                state.loop_stack,
+                state.list_vars,
+                state.dict_vars,
+                state.bool_list_vars,
+                stmt,
+            )?;
+        }
+        // After else block, jump to exit
+        state.ir_builder.build_branch(state.builder, exit_block);
+    }
+    
     state.builder.position_at_end(exit_block);
     Ok(())
 }
@@ -178,6 +214,7 @@ pub fn generate_for<'ctx>(
     target: &Expr,
     iter: &Expr,
     body: &[Stmt],
+    else_body: &Option<Vec<Stmt>>,
     is_async: bool,
 ) -> Result<(), String> {
     if is_async {
@@ -222,6 +259,11 @@ pub fn generate_for<'ctx>(
                     state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
                 let step_block =
                     state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
+                let else_block = if else_body.is_some() {
+                    Some(state.context.append_basic_block(func_ctx, &format!("for_else{}", for_num)))
+                } else {
+                    None
+                };
                 let exit_block =
                     state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
@@ -242,12 +284,15 @@ pub fn generate_for<'ctx>(
                     .into_int_value();
                 let cond =
                     state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
-                state.ir_builder.build_cond_branch(state.builder, cond, body_block, exit_block);
+                // If condition is true, go to body; if false, go to else (if exists) or exit
+                let next_on_false = else_block.unwrap_or(exit_block);
+                state.ir_builder.build_cond_branch(state.builder, cond, body_block, next_on_false);
 
                 state.builder.position_at_end(body_block);
 
                 // Push loop context for break/continue support
                 // continue should jump to step block to increment counter
+                // break jumps to exit (skipping else)
                 state.loop_stack.push(LoopContext::new(exit_block, step_block));
 
                 let old_var = if let Expr::Ident(target_name, _) = target {
@@ -301,6 +346,29 @@ pub fn generate_for<'ctx>(
                 state.builder.build_store(counter, next_val).expect("store");
                 if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
                     state.ir_builder.build_branch(state.builder, cond_block);
+                }
+
+                // Generate else block if it exists
+                if let Some(else_stmts) = else_body {
+                    state.builder.position_at_end(else_block.unwrap());
+                    for stmt in else_stmts {
+                        crate::codegen::statements::generate_stmt(
+                            state.context,
+                            state.module,
+                            state.builder,
+                            state.ir_builder,
+                            state.variables,
+                            state.functions,
+                            state.global_constants,
+                            state.loop_stack,
+                            state.list_vars,
+                            state.dict_vars,
+                            state.bool_list_vars,
+                            stmt,
+                        )?;
+                    }
+                    // After else block, jump to exit
+                    state.ir_builder.build_branch(state.builder, exit_block);
                 }
 
                 state.builder.position_at_end(exit_block);
