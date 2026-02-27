@@ -529,7 +529,7 @@ impl<'a> Lexer<'a> {
                 'x' | 'X' => {
                     // Hex literal (0x, 0X)
                     s.push(self.advance()); // consume 'x' or 'X'
-                    // Read hex digits with optional underscores
+                                            // Read hex digits with optional underscores
                     while let Some(c) = self.peek() {
                         if c == '_' {
                             self.advance();
@@ -555,7 +555,7 @@ impl<'a> Lexer<'a> {
                 'b' | 'B' => {
                     // Binary literal (0b, 0B)
                     s.push(self.advance()); // consume 'b' or 'B'
-                    // Read binary digits with optional underscores
+                                            // Read binary digits with optional underscores
                     while let Some(c) = self.peek() {
                         if c == '_' {
                             self.advance();
@@ -582,7 +582,7 @@ impl<'a> Lexer<'a> {
                 'o' | 'O' => {
                     // Octal literal (0o, 0O)
                     s.push(self.advance()); // consume 'o' or 'O'
-                    // Read octal digits with optional underscores
+                                            // Read octal digits with optional underscores
                     while let Some(c) = self.peek() {
                         if c == '_' {
                             self.advance();

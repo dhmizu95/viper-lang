@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use std::sync::Mutex;
 
-static JIT_DICT_COUNTER: AtomicUsize = AtomicUsize::new(1);  // Start from 1 to avoid NULL pointer
-// Simple global dict storage for JIT - maps dict_id to HashMap<String, i64>
+static JIT_DICT_COUNTER: AtomicUsize = AtomicUsize::new(1); // Start from 1 to avoid NULL pointer
+                                                            // Simple global dict storage for JIT - maps dict_id to HashMap<String, i64>
 static JIT_DICTS: Mutex<Option<HashMap<usize, HashMap<String, i64>>>> = Mutex::new(None);
 
 fn get_jit_dicts() -> std::sync::MutexGuard<'static, Option<HashMap<usize, HashMap<String, i64>>>> {
@@ -82,11 +82,11 @@ pub extern "C" fn vp_dict_print(dict_ptr: *mut std::ffi::c_void) {
         print!("{{}}");
         return;
     }
-    
+
     let id = dict_ptr as usize;
     let dicts = get_jit_dicts();
     let dict = dicts.as_ref().unwrap().get(&id);
-    
+
     if let Some(dict) = dict {
         print!("{{");
         let mut first = true;

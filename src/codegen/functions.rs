@@ -95,8 +95,13 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
             }
 
             // Otherwise, try to infer from usage in body
-            // For now, check if parameter is used with index operations (indicating a list)
+            // Check if parameter is used with index operations (indicating a list)
             if param_is_used_as_list(&param.name, body) {
+                return Type::List(Box::new(Type::Infer));
+            }
+
+            // Check if parameter is used as an iterable in a for loop
+            if param_is_used_as_iterable(&param.name, body) {
                 return Type::List(Box::new(Type::Infer));
             }
 
@@ -125,6 +130,61 @@ fn param_is_used_as_list(param_name: &str, body: &[Stmt]) -> bool {
         }
     }
     false
+}
+
+/// Check if a parameter is used as an iterable in a for loop
+fn param_is_used_as_iterable(param_name: &str, body: &[Stmt]) -> bool {
+    for stmt in body {
+        if stmt_contains_iterable_usage(param_name, stmt) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check if a statement contains a for loop where the parameter is the iterable
+fn stmt_contains_iterable_usage(param_name: &str, stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::For { iter, .. } => {
+            if let Expr::Ident(name, _) = iter.as_ref() {
+                return name == param_name;
+            }
+            expr_contains_ident(param_name, iter)
+        }
+        Stmt::If { body, else_body, .. } => {
+            body.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
+                || else_body.as_ref().map_or(false, |eb| {
+                    eb.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
+                })
+        }
+        Stmt::While { body, .. } => {
+            body.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
+        }
+        Stmt::Function { body, .. } => {
+            body.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
+        }
+        _ => false,
+    }
+}
+
+/// Check if an expression contains an identifier
+fn expr_contains_ident(param_name: &str, expr: &Expr) -> bool {
+    match expr {
+        Expr::Ident(name, _) => name == param_name,
+        Expr::BinOp { left, right, .. } => {
+            expr_contains_ident(param_name, left) || expr_contains_ident(param_name, right)
+        }
+        Expr::UnaryOp { operand, .. } => expr_contains_ident(param_name, operand),
+        Expr::Call { func, args, .. } => {
+            expr_contains_ident(param_name, func)
+                || args.iter().any(|arg| expr_contains_ident(param_name, arg))
+        }
+        Expr::Attribute { obj, .. } => expr_contains_ident(param_name, obj),
+        Expr::Index { obj, index, .. } => {
+            expr_contains_ident(param_name, obj) || expr_contains_ident(param_name, index)
+        }
+        _ => false,
+    }
 }
 
 /// Check if a parameter is used as a scalar (in arithmetic/comparison operations)
@@ -157,9 +217,7 @@ fn stmt_contains_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
         Stmt::Return { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_scalar_usage(param_name, v))
         }
-        Stmt::Assign { value, .. } => {
-            expr_contains_scalar_usage(param_name, value)
-        }
+        Stmt::Assign { value, .. } => expr_contains_scalar_usage(param_name, value),
         Stmt::Declare { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_scalar_usage(param_name, v))
         }
@@ -178,7 +236,8 @@ fn expr_contains_scalar_usage(param_name: &str, expr: &Expr) -> bool {
         Expr::BinOp { left, right, .. } => {
             // Check if this param is directly involved in the operation
             let left_is_param = matches!(left.as_ref(), Expr::Ident(name, _) if name == param_name);
-            let right_is_param = matches!(right.as_ref(), Expr::Ident(name, _) if name == param_name);
+            let right_is_param =
+                matches!(right.as_ref(), Expr::Ident(name, _) if name == param_name);
             if left_is_param || right_is_param {
                 return true;
             }
@@ -278,9 +337,9 @@ fn stmt_contains_function_call_with_param(param_name: &str, stmt: &Stmt) -> bool
         Stmt::If { condition, body, else_body, .. } => {
             expr_contains_function_call_with_param(param_name, condition)
                 || body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
-                || else_body
-                    .as_ref()
-                    .map_or(false, |eb| eb.iter().any(|s| stmt_contains_function_call_with_param(param_name, s)))
+                || else_body.as_ref().map_or(false, |eb| {
+                    eb.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
+                })
         }
         Stmt::While { condition, body, .. } => {
             expr_contains_function_call_with_param(param_name, condition)
@@ -292,7 +351,9 @@ fn stmt_contains_function_call_with_param(param_name: &str, stmt: &Stmt) -> bool
         Stmt::Return { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_function_call_with_param(param_name, v))
         }
-        Stmt::Function { body, .. } => body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s)),
+        Stmt::Function { body, .. } => {
+            body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
+        }
         Stmt::Declare { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_function_call_with_param(param_name, v))
         }
@@ -320,7 +381,9 @@ fn expr_contains_function_call_with_param(param_name: &str, expr: &Expr) -> bool
             expr_contains_function_call_with_param(param_name, left)
                 || expr_contains_function_call_with_param(param_name, right)
         }
-        Expr::UnaryOp { operand, .. } => expr_contains_function_call_with_param(param_name, operand),
+        Expr::UnaryOp { operand, .. } => {
+            expr_contains_function_call_with_param(param_name, operand)
+        }
         Expr::Attribute { obj, .. } => expr_contains_function_call_with_param(param_name, obj),
         Expr::Index { obj, index, .. } => {
             expr_contains_function_call_with_param(param_name, obj)

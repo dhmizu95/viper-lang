@@ -294,8 +294,12 @@ pub fn generate_method_call<'ctx>(
                     .module
                     .get_function("vp_list_pop")
                     .ok_or_else(|| "vp_list_pop not declared".to_string())?;
-                let result =
-                    state.ir_builder.build_call(state.builder, list_pop, &[obj_val.into()], "list_pop");
+                let result = state.ir_builder.build_call(
+                    state.builder,
+                    list_pop,
+                    &[obj_val.into()],
+                    "list_pop",
+                );
                 Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
             } else {
                 // pop(i) - pop element at index
@@ -383,12 +387,7 @@ pub fn generate_method_call<'ctx>(
                 .module
                 .get_function("vp_list_sort")
                 .ok_or_else(|| "vp_list_sort not declared".to_string())?;
-            state.ir_builder.build_call(
-                state.builder,
-                list_sort,
-                &[obj_val.into()],
-                "list_sort",
-            );
+            state.ir_builder.build_call(state.builder, list_sort, &[obj_val.into()], "list_sort");
             Ok(obj_val)
         }
         "reverse" => {
@@ -489,9 +488,8 @@ pub fn generate_sorted_call<'ctx>(
         .module
         .get_function("vp_list_sorted")
         .ok_or_else(|| "vp_list_sorted not declared".to_string())?;
-    let result = state
-        .ir_builder
-        .build_call(state.builder, list_sorted, &[list_val.into()], "sorted_list");
+    let result =
+        state.ir_builder.build_call(state.builder, list_sorted, &[list_val.into()], "sorted_list");
     Ok(result.unwrap_or(list_val))
 }
 
@@ -509,8 +507,11 @@ pub fn generate_reversed_call<'ctx>(
         .module
         .get_function("vp_list_reversed")
         .ok_or_else(|| "vp_list_reversed not declared".to_string())?;
-    let result = state
-        .ir_builder
-        .build_call(state.builder, list_reversed, &[list_val.into()], "reversed_list");
+    let result = state.ir_builder.build_call(
+        state.builder,
+        list_reversed,
+        &[list_val.into()],
+        "reversed_list",
+    );
     Ok(result.unwrap_or(list_val))
 }

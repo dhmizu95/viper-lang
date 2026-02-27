@@ -210,11 +210,17 @@ impl TypeChecker {
         match stmt {
             Stmt::Assign { target, value, span } => {
                 let value_type = self.check_expr(value);
-                
+
                 if let Expr::Ident(name, _) = target.as_ref() {
                     // Module-level assignments create immutable constants
-                    let kind = SymbolKind::Variable { mutable: false, type_ann: value_type.clone() };
-                    let symbol = Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
+                    let kind =
+                        SymbolKind::Variable { mutable: false, type_ann: value_type.clone() };
+                    let symbol = Symbol::new(
+                        name.clone(),
+                        kind,
+                        *span,
+                        self.symbol_table.current_scope_id(),
+                    );
                     if let Err(e) = self.symbol_table.insert(symbol) {
                         self.errors.push(TypeError::new(e, *span));
                     }
@@ -326,8 +332,12 @@ impl TypeChecker {
                 // For now, we just register them as mutable variables
                 for name in names {
                     let kind = SymbolKind::Variable { mutable: true, type_ann: None };
-                    let symbol =
-                        Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
+                    let symbol = Symbol::new(
+                        name.clone(),
+                        kind,
+                        *span,
+                        self.symbol_table.current_scope_id(),
+                    );
                     // Don't error if already exists (global can be repeated)
                     let _ = self.symbol_table.insert(symbol);
                 }
@@ -335,7 +345,7 @@ impl TypeChecker {
             Stmt::Const { name, value, span } => {
                 // Constants must have a value and are immutable
                 let value_type = self.check_expr(value);
-                
+
                 // Insert into symbol table as immutable constant
                 let kind = SymbolKind::Variable { mutable: false, type_ann: value_type };
                 let symbol =
@@ -677,11 +687,7 @@ impl TypeChecker {
                                 }
                             }
                         }
-                        BinOp::Sub
-                        | BinOp::Div
-                        | BinOp::Mod
-                        | BinOp::FloorDiv
-                        | BinOp::Pow => {
+                        BinOp::Sub | BinOp::Div | BinOp::Mod | BinOp::FloorDiv | BinOp::Pow => {
                             if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
                                 self.errors.push(TypeError::new(
                                     format!(
@@ -779,7 +785,7 @@ impl TypeChecker {
                 for (key, value) in pairs {
                     self.check_expr(key);
                     self.check_expr(value);
-                    
+
                     // Check that key type is hashable
                     if let Some(key_type) = self.get_expr_type(key) {
                         if !key_type.is_fully_hashable() {
