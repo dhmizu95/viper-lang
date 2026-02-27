@@ -44,3 +44,10 @@ Docstrings are not stored in the compiled binary (no runtime introspection)
 Simple extraction logic (line-based parsing)
 Only supports function docstrings (not module/class docstrings)
 Status: ✅ Implemented for Phase 2. Docstrings work as documentation comments and can be extracted using viper doc.
+
+To achieve C/Rust performance levels:
+
+Bit Vectors (Highest priority) - 8x memory savings, better cache utilization
+Fix Inline Operations - Unify struct layouts for direct LLVM IR generation
+Bounds Check Elimination - Skip checks in release mode
+LLVM alwaysinline - Help optimizer inline runtime functions

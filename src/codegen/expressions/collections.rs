@@ -466,6 +466,7 @@ pub fn generate_index<'ctx>(
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {
         // Use bool-specific get for bool lists
+        // Note: Inline operations disabled due to JIT/AOT struct layout differences
         if is_bool_list {
             let list_bool_get = state.module.get_function("vp_list_bool_get").ok_or_else(|| "vp_list_bool_get not declared".to_string())?;
 

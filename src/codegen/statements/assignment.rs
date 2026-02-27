@@ -284,16 +284,16 @@ pub(crate) fn generate_assign<'ctx>(
         } else {
             // List index assignment using runtime function
             // Determine if this is a bool list by checking the value type
-            let is_bool_value = value_val.is_int_value() 
+            let is_bool_value = value_val.is_int_value()
                 && value_val.get_type().into_int_type().get_bit_width() == 1;
-            
+
             let (list_set_func, value_for_list) = if is_bool_value {
                 // Use bool-specific list set function
                 let list_set = state
                     .module
                     .get_function("vp_list_bool_set")
                     .ok_or_else(|| "vp_list_bool_set not declared".to_string())?;
-                
+
                 // Bool value (i1), keep as bool
                 (list_set, value_val)
             } else {
@@ -302,7 +302,7 @@ pub(crate) fn generate_assign<'ctx>(
                     .module
                     .get_function("vp_list_set")
                     .ok_or_else(|| "vp_list_set not declared".to_string())?;
-                
+
                 // Convert bool to i64 if needed
                 let value_converted = if value_val.is_int_value() && value_val.get_type().into_int_type().get_bit_width() == 1 {
                     let bool_val = value_val.into_int_value();
@@ -312,11 +312,11 @@ pub(crate) fn generate_assign<'ctx>(
                 } else {
                     value_val
                 };
-                
+
                 (list_set, value_converted)
             };
-            
-            state.ir_builder.build_call(
+
+            let _ = state.ir_builder.build_call(
                 state.builder,
                 list_set_func,
                 &[obj_val.into(), index_val.into(), value_for_list.into()],
