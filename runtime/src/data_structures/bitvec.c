@@ -3,16 +3,38 @@
  * Type-specific list for bool elements (1 bit per element)
  *
  * Memory savings: 8x compared to int8_t bool list, 64x compared to int64_t list
- * 
+ *
  * Implementation: Uses uint64_t array where each bit represents a boolean value.
  * Bit 0 of word 0 = index 0, Bit 1 of word 0 = index 1, ..., Bit 63 of word 0 = index 63,
  * Bit 0 of word 1 = index 64, etc.
+ *
+ * SIMD Optimizations:
+ * - AVX2: Process 256 bits (4 words) at a time
+ * - SSE2: Process 128 bits (2 words) at a time
+ * - POPCNT: Hardware population count for fast bit counting
  */
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "viper_stdlib.h"
+
+/* SIMD intrinsics */
+#ifdef __AVX2__
+#include <immintrin.h>
+#define VP_HAS_AVX2 1
+#else
+#define VP_HAS_AVX2 0
+#endif
+
+#ifdef __SSE2__
+#include <emmintrin.h>
+#define VP_HAS_SSE2 1
+#else
+#define VP_HAS_SSE2 0
+#endif
 
 #define BITVEC_INITIAL_CAPACITY 64  /* 64 bits = 8 bytes initially */
 #define BITVEC_GROWTH_FACTOR 2
@@ -119,6 +141,152 @@ static inline void vp_bitvec_append_inl(ViperList* vec, bool value) {
         vec->data.data_bitvec[word_idx] &= ~mask;
     }
     vec->length++;
+}
+
+/* ============================================ */
+/* SIMD-Optimized Bit Operations                */
+/* ============================================ */
+
+/**
+ * SIMD-optimized clear range - clear all bits in a range [start, end)
+ * Uses AVX2 to clear 256 bits (4 words) at a time
+ */
+static inline void vp_bitvec_clear_range_simd(uint64_t* data, int64_t start_word, int64_t end_word) {
+#if VP_HAS_AVX2
+    // AVX2: Clear 4 words (256 bits) at a time
+    __m256i zero = _mm256_setzero_si256();
+    
+    int64_t i = start_word;
+    
+    // Align to 4-word boundary
+    while (i < end_word && (i % 4) != 0) {
+        data[i] = 0;
+        i++;
+    }
+    
+    // Process 4 words at a time
+    while (i + 4 <= end_word) {
+        _mm256_storeu_si256((__m256i*)&data[i], zero);
+        i += 4;
+    }
+    
+    // Handle remainder
+    while (i < end_word) {
+        data[i] = 0;
+        i++;
+    }
+#elif VP_HAS_SSE2
+    // SSE2: Clear 2 words (128 bits) at a time
+    __m128i zero = _mm_setzero_si128();
+    
+    int64_t i = start_word;
+    
+    // Align to 2-word boundary
+    while (i < end_word && (i % 2) != 0) {
+        data[i] = 0;
+        i++;
+    }
+    
+    // Process 2 words at a time
+    while (i + 2 <= end_word) {
+        _mm_storeu_si128((__m128i*)&data[i], zero);
+        i += 2;
+    }
+    
+    // Handle remainder
+    while (i < end_word) {
+        data[i] = 0;
+        i++;
+    }
+#else
+    // Scalar fallback
+    for (int64_t i = start_word; i < end_word; i++) {
+        data[i] = 0;
+    }
+#endif
+}
+
+/**
+ * SIMD-optimized bit counting using POPCNT
+ * Returns the number of set bits in the range [0, word_count)
+ */
+static inline int64_t vp_bitvec_popcount_simd(uint64_t* data, int64_t word_count) {
+    int64_t count = 0;
+    
+#if VP_HAS_AVX2
+    // AVX2: Process 4 words at a time
+    int64_t i = 0;
+    
+    while (i + 4 <= word_count) {
+        __m256i v = _mm256_loadu_si256((__m256i*)&data[i]);
+        uint64_t words[4];
+        _mm256_storeu_si256((__m256i*)words, v);
+        
+        // Use hardware POPCNT
+        for (int j = 0; j < 4; j++) {
+            count += __builtin_popcountll(words[j]);
+        }
+        i += 4;
+    }
+    
+    // Handle remainder
+    while (i < word_count) {
+        count += __builtin_popcountll(data[i]);
+        i++;
+    }
+#elif VP_HAS_SSE2
+    // SSE2: Process 2 words at a time
+    int64_t i = 0;
+    
+    while (i + 2 <= word_count) {
+        __m128i v = _mm_loadu_si128((__m128i*)&data[i]);
+        uint64_t words[2];
+        _mm_storeu_si128((__m128i*)words, v);
+        
+        count += __builtin_popcountll(words[0]);
+        count += __builtin_popcountll(words[1]);
+        i += 2;
+    }
+    
+    // Handle remainder
+    while (i < word_count) {
+        count += __builtin_popcountll(data[i]);
+        i++;
+    }
+#else
+    // Scalar with POPCNT
+    for (int64_t i = 0; i < word_count; i++) {
+        count += __builtin_popcountll(data[i]);
+    }
+#endif
+    
+    return count;
+}
+
+/**
+ * SIMD-optimized sieve marking - clear bits at regular intervals
+ * For prime sieve: mark multiples of p as composite
+ */
+static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, int64_t stride, int64_t limit) {
+    // For stride >= 64 and aligned start, use word-level clearing
+    if (stride >= 64 && start % 64 == 0) {
+        int64_t start_word = start / 64;
+        int64_t end_word = limit / 64 + 1;
+        
+        if (end_word > vec->length / 64 + 1) {
+            end_word = vec->length / 64 + 1;
+        }
+        
+        // Clear whole words using SIMD
+        if (start_word < end_word) {
+            vp_bitvec_clear_range_simd(vec->data.data_bitvec, start_word, end_word);
+        }
+    } else {
+        // Scalar path for non-aligned or small strides
+        for (int64_t i = start; i <= limit; i += stride) {
+            vp_bitvec_set_unchecked_inl(vec, i, false);
+        }
+    }
 }
 
 /* ============================================ */
@@ -429,42 +597,24 @@ int64_t vp_bitvec_index(ViperList* vec, bool value) {
 
 int64_t vp_bitvec_count(ViperList* vec, bool value) {
     if (!vec || vec->length == 0) return 0;
-    
+
     int64_t count = 0;
     int64_t words = bitvec_words_needed(vec->length);
-    
+
     if (value) {
-        /* Count set bits using population count */
-        for (int64_t i = 0; i < words - 1; i++) {
-            uint64_t word = vec->data.data_bitvec[i];
-            /* Use built-in popcount if available, otherwise fallback */
-            #ifdef __GNUC__
-                count += __builtin_popcountll(word);
-            #else
-                /* Fallback: Kernighan's algorithm */
-                while (word) {
-                    word &= word - 1;
-                    count++;
-                }
-            #endif
-        }
+        /* Count set bits using SIMD-optimized population count */
+        count = vp_bitvec_popcount_simd(vec->data.data_bitvec, words - 1);
+        
         /* Last word: only count bits within valid range */
         int64_t extra_bits = words * BITS_PER_WORD - vec->length;
         uint64_t mask = (extra_bits > 0) ? (UINT64_MAX >> extra_bits) : UINT64_MAX;
         uint64_t word = vec->data.data_bitvec[words - 1] & mask;
-        #ifdef __GNUC__
-            count += __builtin_popcountll(word);
-        #else
-            while (word) {
-                word &= word - 1;
-                count++;
-            }
-        #endif
+        count += __builtin_popcountll(word);
     } else {
         /* Count clear bits */
         count = vec->length - vp_bitvec_count(vec, true);
     }
-    
+
     return count;
 }
 
