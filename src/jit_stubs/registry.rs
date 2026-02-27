@@ -1293,4 +1293,258 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_named_tuple_len as *const () as usize);
     }
+
+    // ============================================
+    // Phase 2: Regex (re) Module
+    // ============================================
+
+    // Pattern functions
+    if let Some(func) = module.get_function("vp_re_compile") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_compile as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_pattern_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_pattern_free as *const () as usize);
+    }
+
+    // Match functions
+    if let Some(func) = module.get_function("vp_re_match") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_match as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_search") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_search as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_findall") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_findall as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_split") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_split as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_sub") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_sub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_fullmatch") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_fullmatch as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_escape") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_escape as *const () as usize);
+    }
+
+    // Match object methods
+    if let Some(func) = module.get_function("vp_match_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_match_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_start") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_match_start as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_end") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_match_end as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_group") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_match_group as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_span") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_match_span as *const () as usize);
+    }
+
+    // Flag constants
+    if let Some(func) = module.get_function("vp_re_ignorecase") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_ignorecase as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_multiline") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_multiline as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_dotall") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_dotall as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_verbose") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_re_verbose as *const () as usize);
+    }
+
+    // ============================================
+    // Phase 2: Random Module
+    // ============================================
+
+    // Basic random functions
+    if let Some(func) = module.get_function("vp_random_random") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_random as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_randint") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_randint as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_seed") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_seed as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_seed_secure") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_seed_secure as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_choice") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_choice as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_shuffle") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_shuffle as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_uniform") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_uniform as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_gauss") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_gauss as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_normal") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_normal as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_exp") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_exp as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_sample") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_sample as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_bool") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_bool as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_get_state") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_get_state as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_set_state") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_set_state as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_is_initialized") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_is_initialized as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_getrandbits") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_getrandbits as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_randbytes") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_random_randbytes as *const () as usize);
+    }
+
+    // ============================================
+    // Phase 3: Socket Module
+    // ============================================
+
+    // Socket functions
+    if let Some(func) = module.get_function("vp_socket_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_connect") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_connect as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_send") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_send as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_recv") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_recv as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_close") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_close as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_bind") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_bind as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_listen") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_listen as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_accept") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_accept as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_setblocking") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_setblocking as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_getsockopt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_getsockopt as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_setsockopt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_setsockopt as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_fileno") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_fileno as *const () as usize);
+    }
+
+    // Socket constants
+    if let Some(func) = module.get_function("vp_socket_af_inet") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_af_inet as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_af_inet6") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_af_inet6 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_sock_stream") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_sock_stream as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_sock_dgram") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_sock_dgram as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_sol_socket") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_sol_socket as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_so_reuseaddr") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_so_reuseaddr as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_tcp_nodelay") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_tcp_nodelay as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_shut_rd") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_shut_rd as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_shut_wr") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_shut_wr as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_socket_shut_rdwr") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_socket_shut_rdwr as *const () as usize);
+    }
 }

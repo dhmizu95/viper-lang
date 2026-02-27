@@ -1,0 +1,335 @@
+# Viper Standard Library - socket module
+# Network socket interface
+
+# Module metadata
+__name__ = "socket"
+__version__ = "0.4.1"
+
+# ============================================
+# Address Families
+# ============================================
+
+AF_UNSPEC: i64 = 0
+AF_INET: i64 = 2       # IPv4
+AF_INET6: i64 = 10     # IPv6
+AF_UNIX: i64 = 1       # Unix domain sockets
+AF_PACKET: i64 = 17    # Packet interface
+
+# ============================================
+# Socket Types
+# ============================================
+
+SOCK_STREAM: i64 = 1       # TCP
+SOCK_DGRAM: i64 = 2        # UDP
+SOCK_RAW: i64 = 3          # Raw socket
+SOCK_SEQPACKET: i64 = 5    # Sequenced packet
+
+# ============================================
+# Protocol Numbers
+# ============================================
+
+IPPROTO_IP: i64 = 0
+IPPROTO_TCP: i64 = 6
+IPPROTO_UDP: i64 = 17
+IPPROTO_RAW: i64 = 255
+
+# ============================================
+# Socket Options
+# ============================================
+
+SOL_SOCKET: i64 = 1
+SO_DEBUG: i64 = 1
+SO_REUSEADDR: i64 = 2
+SO_KEEPALIVE: i64 = 9
+SO_DONTROUTE: i64 = 5
+SO_BROADCAST: i64 = 6
+SO_LINGER: i64 = 13
+SO_RCVBUF: i64 = 8
+SO_SNDBUF: i64 = 7
+
+IPPROTO_TCP: i64 = 6
+TCP_NODELAY: i64 = 1
+TCP_MAXSEG: i64 = 2
+
+# ============================================
+# Shutdown Options
+# ============================================
+
+SHUT_RD: i64 = 0    # Shutdown receive
+SHUT_WR: i64 = 1    # Shutdown send
+SHUT_RDWR: i64 = 2  # Shutdown both
+
+# ============================================
+# Socket Class
+# ============================================
+
+class socket:
+    """Socket class for network communication."""
+    
+    def __init__(self, family: i64 = AF_INET, type: i64 = SOCK_STREAM, 
+                 proto: i64 = 0):
+        """Create a new socket."""
+        self._family = family
+        self._type = type
+        self._proto = proto
+        self._sock_id: i64 = -1
+        
+        # Create the socket
+        self._sock_id = self._create(family, type, proto)
+    
+    def _create(self, family: i64, type: i64, proto: i64) -> i64:
+        """Create the underlying socket."""
+        # Implemented in runtime
+        return -1
+    
+    # ============================================
+    # Connection Methods
+    # ============================================
+    
+    def connect(self, address: (str, i64)):
+        """Connect to a remote socket."""
+        host, port = address
+        # Implemented in runtime
+        pass
+    
+    def bind(self, address: (str, i64)):
+        """Bind socket to a local address."""
+        host, port = address
+        # Implemented in runtime
+        pass
+    
+    def listen(self, backlog: i64 = 0):
+        """Enable a server to accept connections."""
+        # Implemented in runtime
+        pass
+    
+    def accept(self) -> (socket, (str, i64)):
+        """Accept a connection."""
+        # Implemented in runtime
+        return (None, ("", 0))
+    
+    # ============================================
+    # Data Transfer Methods
+    # ============================================
+    
+    def send(self, data: [i64], flags: i64 = 0) -> i64:
+        """Send data to the socket."""
+        # Implemented in runtime
+        return 0
+    
+    def sendall(self, data: [i64], flags: i64 = 0):
+        """Send all data to the socket."""
+        # Implemented in runtime
+        pass
+    
+    def recv(self, bufsize: i64, flags: i64 = 0) -> [i64]:
+        """Receive data from the socket."""
+        # Implemented in runtime
+        return []
+    
+    def recv_into(self, buffer: [i64], nbytes: i64 = 0, flags: i64 = 0) -> i64:
+        """Receive data into a buffer."""
+        # Implemented in runtime
+        return 0
+    
+    def sendto(self, data: [i64], address: (str, i64), flags: i64 = 0) -> i64:
+        """Send data to a specific address."""
+        # Implemented in runtime
+        return 0
+    
+    def recvfrom(self, bufsize: i64, flags: i64 = 0) -> ([i64], (str, i64)):
+        """Receive data and address."""
+        # Implemented in runtime
+        return ([], ("", 0))
+    
+    # ============================================
+    # Socket Control Methods
+    # ============================================
+    
+    def close(self):
+        """Close the socket."""
+        # Implemented in runtime
+        pass
+    
+    def shutdown(self, how: i64 = SHUT_RDWR):
+        """Shutdown one or both halves of the connection."""
+        # Implemented in runtime
+        pass
+    
+    def setblocking(self, flag: bool):
+        """Set blocking or non-blocking mode."""
+        # Implemented in runtime
+        pass
+    
+    def setsockopt(self, level: i64, optname: i64, value):
+        """Set socket options."""
+        # Implemented in runtime
+        pass
+    
+    def getsockopt(self, level: i64, optname: i64) -> int:
+        """Get socket options."""
+        # Implemented in runtime
+        return 0
+    
+    def settimeout(self, value: f64):
+        """Set timeout for socket operations."""
+        # Implemented in runtime
+        pass
+    
+    def gettimeout(self) -> f64:
+        """Get timeout value."""
+        # Implemented in runtime
+        return 0.0
+    
+    # ============================================
+    # Socket Info Methods
+    # ============================================
+    
+    def fileno(self) -> i64:
+        """Return the file descriptor."""
+        # Implemented in runtime
+        return 0
+    
+    def getpeername(self) -> (str, i64):
+        """Return the remote address."""
+        # Implemented in runtime
+        return ("", 0)
+    
+    def getsockname(self) -> (str, i64):
+        """Return the local address."""
+        # Implemented in runtime
+        return ("", 0)
+    
+    def getsockopt(self, level: i64, optname: i64, buflen: i64 = 0):
+        """Return socket option value."""
+        # Implemented in runtime
+        return None
+    
+    # ============================================
+    # Properties
+    # ============================================
+    
+    def family(self) -> i64:
+        """Return the socket family."""
+        return self._family
+    
+    def type(self) -> i64:
+        """Return the socket type."""
+        return self._type
+    
+    def proto(self) -> i64:
+        """Return the socket protocol."""
+        return self._proto
+    
+    # ============================================
+    # Context Manager
+    # ============================================
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+    
+    # ============================================
+    # String Representation
+    # ============================================
+    
+    def __repr__(self) -> str:
+        return "<socket fd=" + str(self.fileno()) + ", family=" + str(self._family) + ", type=" + str(self._type) + ">"
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def create_connection(address: (str, i64), timeout: f64 = None, 
+                    source_address: (str, i64) = None) -> socket:
+    """Connect to a TCP socket."""
+    sock = socket(AF_INET, SOCK_STREAM)
+    if timeout is not None:
+        sock.settimeout(timeout)
+    sock.connect(address)
+    return sock
+
+def gethostbyname(hostname: str) -> str:
+    """Translate a hostname to IPv4 address."""
+    # Simplified: would need DNS resolution
+    return "127.0.0.1"
+
+def gethostbyaddr(ip_address: str) -> (str, [str], [str]):
+    """Return host name, alias list, IP address list."""
+    # Simplified
+    return (ip_address, [], [ip_address])
+
+def gethostname() -> str:
+    """Return the current hostname."""
+    return "localhost"
+
+def getaddrinfo(host: str, port: i64, family: i64 = 0, 
+                type: i64 = 0, proto: i64 = 0, flags: i64 = 0):
+    """Translate host/port to list of 5-tuples."""
+    # Simplified
+    return []
+
+def inet_aton(ip_string: str) -> [i64]:
+    """Convert IPv4 address string to 32-bit packed binary format."""
+    # Simplified
+    return []
+
+def inet_ntoa(packed_ip: [i64]) -> str:
+    """Convert 32-bit packed IPv4 to string."""
+    # Simplified
+    return "0.0.0.0"
+
+def inet_pton(family: i64, ip_string: str) -> [i64]:
+    """Convert IP address string to packed binary format."""
+    # Simplified
+    return []
+
+def inet_ntop(family: i64, packed_ip: [i64]) -> str:
+    """Convert packed IP address to string."""
+    # Simplified
+    return ""
+
+# ============================================
+# Error Classes
+# ============================================
+
+class error(Exception):
+    """Base exception for socket errors."""
+    pass
+
+class herror(error):
+    """Host/address related errors."""
+    pass
+
+class gaierror(error):
+    """Address info related errors."""
+    pass
+
+class timeout(error):
+    """Timeout error."""
+    pass
+
+# ============================================
+# Constants
+# ============================================
+
+# Default backlog for listen
+SOMAXCONN: i64 = 128
+
+# Message flags
+MSG_PEEK: i64 = 0x02
+MSG_WAITALL: i64 = 0x100
+MSG_OOB: i64 = 0x01
+MSG_DONTWAIT: i64 = 0x40
+
+# AI_* flags for getaddrinfo
+AI_PASSIVE: i64 = 0x0001
+AI_CANONNAME: i64 = 0x0002
+AI_NUMERICHOST: i64 = 0x0004
+AI_NUMERICSERV: i64 = 0x0400
+
+# Has IPv6 support
+HAS_IPV6: bool = True

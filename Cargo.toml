@@ -54,6 +54,9 @@ rustyline = "14"
 # Lazy static initialization
 lazy_static = "1.4"
 
+# Regex support for re module
+regex = "1.10"
+
 [build-dependencies]
 cc = "1.0"
 
