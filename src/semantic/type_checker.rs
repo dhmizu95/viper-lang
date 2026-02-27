@@ -180,6 +180,7 @@ impl TypeChecker {
                 | BinOp::GtEq
                 | BinOp::And
                 | BinOp::Or => Some(Type::Bool),
+                BinOp::NullCoalesce => self.infer_expr_type(left).or_else(|| self.infer_expr_type(right)),
                 _ => Some(Type::I64),
             },
             Expr::UnaryOp { op, operand, .. } => match op {

@@ -130,6 +130,8 @@ pub enum BinOp {
     // Membership (Phase 2)
     In,
     NotIn,
+    // Null coalescing (Phase 3)
+    NullCoalesce,
 }
 
 impl BinOp {
@@ -144,6 +146,7 @@ impl BinOp {
             BinOp::BitOr => 8,
             BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => 7,
             BinOp::Eq | BinOp::NotEq | BinOp::Is | BinOp::IsNot | BinOp::In | BinOp::NotIn => 6,
+            BinOp::NullCoalesce => 5,  // Same as 'and' - low precedence
             BinOp::And => 5,
             BinOp::Or => 4,
         }

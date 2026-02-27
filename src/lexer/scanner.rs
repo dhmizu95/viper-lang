@@ -312,7 +312,15 @@ impl<'a> Lexer<'a> {
                 }
                 '^' => TokenKind::Caret,
                 '~' => TokenKind::Tilde,
-                '?' => TokenKind::Question,
+                '?' => {
+                    // Check for ?? (null coalescing)
+                    if self.peek() == Some('?') {
+                        self.advance();
+                        TokenKind::DoubleQuestion
+                    } else {
+                        TokenKind::Question
+                    }
+                }
 
                 // String literals
                 '"' | '\'' => {

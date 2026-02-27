@@ -652,6 +652,7 @@ impl<'a> PrattParser<'a> {
             TokenKind::IsNot => BinOp::IsNot,
             TokenKind::In => BinOp::In,
             TokenKind::NotIn => BinOp::NotIn,
+            TokenKind::DoubleQuestion => BinOp::NullCoalesce,
             _ => return Err("Unknown infix operator".to_string()),
         };
 
@@ -663,7 +664,7 @@ impl<'a> PrattParser<'a> {
 
         let prec = match &token.kind {
             TokenKind::Or => Precedence::OR,
-            TokenKind::And => Precedence::AND,
+            TokenKind::And | TokenKind::DoubleQuestion => Precedence::AND,
             TokenKind::Eq
             | TokenKind::EqEq
             | TokenKind::NotEq

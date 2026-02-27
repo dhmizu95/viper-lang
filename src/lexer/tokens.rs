@@ -99,6 +99,7 @@ pub enum TokenKind {
     NotIn,
     // Ternary (Phase 2)
     Question, // ?
+    DoubleQuestion, // ?? - Null coalescing (Phase 3)
     Lambda,
     Fn, // fn as alternative to lambda
 
@@ -234,6 +235,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::IsNot => write!(f, "is not"),
             TokenKind::NotIn => write!(f, "not in"),
             TokenKind::Question => write!(f, "?"),
+            TokenKind::DoubleQuestion => write!(f, "??"),
             TokenKind::Lambda => write!(f, "lambda"),
             TokenKind::Fn => write!(f, "fn"),
             TokenKind::Type => write!(f, "type"),
