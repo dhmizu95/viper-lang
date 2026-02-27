@@ -1103,4 +1103,194 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_json_get_error as *const () as usize);
     }
+
+    // ============================================
+    // Phase 2: Collections Module
+    // ============================================
+
+    // Deque functions
+    if let Some(func) = module.get_function("vp_deque_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_append") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_append as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_appendleft") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_appendleft as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_pop") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_pop as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_popleft") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_popleft as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_len") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_len as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_clear") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_clear as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_rotate") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_rotate as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_reverse") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_reverse as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_remove") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_remove as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_count") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_count as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_contains") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_contains as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_insert") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_deque_insert as *const () as usize);
+    }
+
+    // Counter functions
+    if let Some(func) = module.get_function("vp_counter_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_add") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_add as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_set") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_total") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_total as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_len") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_len as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_clear") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_counter_clear as *const () as usize);
+    }
+
+    // OrderedDict functions
+    if let Some(func) = module.get_function("vp_ordered_dict_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_set") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_contains") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_contains as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_len") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_len as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_clear") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_clear as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_keys") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_keys as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_values") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_values as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_move_to_end") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_move_to_end as *const () as usize);
+    }
+
+    // DefaultDict functions
+    if let Some(func) = module.get_function("vp_default_dict_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_default_dict_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_default_dict_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_default_dict_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_set") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_default_dict_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_len") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_default_dict_len as *const () as usize);
+    }
+
+    // NamedTuple functions
+    if let Some(func) = module.get_function("vp_named_tuple_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_named_tuple_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_named_tuple_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_set_field") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_named_tuple_set_field as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_set_value") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_named_tuple_set_value as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_get_value") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_named_tuple_get_value as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_len") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_named_tuple_len as *const () as usize);
+    }
 }

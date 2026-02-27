@@ -1,4 +1,5 @@
 pub mod concurrency;
+pub mod collections;
 pub mod dicts;
 pub mod gc;
 pub mod hash;
@@ -17,6 +18,7 @@ pub mod sys;
 pub mod time_mod;
 
 pub use concurrency::*;
+pub use collections::*;
 pub use dicts::*;
 pub use gc::*;
 pub use hash::*;
