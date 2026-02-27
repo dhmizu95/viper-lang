@@ -98,7 +98,44 @@ BigInt values are managed by Viper's ARC (Automatic Reference Counting) system:
 
 ## Usage
 
-### Basic Usage
+### Python-like Syntax
+
+Viper supports natural, Python-like syntax for BigInt operations:
+
+```python
+# Method 1: Explicit 'n' suffix (like JavaScript BigInt)
+x = 123456789012345678901234567890n
+
+# Method 2: Automatic promotion (integers too large for i64)
+y = 123456789012345678901234567890  # Automatically BigInt
+
+# Method 3: BigInt constructor (explicit)
+z = BigInt("123456789012345678901234567890")
+
+# All arithmetic operators work naturally
+a = 100000000000000000000n
+b = 50000000000000000000n
+
+c = a + b  # Addition
+d = a * b  # Multiplication
+e = a ** b # Power (use pow_bigint for very large exponents)
+
+# Comparisons work as expected
+if a > b:
+    print("a is larger")
+
+# Bitwise operations
+x = 0xFF00FF00n
+y = 0x00FF00FFn
+z = x & y  # AND
+
+# Different number bases
+hex_big = 0xDEADBEEFCAFEn
+bin_big = 0b1111111111111111n
+oct_big = 0o777777777777n
+```
+
+### Basic Usage (Legacy)
 
 ```python
 # Create BigInt from string literal

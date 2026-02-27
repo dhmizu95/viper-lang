@@ -359,9 +359,16 @@ pub fn parse_match_pattern(parser: &mut StatementParser) -> Result<MatchPattern,
             parser.advance();
             // Check if the integer fits in i64
             if *n > i64::MAX as i128 || *n < i64::MIN as i128 {
-                return Err(format!("Integer literal too large for i64: {}", n));
+                // Convert to BigInt pattern if too large for i64
+                Ok(MatchPattern::Constant(Expr::BigInt(n.to_string(), span)))
+            } else {
+                Ok(MatchPattern::Constant(Expr::Int(*n as i64, span)))
             }
-            Ok(MatchPattern::Constant(Expr::Int(*n as i64, span)))
+        }
+        TokenKind::BigInt(ref s) => {
+            let span = token.span;
+            parser.advance();
+            Ok(MatchPattern::Constant(Expr::BigInt(s.clone(), span)))
         }
         TokenKind::Str(s) => {
             let span = token.span;

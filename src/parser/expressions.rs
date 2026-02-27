@@ -262,9 +262,16 @@ impl<'a> PrattParser<'a> {
                 self.advance();
                 // Check if the integer fits in i64
                 if n > i64::MAX as i128 || n < i64::MIN as i128 {
-                    return Err(format!("Integer literal too large for i64: {}", n));
+                    // Convert to BigInt if too large for i64
+                    Ok(Expr::BigInt(n.to_string(), span))
+                } else {
+                    Ok(Expr::Int(n as i64, span))
                 }
-                Ok(Expr::Int(n as i64, span))
+            }
+            TokenKind::BigInt(s) => {
+                let s = s.clone();
+                self.advance();
+                Ok(Expr::BigInt(s, span))
             }
             TokenKind::Float(n) => {
                 let n = *n;

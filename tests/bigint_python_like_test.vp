@@ -1,0 +1,163 @@
+# BigInt Python-like Syntax Test Suite
+# Demonstrates natural Python-style BigInt usage
+
+# Test 1: BigInt with 'n' suffix (like JavaScript BigInt)
+def test_bigint_suffix():
+    print("Test 1: BigInt with 'n' suffix")
+    a = 123456789012345678901234567890n
+    b = 987654321098765432109876543210n
+    print("a = ")
+    print(str_bigint(a))
+    print("b = ")
+    print(str_bigint(b))
+
+# Test 2: Automatic BigInt for large integers (exceeds i64)
+def test_auto_bigint():
+    print("Test 2: Automatic BigInt for large integers")
+    # This number is too large for i64, automatically becomes BigInt
+    x = 123456789012345678901234567890
+    print("x (auto BigInt) = ")
+    print(str_bigint(x))
+
+# Test 3: Regular integers still work as i64
+def test_regular_int():
+    print("Test 3: Regular integers (i64)")
+    small = 42
+    large_i64 = 9223372036854775807  # i64::MAX
+    print("small = ")
+    print(small)
+    print("large_i64 = ")
+    print(large_i64)
+
+# Test 4: BigInt arithmetic with natural syntax
+def test_bigint_arithmetic():
+    print("Test 4: BigInt arithmetic")
+    a = 100000000000000000000n
+    b = 50000000000000000000n
+    
+    print("a + b = ")
+    print(str_bigint(a + b))
+    print("a - b = ")
+    print(str_bigint(a - b))
+    print("a * b = ")
+    print(str_bigint(a * b))
+    print("a / b = ")
+    print(str_bigint(a / b))
+
+# Test 5: BigInt comparisons
+def test_bigint_comparisons():
+    print("Test 5: BigInt comparisons")
+    a = 100000000000000000000n
+    b = 50000000000000000000n
+    
+    if a > b:
+        print("a > b: True")
+    else:
+        print("a > b: False")
+    
+    if a < b:
+        print("a < b: True")
+    else:
+        print("a < b: False")
+
+# Test 6: BigInt bitwise operations
+def test_bigint_bitwise():
+    print("Test 6: BigInt bitwise operations")
+    a = 0xFF00FF00FF00FF00n
+    b = 0x00FF00FF00FF00FFn
+    
+    print("a & b = 0x")
+    print(str_bigint(a & b))
+    print("a | b = 0x")
+    print(str_bigint(a | b))
+    print("a ^ b = 0x")
+    print(str_bigint(a ^ b))
+
+# Test 7: BigInt shifts
+def test_bigint_shifts():
+    print("Test 7: BigInt shifts")
+    a = 1n
+    b = 10n
+    
+    print("1n << 10n = ")
+    print(str_bigint(a << b))
+    
+    print("(1n << 10n) >> 5n = ")
+    print(str_bigint((a << b) >> 5n))
+
+# Test 8: Very large numbers (2^1000)
+def test_bigint_power():
+    print("Test 8: Very large numbers")
+    two = 2n
+    exp = 1000n
+    result = pow_bigint(two, exp)
+    print("2^1000 = ")
+    print(str_bigint(result))
+
+# Test 9: Hex, binary, octal BigInt literals
+def test_bigint_bases():
+    print("Test 9: BigInt with different bases")
+    
+    hex_big = 0xDEADBEEFCAFEn
+    print("0xDEADBEEFCAFEn = ")
+    print(str_bigint(hex_big))
+    
+    bin_big = 0b1111111111111111111111111111111111111111n
+    print("0b1111111111111111111111111111111111111111n = ")
+    print(str_bigint(bin_big))
+    
+    oct_big = 0o777777777777777777777n
+    print("0o777777777777777777777n = ")
+    print(str_bigint(oct_big))
+
+# Test 10: Mixed operations
+def test_bigint_mixed():
+    print("Test 10: Mixed operations")
+    a = 100n
+    b = 3n
+    
+    q = a / b
+    r = a % b
+    print("100n / 3n = ")
+    print(str_bigint(q))
+    print("100n % 3n = ")
+    print(str_bigint(r))
+    print("q * 3n + r = ")
+    print(str_bigint(q * b + r))
+
+# Run all tests
+def main():
+    print("=== Viper BigInt Python-like Syntax Test ===")
+    print("")
+    
+    test_bigint_suffix()
+    print("")
+    
+    test_auto_bigint()
+    print("")
+    
+    test_regular_int()
+    print("")
+    
+    test_bigint_arithmetic()
+    print("")
+    
+    test_bigint_comparisons()
+    print("")
+    
+    test_bigint_bitwise()
+    print("")
+    
+    test_bigint_shifts()
+    print("")
+    
+    test_bigint_power()
+    print("")
+    
+    test_bigint_bases()
+    print("")
+    
+    test_bigint_mixed()
+    print("")
+    
+    print("=== All tests completed ===")

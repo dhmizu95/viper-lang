@@ -301,9 +301,16 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
             parser.advance();
             // Check if the integer fits in i64
             if n > i64::MAX as i128 || n < i64::MIN as i128 {
-                return Err(format!("Integer literal too large for i64: {}", n));
+                // Convert to BigInt if too large for i64
+                Expr::BigInt(n.to_string(), span)
+            } else {
+                Expr::Int(n as i64, span)
             }
-            Expr::Int(n as i64, span)
+        }
+        TokenKind::BigInt(s) => {
+            let s = s.clone();
+            parser.advance();
+            Expr::BigInt(s, span)
         }
         TokenKind::Float(n) => {
             let n = *n;
