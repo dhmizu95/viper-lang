@@ -245,20 +245,43 @@ impl ReplSession {
 
     /// Extract variable assignments from source text for re-execution
     fn extract_variable_assignments(&mut self, source: &str) {
-        // Simple extraction: find "name = expr" patterns at the top level
+        // Simple extraction: find "name = expr" patterns at the top level (no indentation)
         let lines: Vec<&str> = source.lines().collect();
+        let mut in_function = false;
+        let mut function_indent = 0;
+        
         for line in lines {
+            // Calculate indentation
+            let indent = line.chars().take_while(|c| *c == ' ' || *c == '\t').count();
             let trimmed = line.trim();
-            // Skip empty lines, comments, and non-assignment statements
-            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with("def ") ||
-               trimmed.starts_with("class ") || trimmed.starts_with("struct ") ||
-               trimmed.starts_with("if ") || trimmed.starts_with("while ") ||
-               trimmed.starts_with("for ") || trimmed.starts_with("return ") ||
-               trimmed.starts_with("print(") || trimmed.starts_with(":") {
+            
+            // Track function boundaries
+            if trimmed.starts_with("def ") {
+                in_function = true;
+                function_indent = indent;
                 continue;
             }
             
-            // Look for "name = " pattern
+            // Check if we've exited the function (non-empty line at same or lower indent)
+            if in_function && !trimmed.is_empty() && indent <= function_indent && !trimmed.starts_with('#') {
+                in_function = false;
+            }
+            
+            // Skip empty lines, comments, and lines inside functions
+            if trimmed.is_empty() || trimmed.starts_with('#') || in_function {
+                continue;
+            }
+            
+            // Skip other top-level statements
+            if trimmed.starts_with("def ") || trimmed.starts_with("class ") || 
+               trimmed.starts_with("struct ") || trimmed.starts_with("if ") || 
+               trimmed.starts_with("while ") || trimmed.starts_with("for ") || 
+               trimmed.starts_with("return ") || trimmed.starts_with("print(") || 
+               trimmed.starts_with(":") {
+                continue;
+            }
+            
+            // Look for "name = " pattern at top level
             if let Some(eq_pos) = trimmed.find(" = ") {
                 let name = trimmed[..eq_pos].trim();
                 // Check if name is a valid identifier (simple check)
