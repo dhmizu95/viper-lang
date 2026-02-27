@@ -69,12 +69,15 @@ pub(crate) fn generate_declare<'ctx>(
             state.mark_as_dict(name.to_string());
         }
 
-        // Lists are ALWAYS heap-allocated with ARC since they can be mutated via method calls
-        // This prevents stack allocation issues with in-place mutations like sort() and reverse()
-        let can_stack_alloc = if is_list { false } else { state.can_stack_allocate(name) };
+        // Lists can be stack-allocated if they don't escape the function
+        // This is safe because:
+        // 1. Non-escaping lists are only used within the function
+        // 2. We insert ARC cleanup at function exit for escaping lists
+        // 3. Stack allocation is faster and reduces GC pressure
+        let can_stack_alloc = state.can_stack_allocate(name);
 
         // Determine if this is a reference type (pointer)
-        // Chan[T] and WaitGroup are always pointer types
+        // Lists, Chan[T], and WaitGroup are always pointer types
         let is_ref_type = val.is_pointer_value();
 
         // Set reference type flag in escape analyzer
