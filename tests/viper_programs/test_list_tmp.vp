@@ -1,0 +1,7 @@
+def test():
+    lst = [1, 2, 3]
+    lst.insert(1, 10)
+    lst.remove(10)
+    print(lst[1])
+
+test()

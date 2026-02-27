@@ -1,0 +1,23 @@
+def test_control_flow():
+    x = 10
+    if x > 5:
+        pass
+    elif x == 5:
+        pass
+    else:
+        pass
+        
+    y = 0
+    while y < 5:
+        y = y + 1
+        if y == 3:
+            continue
+        if y == 5:
+            break
+            
+    for i in range(5):
+        pass
+        
+    print("control flow ok")
+
+test_control_flow()

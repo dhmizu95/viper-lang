@@ -1,0 +1,7 @@
+def test_dict():
+    d = {"a": 1, "b": 2}
+    v = d["a"]
+    has_b = "b" in d
+    print("dict ok")
+
+test_dict()

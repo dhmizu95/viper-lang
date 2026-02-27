@@ -1,0 +1,17 @@
+def test_string_methods():
+    s = " hello "
+    t = s.upper()
+    l = s.lower()
+    pass
+    sp = "a,b".split(",")
+    pass
+    r = s.replace("e", "a")
+    pass
+    pass
+    pass
+    
+    sl = s[1:5]
+    
+    print("string methods ok")
+
+test_string_methods()

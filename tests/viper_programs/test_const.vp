@@ -1,0 +1,7 @@
+const PI = 3.14159
+
+def test_const():
+    pass
+    print("const ok")
+
+test_const()

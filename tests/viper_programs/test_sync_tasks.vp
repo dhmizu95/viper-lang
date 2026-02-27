@@ -1,0 +1,11 @@
+def worker_task(id: int):
+    pass
+
+def test_sync_tasks():
+    sync:
+        task worker_task(1)
+        task worker_task(2)
+        
+    print("sync tasks ok")
+
+test_sync_tasks()
