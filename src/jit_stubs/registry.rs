@@ -1936,4 +1936,303 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_epoll_ctl_del as *const () as usize);
     }
+
+    // ============================================
+    // Phase 4: Hashlib Module
+    // ============================================
+
+    if let Some(func) = module.get_function("vp_hash_sha256") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_sha256 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hash_md5") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_md5 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hash_sha512") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hash_sha512 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_new") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_new as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_update") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_update as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_digest") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_digest as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_hexdigest") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_hexdigest as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_block_size_md5") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_block_size_md5 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_block_size_sha256") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_block_size_sha256 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_block_size_sha512") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_block_size_sha512 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_digest_size_md5") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_digest_size_md5 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_digest_size_sha256") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_digest_size_sha256 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_hashlib_digest_size_sha512") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_hashlib_digest_size_sha512 as *const () as usize);
+    }
+
+    // ============================================
+    // Phase 4: Decimal Module
+    // ============================================
+
+    if let Some(func) = module.get_function("vp_decimal_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_from_str") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_from_str as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_from_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_from_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_from_f64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_from_f64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_to_str") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_to_str as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_to_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_to_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_to_f64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_to_f64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_add") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_add as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_sub") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_sub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_mul") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_mul as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_div") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_div as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_neg") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_neg as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_abs") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_abs as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_cmp") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_cmp as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_eq") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_eq as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_lt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_lt as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_le") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_le as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_gt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_gt as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_ge") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_ge as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_quantize") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_quantize as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_round") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_round as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_floor") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_floor as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_ceil") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_ceil as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_get_sign") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_get_sign as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_get_scale") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_get_scale as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_is_zero") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_is_zero as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_is_nan") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_is_nan as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_is_infinite") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_is_infinite as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_is_signed") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_is_signed as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_zero") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_zero as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_one") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_one as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_pi") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_pi as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_decimal_e") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_decimal_e as *const () as usize);
+    }
+
+    // ============================================
+    // Phase 4: Logging Module
+    // ============================================
+
+    if let Some(func) = module.get_function("vp_logging_create_logger") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_create_logger as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_logger_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_logger_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_set_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_set_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_get_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_get_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_enabled_for") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_enabled_for as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_debug") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_debug as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_info") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_info as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_warning") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_warning as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_error") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_error as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_critical") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_critical as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_get_logger") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_get_logger as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_basic_config") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_basic_config as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_cleanup") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_cleanup as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_debug_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_debug_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_info_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_info_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_warning_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_warning_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_error_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_error_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_critical_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_critical_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_notset_level") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_notset_level as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_create_filter") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_create_filter as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_filter_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_filter_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_logging_filter_call") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_logging_filter_call as *const () as usize);
+    }
 }
