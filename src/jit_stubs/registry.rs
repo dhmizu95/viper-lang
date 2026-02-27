@@ -78,6 +78,15 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             vp_list_contains_stub as *const () as usize,
         );
     }
+    // List grow and reserve functions
+    if let Some(func) = module.get_function("vp_list_grow") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_grow_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_reserve") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_reserve_stub as *const () as usize);
+    }
     // Float list functions (f64)
     if let Some(func) = module.get_function("vp_list_create_f64") {
         execution_engine.add_global_mapping(

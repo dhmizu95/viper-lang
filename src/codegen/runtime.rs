@@ -110,6 +110,14 @@ fn declare_list_functions<'ctx>(
         context.create_string_attribute("alwaysinline", ""),
     );
 
+    // List grow function - for inline append
+    let list_grow_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_grow", list_grow_type, None);
+
+    // List reserve function - pre-allocate capacity
+    let list_reserve_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_reserve", list_reserve_type, None);
+
     let list_free_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_list_free", list_free_type, None);
 

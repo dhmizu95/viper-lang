@@ -305,6 +305,22 @@ pub extern "C" fn vp_list_copy_stub(list: *mut std::ffi::c_void) -> *mut std::ff
     }
 }
 
+pub extern "C" fn vp_list_grow_stub(_list: *mut std::ffi::c_void) {
+    // No-op for JIT - Vec automatically grows
+}
+
+pub extern "C" fn vp_list_reserve_stub(list: *mut std::ffi::c_void, capacity: i64) {
+    if list.is_null() || capacity <= 0 {
+        return;
+    }
+    unsafe {
+        let vec = &mut *(list as *mut Vec<i64>);
+        if capacity as usize > vec.capacity() {
+            vec.reserve((capacity as usize) - vec.capacity());
+        }
+    }
+}
+
 pub extern "C" fn vp_list_concat_stub(
     list1: *mut std::ffi::c_void,
     list2: *mut std::ffi::c_void,

@@ -233,7 +233,7 @@ pub fn inline_i64_list_set<'ctx>(
 ) -> Result<(), String> {
     // Get the data pointer (i64* for i64 lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
-    
+
     // Calculate element pointer: data_ptr + index
     let i64_type = state.context.i64_type();
     let elem_ptr = unsafe {
@@ -251,6 +251,209 @@ pub fn inline_i64_list_set<'ctx>(
         .builder
         .build_store(elem_ptr, value_val)
         .map_err(|e| format!("Failed to store i64 element: {:?}", e))?;
+
+    Ok(())
+}
+
+/// ViperList struct field offsets (in bytes)
+/// struct ViperList {
+///     int64_t ref_count;    // offset 0 (0-7)
+///     int64_t length;       // offset 8 (8-15)
+///     int64_t capacity;     // offset 16 (16-23)
+///     int64_t elem_type;    // offset 24 (24-31)
+///     void* data;           // offset 32 (32-39)
+/// };
+const LIST_LENGTH_OFFSET: u32 = 8;
+const LIST_CAPACITY_OFFSET: u32 = 16;
+const LIST_DATA_OFFSET: u32 = 32;
+
+/// Get pointer to length field
+fn get_length_ptr<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    list_val: PointerValue<'ctx>,
+) -> Result<PointerValue<'ctx>, String> {
+    // ViperList* is an opaque pointer, cast to i8* for byte addressing
+    let i8_type = state.context.i8_type();
+    let i8_ptr = state.builder
+        .build_pointer_cast(
+            list_val,
+            i8_type.ptr_type(inkwell::AddressSpace::default()),
+            "list_as_i8_ptr",
+        )
+        .map_err(|e| format!("Failed to cast list pointer: {:?}", e))?;
+
+    // GEP to offset 8 (length field)
+    let length_ptr_i8 = unsafe {
+        state.builder.build_in_bounds_gep(
+            i8_type,
+            i8_ptr,
+            &[state.context.i32_type().const_int(8u64, false)],
+            "length_field_ptr",
+        )
+    }
+    .map_err(|e| format!("Failed to build GEP for length: {:?}", e))?;
+
+    // Cast back to i64*
+    let i64_type = state.context.i64_type();
+    let length_ptr = state.builder
+        .build_pointer_cast(
+            length_ptr_i8,
+            i64_type.ptr_type(inkwell::AddressSpace::default()),
+            "length_ptr_i64",
+        )
+        .map_err(|e| format!("Failed to cast length pointer: {:?}", e))?;
+
+    Ok(length_ptr)
+}
+
+/// Get pointer to capacity field
+fn get_capacity_ptr<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    list_val: PointerValue<'ctx>,
+) -> Result<PointerValue<'ctx>, String> {
+    // ViperList* is an opaque pointer, cast to i8* for byte addressing
+    let i8_type = state.context.i8_type();
+    let i8_ptr = state.builder
+        .build_pointer_cast(
+            list_val,
+            i8_type.ptr_type(inkwell::AddressSpace::default()),
+            "list_as_i8_ptr",
+        )
+        .map_err(|e| format!("Failed to cast list pointer: {:?}", e))?;
+
+    // GEP to offset 16 (capacity field)
+    let capacity_ptr_i8 = unsafe {
+        state.builder.build_in_bounds_gep(
+            i8_type,
+            i8_ptr,
+            &[state.context.i32_type().const_int(16u64, false)],
+            "capacity_field_ptr",
+        )
+    }
+    .map_err(|e| format!("Failed to build GEP for capacity: {:?}", e))?;
+
+    // Cast back to i64*
+    let i64_type = state.context.i64_type();
+    let capacity_ptr = state.builder
+        .build_pointer_cast(
+            capacity_ptr_i8,
+            i64_type.ptr_type(inkwell::AddressSpace::default()),
+            "capacity_ptr_i64",
+        )
+        .map_err(|e| format!("Failed to cast capacity pointer: {:?}", e))?;
+
+    Ok(capacity_ptr)
+}
+
+/// Inline i64 list append - generates optimized LLVM IR with grow check
+/// This is the HOT PATH - minimized checks, direct memory access
+pub fn inline_i64_list_append<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    list_val: PointerValue<'ctx>,
+    value_val: IntValue<'ctx>,
+) -> Result<(), String> {
+    let i64_type = state.context.i64_type();
+    let context = state.context;
+
+    // Get length pointer and load current length
+    let length_ptr = get_length_ptr(state, list_val)?;
+    let length = state.builder
+        .build_load(i64_type, length_ptr, "list_length")
+        .map_err(|e| format!("Failed to load length: {:?}", e))?
+        .into_int_value();
+
+    // Get capacity pointer and load current capacity
+    let capacity_ptr = get_capacity_ptr(state, list_val)?;
+    let capacity = state.builder
+        .build_load(i64_type, capacity_ptr, "list_capacity")
+        .map_err(|e| format!("Failed to load capacity: {:?}", e))?
+        .into_int_value();
+
+    // Check if we need to grow: length >= capacity
+    let need_grow = state.builder
+        .build_int_compare(
+            inkwell::IntPredicate::SGE,
+            length,
+            capacity,
+            "need_grow_check",
+        )
+        .map_err(|e| format!("Failed to compare length/capacity: {:?}", e))?;
+
+    // Get current function for branching
+    let current_func = state.builder.get_insert_block()
+        .ok_or("No insert block set")?
+        .get_parent()
+        .ok_or("Insert block has no parent function")?;
+
+    // Create basic blocks
+    let grow_block = context.append_basic_block(current_func, "list_grow");
+    let store_block = context.append_basic_block(current_func, "list_store");
+
+    // Branch based on grow check
+    state.builder
+        .build_conditional_branch(need_grow, grow_block, store_block)
+        .map_err(|e| format!("Failed to build conditional branch: {:?}", e))?;
+
+    // === Grow block ===
+    state.builder.position_at_end(grow_block);
+    
+    // Call vp_list_grow(list)
+    let list_grow = state
+        .module
+        .get_function("vp_list_grow")
+        .ok_or_else(|| "vp_list_grow not declared".to_string())?;
+    
+    state.builder
+        .build_call(
+            list_grow,
+            &[list_val.into()],
+            "list_grow_call",
+        )
+        .map_err(|e| format!("Failed to call list grow: {:?}", e))?;
+    
+    // Branch to store block
+    state.builder
+        .build_unconditional_branch(store_block)
+        .map_err(|e| format!("Failed to build branch to store: {:?}", e))?;
+
+    // === Store block ===
+    state.builder.position_at_end(store_block);
+
+    // Get data pointer
+    let data_ptr = get_list_data_ptr(state, list_val)?;
+    let data_ptr_i64 = state.builder
+        .build_pointer_cast(
+            data_ptr,
+            i64_type.ptr_type(inkwell::AddressSpace::default()),
+            "data_i64_ptr",
+        )
+        .map_err(|e| format!("Failed to cast data pointer: {:?}", e))?;
+
+    // Calculate element pointer: data_ptr + length
+    let elem_ptr = unsafe {
+        state.builder.build_in_bounds_gep(
+            i64_type,
+            data_ptr_i64,
+            &[length],
+            "append_elem_ptr",
+        )
+    }
+    .map_err(|e| format!("Failed to build GEP for append: {:?}", e))?;
+
+    // Store the value at data[length]
+    state.builder
+        .build_store(elem_ptr, value_val)
+        .map_err(|e| format!("Failed to store appended value: {:?}", e))?;
+
+    // Increment length: new_length = length + 1
+    let new_length = state.builder
+        .build_int_add(length, i64_type.const_int(1, false), "new_length")
+        .map_err(|e| format!("Failed to add length: {:?}", e))?;
+
+    // Store new length
+    state.builder
+        .build_store(length_ptr, new_length)
+        .map_err(|e| format!("Failed to store new length: {:?}", e))?;
 
     Ok(())
 }

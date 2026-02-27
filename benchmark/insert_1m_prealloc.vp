@@ -1,0 +1,14 @@
+# Benchmark: Insert 1M integers using list multiplication
+# Tests if [0] * N is faster than append
+
+def main():
+    # Pre-allocate using multiplication
+    lst = [0] * 1000000
+    
+    # Then fill with values
+    i = 0
+    while i < 1000000:
+        lst[i] = i
+        i = i + 1
+    
+    print("Pre-allocated and filled 1M integers")
