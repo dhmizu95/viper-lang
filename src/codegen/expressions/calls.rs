@@ -599,6 +599,69 @@ pub fn generate_method_call<'ctx>(
             );
             Ok(result.unwrap())
         }
+        "format" => {
+            // String format method: "Hello {}".format(name)
+            // For simplicity, we'll handle basic {} placeholders
+            if args.is_empty() {
+                return Err("format() takes at least 1 argument".to_string());
+            }
+            
+            // Generate all argument values and convert to strings
+            let mut arg_str_vals: Vec<inkwell::values::BasicValueEnum> = Vec::new();
+            for arg in args {
+                let arg_val = generate_expr(state, arg)?;
+                // Convert each argument to string based on its type
+                let str_val = if arg_val.is_int_value() && arg_val.get_type().into_int_type().get_bit_width() == 64 {
+                    // i64 to string
+                    let to_str = state.module.get_function("vp_str_from_i64").unwrap();
+                    state.ir_builder.build_call(state.builder, to_str, &[arg_val.into()], "i64_to_str").unwrap()
+                } else if arg_val.is_float_value() {
+                    // f64 to string
+                    let to_str = state.module.get_function("vp_str_from_f64").unwrap();
+                    state.ir_builder.build_call(state.builder, to_str, &[arg_val.into()], "f64_to_str").unwrap()
+                } else if arg_val.is_int_value() && arg_val.get_type().into_int_type().get_bit_width() == 1 {
+                    // bool to string
+                    let to_str = state.module.get_function("vp_str_from_bool").unwrap();
+                    state.ir_builder.build_call(state.builder, to_str, &[arg_val.into()], "bool_to_str").unwrap()
+                } else if arg_val.is_pointer_value() {
+                    // Already a string or pointer - use as-is
+                    arg_val
+                } else {
+                    // Default: use as-is (may not be a string)
+                    arg_val
+                };
+                arg_str_vals.push(str_val);
+            }
+            
+            // Create array of argument string pointers
+            let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+            let array_type = ptr_type.array_type(arg_str_vals.len() as u32);
+            let args_array = state.builder.build_alloca(array_type, "format_args_array").expect("alloca args array");
+            for (i, arg_str) in arg_str_vals.iter().enumerate() {
+                let arg_ptr = unsafe {
+                    state.builder.build_gep(array_type, args_array, &[state.context.i32_type().const_int(i as u64, false)], "arg_ptr").expect("gep")
+                };
+                state.builder.build_store(arg_ptr, arg_str.into_pointer_value()).expect("store arg");
+            }
+            
+            // Call vp_str_format(format_str, args_array, arg_count)
+            let format_func = state
+                .module
+                .get_function("vp_str_format")
+                .ok_or_else(|| "vp_str_format not declared. Add to runtime library.".to_string())?;
+            
+            let result = state.ir_builder.build_call(
+                state.builder,
+                format_func,
+                &[
+                    obj_val.into(),
+                    args_array.into(),
+                    state.ir_builder.i64_const(arg_str_vals.len() as i64).into(),
+                ],
+                "str_format",
+            );
+            Ok(result.unwrap())
+        }
         "len" => Err("len() is a builtin function, not a method".to_string()),
         _ => Err(format!("Unknown method: {}", method_name)),
     }

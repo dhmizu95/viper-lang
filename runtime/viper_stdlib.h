@@ -19,6 +19,8 @@ double vp_read_f64(void);
 char* vp_str_concat(const char* a, const char* b);
 int64_t vp_str_len(const char* s);
 char* vp_str_slice(const char* s, int64_t start, int64_t end);
+char* vp_str_format(const char* format_str, const char** args_array, int64_t arg_count);
+char* vp_str_from_bool(bool val);
 
 // Memory management (Phase 2)
 void* vp_alloc(size_t size);

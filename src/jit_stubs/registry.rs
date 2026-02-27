@@ -348,6 +348,18 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_str_replace_stub as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_str_from_bool") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_from_bool_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_str_format") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_format_stub as *const () as usize,
+        );
+    }
 
     if let Some(func) = module.get_function("vp_math_sqrt") {
         execution_engine

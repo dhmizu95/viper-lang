@@ -149,8 +149,16 @@ pub(crate) fn generate_assign<'ctx>(
         // We detect BigInt by checking the expression type and value type
         let is_bigint = match value {
             Expr::BigInt(_, _) => true,
-            Expr::BinOp { op, .. } => {
+            Expr::BinOp { op, left, right, .. } => {
                 // Arithmetic operations on BigInts produce BigInt results
+                // Check if either operand is a BigInt literal or BigInt variable
+                let left_is_bigint = matches!(left.as_ref(), Expr::BigInt(_, _))
+                    || left.as_ident().and_then(|n| state.variables.get(n))
+                        .map_or(false, |v| v.var_type == VarType::BigInt);
+                let right_is_bigint = matches!(right.as_ref(), Expr::BigInt(_, _))
+                    || right.as_ident().and_then(|n| state.variables.get(n))
+                        .map_or(false, |v| v.var_type == VarType::BigInt);
+                
                 matches!(
                     op,
                     crate::ast::BinOp::Add
@@ -159,7 +167,7 @@ pub(crate) fn generate_assign<'ctx>(
                         | crate::ast::BinOp::Div
                         | crate::ast::BinOp::Mod
                         | crate::ast::BinOp::Pow
-                ) && val.is_pointer_value()
+                ) && (left_is_bigint || right_is_bigint) && val.is_pointer_value()
             }
             Expr::UnaryOp { op, operand, .. } => {
                 // Negation of BigInt produces BigInt

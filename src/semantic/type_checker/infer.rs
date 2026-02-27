@@ -63,6 +63,11 @@ impl TypeChecker {
                         "recv" => Some(Type::Infer), // Returns channel element type
                         "WaitGroup" => Some(Type::WaitGroup),
                         "send" | "add" | "done" | "wait" => Some(Type::None),
+                        // Type conversion functions
+                        "str" => Some(Type::Str),
+                        "int" => Some(Type::I64),
+                        "float" => Some(Type::F64),
+                        "bool" => Some(Type::Bool),
                         _ => {
                             if let Some(symbol) = self.symbol_table.lookup(name) {
                                 if let SymbolKind::Function { return_type, .. } = &symbol.kind {

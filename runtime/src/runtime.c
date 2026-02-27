@@ -189,8 +189,57 @@ char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub) 
         p = tmp + old_len;
     }
     strcpy(out, p);
+
+    return result;
+}
+
+// String format: replaces {} placeholders with arguments
+// Args: format_str, args_array (array of char*), arg_count
+char* vp_str_format(const char* format_str, const char** args_array, int64_t arg_count) {
+    if (!format_str) return NULL;
+    
+    // Make a copy of the format string to work with
+    char* result = vp_str_create(format_str);
+    if (!result || arg_count == 0 || !args_array) {
+        return result;
+    }
+    
+    // Replace each {} placeholder with corresponding argument
+    for (int64_t i = 0; i < arg_count; i++) {
+        const char* arg = args_array[i];
+        if (!arg) continue;
+        
+        // Find first {} placeholder
+        char* placeholder = strstr(result, "{}");
+        if (!placeholder) break;
+        
+        // Build new string: before_placeholder + arg + after_placeholder
+        size_t before_len = placeholder - result;
+        size_t arg_len = strlen(arg);
+        size_t after_len = strlen(placeholder + 2);
+        
+        char* new_result = (char*)vp_arc_alloc(before_len + arg_len + after_len + 1);
+        
+        // Copy before part
+        strncpy(new_result, result, before_len);
+        new_result[before_len] = '\0';
+        
+        // Append argument
+        strcat(new_result, arg);
+        
+        // Append after part
+        strcat(new_result, placeholder + 2);
+        
+        // Note: old result will be freed by ARC when refcount reaches 0
+        result = new_result;
+    }
     
     return result;
+}
+
+// Convert bool to string
+char* vp_str_from_bool(bool val) {
+    return vp_str_create(val ? "True" : "False");
 }
 
 /* ============================================ */
@@ -317,11 +366,6 @@ char* vp_str_from_f64(double val) {
     char buffer[64];
     snprintf(buffer, sizeof(buffer), "%g", val);
     return vp_str_create(buffer);
-}
-
-/* Convert bool to string */
-char* vp_str_from_bool(bool val) {
-    return vp_str_create(val ? "True" : "False");
 }
 
 /* Convert string to i64 */
