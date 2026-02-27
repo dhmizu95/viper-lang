@@ -158,6 +158,35 @@ pub(crate) fn generate_global<'ctx>(
     Ok(())
 }
 
+/// Generate nonlocal variable declaration
+/// Python syntax: nonlocal x, y (inside nested function to refer to enclosing scope)
+pub(crate) fn generate_nonlocal<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    names: &[String],
+) -> Result<(), String> {
+    // The 'nonlocal' keyword marks variables as referring to enclosing (non-global) scope
+    // This is used in nested functions to modify variables from the outer function
+    // For now, we track these variables so they're looked up in the closure environment
+    // Full implementation requires closure support with cell variables
+    for name in names {
+        // Mark variable as nonlocal - it should be looked up in the enclosing scope
+        // This is a placeholder - full implementation needs closure support
+        eprintln!("Warning: nonlocal '{}' - closure support is limited", name);
+        
+        // For now, treat nonlocal like global but search enclosing function scope
+        // This will work for simple cases but not full closure semantics
+        if !state.variables.contains_key(name) {
+            // Create a placeholder variable that will be resolved at runtime
+            // This is a simplification - proper implementation needs closure cells
+            let i64_type = state.context.i64_type();
+            let alloca = state.builder.build_alloca(i64_type, name)
+                .map_err(|e| format!("Failed to create alloca: {:?}", e))?;
+            state.variables.insert(name.clone(), VarInfo::new_stack(alloca, VarType::Int));
+        }
+    }
+    Ok(())
+}
+
 /// Generate constant declaration
 pub(crate) fn generate_const<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,

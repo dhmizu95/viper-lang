@@ -35,6 +35,21 @@ pub fn parse_global_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::Global { names, span })
 }
 
+/// Parse nonlocal variable declaration: nonlocal x, y
+/// Python syntax: nonlocal x (inside nested function to refer to enclosing scope x)
+pub fn parse_nonlocal_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Nonlocal)?;
+
+    // Parse comma-separated list of variable names
+    let mut names = vec![parser.expect_ident()?];
+    while parser.match_token(&TokenKind::Comma) {
+        names.push(parser.expect_ident()?);
+    }
+
+    Ok(Stmt::Nonlocal { names, span })
+}
+
 /// Parse constant declaration: const PI = 3.14
 pub fn parse_const_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
     let span = parser.current().span;

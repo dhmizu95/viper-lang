@@ -54,6 +54,7 @@ pub enum TokenKind {
     Pipeline,
     DotDot,
     Global,
+    Nonlocal, // nonlocal keyword for closures
     Const,
     Type,     // type keyword for type aliases
     Tuple,    // tuple keyword for tuple types
@@ -79,6 +80,7 @@ pub enum TokenKind {
     Eq,
     EqEq,
     NotEq,
+    ColonEq,       // := (walrus operator)
     Lt,
     LtEq,
     Gt,
@@ -199,6 +201,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Pipeline => write!(f, "|>"),
             TokenKind::DotDot => write!(f, ".."),
             TokenKind::Global => write!(f, "global"),
+            TokenKind::Nonlocal => write!(f, "nonlocal"),
             TokenKind::Const => write!(f, "const"),
             TokenKind::Plus => write!(f, "+"),
             TokenKind::Minus => write!(f, "-"),
@@ -219,6 +222,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Eq => write!(f, "="),
             TokenKind::EqEq => write!(f, "=="),
             TokenKind::NotEq => write!(f, "!="),
+            TokenKind::ColonEq => write!(f, ":="),
             TokenKind::Lt => write!(f, "<"),
             TokenKind::LtEq => write!(f, "<="),
             TokenKind::Gt => write!(f, ">"),

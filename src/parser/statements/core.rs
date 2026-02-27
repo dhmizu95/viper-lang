@@ -129,6 +129,7 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         TokenKind::Task => parse_task_spawn(parser),
         TokenKind::Mut => parse_mutable_decl(parser),
         TokenKind::Global => parse_global_decl(parser),
+        TokenKind::Nonlocal => parse_nonlocal_decl(parser),
         TokenKind::Const => parse_const_decl(parser),
         TokenKind::Async => {
             // Check if this is async for or async def

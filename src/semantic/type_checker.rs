@@ -126,6 +126,10 @@ impl TypeChecker {
                 // Await returns the type of the future
                 self.infer_expr_type(future)
             }
+            Expr::AssignmentExpr { value, .. } => {
+                // Walrus operator returns the type of the value
+                self.infer_expr_type(value)
+            }
             Expr::Call { func, args: _, span: _ } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
                     // Handle concurrency builtins (Phase 3)
@@ -811,6 +815,20 @@ impl TypeChecker {
                 }
                 self.check_expr(then_expr);
                 self.check_expr(else_expr);
+            }
+            Expr::AssignmentExpr { target, value, span } => {
+                // Check the value expression
+                self.check_expr(value);
+                // Check that target is an identifier
+                if !matches!(target.as_ref(), Expr::Ident(_, _)) {
+                    self.errors.push(TypeError::new(
+                        "Assignment expression target must be an identifier".to_string(),
+                        *span,
+                    ));
+                } else {
+                    // Check the target (will be defined by the assignment)
+                    self.check_expr(target);
+                }
             }
             _ => {}
         }
