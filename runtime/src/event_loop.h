@@ -1,9 +1,9 @@
 /**
  * Viper Event Loop - Cross-Platform Event Loop
- * 
+ *
  * Provides async I/O using platform-specific mechanisms:
  * - Linux: epoll + io_uring
- * - macOS/BSD: kqueue  
+ * - macOS/BSD: kqueue
  * - Windows: IOCP
  */
 
@@ -11,6 +11,7 @@
 #define VIPER_EVENT_LOOP_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -146,7 +147,7 @@ int vp_event_loop_cancel_timer(ViperEventLoop* loop, int64_t timer_id);
 int vp_make_nonblocking(int fd);
 
 /**
- * Read from a file descriptor (async)
+ * Read from a file descriptor (async, parks fiber if not ready)
  * @param fd File descriptor
  * @param buf Buffer to read into
  * @param count Number of bytes to read
@@ -155,13 +156,38 @@ int vp_make_nonblocking(int fd);
 int64_t vp_async_read(int fd, void* buf, size_t count);
 
 /**
- * Write to a file descriptor (async)
+ * Write to a file descriptor (async, parks fiber if not ready)
  * @param fd File descriptor
  * @param buf Buffer to write from
  * @param count Number of bytes to write
  * @return Number of bytes written, or -1 on error
  */
 int64_t vp_async_write(int fd, const void* buf, size_t count);
+
+/* ============================================ */
+/* Statistics                                  */
+/* ============================================ */
+
+/**
+ * Get number of events processed
+ * @param loop Event loop
+ * @return Events processed
+ */
+uint64_t vp_event_loop_events_processed(ViperEventLoop* loop);
+
+/**
+ * Get number of timers fired
+ * @param loop Event loop
+ * @return Timers fired
+ */
+uint64_t vp_event_loop_timers_fired(ViperEventLoop* loop);
+
+/**
+ * Get number of pending async operations
+ * @param loop Event loop
+ * @return Pending operations
+ */
+int64_t vp_event_loop_pending_ops(ViperEventLoop* loop);
 
 #ifdef __cplusplus
 }

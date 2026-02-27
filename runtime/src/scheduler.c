@@ -18,6 +18,10 @@
 #include <stdint.h>
 #include <time.h>
 #include "fiber.h"
+#include "event_loop.h"
+
+/* Forward declare for pending ops check */
+extern int64_t vp_event_loop_pending_ops(ViperEventLoop* loop);
 
 /* ============================================ */
 /* Configuration                                */
@@ -219,6 +223,7 @@ void vp_scheduler_put_to_sleep(ViperFiber* fiber) {
 
 static void* scheduler_worker(void* arg) {
     SchedulerThread* st = (SchedulerThread*)arg;
+    ViperEventLoop* event_loop = vp_event_loop_get_global();
 
     while (1) {
         /* Check for shutdown */
@@ -230,7 +235,7 @@ static void* scheduler_worker(void* arg) {
 
         /* Try local queue first */
         current = queue_pop(&st->local_queue);
-
+        
         /* Try global queues if local is empty */
         if (!current && g_scheduler) {
             for (int i = 0; i < g_scheduler->num_global_queues; i++) {
@@ -271,7 +276,12 @@ static void* scheduler_worker(void* arg) {
             continue;  /* Immediately check for more work */
         }
 
-        /* No work available - mark as idle and wait */
+        /* No work available - check event loop for async I/O */
+        if (event_loop && vp_event_loop_pending_ops(event_loop) > 0) {
+            vp_event_loop_run(event_loop, 1);  /* 1ms timeout */
+        }
+
+        /* Mark as idle and wait */
         atomic_fetch_add(&st->idle, 1);
         if (g_scheduler) {
             atomic_fetch_add(&g_scheduler->idle_threads, 1);
@@ -283,7 +293,7 @@ static void* scheduler_worker(void* arg) {
 
         /* Wait for new work with timeout */
         pthread_mutex_lock(&g_scheduler->mutex);
-
+        
         /* Double-check for work after acquiring mutex */
         bool has_work = false;
         for (int i = 0; i < g_scheduler->num_global_queues; i++) {
@@ -292,7 +302,12 @@ static void* scheduler_worker(void* arg) {
                 break;
             }
         }
-
+        
+        /* Also check for pending async I/O */
+        if (!has_work && event_loop && vp_event_loop_pending_ops(event_loop) > 0) {
+            has_work = true;
+        }
+        
         if (!has_work && !atomic_load(&g_scheduler->shutdown)) {
             struct timespec ts;
             clock_gettime(CLOCK_REALTIME, &ts);

@@ -155,6 +155,29 @@ uint64_t vp_fiber_id(ViperFiber* fiber);
  */
 ViperFiberState vp_fiber_state(ViperFiber* fiber);
 
+/* ============================================ */
+/* Fiber Parking (for async I/O)               */
+/* ============================================ */
+
+/**
+ * Park current fiber (yield and wait to be resumed)
+ * Used for async I/O operations
+ */
+void vp_fiber_park(void);
+
+/**
+ * Resume a parked fiber
+ * @param fiber Fiber to resume
+ */
+void vp_fiber_unpark(ViperFiber* fiber);
+
+/**
+ * Check if fiber is parked
+ * @param fiber Fiber to check
+ * @return true if parked
+ */
+bool vp_fiber_is_parked(ViperFiber* fiber);
+
 #ifdef __cplusplus
 }
 #endif

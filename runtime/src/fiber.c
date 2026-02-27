@@ -260,11 +260,41 @@ int vp_fiber_start(ViperFiber* fiber) {
     if (!fiber || fiber->state != FIBER_NEW) {
         return -1;
     }
-    
+
     fiber->state = FIBER_READY;
-    
+
     /* Add to scheduler */
     vp_scheduler_add_ready(fiber);
-    
+
     return 0;
+}
+
+/* ============================================ */
+/* Fiber Parking (for async I/O)               */
+/* ============================================ */
+
+void vp_fiber_park(void) {
+    ViperFiber* fiber = g_current_fiber;
+    if (!fiber) return;
+    
+    /* Mark as waiting/parked */
+    fiber->state = FIBER_WAITING;
+    
+    /* Yield to scheduler */
+    vp_scheduler_put_to_sleep(fiber);
+}
+
+void vp_fiber_unpark(ViperFiber* fiber) {
+    if (!fiber) return;
+    
+    /* Mark as ready */
+    fiber->state = FIBER_READY;
+    
+    /* Add back to scheduler */
+    vp_scheduler_add_ready(fiber);
+}
+
+bool vp_fiber_is_parked(ViperFiber* fiber) {
+    if (!fiber) return false;
+    return fiber->state == FIBER_WAITING;
 }
