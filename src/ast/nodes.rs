@@ -55,6 +55,8 @@ pub enum Expr {
     Conditional { condition: Box<Expr>, then_expr: Box<Expr>, else_expr: Box<Expr>, span: Span },
     /// Await expression (await future)
     Await { future: Box<Expr>, span: Span },
+    /// Assignment expression (walrus operator: :=)
+    AssignmentExpr { target: Box<Expr>, value: Box<Expr>, span: Span },
 }
 
 impl Expr {
@@ -82,6 +84,7 @@ impl Expr {
             Expr::ListComprehension { span, .. } => *span,
             Expr::Conditional { span, .. } => *span,
             Expr::Await { span, .. } => *span,
+            Expr::AssignmentExpr { span, .. } => *span,
         }
     }
 
@@ -177,6 +180,8 @@ pub enum Stmt {
     Declare { name: String, type_ann: Option<Type>, value: Option<Expr>, mutable: bool, span: Span },
     /// Global variable declaration: global x, y, z (inside function)
     Global { names: Vec<String>, span: Span },
+    /// Nonlocal variable declaration: nonlocal x, y (inside nested function)
+    Nonlocal { names: Vec<String>, span: Span },
     /// Constant declaration: const PI = 3.14
     Const { name: String, value: Expr, span: Span },
     /// If statement
@@ -315,6 +320,7 @@ impl Stmt {
             Stmt::AugAssign { span, .. } => *span,
             Stmt::Declare { span, .. } => *span,
             Stmt::Global { span, .. } => *span,
+            Stmt::Nonlocal { span, .. } => *span,
             Stmt::Const { span, .. } => *span,
             Stmt::If { span, .. } => *span,
             Stmt::While { span, .. } => *span,

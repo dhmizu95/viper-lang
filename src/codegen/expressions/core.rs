@@ -104,6 +104,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Lambda { .. } => Type::Fn(vec![], Box::new(Type::Infer)),
         Expr::Conditional { .. } => Type::Infer,
         Expr::ListComprehension { .. } => Type::List(Box::new(Type::Infer)),
+        Expr::AssignmentExpr { value, .. } => infer_expr_type(value),
     }
 }
 
@@ -233,6 +234,9 @@ pub fn generate_expr<'ctx>(
         Expr::Lambda { params, body, span } => generate_lambda(state, params, body, *span),
         Expr::ListComprehension { element, var, iter, span } => {
             generate_list_comprehension(state, element, var, iter, *span)
+        }
+        Expr::AssignmentExpr { target, value, span } => {
+            generate_assignment_expr(state, target, value, *span)
         }
     }
 }

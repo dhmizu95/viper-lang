@@ -7,6 +7,7 @@ use crate::ast::{Expr, Type};
 use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
+use crate::codegen::variables::{VarInfo, VarStorage, VarType};
 
 /// Generate list creation
 pub fn generate_list<'ctx>(
@@ -625,4 +626,63 @@ pub fn generate_slice<'ctx>(
         .ok_or_else(|| "build call failed".to_string())?;
 
     Ok(result)
+}
+
+/// Generate assignment expression (walrus operator: :=)
+/// Assigns value to target and returns the value
+pub fn generate_assignment_expr<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    target: &Expr,
+    value: &Expr,
+    _span: crate::utils::Span,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Generate code for the value expression
+    let value_val = generate_expr(state, value)?;
+    
+    // The target must be an identifier
+    if let Expr::Ident(name, _) = target {
+        // Determine variable type from value
+        let var_type = match value_val {
+            BasicValueEnum::IntValue(_) => VarType::Int,
+            BasicValueEnum::FloatValue(_) => VarType::Float,
+            BasicValueEnum::PointerValue(_) => VarType::Pointer,
+            BasicValueEnum::ArrayValue(_) => VarType::Pointer,
+            BasicValueEnum::StructValue(_) => VarType::Pointer,
+            _ => VarType::Int, // Default for other types
+        };
+        
+        // Check if variable already exists
+        if let Some(var_info) = state.variables.get(name) {
+            // Variable exists - store the value
+            match &var_info.storage {
+                VarStorage::Register(_) => {
+                    // Register-allocated: update the variable info with new value
+                    // For now, we need to re-insert with the new value
+                    let new_info = VarInfo::new_register(value_val, var_type);
+                    state.variables.insert(name.clone(), new_info);
+                }
+                VarStorage::Stack(alloca) => {
+                    // Stack-allocated: store to alloca
+                    state.builder.build_store(*alloca, value_val)
+                        .map_err(|e| format!("Failed to store value: {:?}", e))?;
+                }
+            }
+        } else {
+            // Variable doesn't exist - create it (implicit declaration)
+            // Use stack allocation for simplicity
+            let alloca = state.builder.build_alloca(value_val.get_type(), name)
+                .map_err(|e| format!("Failed to create alloca: {:?}", e))?;
+            state.builder.build_store(alloca, value_val)
+                .map_err(|e| format!("Failed to store value: {:?}", e))?;
+            state.variables.insert(
+                name.clone(),
+                VarInfo::new_stack(alloca, var_type),
+            );
+        }
+        
+        // Return the value (walrus operator returns the assigned value)
+        Ok(value_val)
+    } else {
+        Err("Assignment expression target must be an identifier".to_string())
+    }
 }

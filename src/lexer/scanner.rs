@@ -183,7 +183,14 @@ impl<'a> Lexer<'a> {
                 '{' => TokenKind::LBrace,
                 '}' => TokenKind::RBrace,
                 ',' => TokenKind::Comma,
-                ':' => TokenKind::Colon,
+                ':' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::ColonEq  // Walrus operator :=
+                    } else {
+                        TokenKind::Colon
+                    }
+                }
                 ';' => TokenKind::Semi,
                 '.' => TokenKind::Dot,
                 '@' => TokenKind::At,
@@ -781,6 +788,7 @@ impl<'a> Lexer<'a> {
                 TokenKind::Not
             }
             "global" => TokenKind::Global,
+            "nonlocal" => TokenKind::Nonlocal,
             "const" => TokenKind::Const,
             "lambda" => TokenKind::Lambda,
             "fn" => TokenKind::Fn,

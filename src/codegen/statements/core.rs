@@ -92,6 +92,9 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::Global { names, .. } => {
             generate_global(state, names)?;
         }
+        Stmt::Nonlocal { names, .. } => {
+            generate_nonlocal(state, names)?;
+        }
         Stmt::Const { name, value, .. } => {
             generate_const(state, name, value)?;
         }

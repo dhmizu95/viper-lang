@@ -231,6 +231,16 @@ impl EscapeAnalyzer {
                     }
                 }
             }
+            Stmt::Nonlocal { names, .. } => {
+                // Nonlocal keyword marks variables as enclosing scope
+                // They escape to the parent closure - mark them as Shared
+                for name in names {
+                    ctx.variables.insert(name.clone(), VariableEscapeInfo::new(None, true, 0));
+                    if let Some(var_info) = ctx.variables.get_mut(name) {
+                        var_info.escape_state = EscapeState::Shared;
+                    }
+                }
+            }
             Stmt::Const { value, .. } => {
                 // Constants are immutable, but their values may escape
                 self.analyze_expr(value, ctx, EscapeState::Shared);
@@ -389,6 +399,10 @@ impl EscapeAnalyzer {
                 self.analyze_return_expr(then_expr, ctx);
                 self.analyze_return_expr(else_expr, ctx);
             }
+            Expr::AssignmentExpr { value, .. } => {
+                // Walrus operator - analyze the value being assigned
+                self.analyze_return_expr(value, ctx);
+            }
             _ => {
                 // Other expressions (literals, etc.) don't cause escapes
                 self.analyze_expr(expr, ctx, EscapeState::None);
@@ -484,6 +498,17 @@ impl EscapeAnalyzer {
                 self.analyze_expr(condition, ctx, EscapeState::None);
                 self.analyze_expr(then_expr, ctx, state);
                 self.analyze_expr(else_expr, ctx, state);
+            }
+            Expr::AssignmentExpr { target, value, .. } => {
+                // Walrus operator - the value escapes to the assignment target
+                self.analyze_expr(value, ctx, state);
+                // The target identifier is being defined
+                if let Expr::Ident(name, _) = target.as_ref() {
+                    // Mark variable as used (will be defined by this assignment)
+                    if let Some(var_info) = ctx.variables.get_mut(name) {
+                        var_info.escape_state = var_info.escape_state.merge(state);
+                    }
+                }
             }
             Expr::ListComprehension { .. } => {
                 // List comprehension - not yet fully implemented

@@ -145,6 +145,30 @@ impl<'a> PrattParser<'a> {
                     break;
                 }
 
+                // Check for walrus operator (:=) - assignment expression
+                if matches!(self.peek().kind, TokenKind::ColonEq) {
+                    self.advance(); // consume :=
+                    
+                    // Left side must be an identifier
+                    let target_span = left.span();
+                    let target = match &left {
+                        Expr::Ident(name, _) => name.clone(),
+                        _ => return Err("Walrus operator requires an identifier on the left side".to_string()),
+                    };
+                    
+                    // Parse the value expression
+                    let value = self.parse_expr(op_prec)?;
+                    let span = target_span.merge(value.span());
+                    
+                    // Create assignment expression: target := value
+                    left = Expr::AssignmentExpr {
+                        target: Box::new(Expr::Ident(target, target_span)),
+                        value: Box::new(value),
+                        span,
+                    };
+                    continue;
+                }
+
                 // Check for pipeline operator specially
                 if matches!(self.peek().kind, TokenKind::Pipeline) {
                     self.advance(); // consume |>
@@ -680,6 +704,7 @@ impl<'a> PrattParser<'a> {
             }
             TokenKind::DoubleStar => Precedence::EXPONENT,
             TokenKind::Pipeline => Precedence::PIPELINE,
+            TokenKind::ColonEq => Precedence::ASSIGNMENT,  // Walrus operator
             _ => return None,
         };
 
