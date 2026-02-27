@@ -324,4 +324,24 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_future_await as *const () as usize);
     }
+
+    // Thread pool functions
+    if let Some(func) = module.get_function("vp_init_threadpool") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_init_threadpool as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_shutdown_threadpool") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_shutdown_threadpool as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_submit_task") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_submit_task as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_wait_all_tasks") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_wait_all_tasks as *const () as usize);
+    }
 }

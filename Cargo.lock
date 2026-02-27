@@ -501,6 +501,7 @@ dependencies = [
  "cc",
  "clap",
  "inkwell",
+ "lazy_static",
  "llvm-sys",
  "rustyline",
  "thiserror 1.0.69",
