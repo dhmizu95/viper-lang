@@ -356,6 +356,38 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_future_await as *const () as usize);
     }
 
+    // Async iteration runtime functions
+    if let Some(func) = module.get_function("vp_async_range_create") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_async_range_create as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_async_range_next") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_async_range_next as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_async_iter") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_async_iter as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_async_next") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_async_next as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_async_spawn") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_async_spawn as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_async_run_loop") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_async_run_loop as *const () as usize,
+        );
+    }
+
     // Thread pool functions
     if let Some(func) = module.get_function("vp_init_threadpool") {
         execution_engine

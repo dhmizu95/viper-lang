@@ -126,8 +126,71 @@ pub extern "C" fn vp_wait_all_tasks() {
     // No-op for JIT - tasks run synchronously in vp_submit_task
 }
 
+/* ============================================ */
+/* Async/Await Runtime Stubs                   */
+/* ============================================ */
+
 pub extern "C" fn vp_future_await(future: i64) -> i64 {
     // Stub for async/await - just returns the future value as-is
-    // A full implementation would suspend and resume the coroutine
     future
+}
+
+// Async range for "async for i in async_range(n)"
+pub extern "C" fn vp_async_range_create(start: i64, end: i64, step: i64) -> *mut std::ffi::c_void {
+    // Allocate a simple range struct
+    let range = Box::new(JitAsyncRange {
+        current: start,
+        end,
+        step: if step == 0 { 1 } else { step },
+    });
+    Box::into_raw(range) as *mut std::ffi::c_void
+}
+
+pub extern "C" fn vp_async_range_next(range_ptr: *mut std::ffi::c_void) -> i64 {
+    if range_ptr.is_null() {
+        return -1;
+    }
+    let range = unsafe { &mut *(range_ptr as *mut JitAsyncRange) };
+    
+    if range.current >= range.end {
+        return -1;  // StopAsyncIteration
+    }
+    
+    let value = range.current;
+    range.current += range.step;
+    value
+}
+
+pub extern "C" fn vp_async_range_free(range_ptr: *mut std::ffi::c_void) {
+    if !range_ptr.is_null() {
+        unsafe {
+            let _ = Box::from_raw(range_ptr as *mut JitAsyncRange);
+        }
+    }
+}
+
+pub extern "C" fn vp_async_iter(obj: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
+    // For now, just return the object as-is
+    obj
+}
+
+pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
+    // Call vp_async_range_next for range iterators
+    vp_async_range_next(iterator)
+}
+
+pub extern "C" fn vp_async_spawn(_func: extern "C" fn(*mut std::ffi::c_void), _arg: *mut std::ffi::c_void) -> i64 {
+    // Same as vp_submit_task for now
+    0
+}
+
+pub extern "C" fn vp_async_run_loop() {
+    // No-op for JIT
+}
+
+// Internal struct for async range
+struct JitAsyncRange {
+    current: i64,
+    end: i64,
+    step: i64,
 }
