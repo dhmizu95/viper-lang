@@ -63,9 +63,9 @@ cargo build -q 2>/dev/null
 echo "=== Viper Test Suite ==="
 echo ""
 
-run_test tests/test_for_nomut.vp "45"
-run_test tests/test_while.vp "1000"
-run_test tests/test_concurrency.vp "Test 1: Channel communication
+run_test tests/viper_programs/test_for_nomut.vp "45"
+run_test tests/viper_programs/test_while.vp "1000"
+run_test tests/viper_programs/test_concurrency.vp "Test 1: Channel communication
 Received from channel:
 1
 2
@@ -73,17 +73,17 @@ Received from channel:
 Test 2: WaitGroup
 WaitGroup completed
 All concurrency tests passed!"
-run_test tests/test_factorial.vp ""
-run_test tests/test_fibonacci.vp ""
-run_test tests/test_simple.vp ""
-run_test tests/test_print_int.vp ""
-run_test tests/test_list.vp ""
-run_test tests/test_mut.vp ""
-run_test tests/test_quicksort.vp ""
-run_test tests/test_fixes.vp ""
-run_test tests/test_phase2_all.vp ""
-run_test tests/test_chan_simple.vp ""
-run_test tests/test_swap.vp ""
+run_test tests/viper_programs/test_factorial.vp ""
+run_test tests/viper_programs/test_fibonacci.vp ""
+run_test tests/viper_programs/test_simple.vp ""
+run_test tests/viper_programs/test_print_int.vp ""
+run_test tests/viper_programs/test_list.vp ""
+run_test tests/viper_programs/test_mut.vp ""
+run_test tests/viper_programs/test_quicksort.vp ""
+run_test tests/viper_programs/test_fixes.vp ""
+run_test tests/viper_programs/test_phase2_all.vp ""
+run_test tests/viper_programs/test_chan_simple.vp ""
+run_test tests/viper_programs/test_swap.vp ""
 
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
