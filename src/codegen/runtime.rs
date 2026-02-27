@@ -321,6 +321,14 @@ fn declare_list_functions<'ctx>(
         void_type.fn_type(&[ptr_type.into(), i64_type.into(), bool_type.into()], false);
     module.add_function("vp_bitvec_set", bitvec_set_type, None);
 
+    /* Unchecked versions for hot loops - no bounds checking */
+    let bitvec_get_unchecked_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bitvec_get_unchecked", bitvec_get_unchecked_type, None);
+
+    let bitvec_set_unchecked_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), bool_type.into()], false);
+    module.add_function("vp_bitvec_set_unchecked", bitvec_set_unchecked_type, None);
+
     let bitvec_contains_type = bool_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
     module.add_function("vp_bitvec_contains", bitvec_contains_type, None);
 

@@ -67,17 +67,36 @@ static void vp_bitvec_destroy(void* ptr) {
 }
 
 /* Static inline versions for LTO inlining - used internally */
+
+/* Unchecked version - no bounds checking, for hot loops */
+static inline bool vp_bitvec_get_unchecked_inl(ViperList* vec, int64_t index) {
+    int64_t word_idx = index / 64;
+    uint64_t mask = (uint64_t)1 << (index % 64);
+    return (vec->data.data_bitvec[word_idx] & mask) != 0;
+}
+
+/* Checked version with branch prediction hint */
 static inline bool vp_bitvec_get_inl(ViperList* vec, int64_t index) {
     int64_t idx = index;
-    if (idx < 0) idx = vec->length + idx;
+    if (__builtin_expect(idx < 0, 0)) idx = vec->length + idx;
     int64_t word_idx = idx / 64;
     uint64_t mask = (uint64_t)1 << (idx % 64);
     return (vec->data.data_bitvec[word_idx] & mask) != 0;
 }
 
+static inline void vp_bitvec_set_unchecked_inl(ViperList* vec, int64_t index, bool value) {
+    int64_t word_idx = index / 64;
+    uint64_t mask = (uint64_t)1 << (index % 64);
+    if (value) {
+        vec->data.data_bitvec[word_idx] |= mask;
+    } else {
+        vec->data.data_bitvec[word_idx] &= ~mask;
+    }
+}
+
 static inline void vp_bitvec_set_inl(ViperList* vec, int64_t index, bool value) {
     int64_t idx = index;
-    if (idx < 0) idx = vec->length + idx;
+    if (__builtin_expect(idx < 0, 0)) idx = vec->length + idx;
     int64_t word_idx = idx / 64;
     uint64_t mask = (uint64_t)1 << (idx % 64);
     if (value) {
@@ -87,8 +106,9 @@ static inline void vp_bitvec_set_inl(ViperList* vec, int64_t index, bool value) 
     }
 }
 
+/* Append with branch prediction for growth (rare case) */
 static inline void vp_bitvec_append_inl(ViperList* vec, bool value) {
-    if (vec->length >= vec->capacity) {
+    if (__builtin_expect(vec->length >= vec->capacity, 0)) {
         vp_bitvec_grow(vec);
     }
     int64_t word_idx = vec->length / 64;
@@ -280,6 +300,15 @@ void vp_bitvec_set(ViperList* vec, int64_t index, bool value) {
 
 void vp_bitvec_append(ViperList* vec, bool value) {
     vp_bitvec_append_inl(vec, value);
+}
+
+/* Unchecked versions for hot loops - no bounds checking */
+bool vp_bitvec_get_unchecked(ViperList* vec, int64_t index) {
+    return vp_bitvec_get_unchecked_inl(vec, index);
+}
+
+void vp_bitvec_set_unchecked(ViperList* vec, int64_t index, bool value) {
+    vp_bitvec_set_unchecked_inl(vec, index, value);
 }
 
 bool vp_bitvec_contains(ViperList* vec, bool value) {

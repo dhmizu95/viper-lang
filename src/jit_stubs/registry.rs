@@ -258,6 +258,18 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bitvec_len_stub as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_bitvec_get_unchecked") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_get_unchecked_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bitvec_set_unchecked") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_set_unchecked_stub as *const () as usize,
+        );
+    }
     if let Some(func) = module.get_function("vp_bitvec_extend") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bitvec_extend_stub as *const () as usize);

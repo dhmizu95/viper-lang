@@ -501,6 +501,39 @@ pub extern "C" fn vp_bitvec_len_stub(list: *mut ViperList) -> i64 {
     }
 }
 
+/* Unchecked versions for hot loops - no bounds checking */
+pub extern "C" fn vp_bitvec_get_unchecked_stub(list: *mut ViperList, index: i64) -> bool {
+    if list.is_null() {
+        return false;
+    }
+    unsafe {
+        let list_ref = &*list;
+        let word_idx = (index / 64) as usize;
+        let mask = 1u64 << (index % 64);
+        /* For JIT, data points to Vec<u64>, need to deref */
+        let vec = &*(list_ref.data as *mut Vec<u64>);
+        (vec[word_idx] & mask) != 0
+    }
+}
+
+pub extern "C" fn vp_bitvec_set_unchecked_stub(list: *mut ViperList, index: i64, value: bool) {
+    if list.is_null() {
+        return;
+    }
+    unsafe {
+        let list_ref = &mut *list;
+        let word_idx = (index / 64) as usize;
+        let mask = 1u64 << (index % 64);
+        /* For JIT, data points to Vec<u64>, need to deref */
+        let vec = &mut *(list_ref.data as *mut Vec<u64>);
+        if value {
+            vec[word_idx] |= mask;
+        } else {
+            vec[word_idx] &= !mask;
+        }
+    }
+}
+
 /// Extend bit vector with another - JIT stub
 pub extern "C" fn vp_bitvec_extend_stub(list: *mut ViperList, other: *mut ViperList) {
     if list.is_null() || other.is_null() {

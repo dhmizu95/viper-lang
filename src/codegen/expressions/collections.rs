@@ -481,7 +481,10 @@ pub fn generate_index<'ctx>(
         // Use bit vector get for bool lists (more memory efficient)
         // Note: Inline operations disabled due to JIT/AOT struct layout differences
         if is_bool_list {
-            let bitvec_get = state.module.get_function("vp_bitvec_get").ok_or_else(|| "vp_bitvec_get not declared".to_string())?;
+            // Try unchecked version first (faster), fall back to checked
+            let bitvec_get = state.module.get_function("vp_bitvec_get_unchecked")
+                .or_else(|| state.module.get_function("vp_bitvec_get"))
+                .ok_or_else(|| "vp_bitvec_get not declared".to_string())?;
 
             let result = state
                 .ir_builder

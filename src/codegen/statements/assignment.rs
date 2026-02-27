@@ -308,6 +308,7 @@ pub(crate) fn generate_assign<'ctx>(
 
             let (list_set_func, value_for_list) = if is_bool_list {
                 // Use bit vector set function for bool lists
+                // The checked version has branch prediction hints for common case
                 let list_set = state
                     .module
                     .get_function("vp_bitvec_set")
