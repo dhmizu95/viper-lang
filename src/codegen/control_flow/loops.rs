@@ -5,8 +5,20 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 static WHILE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-/// Generate a while loop
+/// Loop unroll factor - set to 4 for good balance of code size vs performance
+const LOOP_UNROLL_FACTOR: i64 = 4;
+
+/// Generate a while loop with optional unrolling for hot loops
 pub fn generate_while<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    condition: &Expr,
+    body: &[Stmt],
+) -> Result<(), String> {
+    // For now, use simple loop - LLVM's opt will handle unrolling
+    generate_while_simple(state, condition, body)
+}
+
+fn generate_while_simple<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     condition: &Expr,
     body: &[Stmt],
@@ -35,6 +47,7 @@ pub fn generate_while<'ctx>(
             )
             .expect("icmp")
     };
+    
     state.ir_builder.build_cond_branch(state.builder, cond_i1, body_block, exit_block);
 
     state.builder.position_at_end(body_block);
@@ -61,6 +74,100 @@ pub fn generate_while<'ctx>(
     if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, cond_block);
     }
+    state.builder.position_at_end(exit_block);
+    Ok(())
+}
+
+/// Generate an unrolled while loop for better performance
+/// Unrolls by LOOP_UNROLL_FACTOR to reduce branch overhead
+fn generate_while_unrolled<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    condition: &Expr,
+    body: &[Stmt],
+) -> Result<(), String> {
+    let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+    let while_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+    
+    let cond_block = state.context.append_basic_block(func, &format!("while_unroll_cond{}", while_num));
+    let body_block = state.context.append_basic_block(func, &format!("while_unroll_body{}", while_num));
+    let exit_block = state.context.append_basic_block(func, &format!("while_unroll_exit{}", while_num));
+
+    state.ir_builder.build_branch(state.builder, cond_block);
+
+    // Condition block
+    state.builder.position_at_end(cond_block);
+    let cond_expr = crate::codegen::expressions::generate_expr(state, condition)?;
+    let cond_val = cond_expr.into_int_value();
+    let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
+        cond_val
+    } else {
+        state
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::NE,
+                cond_val,
+                state.context.i64_type().const_zero(),
+                "cond_bool",
+            )
+            .expect("icmp")
+    };
+    state.ir_builder.build_cond_branch(state.builder, cond_i1, body_block, exit_block);
+
+    // Body block - unrolled
+    state.builder.position_at_end(body_block);
+    state.loop_stack.push(LoopContext::new(exit_block, cond_block));
+
+    // Generate body LOOP_UNROLL_FACTOR times with early exit checks
+    for i in 0..LOOP_UNROLL_FACTOR {
+        // Re-check condition for iterations after the first
+        if i > 0 {
+            let cond_expr = crate::codegen::expressions::generate_expr(state, condition)?;
+            let cond_val = cond_expr.into_int_value();
+            let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
+                cond_val
+            } else {
+                state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        cond_val,
+                        state.context.i64_type().const_zero(),
+                        &format!("unroll_cond_{}", i),
+                    )
+                    .expect("icmp")
+            };
+            
+            let continue_block = state.context.append_basic_block(func, &format!("while_unroll_cont{}", while_num));
+            state.ir_builder.build_cond_branch(state.builder, cond_i1, continue_block, exit_block);
+            state.builder.position_at_end(continue_block);
+        }
+        
+        // Generate body statements
+        for stmt in body {
+            crate::codegen::statements::generate_stmt(
+                state.context,
+                state.module,
+                state.builder,
+                state.ir_builder,
+                state.variables,
+                state.functions,
+                state.global_constants,
+                state.loop_stack,
+                state.list_vars,
+                state.dict_vars,
+                state.bool_list_vars,
+                stmt,
+            )?;
+        }
+    }
+
+    state.loop_stack.pop();
+    
+    // Branch back to condition
+    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+        state.ir_builder.build_branch(state.builder, cond_block);
+    }
+    
     state.builder.position_at_end(exit_block);
     Ok(())
 }
