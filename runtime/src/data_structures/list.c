@@ -18,7 +18,8 @@
 /* ============================================ */
 
 /* Inline-friendly grow function - called only when needed */
-static inline void vp_list_grow(ViperList* list) {
+/* Made non-static for inline codegen */
+void vp_list_grow(ViperList* list) {
     int64_t new_capacity = list->capacity * LIST_GROWTH_FACTOR;
     int64_t* new_data = (int64_t*)realloc(list->data.data_i64, new_capacity * sizeof(int64_t));
 
@@ -81,6 +82,28 @@ ViperList* vp_list_create(void) {
 void vp_list_free(ViperList* list) {
     if (!list) return;
     vp_arc_release(list);
+}
+
+/* Reserve capacity - pre-allocate memory for efficient append */
+void vp_list_reserve(ViperList* list, int64_t capacity) {
+    if (!list) {
+        vp_panic("Cannot reserve capacity for NULL list");
+        return;
+    }
+    if (capacity <= 0) {
+        return;  /* Nothing to reserve */
+    }
+    if (capacity <= list->capacity) {
+        return;  /* Already have enough capacity */
+    }
+
+    int64_t* new_data = (int64_t*)realloc(list->data.data_i64, capacity * sizeof(int64_t));
+    if (!new_data) {
+        vp_panic("Failed to reserve list capacity");
+    }
+
+    list->data.data_i64 = new_data;
+    list->capacity = capacity;
 }
 
 /* OPTIMIZED: Minimal checks for hot path */

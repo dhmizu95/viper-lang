@@ -8,6 +8,7 @@ use crate::utils::mangle_function_name;
 use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
+// use crate::codegen::inline_lists::inline_i64_list_append;  // Reserved for future inline optimization
 
 /// Generate lambda expression
 pub fn generate_lambda<'ctx>(
@@ -271,6 +272,24 @@ pub fn generate_method_call<'ctx>(
                 append_func,
                 &[obj_val.into(), val.into()],
                 "list_append",
+            );
+
+            Ok(obj_val)
+        }
+        "reserve" => {
+            if args.len() != 1 {
+                return Err(format!("reserve() takes exactly 1 argument, got {}", args.len()));
+            }
+            let capacity = generate_expr(state, &args[0])?.into_int_value();
+            let list_reserve = state
+                .module
+                .get_function("vp_list_reserve")
+                .ok_or_else(|| "vp_list_reserve not declared".to_string())?;
+            state.ir_builder.build_call(
+                state.builder,
+                list_reserve,
+                &[obj_val.into(), capacity.into()],
+                "list_reserve",
             );
             Ok(obj_val)
         }
