@@ -1,0 +1,132 @@
+# Viper Standard Library - json module
+# JSON encoder and decoder
+
+# Module metadata
+__name__ = "json"
+__version__ = "0.4.1"
+
+# ============================================
+# Exceptions
+# ============================================
+
+class JSONDecodeError(Exception):
+    """Exception raised when decoding JSON fails."""
+    def __init__(self, message: str = "", doc: str = "", pos: i64 = 0):
+        self.message = message
+        self.doc = doc
+        self.pos = pos
+    
+    def __str__(self) -> str:
+        return "JSONDecodeError: " + self.message
+
+# ============================================
+# Decoding
+# ============================================
+
+def loads(s: str) -> {str: str}:
+    """Deserialize s (a str instance containing a JSON document) to a Python object."""
+    # Implemented in runtime
+    return {}
+
+def load(fp) -> {str: str}:
+    """Deserialize fp (a .read()-supporting file-like object) to a Python object."""
+    content = fp.read()
+    return loads(content)
+
+def load_file(path: str) -> {str: str}:
+    """Load JSON from a file."""
+    # Implemented in runtime
+    return {}
+
+# ============================================
+# Encoding
+# ============================================
+
+def dumps(obj: {str: str}, indent: i64 = 0, sort_keys: bool = False) -> str:
+    """Serialize obj to a JSON formatted str."""
+    # Implemented in runtime
+    return "{}"
+
+def dump(obj: {str: str}, fp, indent: i64 = 0, sort_keys: bool = False):
+    """Serialize obj to a JSON formatted stream."""
+    fp.write(dumps(obj, indent, sort_keys))
+
+def dump_file(obj: {str: str}, path: str, indent: i64 = 0):
+    """Write JSON to a file."""
+    # Implemented in runtime
+    pass
+
+# ============================================
+# Custom Encoder/Decoder (simplified)
+# ============================================
+
+class JSONEncoder:
+    """Extensible JSON encoder."""
+    
+    def __init__(self, skipkeys: bool = False, ensure_ascii: bool = True,
+                 check_circular: bool = True, allow_nan: bool = True,
+                 sort_keys: bool = False, indent: i64 = 0):
+        self.skipkeys = skipkeys
+        self.ensure_ascii = ensure_ascii
+        self.check_circular = check_circular
+        self.allow_nan = allow_nan
+        self.sort_keys = sort_keys
+        self.indent = indent
+    
+    def encode(self, obj) -> str:
+        """Return a JSON string representation of a Python data structure."""
+        return dumps(obj, self.indent, self.sort_keys)
+    
+    def iterencode(self, obj):
+        """Encode the given object and yield each string representation."""
+        yield self.encode(obj)
+
+class JSONDecoder:
+    """Simple JSON decoder."""
+    
+    def __init__(self, object_hook=None, parse_float=None, 
+                 parse_int=None, parse_constant=None):
+        self.object_hook = object_hook
+        self.parse_float = parse_float
+        self.parse_int = parse_int
+        self.parse_constant = parse_constant
+    
+    def decode(self, s: str) -> {str: str}:
+        """Return the Python representation of s (a str instance containing a JSON document)."""
+        return loads(s)
+    
+    def raw_decode(self, s: str, idx: i64 = 0) -> ({str: str}, i64):
+        """Decode a JSON document from s and return a 2-tuple with the decoded result and the index."""
+        return (loads(s), len(s))
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def is_valid_json(s: str) -> bool:
+    """Check if a string is valid JSON."""
+    try:
+        loads(s)
+        return True
+    except JSONDecodeError:
+        return False
+
+def to_json(obj, indent: i64 = 0) -> str:
+    """Convert object to JSON string."""
+    return dumps(obj, indent, False)
+
+def from_json(s: str):
+    """Parse JSON string to object."""
+    return loads(s)
+
+# ============================================
+# Constants
+# ============================================
+
+# JSON value representations
+JSON_NULL = None
+JSON_TRUE = True
+JSON_FALSE = False
+
+# Default separators
+DEFAULT_SEPARATORS: (str, str) = (", ", ": ")

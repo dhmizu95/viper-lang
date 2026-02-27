@@ -40,6 +40,24 @@ FIBER_SRC = $(SRC_DIR)/fiber.c
 SCHEDULER_SRC = $(SRC_DIR)/scheduler.c
 EVENT_LOOP_SRC = $(SRC_DIR)/event_loop_epoll.c
 
+# Standard library modules (Phase 1-4)
+SYS_SRC = $(SRC_DIR)/sys.c
+OS_SRC = $(SRC_DIR)/os.c
+TIME_MOD_SRC = $(SRC_DIR)/time_mod.c
+MATH_MOD_SRC = $(SRC_DIR)/math_mod.c
+JSON_SRC = $(SRC_DIR)/json.c
+COLLECTIONS_SRC = $(SRC_DIR)/collections.c
+RE_MOD_SRC = $(SRC_DIR)/re_mod.c
+RANDOM_MOD_SRC = $(SRC_DIR)/random_mod.c
+SOCKET_MOD_SRC = $(SRC_DIR)/socket_mod.c
+ASYNCIO_MOD_SRC = $(SRC_DIR)/asyncio_mod.c
+HTTP_MOD_SRC = $(SRC_DIR)/http_mod.c
+SELECT_MOD_SRC = $(SRC_DIR)/select_mod.c
+HASHLIB_SRC = $(SRC_DIR)/hashlib.c
+DECIMAL_MOD_SRC = $(SRC_DIR)/decimal_mod.c
+LOGGING_SRC = $(SRC_DIR)/logging.c
+GC_SRC = $(SRC_DIR)/gc.c
+
 # Object files
 OBJ_DIR = obj
 LIB_DIR = lib
@@ -136,7 +154,7 @@ all: dirs $(LIBRARY)
 dirs:
 	@mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/bitvec.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bytes.o $(OBJ_DIR)/bigint.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o
+$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/bitvec.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bytes.o $(OBJ_DIR)/bigint.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o $(OBJ_DIR)/sys.o $(OBJ_DIR)/os.o $(OBJ_DIR)/time_mod.o $(OBJ_DIR)/gc.o $(OBJ_DIR)/math_mod.o $(OBJ_DIR)/json.o $(OBJ_DIR)/collections.o $(OBJ_DIR)/re_mod.o $(OBJ_DIR)/random_mod.o $(OBJ_DIR)/socket_mod.o $(OBJ_DIR)/asyncio_mod.o $(OBJ_DIR)/http_mod.o $(OBJ_DIR)/select_mod.o $(OBJ_DIR)/hashlib.o $(OBJ_DIR)/decimal_mod.o $(OBJ_DIR)/logging.o
 	ar rcs $@ $^
 	@echo "Built static library: $(OBJ_DIR)/libviper.a"
 
@@ -208,6 +226,70 @@ $(OBJ_DIR)/scheduler.o: $(SCHEDULER_SRC)
 
 $(OBJ_DIR)/event_loop_epoll.o: $(EVENT_LOOP_SRC)
 	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+# ============================================
+# Standard Library Modules (Phase 1)
+# ============================================
+
+$(OBJ_DIR)/sys.o: $(SYS_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/os.o: $(OS_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/time_mod.o: $(TIME_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -lm -c $< -o $@
+
+$(OBJ_DIR)/gc.o: $(GC_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+# ============================================
+# Standard Library Modules (Phase 2)
+# ============================================
+
+$(OBJ_DIR)/math_mod.o: $(MATH_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -lm -c $< -o $@
+
+$(OBJ_DIR)/json.o: $(JSON_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/collections.o: $(COLLECTIONS_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/re_mod.o: $(RE_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/random_mod.o: $(RANDOM_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+# ============================================
+# Standard Library Modules (Phase 3)
+# ============================================
+
+$(OBJ_DIR)/socket_mod.o: $(SOCKET_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/asyncio_mod.o: $(ASYNCIO_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/http_mod.o: $(HTTP_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/select_mod.o: $(SELECT_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+# ============================================
+# Standard Library Modules (Phase 4)
+# ============================================
+
+$(OBJ_DIR)/hashlib.o: $(HASHLIB_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/decimal_mod.o: $(DECIMAL_MOD_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/logging.o: $(LOGGING_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -pthread -c $< -o $@
 
 # Generic compilation rule with automatic dependency generation
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)

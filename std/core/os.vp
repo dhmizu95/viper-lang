@@ -1,0 +1,346 @@
+# Viper Standard Library - os module
+# Operating system interface: filesystem, paths, environment
+
+# Module metadata
+__name__ = "os"
+__version__ = "0.4.1"
+
+# Constants
+sep: str = "/"
+altsep: str = None  # Alternative separator (e.g., "\\" on Windows)
+pathsep: str = ":"  # Path separator in PATH variable
+linesep: str = "\n"
+devnull: str = "/dev/null"
+
+# Error classes
+class OSError(Exception):
+    """Base class for OS-related errors."""
+    def __init__(self, errno: i64 = 0, message: str = ""):
+        self.errno = errno
+        self.message = message
+
+class FileExistsError(OSError):
+    """Raised when a file or directory already exists."""
+    pass
+
+class FileNotFoundError(OSError):
+    """Raised when a file or directory is not found."""
+    pass
+
+class PermissionError(OSError):
+    """Raised when permission is denied."""
+    pass
+
+class IsADirectoryError(OSError):
+    """Raised when an operation requires a file but got a directory."""
+    pass
+
+class NotADirectoryError(OSError):
+    """Raised when an operation requires a directory but got a file."""
+    pass
+
+# ============================================
+# Directory Operations
+# ============================================
+
+def getcwd() -> str:
+    """Get the current working directory."""
+    # Implemented in runtime
+    return ""
+
+def chdir(path: str):
+    """Change the current working directory."""
+    # Implemented in runtime
+    pass
+
+def listdir(path: str = ".") -> [str]:
+    """List directory contents."""
+    # Implemented in runtime
+    return []
+
+def mkdir(path: str, mode: i64 = 0o755):
+    """Create a directory."""
+    # Implemented in runtime
+    pass
+
+def makedirs(path: str, mode: i64 = 0o755, exist_ok: bool = False):
+    """Create directories recursively (like mkdir -p)."""
+    # Implemented in runtime
+    pass
+
+def rmdir(path: str):
+    """Remove an empty directory."""
+    # Implemented in runtime
+    pass
+
+def removedirs(path: str):
+    """Remove directories recursively."""
+    # Implemented in runtime
+    pass
+
+def rename(src: str, dst: str):
+    """Rename/move a file or directory."""
+    # Implemented in runtime
+    pass
+
+def copy(src: str, dst: str):
+    """Copy a file."""
+    # Implemented in runtime
+    pass
+
+# ============================================
+# File Operations
+# ============================================
+
+def remove(path: str):
+    """Remove a file or directory."""
+    # Implemented in runtime
+    pass
+
+def unlink(path: str):
+    """Remove a file (alias for remove)."""
+    remove(path)
+
+def exists(path: str) -> bool:
+    """Check if a path exists."""
+    # Implemented in runtime
+    return False
+
+def isfile(path: str) -> bool:
+    """Check if path is a regular file."""
+    # Implemented in runtime
+    return False
+
+def isdir(path: str) -> bool:
+    """Check if path is a directory."""
+    # Implemented in runtime
+    return False
+
+def getsize(path: str) -> i64:
+    """Get file size in bytes."""
+    # Implemented in runtime
+    return 0
+
+def getmtime(path: str) -> f64:
+    """Get file modification time (Unix timestamp)."""
+    # Implemented in runtime
+    return 0.0
+
+def getatime(path: str) -> f64:
+    """Get file access time (Unix timestamp)."""
+    # Implemented in runtime
+    return 0.0
+
+# ============================================
+# Path Operations
+# ============================================
+
+def path_join(a: str, b: str) -> str:
+    """Join two path components."""
+    # Implemented in runtime
+    return ""
+
+def path_abspath(path: str) -> str:
+    """Get absolute path."""
+    # Implemented in runtime
+    return ""
+
+def path_basename(path: str) -> str:
+    """Get the basename (final component) of a path."""
+    # Implemented in runtime
+    return ""
+
+def path_dirname(path: str) -> str:
+    """Get the directory name of a path."""
+    # Implemented in runtime
+    return ""
+
+def path_split(path: str) -> (str, str):
+    """Split path into (dirname, basename)."""
+    return (path_dirname(path), path_basename(path))
+
+def path_splitext(path: str) -> (str, str):
+    """Split path into (root, extension)."""
+    base = path_basename(path)
+    dir_name = path_dirname(path)
+    
+    dot_pos = -1
+    for i in range(len(base) - 1, -1, -1):
+        if base[i] == '.':
+            dot_pos = i
+            break
+    
+    if dot_pos > 0:
+        return (dir_name + "/" + base[:dot_pos], base[dot_pos:])
+    return (path, "")
+
+def path_isabs(path: str) -> bool:
+    """Check if path is absolute."""
+    return len(path) > 0 and path[0] == '/'
+
+def path_normpath(path: str) -> str:
+    """Normalize a path (remove . and ..)."""
+    # Simplified implementation
+    return path
+
+def path_relpath(path: str, start: str = ".") -> str:
+    """Get relative path from start to path."""
+    return path
+
+def path_commonpath(paths: [str]) -> str:
+    """Get the longest common sub-path of a list of paths."""
+    if len(paths) == 0:
+        return ""
+    if len(paths) == 1:
+        return paths[0]
+    return ""
+
+def path_expanduser(path: str) -> str:
+    """Expand ~ to user's home directory."""
+    if len(path) > 0 and path[0] == '~':
+        return path_join(get_home(), path[1:])
+    return path
+
+# ============================================
+# Environment
+# ============================================
+
+def getenv(key: str, default: str = "") -> str:
+    """Get an environment variable."""
+    # Implemented in runtime
+    return default
+
+def setenv(key: str, value: str, overwrite: bool = True):
+    """Set an environment variable."""
+    # Implemented in runtime
+    pass
+
+def unsetenv(key: str):
+    """Unset an environment variable."""
+    # Implemented in runtime
+    pass
+
+def environ() -> {str: str}:
+    """Get all environment variables as a dict."""
+    return {}
+
+def putenv(key: str, value: str):
+    """Set an environment variable (deprecated, use setenv)."""
+    setenv(key, value, True)
+
+# ============================================
+# Process
+# ============================================
+
+def getpid() -> i64:
+    """Get current process ID."""
+    # Implemented in runtime
+    return 0
+
+def getppid() -> i64:
+    """Get parent process ID."""
+    # Implemented in runtime
+    return 0
+
+def getuid() -> i64:
+    """Get user ID of current process."""
+    # Implemented in runtime
+    return 0
+
+def getgid() -> i64:
+    """Get group ID of current process."""
+    # Implemented in runtime
+    return 0
+
+def system(command: str) -> i64:
+    """Execute a shell command."""
+    # Implemented in runtime
+    return 0
+
+# ============================================
+# Home directory
+# ============================================
+
+def get_home() -> str:
+    """Get the user's home directory."""
+    # Implemented in runtime
+    return ""
+
+def expanduser(path: str) -> str:
+    """Expand ~ in path to home directory."""
+    return path_expanduser(path)
+
+# ============================================
+# File descriptors (for future implementation)
+# ============================================
+
+def open(file: str, flags: i64, mode: i64 = 0o644) -> i64:
+    """Open a file descriptor."""
+    return 0
+
+def close(fd: i64):
+    """Close a file descriptor."""
+    pass
+
+def read(fd: i64, n: i64) -> str:
+    """Read from a file descriptor."""
+    return ""
+
+def write(fd: i64, data: str) -> i64:
+    """Write to a file descriptor."""
+    return 0
+
+# ============================================
+# Stat result
+# ============================================
+
+class stat_result:
+    """Result of os.stat()."""
+    def __init__(self):
+        self.st_mode: i64 = 0
+        self.st_ino: i64 = 0
+        self.st_dev: i64 = 0
+        self.st_nlink: i64 = 0
+        self.st_uid: i64 = 0
+        self.st_gid: i64 = 0
+        self.st_size: i64 = 0
+        self.st_atime: f64 = 0.0
+        self.st_mtime: f64 = 0.0
+        self.st_ctime: f64 = 0.0
+
+def stat(path: str) -> stat_result:
+    """Get file status."""
+    # Implemented in runtime
+    return stat_result()
+
+def lstat(path: str) -> stat_result:
+    """Get file status (don't follow symlinks)."""
+    return stat(path)
+
+# ============================================
+# Access modes
+# ============================================
+
+F_OK: i64 = 0  # Test for existence
+R_OK: i64 = 4  # Test for read permission
+W_OK: i64 = 2  # Test for write permission
+X_OK: i64 = 1  # Test for execute permission
+
+def access(path: str, mode: i64) -> bool:
+    """Check if path is accessible with given mode."""
+    # Implemented in runtime
+    return False
+
+# ============================================
+# File locking (for future implementation)
+# ============================================
+
+def lockf(fd: i64, cmd: i64, len: i64 = 0) -> i64:
+    """Lock/unlock a file region."""
+    return 0
+
+# Lock commands
+F_LOCK: i64 = 1   # Lock a region for writing
+F_TLOCK: i64 = 2  # Test and lock a region
+F_ULOCK: i64 = 0  # Unlock a region
+F_TEST: i64 = 3   # Test a region

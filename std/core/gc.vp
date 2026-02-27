@@ -1,0 +1,134 @@
+# Viper Standard Library - gc module
+# Garbage collection control and statistics
+
+# Module metadata
+__name__ = "gc"
+__version__ = "0.4.1"
+
+# ============================================
+# GC Control
+# ============================================
+
+def enable():
+    """Enable automatic garbage collection."""
+    # Implemented in runtime
+    pass
+
+def disable():
+    """Disable automatic garbage collection."""
+    # Implemented in runtime
+    pass
+
+def isenabled() -> bool:
+    """Check if garbage collection is enabled."""
+    # Implemented in runtime
+    return True
+
+def collect():
+    """Trigger a garbage collection cycle."""
+    # Implemented in runtime
+    pass
+
+def set_threshold(threshold: i64):
+    """Set the GC threshold (bytes)."""
+    # Implemented in runtime
+    pass
+
+def get_threshold() -> i64:
+    """Get the current GC threshold."""
+    # Implemented in runtime
+    return 0
+
+# ============================================
+# GC Statistics
+# ============================================
+
+def get_count() -> i64:
+    """Get the number of GC collections."""
+    # Implemented in runtime
+    return 0
+
+def get_stats() -> str:
+    """Get GC statistics as a string."""
+    # Implemented in runtime
+    return ""
+
+def print_stats():
+    """Print GC statistics to stdout."""
+    # Implemented in runtime
+    pass
+
+def get_memory_usage() -> i64:
+    """Get current memory usage in bytes."""
+    # Implemented in runtime
+    return 0
+
+def get_total_freed() -> i64:
+    """Get total bytes freed by GC."""
+    # Implemented in runtime
+    return 0
+
+def get_object_count() -> i64:
+    """Get number of objects tracked."""
+    # Implemented in runtime
+    return 0
+
+def get_pending_count() -> i64:
+    """Get number of objects pending finalization."""
+    # Implemented in runtime
+    return 0
+
+# ============================================
+# Advanced GC Control
+# ============================================
+
+def run_finalizers() -> i64:
+    """Run finalizers for objects pending finalization."""
+    # Implemented in runtime
+    return 0
+
+def break_cycles() -> i64:
+    """Force cleanup of cyclic references."""
+    # Implemented in runtime
+    return 0
+
+def set_debug(enabled: bool):
+    """Set GC debug mode."""
+    # Implemented in runtime
+    pass
+
+def reset_stats():
+    """Reset GC statistics."""
+    # Implemented in runtime
+    pass
+
+# ============================================
+# GC Callbacks (for future implementation)
+# ============================================
+
+# Callback types
+GC_CALLBACK_START: i64 = 0
+GC_CALLBACK_END: i64 = 1
+GC_CALLBACK_COLLECT: i64 = 2
+
+def set_callback(callback_type: i64, callback):
+    """Set a GC callback function."""
+    # Implemented in runtime
+    pass
+
+def clear_callback(callback_type: i64):
+    """Clear a GC callback."""
+    # Implemented in runtime
+    pass
+
+# ============================================
+# GC Constants
+# ============================================
+
+# GC modes
+MODE_INCREMENTAL: i64 = 0
+MODE_GENERATIONAL: i64 = 1
+MODE_CONCURRENT: i64 = 2
+
+# Default threshold (bytes)
+DEFAULT_THRESHOLD: i64 = 1048576  # 1 MB

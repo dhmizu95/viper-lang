@@ -520,4 +520,252 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_wait_all_tasks as *const () as usize);
     }
+
+    // ============================================
+    // Phase 1: System Modules
+    // ============================================
+
+    // sys module
+    if let Some(func) = module.get_function("vp_sys_exit") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_exit as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_getpid") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_getpid as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_get_version") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_get_version as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_get_platform") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_get_platform as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_get_sysname") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_get_sysname as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_get_machine") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_get_machine as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_getenv") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_getenv as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_setenv") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_setenv as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_unsetenv") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_unsetenv as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_init") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_init as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_sys_get_argv") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_sys_get_argv as *const () as usize);
+    }
+
+    // os module
+    if let Some(func) = module.get_function("vp_os_getcwd") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_getcwd as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_chdir") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_chdir as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_listdir") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_listdir as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_join") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_join as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_getenv") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_getenv as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_mkdir") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_mkdir as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_makedirs") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_makedirs as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_remove") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_remove as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_exists") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_exists as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_isfile") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_isfile as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_isdir") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_isdir as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_getsize") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_getsize as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_abspath") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_abspath as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_basename") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_basename as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_path_dirname") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_path_dirname as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_rename") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_rename as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_copy") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_copy as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_get_home") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_get_home as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_os_stat") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_os_stat as *const () as usize);
+    }
+
+    // time module
+    if let Some(func) = module.get_function("vp_time_time") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_time as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_monotonic") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_monotonic as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_perf_counter") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_perf_counter as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_sleep") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_sleep as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_localtime") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_localtime as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_gmtime") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_gmtime as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_strftime") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_strftime as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_timezone_offset") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_timezone_offset as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_isdst") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_isdst as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_days_in_month") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_days_in_month as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_sleep_ms") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_sleep_ms as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_time_sleep_us") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_time_sleep_us as *const () as usize);
+    }
+
+    // gc module
+    if let Some(func) = module.get_function("vp_gc_collect") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_collect as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_disable") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_disable as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_enable") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_enable as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_is_enabled") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_is_enabled as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_get_count") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_get_count as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_get_total_freed") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_get_total_freed as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_get_memory_usage") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_get_memory_usage as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_set_threshold") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_set_threshold as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_get_threshold") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_get_threshold as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_get_stats") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_get_stats as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_print_stats") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_print_stats as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_reset_stats") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_reset_stats as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_set_debug") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_set_debug as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_run_finalizers") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_run_finalizers as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_get_object_count") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_get_object_count as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_get_pending_count") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_get_pending_count as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_gc_break_cycles") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_gc_break_cycles as *const () as usize);
+    }
 }
