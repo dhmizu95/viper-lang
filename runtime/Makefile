@@ -95,12 +95,15 @@ CONCURRENCY_SRCS = $(wildcard $(SRC_DIR)/concurrency/*.c)
 # Fiber and scheduler
 FIBER_SRCS = $(SRC_DIR)/fiber.c $(SRC_DIR)/fiber_pool.c $(SRC_DIR)/scheduler.c
 
+# Async runtime
+ASYNC_RUNTIME_SRC = $(SRC_DIR)/async_runtime.c
+
 # Event loop (platform-specific)
 EVENT_LOOP_SRCS = $(EVENT_LOOP_SRC)
 
 # All sources
 ALL_SRCS = $(CORE_SRCS) $(MEMORY_SRCS) $(DS_SRCS) $(CONCURRENCY_SRCS) \
-           $(FIBER_SRCS) $(EVENT_LOOP_SRCS)
+           $(FIBER_SRCS) $(ASYNC_RUNTIME_SRC) $(EVENT_LOOP_SRCS)
 
 # Object files (auto-generated from sources)
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
