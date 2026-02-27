@@ -68,7 +68,7 @@ $(OBJ_DIR)/bigint.o: $(BIGINT_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
 $(OBJ_DIR)/concurrency.o: $(CONCURRENCY_SRC)
-	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -I$(SRC_DIR) -c $< -o $@
 
 $(OBJ_DIR)/channel.o: $(CHANNEL_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE) -I$(SRC_DIR)/concurrency -c $< -o $@

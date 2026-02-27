@@ -1,8 +1,8 @@
 /**
  * Viper Concurrency Runtime
- * 
+ *
  * High-level concurrency runtime that provides the interface
- * for Viper's M:N threading system.
+ * for Viper's M:N threading system with fiber-based scheduling.
  */
 
 #include <stdlib.h>
@@ -12,18 +12,52 @@
 #include "channel.h"
 #include "wait_group.h"
 #include "thread_pool.h"
+#include "scheduler.h"
+#include "fiber.h"
+#include "event_loop.h"
+
+/* ============================================ */
+/* Forward Declarations                        */
+/* ============================================ */
+
+static void vp_concurrency_ensure_init(void);
+void vp_init_threadpool(size_t num_threads);
 
 /* ============================================ */
 /* Global State                                 */
 /* ============================================ */
 
 static ViperThreadPool* _Atomic g_thread_pool = NULL;
+static ViperScheduler* _Atomic g_scheduler = NULL;
+static ViperEventLoop* _Atomic g_event_loop = NULL;
+static _Atomic int64_t g_initialized = 0;
+
+/* ============================================ */
+/* Initialization                               */
+/* ============================================ */
+
+static void vp_concurrency_ensure_init(void) {
+    if (atomic_load(&g_initialized)) return;
+
+    /* Initialize scheduler first */
+    vp_scheduler_init(0);  /* Auto-detect CPU count */
+    atomic_store(&g_scheduler, vp_scheduler_get_global());
+
+    /* Initialize thread pool for blocking operations */
+    vp_init_threadpool(0);
+
+    /* Initialize event loop for async I/O */
+    atomic_store(&g_event_loop, vp_event_loop_get_global());
+
+    atomic_store(&g_initialized, 1);
+}
 
 /* ============================================ */
 /* Channel Operations                           */
 /* ============================================ */
 
 ViperChannel* vp_chan_create(int64_t capacity) {
+    vp_concurrency_ensure_init();
     return vp_channel_create((size_t)capacity);
 }
 
@@ -44,6 +78,7 @@ int64_t vp_chan_recv(ViperChannel* chan) {
 /* ============================================ */
 
 ViperWaitGroup* vp_waitgroup_create(void) {
+    vp_concurrency_ensure_init();
     return vp_waitgroup_create_impl();
 }
 
@@ -64,7 +99,41 @@ void vp_waitgroup_wait(ViperWaitGroup* wg) {
 }
 
 /* ============================================ */
-/* Thread Pool Operations                       */
+/* Fiber-based Task Submission                 */
+/* ============================================ */
+
+void vp_submit_task(void (*func)(void*), void* data) {
+    vp_concurrency_ensure_init();
+
+    /* Use fiber scheduler for M:N scheduling */
+    ViperScheduler* sched = atomic_load(&g_scheduler);
+    if (sched) {
+        vp_scheduler_submit_task(func, data);
+    } else {
+        /* Fallback to direct execution */
+        if (func) func(data);
+    }
+}
+
+void vp_wait_all_tasks(void) {
+    vp_concurrency_ensure_init();
+
+    ViperScheduler* sched = atomic_load(&g_scheduler);
+    if (sched) {
+        vp_scheduler_wait_all();
+    }
+}
+
+int64_t vp_pending_tasks(void) {
+    ViperScheduler* sched = atomic_load(&g_scheduler);
+    if (sched) {
+        return vp_scheduler_pending_tasks();
+    }
+    return 0;
+}
+
+/* ============================================ */
+/* Thread Pool Operations (for blocking I/O)   */
 /* ============================================ */
 
 void vp_init_threadpool(size_t num_threads) {
@@ -79,89 +148,38 @@ void vp_shutdown_threadpool(void) {
     }
 }
 
-void vp_submit_task(void (*func)(void*), void* data) {
-    ViperThreadPool* pool = atomic_load(&g_thread_pool);
-    if (!pool) {
-        /* Auto-initialize with default thread count */
-        vp_init_threadpool(0);
-        pool = atomic_load(&g_thread_pool);
-    }
-    
-    if (pool) {
-        ViperTask* task = vp_task_create(func, data, NULL);
-        vp_threadpool_submit(pool, task);
-    }
-}
+/* ============================================ */
+/* Event Loop Operations (async I/O)           */
+/* ============================================ */
 
-void vp_wait_all_tasks(void) {
-    ViperThreadPool* pool = atomic_load(&g_thread_pool);
-    if (pool) {
-        vp_threadpool_wait(pool);
-    }
+ViperEventLoop* vp_get_event_loop(void) {
+    vp_concurrency_ensure_init();
+    return atomic_load(&g_event_loop);
 }
 
 /* ============================================ */
-/* Task Execution Helper                        */
+/* Scheduler Shutdown                          */
 /* ============================================ */
 
-typedef struct {
-    void (*func)(void);
-    void* context;
-} TaskClosure;
-
-static void task_wrapper(void* data) {
-    TaskClosure* closure = (TaskClosure*)data;
-    if (closure && closure->func) {
-        closure->func();
+void vp_shutdown_scheduler(void) {
+    ViperScheduler* sched = atomic_exchange(&g_scheduler, NULL);
+    if (sched) {
+        vp_scheduler_shutdown();
     }
-    free(closure);
-}
 
-void vp_spawn_task(void (*func)(void)) {
-    TaskClosure* closure = (TaskClosure*)malloc(sizeof(TaskClosure));
-    if (closure) {
-        closure->func = func;
-        closure->context = NULL;
-        vp_submit_task(task_wrapper, closure);
+    ViperEventLoop* loop = atomic_exchange(&g_event_loop, NULL);
+    if (loop) {
+        vp_event_loop_destroy(loop);
     }
+
+    atomic_store(&g_initialized, 0);
 }
 
 /* ============================================ */
-/* Thread Spawning (true parallelism)           */
+/* Statistics                                  */
 /* ============================================ */
 
-#include <pthread.h>
-
-static _Atomic int64_t g_thread_counter = 0;
-
-typedef struct {
-    void (*func)(void);
-    void* arg;
-} TaskData;
-
-static void* thread_start(void* arg) {
-    TaskData* data = (TaskData*)arg;
-    if (data && data->func) {
-        data->func();
-    }
-    free(data);
-    return NULL;
-}
-
-int64_t vp_spawn_thread(void (*func)(void)) {
-    TaskData* data = (TaskData*)malloc(sizeof(TaskData));
-    if (!data) return -1;
-    
-    data->func = func;
-    data->arg = NULL;
-    
-    pthread_t thread;
-    if (pthread_create(&thread, NULL, thread_start, data) != 0) {
-        free(data);
-        return -1;
-    }
-    
-    pthread_detach(thread);
-    
-    return atomic_fetch_add(&g_thread_counter, 1);
+void vp_concurrency_stats(uint64_t* fibers_created, uint64_t* fibers_completed,
+                          uint64_t* context_switches) {
+    vp_scheduler_stats(fibers_created, fibers_completed, context_switches);
 }

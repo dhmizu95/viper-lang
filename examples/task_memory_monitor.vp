@@ -1,0 +1,77 @@
+# Viper Task Memory Monitor
+# Demonstrates M:N fiber scheduling with memory monitoring
+
+def worker(id: i64, result_chan: Chan[i64]):
+    # Worker that does some work and sends result
+    x = 0
+    for i in range(100):
+        x = x + i
+    send(result_chan, x)
+
+def memory_worker(id: i64, wg: WaitGroup):
+    # Worker that simulates memory allocation
+    # Create a list to simulate memory usage
+    data = [0]
+    for i in range(100):
+        data.append(i * id)
+    done(wg)
+
+def monitor_task(count: i64):
+    # Monitor task that spawns workers and reports
+    print("Starting monitor with ")
+    print(count)
+    print(" workers...")
+
+    # Create channel for results
+    result_chan = chan(100)
+
+    # Spawn workers
+    sync:
+        for i in range(count):
+            task worker(i, result_chan)
+
+    # Collect results
+    total = 0
+    for i in range(count):
+        val = recv(result_chan)
+        total = total + val
+
+    print("Total result: ")
+    print(total)
+
+def stress_test(num_tasks: i64):
+    # Stress test with many concurrent tasks
+    print("Stress test: ")
+    print(num_tasks)
+    print(" tasks...")
+
+    wg = WaitGroup()
+    add(wg, num_tasks)
+
+    sync:
+        for i in range(num_tasks):
+            task memory_worker(i, wg)
+
+    wait(wg)
+    print("Stress test completed!")
+
+def main():
+    print("=== Viper Task Memory Monitor ===")
+    print(" ")
+
+    # Test 1: Basic channel communication
+    print("Test 1: Channel communication")
+    monitor_task(10)
+    print(" ")
+
+    # Test 2: WaitGroup synchronization
+    print("Test 2: WaitGroup with memory allocation")
+    stress_test(100)
+    print(" ")
+
+    # Test 3: Large scale concurrent tasks
+    print("Test 3: Large scale concurrency")
+    stress_test(1000)
+    print(" ")
+
+    print("=== All tests completed ===")
