@@ -36,6 +36,7 @@ int64_t vp_ref_count(void* ptr);
 /* List Functions                               */
 /* ============================================ */
 
+/* Generic list functions (i64) - for backward compatibility */
 ViperList* vp_list_create(void);
 ViperList* vp_list_create_with_capacity(int64_t cap);
 void vp_list_free(ViperList* list);
@@ -53,7 +54,7 @@ ViperList* vp_list_repeat(int64_t elem, int64_t count);
 ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step);
 void vp_list_print(ViperList* list);
 
-/* Extended list operations */
+/* Extended list operations (i64) */
 void vp_list_extend(ViperList* list, ViperList* other);
 int64_t vp_list_index(ViperList* list, int64_t value);
 int64_t vp_list_count(ViperList* list, int64_t value);
@@ -62,6 +63,31 @@ void vp_list_reverse(ViperList* list);
 ViperList* vp_list_reversed(ViperList* list);
 ViperList* vp_list_sorted(ViperList* list);
 ViperList* vp_list_concat(ViperList* list1, ViperList* list2);
+
+/* Bool list functions (type-specific, memory efficient) */
+ViperList* vp_list_bool_create(void);
+ViperList* vp_list_bool_create_with_capacity(int64_t cap);
+void vp_list_bool_free(ViperList* list);
+void vp_list_bool_append(ViperList* list, bool value);
+void vp_list_bool_insert(ViperList* list, int64_t index, bool value);
+bool vp_list_bool_remove(ViperList* list, int64_t index);
+bool vp_list_bool_pop(ViperList* list);
+void vp_list_bool_clear(ViperList* list);
+bool vp_list_bool_get(ViperList* list, int64_t index);
+void vp_list_bool_set(ViperList* list, int64_t index, bool value);
+bool vp_list_bool_contains(ViperList* list, bool value);
+ViperList* vp_list_bool_copy(ViperList* list);
+ViperList* vp_list_bool_repeat(bool elem, int64_t count);
+ViperList* vp_list_bool_slice(ViperList* list, int64_t start, int64_t end, int64_t step);
+void vp_list_bool_print(ViperList* list);
+
+/* Extended bool list operations */
+void vp_list_bool_extend(ViperList* list, ViperList* other);
+int64_t vp_list_bool_index(ViperList* list, bool value);
+int64_t vp_list_bool_count(ViperList* list, bool value);
+void vp_list_bool_reverse(ViperList* list);
+ViperList* vp_list_bool_reversed(ViperList* list);
+ViperList* vp_list_bool_concat(ViperList* list1, ViperList* list2);
 
 /* ============================================ */
 /* Dictionary Functions                         */

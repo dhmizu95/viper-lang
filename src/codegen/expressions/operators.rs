@@ -55,20 +55,34 @@ pub fn generate_binop<'ctx>(
                 let count_val = generate_expr(state, right)?;
                 let count_int = count_val.into_int_value();
 
-                let elem_i64 = match elem {
-                    Expr::Bool(true, _) => state.ir_builder.i64_const(1),
-                    Expr::Bool(false, _) => state.ir_builder.i64_const(0),
-                    Expr::Int(val, _) => state.ir_builder.i64_const(*val),
+                let (elem_val, func_name) = match elem {
+                    Expr::Bool(true, _) => {
+                        let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(1, false).into();
+                        (val, "vp_list_bool_repeat")
+                    }
+                    Expr::Bool(false, _) => {
+                        let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(0, false).into();
+                        (val, "vp_list_bool_repeat")
+                    }
+                    Expr::Int(val, _) => {
+                         let val: inkwell::values::BasicMetadataValueEnum = state.ir_builder.i64_const(*val).into();
+                         (val, "vp_list_repeat")
+                    }
                     Expr::Float(val, _) => {
-                        // Convert float to i64 (truncation)
                         let f64_val = state.context.f64_type().const_float(*val as f64);
-                        state.builder.build_float_to_signed_int(f64_val, state.context.i64_type(), "float_to_int")
-                            .map_err(|e| format!("Failed to convert float to int: {:?}", e))?
+                        let i64_val = state.builder.build_float_to_signed_int(f64_val, state.context.i64_type(), "float_to_int")
+                            .map_err(|e| format!("Failed to convert float to int: {:?}", e))?;
+                        (i64_val.into(), "vp_list_repeat")
                     }
                     _ => {
-                        let elem_val = generate_expr(state, elem)?;
-                        if elem_val.is_int_value() {
-                            elem_val.into_int_value()
+                        let val = generate_expr(state, elem)?;
+                        if val.is_int_value() {
+                            let int_val = val.into_int_value();
+                            if int_val.get_type().get_bit_width() == 1 {
+                                (int_val.into(), "vp_list_bool_repeat")
+                            } else {
+                                (int_val.into(), "vp_list_repeat")
+                            }
                         } else {
                             return Err(
                                 "List repeat requires integer or boolean elements".to_string()
@@ -79,15 +93,15 @@ pub fn generate_binop<'ctx>(
 
                 let list_repeat_func = state
                     .module
-                    .get_function("vp_list_repeat")
-                    .ok_or_else(|| "vp_list_repeat not declared".to_string())?;
+                    .get_function(func_name)
+                    .ok_or_else(|| format!("{} not declared", func_name))?;
 
                 let result = state
                     .ir_builder
                     .build_call(
                         state.builder,
                         list_repeat_func,
-                        &[elem_i64.into(), count_int.into()],
+                        &[elem_val, count_int.into()],
                         "list_repeat",
                     )
                     .expect("list_repeat call");
