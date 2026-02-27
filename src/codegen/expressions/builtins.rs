@@ -179,10 +179,14 @@ pub fn generate_len_call<'ctx>(
     let obj_expr = &args[0];
     let obj_val = generate_expr(state, obj_expr)?;
 
-    // Check if it's a list (literal or variable)
+    // Check if it's a list (literal, variable, or list repetition)
     let is_list = match obj_expr {
         Expr::List { .. } | Expr::Array { .. } | Expr::ListComprehension { .. } => true,
         Expr::Ident(name, _) => state.is_list(name),
+        // Check for list repetition: [elem] * n
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            matches!(left.as_ref(), Expr::List { .. } | Expr::Array { .. })
+        }
         _ => false,
     };
 

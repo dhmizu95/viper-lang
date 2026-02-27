@@ -39,25 +39,10 @@ pub fn generate_binop<'ctx>(
     let lhs_is_bigint = expr_is_bigint(left, state);
     let rhs_is_bigint = expr_is_bigint(right, state);
 
-    // Generate both operands first
-    let lhs_val = generate_expr(state, left)?;
-    let rhs_val = generate_expr(state, right)?;
-
-    if lhs_is_bigint || rhs_is_bigint {
-        return generate_bigint_binop(state, left, op, right, lhs_val, rhs_val);
-    }
-
-    // Handle string concatenation with + operator
-    if *op == BinOp::Add {
-        // Check if both operands are strings (pointer types)
-        if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
-            return generate_str_concat(state, lhs_val, rhs_val);
-        }
-    }
-
-    // Handle list * int for list/array literals: [elem] * n
+    // Special case: Handle list * int for list/array literals: [elem] * n
+    // This must be checked BEFORE generating the left operand to avoid generating
+    // the full list literal first
     if *op == BinOp::Mul {
-        // Check for List or Array literal
         let elements = match left {
             Expr::List { elements, .. } => Some(elements),
             Expr::Array { elements, .. } => Some(elements),
@@ -66,15 +51,22 @@ pub fn generate_binop<'ctx>(
 
         if let Some(elems) = elements {
             if let Some(elem) = elems.first() {
+                // Only generate the element expression and count, not the full list
                 let count_val = generate_expr(state, right)?;
                 let count_int = count_val.into_int_value();
-
-                let elem_val = generate_expr(state, elem)?;
 
                 let elem_i64 = match elem {
                     Expr::Bool(true, _) => state.ir_builder.i64_const(1),
                     Expr::Bool(false, _) => state.ir_builder.i64_const(0),
+                    Expr::Int(val, _) => state.ir_builder.i64_const(*val),
+                    Expr::Float(val, _) => {
+                        // Convert float to i64 (truncation)
+                        let f64_val = state.context.f64_type().const_float(*val as f64);
+                        state.builder.build_float_to_signed_int(f64_val, state.context.i64_type(), "float_to_int")
+                            .map_err(|e| format!("Failed to convert float to int: {:?}", e))?
+                    }
                     _ => {
+                        let elem_val = generate_expr(state, elem)?;
                         if elem_val.is_int_value() {
                             elem_val.into_int_value()
                         } else {
@@ -102,6 +94,22 @@ pub fn generate_binop<'ctx>(
 
                 return Ok(result.into());
             }
+        }
+    }
+
+    // Generate both operands for other operations
+    let lhs_val = generate_expr(state, left)?;
+    let rhs_val = generate_expr(state, right)?;
+
+    if lhs_is_bigint || rhs_is_bigint {
+        return generate_bigint_binop(state, left, op, right, lhs_val, rhs_val);
+    }
+
+    // Handle string concatenation with + operator
+    if *op == BinOp::Add {
+        // Check if both operands are strings (pointer types)
+        if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
+            return generate_str_concat(state, lhs_val, rhs_val);
         }
     }
 

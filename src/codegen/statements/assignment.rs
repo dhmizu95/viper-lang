@@ -35,6 +35,10 @@ pub(crate) fn generate_assign<'ctx>(
             Expr::List { .. } => true,
             Expr::ListComprehension { .. } => true,
             Expr::Ident(other, _) => state.is_list(other),
+            // Check for list repetition: [elem] * n
+            Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                matches!(left.as_ref(), Expr::List { .. } | Expr::Array { .. })
+            }
             Expr::Call { func, .. } => {
                 // Check if calling a list-returning function
                 if let Expr::Ident(func_name, _) = func.as_ref() {
@@ -239,6 +243,17 @@ pub(crate) fn generate_assign<'ctx>(
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
         } else {
             // List index assignment using runtime function
+            // vp_list_set expects i64 values, so convert bool to i64
+            let value_for_list = if value_val.is_int_value() && value_val.get_type().into_int_type().get_bit_width() == 1 {
+                // Bool value (i1), convert to i64
+                let bool_val = value_val.into_int_value();
+                state.builder.build_int_z_extend(bool_val, state.context.i64_type(), "bool_to_i64")
+                    .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
+                    .into()
+            } else {
+                value_val
+            };
+
             let list_set = state
                 .module
                 .get_function("vp_list_set")
@@ -246,7 +261,7 @@ pub(crate) fn generate_assign<'ctx>(
             state.ir_builder.build_call(
                 state.builder,
                 list_set,
-                &[obj_val.into(), index_val.into(), value_val.into()],
+                &[obj_val.into(), index_val.into(), value_for_list.into()],
                 "list_set",
             );
         }

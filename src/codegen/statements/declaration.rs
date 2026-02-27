@@ -19,6 +19,10 @@ pub(crate) fn generate_declare<'ctx>(
             Expr::List { .. } => true,
             Expr::ListComprehension { .. } => true,
             Expr::Ident(other, _) => state.is_list(other),
+            // Check for list repetition: [elem] * n
+            Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                matches!(left.as_ref(), Expr::List { .. } | Expr::Array { .. })
+            }
             Expr::Call { func, .. } => {
                 // Check if calling a list-returning function
                 // Lists return pointers, but so do strings - need to distinguish
