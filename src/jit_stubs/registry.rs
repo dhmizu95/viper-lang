@@ -768,4 +768,339 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_gc_break_cycles as *const () as usize);
     }
+
+    // ============================================
+    // Phase 2: Math Module
+    // ============================================
+
+    // Math constants
+    if let Some(func) = module.get_function("vp_math_pi") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_pi as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_e") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_e as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_tau") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_tau as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_inf") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_inf as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_nan") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_nan as *const () as usize);
+    }
+
+    // Basic math functions
+    if let Some(func) = module.get_function("vp_math_cbrt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_cbrt as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_ceil") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_ceil as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_trunc") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_trunc as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_round") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_round as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_fabs") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_fabs as *const () as usize);
+    }
+
+    // Power and logarithm
+    if let Some(func) = module.get_function("vp_math_exp") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_exp as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_exp2") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_exp2 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_exp10") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_exp10 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_log") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_log as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_log2") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_log2 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_log10") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_log10 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_pow") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_pow as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_pow_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_pow_i64 as *const () as usize);
+    }
+
+    // Trigonometric
+    if let Some(func) = module.get_function("vp_math_sin") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_sin as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_cos") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_cos as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_tan") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_tan as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_asin") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_asin as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_acos") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_acos as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_atan") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_atan as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_atan2") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_atan2 as *const () as usize);
+    }
+
+    // Hyperbolic
+    if let Some(func) = module.get_function("vp_math_sinh") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_sinh as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_cosh") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_cosh as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_tanh") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_tanh as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_asinh") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_asinh as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_acosh") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_acosh as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_atanh") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_atanh as *const () as usize);
+    }
+
+    // Angle conversion
+    if let Some(func) = module.get_function("vp_math_degrees") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_degrees as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_radians") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_radians as *const () as usize);
+    }
+
+    // Rounding and remainder
+    if let Some(func) = module.get_function("vp_math_fmod") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_fmod as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_fmin") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_fmin as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_fmax") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_fmax as *const () as usize);
+    }
+
+    // Classification
+    if let Some(func) = module.get_function("vp_math_isnan") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_isnan as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_isinf") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_isinf as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_isfinite") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_isfinite as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_isnormal") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_isnormal as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_signbit") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_signbit as *const () as usize);
+    }
+
+    // Special functions
+    if let Some(func) = module.get_function("vp_math_erf") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_erf as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_erfc") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_erfc as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_tgamma") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_tgamma as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_lgamma") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_lgamma as *const () as usize);
+    }
+
+    // Integer math
+    if let Some(func) = module.get_function("vp_math_abs_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_abs_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_min_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_min_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_max_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_max_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_clamp_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_clamp_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_gcd") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_gcd as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_lcm") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_lcm as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_factorial") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_factorial as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_factorial_large") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_factorial_large as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_comb") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_comb as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_perm") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_perm as *const () as usize);
+    }
+
+    // Distance functions
+    if let Some(func) = module.get_function("vp_math_hypot") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_hypot as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_dist_2d") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_dist_2d as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_dist_3d") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_dist_3d as *const () as usize);
+    }
+
+    // Advanced functions
+    if let Some(func) = module.get_function("vp_math_copysign") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_copysign as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_remainder") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_remainder as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_fma") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_fma as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_ilogb") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_ilogb as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_logb") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_logb as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_scalbn") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_scalbn as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_fdim") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_fdim as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_nextafter") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_nextafter as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_fpclassify") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_fpclassify as *const () as usize);
+    }
+
+    // Statistics
+    if let Some(func) = module.get_function("vp_math_mean") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_mean as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_variance") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_variance as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_math_stddev") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_math_stddev as *const () as usize);
+    }
+
+    // ============================================
+    // Phase 2: JSON Module
+    // ============================================
+
+    if let Some(func) = module.get_function("vp_json_loads") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_json_loads as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_dumps") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_json_dumps as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_load_file") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_json_load_file as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_dump_file") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_json_dump_file as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_get_error") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_json_get_error as *const () as usize);
+    }
 }
