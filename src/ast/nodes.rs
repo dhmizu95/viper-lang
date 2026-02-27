@@ -13,6 +13,8 @@ pub enum Expr {
     Str(String, Span),
     /// FString literal
     FString(Vec<Expr>, Span),
+    /// Bytes literal
+    Bytes(Vec<u8>, Span),
     /// Boolean literal
     Bool(bool, Span),
     /// BigInt literal (arbitrary precision)
@@ -64,6 +66,7 @@ impl Expr {
             Expr::Float(_, s) => *s,
             Expr::Str(_, s) => *s,
             Expr::FString(_, s) => *s,
+            Expr::Bytes(_, s) => *s,
             Expr::Bool(_, s) => *s,
             Expr::BigInt(_, s) => *s,
             Expr::None(s) => *s,

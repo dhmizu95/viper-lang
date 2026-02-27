@@ -373,6 +373,11 @@ pub fn parse_match_pattern(parser: &mut StatementParser) -> Result<MatchPattern,
             parser.advance();
             Ok(MatchPattern::Constant(Expr::Str(s, span)))
         }
+        TokenKind::Bytes(b) => {
+            let span = token.span;
+            parser.advance();
+            Ok(MatchPattern::Constant(Expr::Bytes(b, span)))
+        }
         TokenKind::Bool(b) => {
             let span = token.span;
             parser.advance();

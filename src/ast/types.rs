@@ -20,6 +20,8 @@ pub enum Type {
     Bool,
     /// String
     Str,
+    /// Bytes (immutable byte sequence)
+    Bytes,
     /// Unit/None type
     None,
     /// List of elements (dynamic size)
@@ -96,6 +98,7 @@ impl Type {
                 | Type::F64
                 | Type::Bool
                 | Type::Str
+                | Type::Bytes
         )
     }
 
@@ -140,6 +143,7 @@ impl std::fmt::Display for Type {
             Type::F64 => write!(f, "f64"),
             Type::Bool => write!(f, "bool"),
             Type::Str => write!(f, "str"),
+            Type::Bytes => write!(f, "bytes"),
             Type::None => write!(f, "None"),
             Type::List(t) => write!(f, "[{}]", t),
             Type::Dict(k, v) => write!(f, "{{{}: {}}}", k, v),

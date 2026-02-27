@@ -402,6 +402,7 @@ impl EscapeAnalyzer {
             Expr::Int(_, _)
             | Expr::Float(_, _)
             | Expr::Str(_, _)
+            | Expr::Bytes(_, _)
             | Expr::Bool(_, _)
             | Expr::None(_)
             | Expr::BigInt(_, _) => {

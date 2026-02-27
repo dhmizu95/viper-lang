@@ -82,6 +82,22 @@ fn declare_print_functions<'ctx>(
         ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_replace", str_replace_type, None);
 
+    // Bytes functions
+    let bytes_create_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytes_create", bytes_create_type, None);
+
+    let bytes_free_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bytes_free", bytes_free_type, None);
+
+    let bytes_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bytes_len", bytes_len_type, None);
+
+    let bytes_get_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytes_get", bytes_get_type, None);
+
+    let bytes_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bytes_print", bytes_print_type, None);
+
     Ok(())
 }
 

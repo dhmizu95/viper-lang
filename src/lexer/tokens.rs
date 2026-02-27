@@ -10,6 +10,7 @@ pub enum TokenKind {
     Float(f64),
     Str(String),
     FString(String),
+    Bytes(Vec<u8>), // Byte literal b"bytes"
     Bool(bool),
     Ident(String),
 
@@ -154,6 +155,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Float(n) => write!(f, "Float({})", n),
             TokenKind::Str(s) => write!(f, "Str({})", s),
             TokenKind::FString(s) => write!(f, "FString({})", s),
+            TokenKind::Bytes(b) => write!(f, "Bytes({:?})", String::from_utf8_lossy(b)),
             TokenKind::Bool(b) => write!(f, "Bool({})", b),
             TokenKind::Ident(s) => write!(f, "Ident({})", s),
             TokenKind::Def => write!(f, "def"),

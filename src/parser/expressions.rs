@@ -301,6 +301,11 @@ impl<'a> PrattParser<'a> {
 
                 Ok(Expr::FString(elements, span))
             }
+            TokenKind::Bytes(b) => {
+                let b = b.clone();
+                self.advance();
+                Ok(Expr::Bytes(b, span))
+            }
             TokenKind::Bool(b) => {
                 let b = *b;
                 self.advance();

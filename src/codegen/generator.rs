@@ -570,6 +570,7 @@ impl<'ctx> CodeGen<'ctx> {
             Expr::Float(n, _) => self.ir_builder.f64_const(*n).as_basic_value_enum(),
             Expr::Bool(b, _) => self.ir_builder.bool_const(*b).as_basic_value_enum(),
             Expr::Str(s, _) => self.ir_builder.string_const(&self.module, s).as_basic_value_enum(),
+            Expr::Bytes(b, _) => self.ir_builder.bytes_const(&self.module, b).as_basic_value_enum(),
             Expr::None(_) => self.ir_builder.i64_const(0).as_basic_value_enum(),
             _ => return Err(format!("Cannot create global constant from non-literal expression")),
         };
@@ -591,6 +592,7 @@ impl<'ctx> CodeGen<'ctx> {
             | Expr::Float(..)
             | Expr::Bool(..)
             | Expr::Str(..)
+            | Expr::Bytes(..)
             | Expr::None(..)
             | Expr::BigInt(..) => true,
             Expr::UnaryOp { operand, .. } => {

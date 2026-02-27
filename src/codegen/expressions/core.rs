@@ -59,6 +59,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
+        Expr::Bytes(_, _) => Type::Bytes,
         Expr::None(_) => Type::None,
         Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
@@ -142,6 +143,18 @@ pub fn generate_expr<'ctx>(
                 .unwrap();
             Ok(result)
         }
+        Expr::Bytes(b, _) => {
+            let bytes_val = state.ir_builder.bytes_const(state.module, b);
+            let create_func = state
+                .module
+                .get_function("vp_bytes_create")
+                .ok_or_else(|| "vp_bytes_create not declared. Add to runtime library.".to_string())?;
+            let result = state
+                .ir_builder
+                .build_call(state.builder, create_func, &[bytes_val.into(), state.ir_builder.i64_const(b.len() as i64).into()], "bytes_create")
+                .unwrap();
+            Ok(result)
+        }
         Expr::FString(elements, _) => {
             if elements.is_empty() {
                 let str_val = state.ir_builder.string_const(state.module, "");
@@ -191,7 +204,7 @@ pub fn generate_expr<'ctx>(
                                 let f64_type = state.context.f64_type();
                                 Ok(state.builder.build_load(f64_type, *alloca, name).expect("load"))
                             }
-                            VarType::Pointer | VarType::BigInt => {
+                            VarType::Pointer | VarType::BigInt | VarType::Bytes => {
                                 let ptr_type =
                                     state.context.ptr_type(inkwell::AddressSpace::default());
                                 Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load"))

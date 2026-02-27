@@ -172,6 +172,28 @@ char* vp_str_lower(const char* str);
 ViperList* vp_str_split(const char* str, const char* delim);
 char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub);
 
+/* ============================================ */
+/* Bytes Functions                              */
+/* ============================================ */
+
+typedef struct {
+    uint8_t* data;
+    int64_t len;
+    int64_t ref_count;
+} ViperBytes;
+
+ViperBytes* vp_bytes_create(const uint8_t* data, int64_t len);
+void vp_bytes_free(ViperBytes* bytes);
+ViperBytes* vp_bytes_concat(ViperBytes* a, ViperBytes* b);
+int64_t vp_bytes_len(ViperBytes* bytes);
+uint8_t vp_bytes_get(ViperBytes* bytes, int64_t index);
+void vp_bytes_set(ViperBytes* bytes, int64_t index, uint8_t value);
+ViperBytes* vp_bytes_slice(ViperBytes* bytes, int64_t start, int64_t end);
+bool vp_bytes_contains(ViperBytes* bytes, uint8_t value);
+ViperBytes* vp_bytes_copy(ViperBytes* bytes);
+void vp_bytes_print(ViperBytes* bytes);
+int64_t vp_bytes_hash(ViperBytes* bytes);
+bool vp_bytes_equals(ViperBytes* a, ViperBytes* b);
 
 /* ============================================ */
 /* Utility Functions                            */
