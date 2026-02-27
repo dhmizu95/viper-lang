@@ -51,33 +51,36 @@ typedef struct ViperFiber ViperFiber;
 struct ViperFiber {
     /* Fiber ID */
     uint64_t id;
-    
+
     /* State */
     ViperFiberState state;
-    
+
     /* Stack */
     void* stack_base;          /* Bottom of stack (high address) */
     void* stack_ptr;            /* Current stack pointer */
     size_t stack_size;         /* Current stack size */
     size_t stack_capacity;      /* Allocated capacity */
-    
+
     /* Function to execute */
     void (*func)(void*);
     void* arg;
-    
+
     /* Return value */
     void* result;
-    
+
     /* Parent fiber (who spawned this one) */
     ViperFiber* parent;
-    
+
     /* Scheduler link */
     ViperFiber* next_ready;
     ViperFiber* prev_ready;
-    
+
     /* Thread affinity (0 = any) */
     int32_t affinity;
-    
+
+    /* Fiber pool (for pooled allocation) */
+    void* pool;
+
     /* Debug info */
     const char* name;
 };

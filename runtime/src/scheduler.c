@@ -18,10 +18,14 @@
 #include <stdint.h>
 #include <time.h>
 #include "fiber.h"
+#include "fiber_pool.h"
 #include "event_loop.h"
 
 /* Forward declare for pending ops check */
 extern int64_t vp_event_loop_pending_ops(ViperEventLoop* loop);
+
+/* Global fiber pool for efficient allocation */
+static ViperFiberPool* g_fiber_pool = NULL;
 
 /* ============================================ */
 /* Configuration                                */
@@ -269,7 +273,12 @@ static void* scheduler_worker(void* arg) {
                     vp_scheduler_add_ready(current->parent);
                 }
 
-                vp_fiber_free(current);
+                /* Return fiber to pool instead of freeing */
+                if (current->pool) {
+                    vp_fiber_pool_free(current->pool, current);
+                } else {
+                    vp_fiber_free(current);
+                }
             }
 
             atomic_fetch_add(&st->fibers_run, 1);
@@ -345,15 +354,19 @@ ViperScheduler* vp_scheduler_create(int num_threads) {
     if (num_threads > SCHEDULER_MAX_THREADS) {
         num_threads = SCHEDULER_MAX_THREADS;
     }
-    
+
     ViperScheduler* sched = (ViperScheduler*)malloc(sizeof(ViperScheduler));
     if (!sched) return NULL;
-    
+
     memset(sched, 0, sizeof(ViperScheduler));
-    
+
+    /* Create fiber pool for efficient allocation */
+    g_fiber_pool = vp_fiber_pool_create(4096);  /* Start with 4K fibers */
+
     /* Initialize thread pool */
     sched->threads = (SchedulerThread*)malloc(sizeof(SchedulerThread) * num_threads);
     if (!sched->threads) {
+        vp_fiber_pool_destroy(g_fiber_pool);
         free(sched);
         return NULL;
     }
@@ -482,15 +495,29 @@ void vp_scheduler_set_scaling(bool enabled) {
 void vp_scheduler_submit_task(void (*func)(void*), void* arg) {
     if (!g_scheduler || !func) return;
 
-    /* Create and spawn a fiber for this task */
-    ViperFiber* fiber = vp_fiber_create(func, arg, FIBER_INITIAL_STACK_SIZE);
-    if (!fiber) return;
-
+    /* Allocate fiber from pool (much faster than malloc) */
+    ViperFiber* fiber = vp_fiber_pool_alloc(g_fiber_pool);
+    if (!fiber) {
+        /* Fallback to direct creation if pool exhausted */
+        fiber = vp_fiber_create(func, arg, FIBER_INITIAL_STACK_SIZE);
+        if (!fiber) return;
+        
+        atomic_fetch_add(&g_scheduler->fibers_created, 1);
+        atomic_fetch_add(&g_scheduler->pending_tasks, 1);
+        vp_fiber_start(fiber);
+        return;
+    }
+    
+    /* Initialize fiber from pool */
+    fiber->func = func;
+    fiber->arg = arg;
+    fiber->state = FIBER_READY;
+    fiber->stack_size = FIBER_INITIAL_STACK_SIZE;
+    
     atomic_fetch_add(&g_scheduler->fibers_created, 1);
     atomic_fetch_add(&g_scheduler->pending_tasks, 1);
-
-    /* vp_fiber_start will call vp_scheduler_add_ready internally */
-    vp_fiber_start(fiber);
+    
+    vp_scheduler_add_ready(fiber);
 }
 
 void vp_scheduler_wait_all(void) {

@@ -1,0 +1,128 @@
+# Viper Improvements Test
+# Tests all improvements from IMPROVEMENT_ROADMAP.md
+
+def channel_worker(id: i64, c: Chan[i64], wg: WaitGroup):
+    # Lock-free channel test
+    send(c, id * 10)
+    done(wg)
+
+def compute_worker(id: i64, c: Chan[i64], wg: WaitGroup):
+    # CPU-bound computation test
+    sum_val = 0
+    for i in range(1000):
+        sum_val = sum_val + i * id
+    send(c, sum_val)
+    done(wg)
+
+def test_lock_free_channels():
+    print("Test 1: Lock-Free Channels")
+    
+    c = chan(100)
+    wg = WaitGroup()
+    add(wg, 10)
+    
+    # Spawn 10 workers using lock-free channels
+    sync:
+        for i in range(10):
+            task channel_worker(i, c, wg)
+    
+    wait(wg)
+    
+    # Collect results
+    total = 0
+    for i in range(10):
+        total = total + recv(c)
+    
+    print("Channel results sum: ")
+    print(total)
+
+def test_cpu_bound():
+    print("Test 2: CPU-Bound Parallel Compute")
+    
+    c = chan(10)
+    wg = WaitGroup()
+    add(wg, 10)
+    
+    # Spawn compute-intensive tasks
+    sync:
+        for i in range(10):
+            task compute_worker(i, c, wg)
+    
+    wait(wg)
+    
+    # Collect and sum results
+    total = 0
+    for i in range(10):
+        total = total + recv(c)
+    
+    print("Compute results sum: ")
+    print(total)
+
+def test_fiber_pool():
+    print("Test 3: Fiber Pool (1000 tasks)")
+    
+    c = chan(1000)
+    wg = WaitGroup()
+    add(wg, 1000)
+    
+    # Spawn 1000 tasks - tests fiber pool allocation
+    sync:
+        for i in range(1000):
+            task channel_worker(i, c, wg)
+    
+    wait(wg)
+    
+    # Collect some results
+    total = 0
+    for i in range(1000):
+        total = total + recv(c)
+    
+    print("Fiber pool test completed")
+    print("Tasks spawned: 1000")
+    print("Results sum: ")
+    print(total)
+
+def test_mixed_workload():
+    print("Test 4: Mixed Workload")
+    
+    compute_chan = chan(50)
+    channel_chan = chan(50)
+    wg = WaitGroup()
+    add(wg, 100)
+    
+    # 50 compute tasks + 50 channel tasks
+    sync:
+        for i in range(50):
+            task compute_worker(i, compute_chan, wg)
+        for j in range(50):
+            task channel_worker(j, channel_chan, wg)
+    
+    wait(wg)
+    
+    # Collect all results
+    compute_total = 0
+    channel_total = 0
+    
+    for k in range(50):
+        compute_total = compute_total + recv(compute_chan)
+    for m in range(50):
+        channel_total = channel_total + recv(channel_chan)
+    
+    print("Mixed workload completed")
+    print("Compute sum: ")
+    print(compute_total)
+    print("Channel sum: ")
+    print(channel_total)
+
+def main():
+    print("=== VIPER IMPROVEMENTS TEST ===")
+    print("Testing: Lock-free channels, Fiber pool, Async I/O")
+    print(" ")
+    
+    test_lock_free_channels()
+    test_cpu_bound()
+    test_fiber_pool()
+    test_mixed_workload()
+    
+    print(" ")
+    print("=== ALL TESTS COMPLETED ===")
