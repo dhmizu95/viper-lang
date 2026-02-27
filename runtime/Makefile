@@ -76,7 +76,7 @@ else ifeq ($(PROFILE),profile)
     LDFLAGS = -pg
 else
     # Release (default) - with LTO for better optimization
-    CFLAGS = -Wall -Wextra -O3 -fPIC -std=c11 -D_GNU_SOURCE -DNDEBUG -flto -ffat-lto-objects
+    CFLAGS = -Wall -Wextra -O3 -fPIC -std=c11 -D_GNU_SOURCE -DNDEBUG -flto -ffat-lto-objects -finline-functions -finline-small-functions
     LDFLAGS = -s -flto
 endif
 

@@ -53,6 +53,8 @@ int64_t vp_list_len(ViperList* list);
 bool vp_list_contains(ViperList* list, int64_t value);
 ViperList* vp_list_copy(ViperList* list);
 ViperList* vp_list_repeat(int64_t elem, int64_t count);
+ViperList* vp_list_zeros(int64_t count);       /* Optimized [0] * n */
+ViperList* vp_list_ones(int64_t count);        /* Optimized [1] * n */
 ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step);
 void vp_list_print(ViperList* list);
 

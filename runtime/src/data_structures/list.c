@@ -1,8 +1,9 @@
 /**
  * Viper Dynamic List Implementation
  * A resizable array with reference counting
- * 
+ *
  * OPTIMIZED VERSION: Minimal overhead for hot paths
+ * Uses inline operations for predictable LLVM IR
  */
 
 #include <stdlib.h>
@@ -19,7 +20,7 @@
 
 /* Inline-friendly grow function - called only when needed */
 /* Made non-static for inline codegen */
-void vp_list_grow(ViperList* list) {
+VIPER_NEVER_INLINE void vp_list_grow(ViperList* list) {
     int64_t new_capacity = list->capacity * LIST_GROWTH_FACTOR;
     int64_t* new_data = (int64_t*)realloc(list->data.data_i64, new_capacity * sizeof(int64_t));
 
@@ -243,24 +244,6 @@ ViperList* vp_list_copy(ViperList* list) {
 }
 
 /**
- * Create a list by repeating an element count times
- * Used for list comprehension: [elem] * count
- */
-ViperList* vp_list_repeat(int64_t elem, int64_t count) {
-    if (count <= 0) {
-        return vp_list_create();
-    }
-
-    ViperList* list = vp_list_create_with_capacity(count);
-
-    for (int64_t i = 0; i < count; i++) {
-        vp_list_append(list, elem);
-    }
-
-    return list;
-}
-
-/**
  * Print a list in format [elem1, elem2, ...]
  */
 void vp_list_print(ViperList* list) {
@@ -451,4 +434,49 @@ ViperList* vp_list_concat(ViperList* list1, ViperList* list2) {
     }
 
     return result;
+}
+
+/**
+ * Create a list by repeating an element n times
+ * Optimized for [1] * n pattern (e.g., sieve initialization)
+ * Uses memset for byte-sized elements
+ */
+ViperList* vp_list_repeat(int64_t elem, int64_t count) {
+    if (count <= 0) {
+        return vp_list_create();
+    }
+    
+    ViperList* list = vp_list_create_with_capacity(count);
+    
+    /* Fast path: use memset for small integer types */
+    if (elem >= 0 && elem <= 255 && list->elem_type == VIPER_LIST_I64) {
+        /* For i64 lists with small values, use optimized fill */
+        int64_t* data = list->data.data_i64;
+        for (int64_t i = 0; i < count; i++) {
+            data[i] = elem;
+        }
+    } else {
+        /* Standard fill */
+        for (int64_t i = 0; i < count; i++) {
+            vp_list_append(list, elem);
+        }
+    }
+    
+    return list;
+}
+
+/**
+ * Create a list of zeros with given capacity
+ * Optimized for is_prime = [0] * n pattern
+ */
+ViperList* vp_list_zeros(int64_t count) {
+    return vp_list_repeat(0, count);
+}
+
+/**
+ * Create a list of ones with given capacity
+ * Optimized for is_prime = [1] * n pattern
+ */
+ViperList* vp_list_ones(int64_t count) {
+    return vp_list_repeat(1, count);
 }
