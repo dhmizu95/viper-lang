@@ -15,7 +15,7 @@ run_test() {
     if ! $VIPER build "$file" >/dev/null 2>&1; then
         echo "❌ $name: COMPILE ERROR"
         ERRORS+=("$name: compile error")
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         return
     fi
 
@@ -24,7 +24,7 @@ run_test() {
     if [ ! -f "$bin" ]; then
         echo "❌ $name: binary not found"
         ERRORS+=("$name: binary not found")
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         return
     fi
 
@@ -39,22 +39,22 @@ run_test() {
             echo "❌ $name: RUNTIME ERROR (exit $rc)"
             ERRORS+=("$name: runtime error (exit $rc)")
         fi
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         return
     }
 
     if [ -z "$expected" ]; then
         echo "✅ $name: OK (no expected output check)"
-        ((PASS++))
+        PASS=$((PASS + 1))
     elif [ "$actual" = "$expected" ]; then
         echo "✅ $name: OK"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "❌ $name: WRONG OUTPUT"
         echo "   expected: $(echo "$expected" | head -3)"
         echo "   actual:   $(echo "$actual" | head -3)"
         ERRORS+=("$name: wrong output")
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 
