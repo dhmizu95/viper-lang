@@ -66,6 +66,41 @@ static void vp_bitvec_destroy(void* ptr) {
     }
 }
 
+/* Static inline versions for LTO inlining - used internally */
+static inline bool vp_bitvec_get_inl(ViperList* vec, int64_t index) {
+    int64_t idx = index;
+    if (idx < 0) idx = vec->length + idx;
+    int64_t word_idx = idx / 64;
+    uint64_t mask = (uint64_t)1 << (idx % 64);
+    return (vec->data.data_bitvec[word_idx] & mask) != 0;
+}
+
+static inline void vp_bitvec_set_inl(ViperList* vec, int64_t index, bool value) {
+    int64_t idx = index;
+    if (idx < 0) idx = vec->length + idx;
+    int64_t word_idx = idx / 64;
+    uint64_t mask = (uint64_t)1 << (idx % 64);
+    if (value) {
+        vec->data.data_bitvec[word_idx] |= mask;
+    } else {
+        vec->data.data_bitvec[word_idx] &= ~mask;
+    }
+}
+
+static inline void vp_bitvec_append_inl(ViperList* vec, bool value) {
+    if (vec->length >= vec->capacity) {
+        vp_bitvec_grow(vec);
+    }
+    int64_t word_idx = vec->length / 64;
+    uint64_t mask = (uint64_t)1 << (vec->length % 64);
+    if (value) {
+        vec->data.data_bitvec[word_idx] |= mask;
+    } else {
+        vec->data.data_bitvec[word_idx] &= ~mask;
+    }
+    vec->length++;
+}
+
 /* ============================================ */
 /* Bit Vector Public Functions                  */
 /* ============================================ */
@@ -132,23 +167,8 @@ void vp_bitvec_free(ViperList* vec) {
     vp_arc_release(vec);
 }
 
-/* OPTIMIZED: Minimal checks for hot path */
-void vp_bitvec_append(ViperList* vec, bool value) {
-    if (vec->length >= vec->capacity) {
-        vp_bitvec_grow(vec);
-    }
-    
-    int64_t word_idx = bitvec_word_index(vec->length);
-    uint64_t mask = bitvec_bit_mask(vec->length);
-    
-    if (value) {
-        vec->data.data_bitvec[word_idx] |= mask;
-    } else {
-        vec->data.data_bitvec[word_idx] &= ~mask;
-    }
-    
-    vec->length++;
-}
+/* OPTIMIZED: Inline version in header - this is fallback for non-inlined calls */
+/* vp_bitvec_append - defined inline in viper_stdlib.h */
 
 void vp_bitvec_insert(ViperList* vec, int64_t index, bool value) {
     if (!vec) {
@@ -167,7 +187,7 @@ void vp_bitvec_insert(ViperList* vec, int64_t index, bool value) {
 
     /* Shift bits to the right, starting from the end */
     for (int64_t i = vec->length; i > index; i--) {
-        bool bit = vp_bitvec_get(vec, i - 1);
+        bool bit = vp_bitvec_get_inl(vec, i - 1);
         int64_t word_idx = bitvec_word_index(i);
         uint64_t mask = bitvec_bit_mask(i);
         
@@ -202,11 +222,11 @@ bool vp_bitvec_remove(ViperList* vec, int64_t index) {
         return false;
     }
 
-    bool value = vp_bitvec_get(vec, index);
+    bool value = vp_bitvec_get_inl(vec, index);
 
     /* Shift bits to the left */
     for (int64_t i = index; i < vec->length - 1; i++) {
-        bool bit = vp_bitvec_get(vec, i + 1);
+        bool bit = vp_bitvec_get_inl(vec, i + 1);
         int64_t word_idx = bitvec_word_index(i);
         uint64_t mask = bitvec_bit_mask(i);
         
@@ -238,7 +258,7 @@ bool vp_bitvec_pop(ViperList* vec) {
     }
 
     vec->length--;
-    return vp_bitvec_get(vec, vec->length);
+    return vp_bitvec_get_inl(vec, vec->length);
 }
 
 void vp_bitvec_clear(ViperList* vec) {
@@ -249,36 +269,17 @@ void vp_bitvec_clear(ViperList* vec) {
     vec->length = 0;
 }
 
-/* OPTIMIZED: Minimal checks for hot path - assume valid index */
-/* Supports negative indexing: vec[-1] = last element */
+/* Exported functions for AOT linking - call inline versions */
 bool vp_bitvec_get(ViperList* vec, int64_t index) {
-    /* Handle negative indexing */
-    if (index < 0) {
-        index = vec->length + index;
-    }
-    
-    /* In optimized builds, skip bounds check for hot paths */
-    int64_t word_idx = bitvec_word_index(index);
-    uint64_t mask = bitvec_bit_mask(index);
-    
-    return (vec->data.data_bitvec[word_idx] & mask) != 0;
+    return vp_bitvec_get_inl(vec, index);
 }
 
-/* OPTIMIZED: Minimal checks for hot path */
 void vp_bitvec_set(ViperList* vec, int64_t index, bool value) {
-    /* Handle negative indexing */
-    if (index < 0) {
-        index = vec->length + index;
-    }
-    
-    int64_t word_idx = bitvec_word_index(index);
-    uint64_t mask = bitvec_bit_mask(index);
-    
-    if (value) {
-        vec->data.data_bitvec[word_idx] |= mask;
-    } else {
-        vec->data.data_bitvec[word_idx] &= ~mask;
-    }
+    vp_bitvec_set_inl(vec, index, value);
+}
+
+void vp_bitvec_append(ViperList* vec, bool value) {
+    vp_bitvec_append_inl(vec, value);
 }
 
 bool vp_bitvec_contains(ViperList* vec, bool value) {
@@ -340,11 +341,11 @@ ViperList* vp_bitvec_slice(ViperList* vec, int64_t start, int64_t end, int64_t s
 
     if (step > 0) {
         for (int64_t i = start; i < end; i += step) {
-            vp_bitvec_append(result, vp_bitvec_get(vec, i));
+            vp_bitvec_append_inl(result, vp_bitvec_get_inl(vec, i));
         }
     } else {
         for (int64_t i = end - 1; i >= start; i += step) {
-            vp_bitvec_append(result, vp_bitvec_get(vec, i));
+            vp_bitvec_append_inl(result, vp_bitvec_get_inl(vec, i));
         }
     }
 
@@ -360,7 +361,7 @@ void vp_bitvec_print(ViperList* vec) {
     printf("[");
     for (int64_t i = 0; i < vec->length; i++) {
         if (i > 0) printf(", ");
-        printf("%s", vp_bitvec_get(vec, i) ? "True" : "False");
+        printf("%s", vp_bitvec_get_inl(vec, i) ? "True" : "False");
     }
     printf("]");
 }
@@ -382,7 +383,7 @@ void vp_bitvec_extend(ViperList* vec, ViperList* other) {
     }
     
     for (int64_t i = 0; i < other->length; i++) {
-        vp_bitvec_append(vec, vp_bitvec_get(other, i));
+        vp_bitvec_append_inl(vec, vp_bitvec_get_inl(other, i));
     }
 }
 
@@ -390,7 +391,7 @@ int64_t vp_bitvec_index(ViperList* vec, bool value) {
     if (!vec) return -1;
     
     for (int64_t i = 0; i < vec->length; i++) {
-        if (vp_bitvec_get(vec, i) == value) {
+        if (vp_bitvec_get_inl(vec, i) == value) {
             return i;
         }
     }
@@ -445,10 +446,10 @@ void vp_bitvec_reverse(ViperList* vec) {
     int64_t right = vec->length - 1;
     
     while (left < right) {
-        bool left_val = vp_bitvec_get(vec, left);
-        bool right_val = vp_bitvec_get(vec, right);
-        vp_bitvec_set(vec, left, right_val);
-        vp_bitvec_set(vec, right, left_val);
+        bool left_val = vp_bitvec_get_inl(vec, left);
+        bool right_val = vp_bitvec_get_inl(vec, right);
+        vp_bitvec_set_inl(vec, left, right_val);
+        vp_bitvec_set_inl(vec, right, left_val);
         left++;
         right--;
     }
