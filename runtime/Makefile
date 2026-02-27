@@ -56,9 +56,9 @@ else ifeq ($(PROFILE),profile)
     CFLAGS = -Wall -Wextra -O3 -fPIC -std=c11 -D_GNU_SOURCE -pg -g
     LDFLAGS = -pg
 else
-    # Release (default)
-    CFLAGS = -Wall -Wextra -O3 -fPIC -std=c11 -D_GNU_SOURCE -DNDEBUG
-    LDFLAGS = -s
+    # Release (default) - with LTO for better optimization
+    CFLAGS = -Wall -Wextra -O3 -fPIC -std=c11 -D_GNU_SOURCE -DNDEBUG -flto -ffat-lto-objects
+    LDFLAGS = -s -flto
 endif
 
 # Common includes
