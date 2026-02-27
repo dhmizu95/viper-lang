@@ -384,6 +384,40 @@ pub(crate) fn generate_aug_assign<'ctx>(
     value: &Expr,
 ) -> Result<(), String> {
     if let Expr::Ident(name, _) = target {
+        // Handle global variable augmented assignment
+        if state.global_constants.contains_key(name) && !state.variables.contains_key(name) {
+            let global = state.global_constants.get(name).unwrap();
+            let global_ptr = global.as_pointer_value();
+            
+            // Assume it's an integer for now, as floats would need type tracking for globals
+            let i64_type = state.context.i64_type();
+            let current = state.builder.build_load(i64_type, global_ptr, name).expect("load global");
+            
+            let new_val = crate::codegen::expressions::generate_expr(state, value)?;
+            
+            let lhs = current.into_int_value();
+            let rhs = new_val.into_int_value();
+            let result = match op {
+                BinOp::Add => state.ir_builder.build_add(state.builder, lhs, rhs, "add"),
+                BinOp::Sub => state.ir_builder.build_sub(state.builder, lhs, rhs, "sub"),
+                BinOp::Mul => state.ir_builder.build_mul(state.builder, lhs, rhs, "mul"),
+                BinOp::Div => state.ir_builder.build_div(state.builder, lhs, rhs, "div"),
+                BinOp::Mod => state.builder.build_int_signed_rem(lhs, rhs, "mod").expect("mod"),
+                BinOp::FloorDiv => {
+                    state.ir_builder.build_div(state.builder, lhs, rhs, "floordiv")
+                }
+                BinOp::Pow => {
+                    let pow_i64_func = state.module.get_function("vp_pow_i64").expect("vp_pow_i64 not found");
+                    let res = state.ir_builder.build_call(state.builder, pow_i64_func, &[lhs.into(), rhs.into()], "pow").expect("pow call");
+                    res.into_int_value()
+                }
+                _ => return Err(format!("Unsupported augmented assignment operator: {:?}", op)),
+            };
+            
+            state.builder.build_store(global_ptr, result).expect("store to global");
+            return Ok(());
+        }
+
         if let Some(var_info) = state.variables.get(name) {
             let var_type = var_info.var_type;
             let is_scalar = matches!(var_type, VarType::Int | VarType::Float);

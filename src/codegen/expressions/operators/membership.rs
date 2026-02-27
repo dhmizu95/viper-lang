@@ -13,16 +13,28 @@ pub fn generate_membership_op<'ctx>(
     let value_val = generate_expr(state, left)?;
     let list_val = generate_expr(state, right)?;
 
-    let list_contains = state
+    let is_dict = match right {
+        Expr::Ident(name, _) => state.is_dict(name),
+        Expr::Dict { .. } => true,
+        _ => false,
+    };
+
+    let contains_func_name = if is_dict {
+        "vp_dict_contains"
+    } else {
+        "vp_list_contains"
+    };
+
+    let func = state
         .module
-        .get_function("vp_list_contains")
-        .ok_or_else(|| "vp_list_contains not declared".to_string())?;
+        .get_function(contains_func_name)
+        .ok_or_else(|| format!("{} not declared", contains_func_name))?;
 
     let result = state.ir_builder.build_call(
         state.builder,
-        list_contains,
+        func,
         &[list_val.into(), value_val.into()],
-        if matches!(op, BinOp::In) { "list_contains" } else { "not_in_contains" },
+        if matches!(op, BinOp::In) { "contains" } else { "not_in_contains" },
     );
     let contains_val: BasicValueEnum = result.unwrap_or(state.ir_builder.i64_const(0).into());
 

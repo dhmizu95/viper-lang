@@ -62,9 +62,10 @@ impl TypeChecker {
             (Type::Infer, _) | (_, Type::Infer) => true,
             // Generic list vs specific list
             (Type::List(e1), Type::List(e2)) => self.is_compatible(e1, e2),
-            // Generic auto-conversion
-            (Type::I64, Type::I32 | Type::I16 | Type::I8) => true,
-            (Type::F64, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            // Generic auto-conversion and literal narrowing
+            (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            (Type::F64 | Type::F32, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            (Type::F64 | Type::F32, Type::F64 | Type::F32) => true,
 
             // Tuples are compatible if their elements are compatible
             (Type::Tuple(t1), Type::Tuple(t2)) => {

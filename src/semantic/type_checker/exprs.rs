@@ -127,13 +127,27 @@ impl TypeChecker {
                 }
             }
             Expr::Index { obj, index, span } => {
-                self.check_expr(obj);
+                let obj_type = self.check_expr(obj);
                 let index_type = self.check_expr(index);
 
-                if let Some(it) = index_type {
-                    if it != Type::I64 {
-                        self.errors
-                            .push(TypeError::new(format!("Index must be i64, got {}", it), *span));
+                if let (Some(ot), Some(it)) = (obj_type, index_type) {
+                    match ot {
+                        Type::Dict(k, _) => {
+                            if !self.is_compatible(&k, &it) {
+                                self.errors.push(TypeError::new(
+                                    format!("Dict key must be {}, got {}", k, it),
+                                    *span,
+                                ));
+                            }
+                        }
+                        _ => {
+                            if it != Type::I64 {
+                                self.errors.push(TypeError::new(
+                                    format!("Index must be i64, got {}", it),
+                                    *span,
+                                ));
+                            }
+                        }
                     }
                 }
             }

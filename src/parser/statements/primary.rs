@@ -831,6 +831,16 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
                 span: not_span,
             }
         }
+        TokenKind::Tilde => {
+            parser.advance();
+            let operand = parse_primary_expr(parser)?;
+            let tilde_span = span.merge(operand.span());
+            Expr::UnaryOp {
+                op: crate::ast::UnaryOp::Invert,
+                operand: Box::new(operand),
+                span: tilde_span,
+            }
+        }
         TokenKind::Plus => {
             parser.advance();
             let operand = parse_primary_expr(parser)?;
