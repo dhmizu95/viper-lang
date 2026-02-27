@@ -51,11 +51,12 @@ typedef struct {
 typedef enum {
     VIPER_LIST_I64 = 0,     /* int64_t elements */
     VIPER_LIST_F64,         /* double elements */
-    VIPER_LIST_BOOL,        /* bool (int8_t) elements */
+    VIPER_LIST_BOOL,        /* bool (int8_t) elements - legacy, use BITVEC */
     VIPER_LIST_I32,         /* int32_t elements */
     VIPER_LIST_I16,         /* int16_t elements */
     VIPER_LIST_I8,          /* int8_t elements */
     VIPER_LIST_GENERIC,     /* void* elements (objects) */
+    VIPER_LIST_BITVEC,      /* Bit vector (1 bit per boolean) */
 } ViperListType;
 
 struct ViperList {
@@ -66,11 +67,12 @@ struct ViperList {
     union {
         int64_t* data_i64;   /* i64 list data */
         double*  data_f64;   /* f64 list data */
-        int8_t*  data_bool;  /* bool list data (1 byte per element) */
+        int8_t*  data_bool;  /* bool list data (1 byte per element) - legacy */
         int32_t* data_i32;   /* i32 list data */
         int16_t* data_i16;   /* i16 list data */
         int8_t*  data_i8;    /* i8 list data */
         void**   data_generic; /* generic pointer data */
+        uint64_t* data_bitvec; /* bit vector data (1 bit per boolean) */
     } data;
 };
 

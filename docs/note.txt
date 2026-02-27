@@ -47,7 +47,6 @@ Status: ✅ Implemented for Phase 2. Docstrings work as documentation comments a
 
 To achieve C/Rust performance levels:
 
-Bit Vectors (Highest priority) - 8x memory savings, better cache utilization
 Fix Inline Operations - Unify struct layouts for direct LLVM IR generation
 Bounds Check Elimination - Skip checks in release mode
 LLVM alwaysinline - Help optimizer inline runtime functions

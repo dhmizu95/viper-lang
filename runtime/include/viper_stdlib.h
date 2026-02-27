@@ -89,6 +89,32 @@ void vp_list_bool_reverse(ViperList* list);
 ViperList* vp_list_bool_reversed(ViperList* list);
 ViperList* vp_list_bool_concat(ViperList* list1, ViperList* list2);
 
+/* Bit vector functions (1 bit per boolean - 8x memory savings) */
+ViperList* vp_bitvec_create(void);
+ViperList* vp_bitvec_create_with_capacity(int64_t cap);
+ViperList* vp_bitvec_repeat(bool elem, int64_t count);
+void vp_bitvec_free(ViperList* vec);
+void vp_bitvec_append(ViperList* vec, bool value);
+void vp_bitvec_insert(ViperList* vec, int64_t index, bool value);
+bool vp_bitvec_remove(ViperList* vec, int64_t index);
+bool vp_bitvec_pop(ViperList* vec);
+void vp_bitvec_clear(ViperList* vec);
+bool vp_bitvec_get(ViperList* vec, int64_t index);
+void vp_bitvec_set(ViperList* vec, int64_t index, bool value);
+bool vp_bitvec_contains(ViperList* vec, bool value);
+ViperList* vp_bitvec_copy(ViperList* vec);
+ViperList* vp_bitvec_slice(ViperList* vec, int64_t start, int64_t end, int64_t step);
+void vp_bitvec_print(ViperList* vec);
+int64_t vp_bitvec_len(ViperList* vec);
+
+/* Extended bit vector operations */
+void vp_bitvec_extend(ViperList* vec, ViperList* other);
+int64_t vp_bitvec_index(ViperList* vec, bool value);
+int64_t vp_bitvec_count(ViperList* vec, bool value);
+void vp_bitvec_reverse(ViperList* vec);
+ViperList* vp_bitvec_reversed(ViperList* vec);
+ViperList* vp_bitvec_concat(ViperList* vec1, ViperList* vec2);
+
 /* ============================================ */
 /* Dictionary Functions                         */
 /* ============================================ */

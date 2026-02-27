@@ -269,6 +269,84 @@ fn declare_list_functions<'ctx>(
     let list_bool_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_list_bool_concat", list_bool_concat_type, None);
 
+    // Bit vector functions (1 bit per boolean - 8x memory savings)
+    let bitvec_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_bitvec_create", bitvec_create_type, None);
+
+    let bitvec_create_cap_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_bitvec_create_with_capacity", bitvec_create_cap_type, None);
+
+    let bitvec_repeat_type = ptr_type.fn_type(&[bool_type.into(), i64_type.into()], false);
+    let bitvec_repeat = module.add_function("vp_bitvec_repeat", bitvec_repeat_type, None);
+    bitvec_repeat.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
+
+    let bitvec_free_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_free", bitvec_free_type, None);
+
+    let bitvec_append_type = void_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    let bitvec_append = module.add_function("vp_bitvec_append", bitvec_append_type, None);
+    bitvec_append.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
+
+    let bitvec_insert_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), bool_type.into()], false);
+    module.add_function("vp_bitvec_insert", bitvec_insert_type, None);
+
+    let bitvec_remove_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bitvec_remove", bitvec_remove_type, None);
+
+    let bitvec_pop_type = bool_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_pop", bitvec_pop_type, None);
+
+    let bitvec_clear_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_clear", bitvec_clear_type, None);
+
+    let bitvec_get_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bitvec_get", bitvec_get_type, None);
+
+    let bitvec_set_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), bool_type.into()], false);
+    module.add_function("vp_bitvec_set", bitvec_set_type, None);
+
+    let bitvec_contains_type = bool_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    module.add_function("vp_bitvec_contains", bitvec_contains_type, None);
+
+    let bitvec_copy_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_copy", bitvec_copy_type, None);
+
+    let bitvec_slice_type = ptr_type
+        .fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_bitvec_slice", bitvec_slice_type, None);
+
+    let bitvec_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_print", bitvec_print_type, None);
+
+    let bitvec_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_len", bitvec_len_type, None);
+
+    let bitvec_extend_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_bitvec_extend", bitvec_extend_type, None);
+
+    let bitvec_index_type = i64_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    module.add_function("vp_bitvec_index", bitvec_index_type, None);
+
+    let bitvec_count_type = i64_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    module.add_function("vp_bitvec_count", bitvec_count_type, None);
+
+    let bitvec_reverse_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_reverse", bitvec_reverse_type, None);
+
+    let bitvec_reversed_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bitvec_reversed", bitvec_reversed_type, None);
+
+    let bitvec_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_bitvec_concat", bitvec_concat_type, None);
+
     // Range function: vp_range(start, end) returns a list
     let range_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     module.add_function("vp_range", range_type, None);

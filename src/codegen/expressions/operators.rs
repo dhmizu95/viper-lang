@@ -58,11 +58,11 @@ pub fn generate_binop<'ctx>(
                 let (elem_val, func_name) = match elem {
                     Expr::Bool(true, _) => {
                         let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(1, false).into();
-                        (val, "vp_list_bool_repeat")
+                        (val, "vp_bitvec_repeat")  // Use bit vector for bool lists
                     }
                     Expr::Bool(false, _) => {
                         let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(0, false).into();
-                        (val, "vp_list_bool_repeat")
+                        (val, "vp_bitvec_repeat")  // Use bit vector for bool lists
                     }
                     Expr::Int(val, _) => {
                          let val: inkwell::values::BasicMetadataValueEnum = state.ir_builder.i64_const(*val).into();
@@ -79,7 +79,7 @@ pub fn generate_binop<'ctx>(
                         if val.is_int_value() {
                             let int_val = val.into_int_value();
                             if int_val.get_type().get_bit_width() == 1 {
-                                (int_val.into(), "vp_list_bool_repeat")
+                                (int_val.into(), "vp_bitvec_repeat")  // Use bit vector for bool lists
                             } else {
                                 (int_val.into(), "vp_list_repeat")
                             }
@@ -140,18 +140,40 @@ pub fn generate_binop<'ctx>(
             _ => false,
         };
 
+        // Check if these are bool lists (bit vectors)
+        let is_bool_list_left = match left {
+            Expr::Ident(name, _) => state.is_bool_list(name),
+            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            _ => false,
+        };
+        let is_bool_list_right = match right {
+            Expr::Ident(name, _) => state.is_bool_list(name),
+            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            _ => false,
+        };
+
         if is_list_left && is_list_right {
             let left_val = generate_expr(state, left)?;
             let right_val = generate_expr(state, right)?;
-            let list_concat = state
-                .module
-                .get_function("vp_list_concat")
-                .ok_or_else(|| "vp_list_concat not declared".to_string())?;
+            
+            // Use bit vector concat for bool lists
+            let concat_func = if is_bool_list_left && is_bool_list_right {
+                state
+                    .module
+                    .get_function("vp_bitvec_concat")
+                    .ok_or_else(|| "vp_bitvec_concat not declared".to_string())?
+            } else {
+                state
+                    .module
+                    .get_function("vp_list_concat")
+                    .ok_or_else(|| "vp_list_concat not declared".to_string())?
+            };
+            
             let result = state
                 .ir_builder
                 .build_call(
                     state.builder,
-                    list_concat,
+                    concat_func,
                     &[left_val.into(), right_val.into()],
                     "list_concat",
                 )
