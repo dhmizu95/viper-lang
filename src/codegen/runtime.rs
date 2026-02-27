@@ -195,6 +195,80 @@ fn declare_list_functions<'ctx>(
     let list_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_list_concat", list_concat_type, None);
 
+    // Bool list functions (type-specific, memory efficient)
+    let list_bool_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_list_bool_create", list_bool_create_type, None);
+
+    let list_bool_create_cap_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_list_bool_create_with_capacity", list_bool_create_cap_type, None);
+
+    let list_bool_append_type = void_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    let list_bool_append = module.add_function("vp_list_bool_append", list_bool_append_type, None);
+    list_bool_append.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
+
+    let list_bool_free_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_bool_free", list_bool_free_type, None);
+
+    let list_bool_get_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_bool_get", list_bool_get_type, None);
+
+    let list_bool_set_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), bool_type.into()], false);
+    module.add_function("vp_list_bool_set", list_bool_set_type, None);
+
+    let list_bool_insert_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), bool_type.into()], false);
+    module.add_function("vp_list_bool_insert", list_bool_insert_type, None);
+
+    let list_bool_remove_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_bool_remove", list_bool_remove_type, None);
+
+    let list_bool_pop_type = bool_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_bool_pop", list_bool_pop_type, None);
+
+    let list_bool_clear_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_bool_clear", list_bool_clear_type, None);
+
+    let list_bool_contains_type = bool_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    module.add_function("vp_list_bool_contains", list_bool_contains_type, None);
+
+    let list_bool_copy_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_bool_copy", list_bool_copy_type, None);
+
+    let list_bool_repeat_type = ptr_type.fn_type(&[bool_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_bool_repeat", list_bool_repeat_type, None);
+
+    let list_bool_init_stack_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into(), bool_type.into()], false);
+    module.add_function("vp_list_bool_init_stack", list_bool_init_stack_type, None);
+
+    let list_bool_slice_type = ptr_type
+        .fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_list_bool_slice", list_bool_slice_type, None);
+
+    let list_bool_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_bool_print", list_bool_print_type, None);
+
+    let list_bool_extend_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_list_bool_extend", list_bool_extend_type, None);
+
+    let list_bool_index_type = i64_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    module.add_function("vp_list_bool_index", list_bool_index_type, None);
+
+    let list_bool_count_type = i64_type.fn_type(&[ptr_type.into(), bool_type.into()], false);
+    module.add_function("vp_list_bool_count", list_bool_count_type, None);
+
+    let list_bool_reverse_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_bool_reverse", list_bool_reverse_type, None);
+
+    let list_bool_reversed_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_bool_reversed", list_bool_reversed_type, None);
+
+    let list_bool_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_list_bool_concat", list_bool_concat_type, None);
+
     // Range function: vp_range(start, end) returns a list
     let range_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     module.add_function("vp_range", range_type, None);

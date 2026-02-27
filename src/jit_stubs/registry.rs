@@ -151,6 +151,37 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             vp_list_reversed_stub as *const () as usize,
         );
     }
+
+    // Bool list functions
+    if let Some(func) = module.get_function("vp_list_bool_create") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_bool_create_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_bool_append") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_bool_append_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_bool_get") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_bool_get_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_bool_set") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_bool_set_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_bool_repeat") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_bool_repeat_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_bool_init_stack") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_bool_init_stack_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_list_bool_free") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_bool_free_stub as *const () as usize);
+    }
+
     if let Some(func) = module.get_function("vp_range") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_range_stub as *const () as usize);

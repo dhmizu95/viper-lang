@@ -25,6 +25,7 @@ fn generate_if_chain<'ctx>(
                     state.loop_stack,
                     state.list_vars,
                     state.dict_vars,
+                    state.bool_list_vars,
                     stmt,
                 )?;
             }
@@ -69,6 +70,7 @@ fn generate_if_chain<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
+            state.bool_list_vars,
             stmt,
         )?;
     }
@@ -126,6 +128,7 @@ pub fn generate_if<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
+            state.bool_list_vars,
             stmt,
         )?;
     }

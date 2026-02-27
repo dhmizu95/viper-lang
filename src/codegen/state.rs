@@ -20,6 +20,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub loop_stack: &'a mut Vec<LoopContext<'ctx>>,
     pub list_vars: &'a mut HashSet<String>,
     pub dict_vars: &'a mut HashSet<String>,
+    pub bool_list_vars: &'a mut HashSet<String>,  // Track bool-specific lists
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
 }
@@ -37,6 +38,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         loop_stack: &'a mut Vec<LoopContext<'ctx>>,
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
+        bool_list_vars: &'a mut HashSet<String>,
     ) -> Self {
         Self {
             context,
@@ -49,6 +51,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             loop_stack,
             list_vars,
             dict_vars,
+            bool_list_vars,
             escape_analyzer: None,
             current_function: None,
         }
@@ -67,6 +70,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         loop_stack: &'a mut Vec<LoopContext<'ctx>>,
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
+        bool_list_vars: &'a mut HashSet<String>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
     ) -> Self {
@@ -81,6 +85,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             loop_stack,
             list_vars,
             dict_vars,
+            bool_list_vars,
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
         }
@@ -147,6 +152,16 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
     /// Check if a variable is a list
     pub fn is_list(&self, name: &str) -> bool {
         self.list_vars.contains(name)
+    }
+
+    /// Mark a variable as a bool list
+    pub fn mark_as_bool_list(&mut self, name: String) {
+        self.bool_list_vars.insert(name);
+    }
+
+    /// Check if a variable is a bool list
+    pub fn is_bool_list(&self, name: &str) -> bool {
+        self.bool_list_vars.contains(name)
     }
 
     /// Check if a variable is a dict

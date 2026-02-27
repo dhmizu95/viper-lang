@@ -13,11 +13,15 @@ pub fn generate_list<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Determine if this is a float list by checking the first element
+    // Determine element type
     let is_float_list = elements.first().map(|e| matches!(e, Expr::Float(..))).unwrap_or(false);
-
+    let is_bool_list = elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false);
+    
+    // For empty lists or mixed types, check all elements
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
+    } else if is_bool_list {
+        ("vp_list_bool_create", "vp_list_bool_append")
     } else {
         ("vp_list_create", "vp_list_append")
     };
@@ -45,18 +49,20 @@ pub fn generate_list<'ctx>(
                 .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
                 .expect("int to float conversion");
             elem_val = float_val.into();
-        } else {
-            // Convert bool to i64 for list operations
-            match elem {
-                Expr::Bool(true, _) => {
-                    elem_val = state.ir_builder.i64_const(1).into();
-                }
-                Expr::Bool(false, _) => {
-                    elem_val = state.ir_builder.i64_const(0).into();
-                }
-                _ => {}
-            }
-        };
+        } else if is_bool_list && elem_val.is_int_value() {
+            // Convert i64 to bool for bool list
+            let int_val = elem_val.into_int_value();
+            let bool_val = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    int_val,
+                    state.context.i64_type().const_zero(),
+                    "i64_to_bool",
+                )
+                .expect("i64 to bool conversion");
+            elem_val = bool_val.into();
+        }
 
         let _ = state.ir_builder.build_call(
             state.builder,
@@ -81,9 +87,12 @@ pub fn generate_list_comprehension<'ctx>(
     // Determine element type by analyzing the element expression
     let elem_type = crate::codegen::expressions::infer_expr_type(element);
     let is_float_list = matches!(elem_type, Type::F64);
+    let is_bool_list = matches!(elem_type, Type::Bool);
 
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
+    } else if is_bool_list {
+        ("vp_list_bool_create", "vp_list_bool_append")
     } else {
         ("vp_list_create", "vp_list_append")
     };
@@ -428,6 +437,25 @@ pub fn generate_index<'ctx>(
     let is_list = match obj {
         Expr::Ident(obj_name, _) => state.is_list(obj_name),
         Expr::List { .. } | Expr::ListComprehension { .. } => true,
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            // Handle [bool] * n pattern
+            matches!(left.as_ref(), Expr::List { .. })
+        }
+        _ => false,
+    };
+
+    // Check if this is a bool list
+    let is_bool_list = match obj {
+        Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
+        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            // Handle [bool] * n pattern
+            if let Expr::List { elements, .. } = left.as_ref() {
+                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+            } else {
+                false
+            }
+        }
         _ => false,
     };
 
@@ -437,11 +465,27 @@ pub fn generate_index<'ctx>(
     // Lists need to use vp_list_get because they have a ViperList struct wrapper
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {
-        // Use list indexing
-        let list_get = state
-            .module
-            .get_function("vp_list_get")
-            .ok_or_else(|| "vp_list_get not declared".to_string())?;
+        // Use bool-specific get for bool lists
+        if is_bool_list {
+            let list_bool_get = state.module.get_function("vp_list_bool_get").ok_or_else(|| "vp_list_bool_get not declared".to_string())?;
+
+            let result = state
+                .ir_builder
+                .build_call(state.builder, list_bool_get, &[obj_val.into(), index_val.into()], "list_bool_get")
+                .ok_or_else(|| "build call failed".to_string())?;
+
+            // Convert bool to i64 for compatibility with print() and other functions
+            let bool_val = result.into_int_value();
+            let i64_val = state
+                .builder
+                .build_int_z_extend(bool_val, state.context.i64_type(), "bool_to_i64")
+                .map_err(|e| format!("Failed to extend bool to i64: {:?}", e))?;
+
+            return Ok(i64_val.into());
+        }
+
+        // For now, use the generic vp_list_get for non-bool lists.
+        let list_get = state.module.get_function("vp_list_get").ok_or_else(|| "vp_list_get not declared".to_string())?;
 
         let result = state
             .ir_builder

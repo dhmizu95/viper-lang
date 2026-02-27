@@ -14,7 +14,18 @@ pub(crate) fn generate_assign<'ctx>(
     }
 
     if let Expr::Ident(name, _) = target {
-        let val = crate::codegen::expressions::generate_expr(state, value)?;
+        // TEMPORARILY DISABLED: Testing basic bool list operations without stack alloc
+        let handled_custom = false;
+        let custom_val: Option<inkwell::values::BasicValueEnum> = None;
+
+        // Stack allocation code disabled for JIT testing
+        // The vp_list_bool_repeat path should work without stack allocation
+
+        let val = if handled_custom {
+            custom_val.unwrap()
+        } else {
+            crate::codegen::expressions::generate_expr(state, value)?
+        };
 
         // Check if this is a global variable assignment
         // If the variable exists in global_constants but not in local variables,
@@ -67,6 +78,35 @@ pub(crate) fn generate_assign<'ctx>(
             state.mark_as_list(name.clone());
         } else {
             state.list_vars.remove(name);
+        }
+
+        // Track bool list variables
+        let is_bool_list = match value {
+            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                // Handle [bool] * n pattern
+                if let Expr::List { elements, .. } = left.as_ref() {
+                    elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+                } else {
+                    false
+                }
+            }
+            Expr::Call { func, .. } => {
+                // Check if calling a bool list function
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "vp_list_bool_create"
+                        || func_name == "vp_list_bool_create_with_capacity"
+                        || func_name == "vp_list_bool_repeat"
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+        if is_bool_list {
+            state.mark_as_bool_list(name.clone());
+        } else {
+            state.bool_list_vars.remove(name);
         }
 
         // Track dict variables
@@ -243,24 +283,42 @@ pub(crate) fn generate_assign<'ctx>(
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
         } else {
             // List index assignment using runtime function
-            // vp_list_set expects i64 values, so convert bool to i64
-            let value_for_list = if value_val.is_int_value() && value_val.get_type().into_int_type().get_bit_width() == 1 {
-                // Bool value (i1), convert to i64
-                let bool_val = value_val.into_int_value();
-                state.builder.build_int_z_extend(bool_val, state.context.i64_type(), "bool_to_i64")
-                    .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
-                    .into()
+            // Determine if this is a bool list by checking the value type
+            let is_bool_value = value_val.is_int_value() 
+                && value_val.get_type().into_int_type().get_bit_width() == 1;
+            
+            let (list_set_func, value_for_list) = if is_bool_value {
+                // Use bool-specific list set function
+                let list_set = state
+                    .module
+                    .get_function("vp_list_bool_set")
+                    .ok_or_else(|| "vp_list_bool_set not declared".to_string())?;
+                
+                // Bool value (i1), keep as bool
+                (list_set, value_val)
             } else {
-                value_val
+                // Use generic i64 list set function
+                let list_set = state
+                    .module
+                    .get_function("vp_list_set")
+                    .ok_or_else(|| "vp_list_set not declared".to_string())?;
+                
+                // Convert bool to i64 if needed
+                let value_converted = if value_val.is_int_value() && value_val.get_type().into_int_type().get_bit_width() == 1 {
+                    let bool_val = value_val.into_int_value();
+                    state.builder.build_int_z_extend(bool_val, state.context.i64_type(), "bool_to_i64")
+                        .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
+                        .into()
+                } else {
+                    value_val
+                };
+                
+                (list_set, value_converted)
             };
-
-            let list_set = state
-                .module
-                .get_function("vp_list_set")
-                .ok_or_else(|| "vp_list_set not declared".to_string())?;
+            
             state.ir_builder.build_call(
                 state.builder,
-                list_set,
+                list_set_func,
                 &[obj_val.into(), index_val.into(), value_for_list.into()],
                 "list_set",
             );

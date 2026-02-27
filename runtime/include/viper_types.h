@@ -45,14 +45,33 @@ typedef struct {
 } ViperValue;
 
 /* ============================================ */
-/* Dynamic List (Array)                         */
+/* Dynamic List (Array) - Typed                 */
 /* ============================================ */
+
+typedef enum {
+    VIPER_LIST_I64 = 0,     /* int64_t elements */
+    VIPER_LIST_F64,         /* double elements */
+    VIPER_LIST_BOOL,        /* bool (int8_t) elements */
+    VIPER_LIST_I32,         /* int32_t elements */
+    VIPER_LIST_I16,         /* int16_t elements */
+    VIPER_LIST_I8,          /* int8_t elements */
+    VIPER_LIST_GENERIC,     /* void* elements (objects) */
+} ViperListType;
 
 struct ViperList {
     int64_t ref_count;      /* Reference count for ARC */
     int64_t length;         /* Current number of elements */
-    int64_t capacity;       /* Allocated capacity */
-    int64_t* data;          /* Element data (i64 for Phase 2) */
+    int64_t capacity;       /* Allocated capacity (in elements) */
+    ViperListType elem_type; /* Element type for type-specific access */
+    union {
+        int64_t* data_i64;   /* i64 list data */
+        double*  data_f64;   /* f64 list data */
+        int8_t*  data_bool;  /* bool list data (1 byte per element) */
+        int32_t* data_i32;   /* i32 list data */
+        int16_t* data_i16;   /* i16 list data */
+        int8_t*  data_i8;    /* i8 list data */
+        void**   data_generic; /* generic pointer data */
+    } data;
 };
 
 /* ============================================ */
