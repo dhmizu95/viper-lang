@@ -41,7 +41,7 @@ def max(a: i64, b: i64) -> i64:
         return a
     return b
 
-# Absolute value
+# Absolute value for i64
 def abs(x: i64) -> i64:
     if x < 0:
         return -x
@@ -53,3 +53,51 @@ def sum(items: [i64]) -> i64:
     for item in items:
         total = total + item
     return total
+
+# ============================================
+# BigInt - Arbitrary Precision Integers
+# ============================================
+
+# BigInt constructor - creates a BigInt from string or i64
+def BigInt(value) -> BigInt:
+    # Implemented as builtin in compiler
+    # Usage: x = BigInt("123456789012345678901234567890")
+    #    or: x = BigInt(42)
+    pass
+
+# Convert BigInt to string
+def str_bigint(x: BigInt) -> str:
+    # Implemented as builtin
+    return ""
+
+# Convert BigInt to i64 (may overflow)
+def int_bigint(x: BigInt) -> i64:
+    # Implemented as builtin
+    return 0
+
+# Absolute value for BigInt
+def abs_bigint(x: BigInt) -> BigInt:
+    # Implemented as builtin
+    pass
+
+# Minimum of two BigInts
+def min_bigint(a: BigInt, b: BigInt) -> BigInt:
+    if a < b:
+        return a
+    return b
+
+# Maximum of two BigInts
+def max_bigint(a: BigInt, b: BigInt) -> BigInt:
+    if a > b:
+        return a
+    return b
+
+# Power for BigInt
+def pow_bigint(base: BigInt, exp: BigInt) -> BigInt:
+    # Implemented as builtin
+    pass
+
+# Square root for BigInt
+def sqrt_bigint(x: BigInt) -> BigInt:
+    # Implemented as builtin
+    pass

@@ -20,6 +20,8 @@ pub enum Type {
     Str,
     /// Bytes (immutable byte sequence)
     Bytes,
+    /// BigInt (arbitrary precision integer using GMP)
+    BigInt,
     /// Unit/None type
     None,
     /// List of elements (dynamic size)
@@ -52,11 +54,11 @@ pub enum Type {
 
 impl Type {
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64)
+        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::BigInt)
     }
 
     pub fn is_integer(&self) -> bool {
-        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64)
+        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::BigInt)
     }
 
     pub fn is_float(&self) -> bool {
@@ -93,6 +95,7 @@ impl Type {
                 | Type::Bool
                 | Type::Str
                 | Type::Bytes
+                | Type::BigInt
         )
     }
 
@@ -114,7 +117,8 @@ impl Type {
             | Type::F32
             | Type::F64
             | Type::Bool
-            | Type::Str => true,
+            | Type::Str
+            | Type::BigInt => true,
             Type::Tuple(types) => types.iter().all(|t| t.is_fully_hashable()),
             // List, Dict, Array are not hashable
             Type::List(_) | Type::Dict(_, _) | Type::Array(_, _) => false,
@@ -136,6 +140,7 @@ impl std::fmt::Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Str => write!(f, "str"),
             Type::Bytes => write!(f, "bytes"),
+            Type::BigInt => write!(f, "BigInt"),
             Type::None => write!(f, "None"),
             Type::List(t) => write!(f, "[{}]", t),
             Type::Dict(k, v) => write!(f, "{{{}: {}}}", k, v),

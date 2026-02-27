@@ -1,11 +1,12 @@
 //! Expression code generation for Viper - Operators
 
-use crate::ast::{BinOp, Expr, UnaryOp};
+use crate::ast::{BinOp, Expr, Type, UnaryOp};
 use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
 pub mod arithmetic;
+pub mod bigint;
 pub mod comparison;
 pub mod incdec;
 pub mod logical;
@@ -110,6 +111,15 @@ pub fn generate_binop<'ctx>(
     // Generate both operands for other operations
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
+
+    // Check if either operand is BigInt (pointer type that represents BigInt)
+    // BigInt operations are dispatched based on type inference
+    let lhs_type = crate::codegen::expressions::core::infer_expr_type(left);
+    let rhs_type = crate::codegen::expressions::core::infer_expr_type(right);
+    
+    if lhs_type == Type::BigInt || rhs_type == Type::BigInt {
+        return bigint::generate_bigint_binop(state, lhs_val, rhs_val, op);
+    }
 
     // Handle string concatenation with + operator
     if *op == BinOp::Add {

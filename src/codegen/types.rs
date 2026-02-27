@@ -27,7 +27,8 @@ impl VarType {
             | Type::WaitGroup
             | Type::List(_)
             | Type::Dict(_, _)
-            | Type::Fn(_, _) => VarType::Pointer,
+            | Type::Fn(_, _)
+            | Type::BigInt => VarType::Pointer,
             _ => VarType::Int,
         }
     }
@@ -56,7 +57,8 @@ impl<'ctx> TypeMapper<'ctx> {
             | Type::List(_)
             | Type::Dict(_, _)
             | Type::Fn(_, _)
-            | Type::Optional(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            | Type::Optional(_)
+            | Type::BigInt => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             Type::Tuple(types) => {
                 // Tuples are represented as structs in LLVM
                 let field_types: Vec<BasicTypeEnum<'ctx>> =
@@ -91,7 +93,8 @@ impl<'ctx> TypeMapper<'ctx> {
             | Some(Type::WaitGroup)
             | Some(Type::List(_))
             | Some(Type::Dict(_, _))
-            | Some(Type::Optional(_)) => {
+            | Some(Type::Optional(_))
+            | Some(Type::BigInt) => {
                 Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
             }
             Some(Type::Tuple(types)) => {

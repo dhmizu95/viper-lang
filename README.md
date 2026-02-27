@@ -10,47 +10,42 @@ Viper is an LLVM-based compiler for the Viper programming language, providing bo
 
 ## Installation
 
-### From Source (Recommended)
+### Quick Install
 
 ```bash
-# Clone the repository
+# Clone and install
 git clone https://github.com/viper-lang/viper.git
 cd viper
-
-# Run the installation script (installs to ~/.local)
-# This performs a clean build of both compiler and runtime
 ./install.sh
 
-# Add to PATH (add to ~/.bashrc or ~/.zshrc)
+# Add to PATH
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-**Note:** The `install.sh` script always performs a clean install:
-- Cleans and rebuilds the compiler binary
-- Cleans and rebuilds the runtime library
-- Removes previous installation files
+### Installation Scripts
 
-### System-Wide Installation
+| Script | Purpose |
+|--------|---------|
+| `./install.sh` | Full installation with dependency checking |
+| `./quick-install.sh` | Fast install (dependencies already installed) |
+| `./uninstall.sh` | Remove Viper from system |
 
-The `install.sh` script installs Viper to `~/.local` (no sudo required):
+### Detailed Instructions
 
-- **Binary:** `~/.local/bin/viper`
-- **Runtime:** `~/.local/lib/viper/libviper.a`
-- **Headers:** `~/.local/include/viper/`
-
-For system-wide installation to `/usr/local`, copy manually:
-```bash
-sudo cp target/release/viper /usr/local/bin/
-sudo cp -r runtime/obj /usr/local/lib/viper/
-sudo cp runtime/include/*.h /usr/local/include/viper/
-```
+See **[INSTALLATION.md](INSTALLATION.md)** for:
+- Platform-specific instructions (Ubuntu, Fedora, macOS, WSL2)
+- Dependency installation
+- Manual installation steps
+- Troubleshooting
 
 ### Requirements
 
-- Rust 1.70+
-- LLVM 20.x
-- GCC (for linking AOT binaries)
-- Viper Runtime Library (built automatically by `install.sh`)
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| Rust | 1.70+ | Compiler |
+| LLVM | 20.x | IR generation |
+| GCC | Any | Linking |
+| GMP | 6.0+ | BigInt support (optional) |
 
 ## Quick Start
 

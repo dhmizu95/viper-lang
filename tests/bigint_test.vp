@@ -1,0 +1,175 @@
+# BigInt Test Suite for Viper
+# Tests arbitrary precision integer operations using GMP
+
+# Test 1: Basic BigInt creation
+def test_bigint_creation():
+    print("Test 1: BigInt creation")
+    a = BigInt("123456789012345678901234567890")
+    b = BigInt("987654321098765432109876543210")
+    print("a = ")
+    print(str_bigint(a))
+    print("b = ")
+    print(str_bigint(b))
+
+# Test 2: BigInt addition
+def test_bigint_add():
+    print("Test 2: BigInt addition")
+    a = BigInt("123456789012345678901234567890")
+    b = BigInt("987654321098765432109876543210")
+    c = a + b
+    print("a + b = ")
+    print(str_bigint(c))
+
+# Test 3: BigInt subtraction
+def test_bigint_sub():
+    print("Test 3: BigInt subtraction")
+    a = BigInt("987654321098765432109876543210")
+    b = BigInt("123456789012345678901234567890")
+    c = a - b
+    print("a - b = ")
+    print(str_bigint(c))
+
+# Test 4: BigInt multiplication
+def test_bigint_mul():
+    print("Test 4: BigInt multiplication")
+    a = BigInt("123456789012345678")
+    b = BigInt("987654321098765432")
+    c = a * b
+    print("a * b = ")
+    print(str_bigint(c))
+
+# Test 5: BigInt division
+def test_bigint_div():
+    print("Test 5: BigInt division")
+    a = BigInt("98765432109876543210")
+    b = BigInt("123456789012345678")
+    q = a / b
+    print("a / b = ")
+    print(str_bigint(q))
+
+# Test 6: BigInt modulo
+def test_bigint_mod():
+    print("Test 6: BigInt modulo")
+    a = BigInt("98765432109876543210")
+    b = BigInt("123456789012345678")
+    r = a % b
+    print("a % b = ")
+    print(str_bigint(r))
+
+# Test 7: BigInt comparison
+def test_bigint_cmp():
+    print("Test 7: BigInt comparison")
+    a = BigInt("123456789012345678901234567890")
+    b = BigInt("987654321098765432109876543210")
+    
+    if a < b:
+        print("a < b: True")
+    else:
+        print("a < b: False")
+    
+    if a > b:
+        print("a > b: True")
+    else:
+        print("a > b: False")
+    
+    if a == b:
+        print("a == b: True")
+    else:
+        print("a == b: False")
+
+# Test 8: BigInt bitwise operations
+def test_bigint_bitwise():
+    print("Test 8: BigInt bitwise operations")
+    a = BigInt("0xFF00FF00FF00FF00")
+    b = BigInt("0x00FF00FF00FF00FF")
+    
+    c = a & b
+    print("a & b = 0x")
+    print(str_bigint(c))
+    
+    d = a | b
+    print("a | b = 0x")
+    print(str_bigint(d))
+    
+    e = a ^ b
+    print("a ^ b = 0x")
+    print(str_bigint(e))
+
+# Test 9: BigInt shifts
+def test_bigint_shifts():
+    print("Test 9: BigInt shifts")
+    a = BigInt("1")
+    b = BigInt("10")
+    
+    c = a << b
+    print("1 << 10 = ")
+    print(str_bigint(c))
+    
+    d = c >> BigInt("5")
+    print("(1 << 10) >> 5 = ")
+    print(str_bigint(d))
+
+# Test 10: Very large numbers
+def test_bigint_large():
+    print("Test 10: Very large numbers")
+    # 2^1000
+    two = BigInt("2")
+    exp = BigInt("1000")
+    result = pow_bigint(two, exp)
+    print("2^1000 = ")
+    print(str_bigint(result))
+
+# Test 11: Mixed operations
+def test_bigint_mixed():
+    print("Test 11: Mixed operations")
+    a = BigInt("100")
+    b = BigInt("3")
+    
+    q = a / b
+    r = a % b
+    print("100 / 3 = ")
+    print(str_bigint(q))
+    print("100 % 3 = ")
+    print(str_bigint(r))
+    print("q * 3 + r = ")
+    print(str_bigint(q * b + r))
+
+# Run all tests
+def main():
+    print("=== Viper BigInt Test Suite ===")
+    print("")
+    
+    test_bigint_creation()
+    print("")
+    
+    test_bigint_add()
+    print("")
+    
+    test_bigint_sub()
+    print("")
+    
+    test_bigint_mul()
+    print("")
+    
+    test_bigint_div()
+    print("")
+    
+    test_bigint_mod()
+    print("")
+    
+    test_bigint_cmp()
+    print("")
+    
+    test_bigint_bitwise()
+    print("")
+    
+    test_bigint_shifts()
+    print("")
+    
+    test_bigint_large()
+    print("")
+    
+    test_bigint_mixed()
+    print("")
+    
+    print("=== All tests completed ===")

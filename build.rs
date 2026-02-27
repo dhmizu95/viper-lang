@@ -1,5 +1,5 @@
 // Build script for Viper compiler
-// Links against the C runtime library
+// Links against the C runtime library and GMP
 
 use std::env;
 use std::path::PathBuf;
@@ -14,6 +14,15 @@ fn main() {
     // Link against the viper runtime library
     // Note: This is optional during initial development
     // println!("cargo:rustc-link-lib=static=viper");
+
+    // Link against GMP library for BigInt support
+    // Use pkg-config to find GMP if available
+    if pkg_config::Config::new().atleast_version("6.0").probe("gmp").is_ok() {
+        println!("cargo:rustc-link-lib=gmp");
+    } else {
+        // Fallback: try to link directly
+        println!("cargo:rustc-link-lib=gmp");
+    }
 
     // Rebuild if runtime changes
     println!("cargo:rerun-if-changed=runtime/");

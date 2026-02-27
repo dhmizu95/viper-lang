@@ -56,6 +56,7 @@ HASHLIB_SRC = $(SRC_DIR)/hashlib.c
 DECIMAL_MOD_SRC = $(SRC_DIR)/decimal_mod.c
 LOGGING_SRC = $(SRC_DIR)/logging.c
 GC_SRC = $(SRC_DIR)/gc.c
+GMP_BRIDGE_SRC = $(SRC_DIR)/gmp_bridge.c
 
 # Object files
 OBJ_DIR = obj
@@ -153,7 +154,7 @@ all: dirs $(LIBRARY)
 dirs:
 	@mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/bitvec.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bytes.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o $(OBJ_DIR)/sys.o $(OBJ_DIR)/os.o $(OBJ_DIR)/time_mod.o $(OBJ_DIR)/gc.o $(OBJ_DIR)/math_mod.o $(OBJ_DIR)/json.o $(OBJ_DIR)/collections.o $(OBJ_DIR)/re_mod.o $(OBJ_DIR)/random_mod.o $(OBJ_DIR)/socket_mod.o $(OBJ_DIR)/asyncio_mod.o $(OBJ_DIR)/http_mod.o $(OBJ_DIR)/select_mod.o $(OBJ_DIR)/hashlib.o $(OBJ_DIR)/decimal_mod.o $(OBJ_DIR)/logging.o
+$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/bitvec.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bytes.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o $(OBJ_DIR)/sys.o $(OBJ_DIR)/os.o $(OBJ_DIR)/time_mod.o $(OBJ_DIR)/gc.o $(OBJ_DIR)/math_mod.o $(OBJ_DIR)/json.o $(OBJ_DIR)/collections.o $(OBJ_DIR)/re_mod.o $(OBJ_DIR)/random_mod.o $(OBJ_DIR)/socket_mod.o $(OBJ_DIR)/asyncio_mod.o $(OBJ_DIR)/http_mod.o $(OBJ_DIR)/select_mod.o $(OBJ_DIR)/hashlib.o $(OBJ_DIR)/decimal_mod.o $(OBJ_DIR)/logging.o $(OBJ_DIR)/gmp_bridge.o
 	ar rcs $@ $^
 	@echo "Built static library: $(OBJ_DIR)/libviper.a"
 
@@ -286,6 +287,13 @@ $(OBJ_DIR)/decimal_mod.o: $(DECIMAL_MOD_SRC)
 
 $(OBJ_DIR)/logging.o: $(LOGGING_SRC)
 	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -pthread -c $< -o $@
+
+# ============================================
+# GMP Bridge (BigInt support)
+# ============================================
+
+$(OBJ_DIR)/gmp_bridge.o: $(GMP_BRIDGE_SRC)
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -lgmp -c $< -o $@
 
 # Generic compilation rule with automatic dependency generation
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)

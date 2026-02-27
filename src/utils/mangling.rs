@@ -30,6 +30,7 @@ fn mangle_type(ty: &Type) -> String {
         Type::Bool => "bool".to_string(),
         Type::Str => "str".to_string(),
         Type::Bytes => "bytes".to_string(),
+        Type::BigInt => "bigint".to_string(),
         Type::None => "none".to_string(),
         Type::List(t) => format!("list_{}", mangle_type(t)),
         Type::Dict(k, v) => format!("dict_{}_{}", mangle_type(k), mangle_type(v)),

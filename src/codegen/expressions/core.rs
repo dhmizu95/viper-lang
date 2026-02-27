@@ -63,6 +63,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::Bytes(_, _) => Type::Bytes,
+        Expr::BigInt(_, _) => Type::BigInt,
         Expr::None(_) => Type::None,
         Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
@@ -133,6 +134,19 @@ pub fn generate_expr<'ctx>(
                 .build_call(state.builder, create_func, &[str_val.into()], "str_create")
                 .unwrap();
             Ok(result)
+        }
+        Expr::BigInt(s, _) => {
+            // Call vp_bigint_from_str to create a BigInt from string
+            let str_val = state.ir_builder.string_const(state.module, s);
+            let create_func = state
+                .module
+                .get_function("vp_bigint_from_str")
+                .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
+            let result = state
+                .ir_builder
+                .build_call(state.builder, create_func, &[str_val.into()], "bigint_create")
+                .expect("bigint_from_str call");
+            Ok(result.into())
         }
         Expr::Bytes(b, _) => {
             let bytes_val = state.ir_builder.bytes_const(state.module, b);

@@ -19,6 +19,7 @@ impl TypeChecker {
             Expr::Bool(_, _) => Some(Type::Bool),
             Expr::Str(_, _) | Expr::FString(_, _) => Some(Type::Str),
             Expr::Bytes(_, _) => Some(Type::Bytes),
+            Expr::BigInt(_, _) => Some(Type::BigInt),
             Expr::None(_) => Some(Type::None),
             Expr::Ident(name, _) => self.symbol_table.lookup(name).and_then(|s| s.get_type()),
             Expr::List { elements, .. } => {
