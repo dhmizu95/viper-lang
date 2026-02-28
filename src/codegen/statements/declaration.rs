@@ -24,8 +24,7 @@ pub(crate) fn generate_declare<'ctx>(
             val = state
                 .ir_builder
                 .build_call(state.builder, bigint_from_i64, &[i64_val.into()], "bigint_from_i64")
-                .expect("bigint_from_i64 call")
-                .into();
+                .expect("bigint_from_i64 call");
         }
 
         // Determine the LLVM type, considering type annotations
