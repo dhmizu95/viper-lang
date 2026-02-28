@@ -98,12 +98,13 @@ pub(crate) fn generate_assign<'ctx>(
                     // str() conversion returns string, not list
                     {
                         false
-                    // User-defined functions - check if return value is a pointer
+                    // User-defined functions - use type inference to determine return type
                     } else {
-                        val.is_pointer_value()
+                        matches!(inferred_type, crate::ast::Type::List(_))
                     }
                 } else {
-                    val.is_pointer_value()
+                    // Indirect call (function variable) - use type inference
+                    matches!(inferred_type, crate::ast::Type::List(_))
                 }
             }
             _ => false,

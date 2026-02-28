@@ -67,6 +67,20 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
             | BinOp::NotIn
             | BinOp::And
             | BinOp::Or => Type::Bool,
+            BinOp::Add => {
+                // String concatenation: str + str = str
+                let lt = infer_type_from_expr(left, param_types);
+                let rt = infer_type_from_expr(right, param_types);
+                if lt == Type::Str && rt == Type::Str {
+                    Type::Str
+                } else if lt == Type::BigInt || rt == Type::BigInt {
+                    Type::BigInt
+                } else if lt == Type::F64 || rt == Type::F64 {
+                    Type::F64
+                } else {
+                    Type::I64
+                }
+            }
             _ => {
                 let lt = infer_type_from_expr(left, param_types);
                 let rt = infer_type_from_expr(right, param_types);

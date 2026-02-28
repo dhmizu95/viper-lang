@@ -304,6 +304,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_retain_stub as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_retain_local") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_retain_local_stub as *const () as usize);
+    }
     if let Some(func) = module.get_function("vp_release") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_release_stub as *const () as usize);

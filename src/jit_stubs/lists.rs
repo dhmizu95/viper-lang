@@ -235,6 +235,10 @@ pub extern "C" fn vp_retain_stub(_ptr: *mut std::ffi::c_void) {
     // No-op for JIT
 }
 
+pub extern "C" fn vp_retain_local_stub(_ptr: *mut std::ffi::c_void) {
+    // No-op for JIT (non-atomic version)
+}
+
 pub extern "C" fn vp_release_stub(_ptr: *mut std::ffi::c_void) {
     // No-op for JIT
 }
