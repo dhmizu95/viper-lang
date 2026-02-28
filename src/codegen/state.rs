@@ -108,6 +108,11 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Check if a variable needs ARC retain/release operations
     pub fn needs_arc(&self, var_name: &str) -> bool {
+        // BigInt variables always need ARC operations
+        if self.is_bigint(var_name) {
+            return true;
+        }
+        
         if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
         {
             analyzer.needs_arc(func, var_name)
@@ -177,7 +182,11 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Mark a variable as a BigInt
     pub fn mark_as_bigint(&mut self, name: String) {
-        self.bigint_vars.insert(name);
+        self.bigint_vars.insert(name.clone());
+        // BigInt variables always need ARC cleanup at function exit
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_mut(), self.current_function) {
+            analyzer.mark_needs_cleanup(func, &name);
+        }
     }
 
     /// Check if a variable is a BigInt
@@ -206,7 +215,11 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
     /// Generate ARC release call for a value (with null destructor)
     pub fn build_release(&self, value: inkwell::values::BasicValueEnum<'ctx>, name: &str) {
-        if !self.needs_arc(name) {
+        // Always release pointer values (BigInt, lists, etc.)
+        let is_pointer = value.is_pointer_value();
+        let needs_arc = self.needs_arc(name);
+        
+        if !needs_arc && !is_pointer {
             return;
         }
 

@@ -1,0 +1,28 @@
+# Fibonacci(1,000,000) - inline version (no function return)
+
+def main():
+    n = 1000000
+
+    a: BigInt = 0
+    b: BigInt = 1
+
+    i = 2
+    while i <= n:
+        c = a + b
+        a = b
+        b = c
+        i = i + 1
+
+    # Get digit count
+    s = str(b)
+    digits = len(s)
+
+    print("=== Fibonacci(1,000,000) - Viper ===")
+    print("Digits: ")
+    print(digits)
+    print("")
+    print("First 50 digits: ")
+    print(s[:50])
+    print("")
+    print("Last 50 digits: ")
+    print(s[-50:])

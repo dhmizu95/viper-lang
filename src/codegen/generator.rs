@@ -26,6 +26,8 @@ pub struct CodeGen<'ctx> {
     dict_vars: HashSet<String>,
     bool_list_vars: HashSet<String>,
     bigint_vars: HashSet<String>,
+    /// Functions that contain BigInt variables (need special optimization handling)
+    bigint_functions: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
     current_function: Option<String>,
 }
@@ -51,6 +53,7 @@ impl<'ctx> CodeGen<'ctx> {
             dict_vars: HashSet::new(),
             bool_list_vars: HashSet::new(),
             bigint_vars: HashSet::new(),
+            bigint_functions: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
         }
@@ -200,7 +203,7 @@ impl<'ctx> CodeGen<'ctx> {
                 use crate::codegen::functions::infer_param_types_from_body;
                 let param_types = infer_param_types_from_body(params, body);
                 let mangled_name = mangle_function_name(name, &param_types);
-                self.define_function(&mangled_name, params, return_type, body)?;
+                self.define_function(&mangled_name, name, params, return_type, body)?;
             }
         }
         // Second pass: define nested functions in compound statements
@@ -230,7 +233,8 @@ impl<'ctx> CodeGen<'ctx> {
     /// Define a function (generate body)
     fn define_function(
         &mut self,
-        name: &str,
+        mangled_name: &str,
+        original_name: &str,
         params: &[crate::ast::Param],
         return_type: &Option<Type>,
         body: &[Stmt],
@@ -241,9 +245,10 @@ impl<'ctx> CodeGen<'ctx> {
         let saved_list_vars = std::mem::take(&mut self.list_vars);
         let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
         let saved_current_function = self.current_function.clone();
-        self.current_function = Some(name.to_string());
+        // Use original (unmangled) name for escape analysis
+        self.current_function = Some(original_name.to_string());
 
-        let func = self.functions.get(name).copied().unwrap();
+        let func = self.functions.get(mangled_name).copied().unwrap();
         let entry = self.context.append_basic_block(func, "entry");
         self.builder.position_at_end(entry);
 
@@ -253,13 +258,13 @@ impl<'ctx> CodeGen<'ctx> {
             let param_value = func.get_nth_param(i as u32).unwrap();
 
             // Check escape analysis for this parameter
-            let _can_stack_alloc = self.escape_analyzer.can_stack_allocate(name, &param.name);
+            let _can_stack_alloc = self.escape_analyzer.can_stack_allocate(original_name, &param.name);
 
             // Determine if parameter is a reference type (pointer)
             let is_ref_type = param_value.is_pointer_value();
 
             // Mark parameter as reference type in escape analyzer
-            self.escape_analyzer.set_reference_type(name, &param.name, is_ref_type);
+            self.escape_analyzer.set_reference_type(original_name, &param.name, is_ref_type);
 
             // Always allocate on stack for now (escape analysis informs optimization decisions)
             // In a more advanced implementation, we might skip alloca for non-escaping params
@@ -301,17 +306,29 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.bigint_vars,
                 stmt,
                 &mut self.escape_analyzer,
-                name,
+                original_name,
             )?;
         }
 
+        // Mark function as containing BigInt if it has BigInt variables
+        // These functions need special optimization handling (no mem2reg)
+        if !self.bigint_vars.is_empty() {
+            self.bigint_functions.insert(original_name.to_string());
+            // Apply optnone attribute to prevent mem2reg and other optimizations
+            // that could break ARC retain/release semantics for BigInt
+            func.add_attribute(
+                inkwell::attributes::AttributeLoc::Function,
+                self.context.create_string_attribute("optnone", ""),
+            );
+        }
+
         // Generate ARC cleanup for local variables before return
-        self.generate_arc_cleanup(name);
+        self.generate_arc_cleanup(original_name);
 
         // Add implicit return if needed
         if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
             // Check actual function return type from LLVM signature
-            let func = self.functions.get(name).copied().unwrap();
+            let func = self.module.get_function(mangled_name).unwrap();
             let return_type_llvm = func.get_type().get_return_type();
 
             match return_type {
@@ -529,46 +546,32 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
-        let i64_type = self.context.i64_type();
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let null_ptr = ptr_type.const_null();
 
-        // Helper function for batch release
-        let emit_batch = |vars: &[VarInfo<'ctx>], batch_func_name: &str, builder: &inkwell::builder::Builder<'ctx>| {
-            if vars.is_empty() {
-                return;
-            }
-            if let Some(release_batch_func) = self.module.get_function(batch_func_name) {
-                let array_size = i64_type.const_int(vars.len() as u64, false);
-                // Allocate array of pointers for the batch release
-                let ptrs_array = builder.build_array_alloca(ptr_type, array_size, "batch_ptrs").unwrap();
-
-                for (i, var) in vars.iter().enumerate() {
-                    let index = i64_type.const_int(i as u64, false);
-                    let gep = unsafe {
-                        builder.build_in_bounds_gep(ptr_type, ptrs_array, &[index], "gep").unwrap()
-                    };
-
-                    // Load the pointer from the variable
-                    let value = match &var.storage {
-                        crate::codegen::variables::VarStorage::Stack(ptr) => {
-                            builder.build_load(ptr_type, *ptr, &format!("load_var_{}", i)).unwrap()
-                        }
-                        crate::codegen::variables::VarStorage::Register(val) => *val,
-                    };
-
-                    if let inkwell::values::BasicValueEnum::PointerValue(alloca_ptr) = value {
-                        builder.build_store(gep, alloca_ptr).unwrap();
+        // Generate individual release calls for each variable
+        // (batch release would be more efficient but requires runtime support)
+        for var in &local_vars {
+            if let crate::codegen::variables::VarStorage::Stack(stack_ptr) = &var.storage {
+                let value = self.builder.build_load(ptr_type, *stack_ptr, "load_var").unwrap();
+                if let inkwell::values::BasicValueEnum::PointerValue(ptr_val) = value {
+                    if let Some(release_func) = self.module.get_function("vp_release_local") {
+                        self.builder.build_call(release_func, &[ptr_val.into()], "release_var").unwrap();
                     }
                 }
-
-                builder.build_call(release_batch_func, &[ptrs_array.into(), array_size.into()], "call_batch").unwrap();
             }
-        };
+        }
 
-        // Enable ARC cleanup for local variables at function exit
-        // This releases all reference-counted objects when the function returns
-        emit_batch(&local_vars, "vp_release_batch_local", &self.builder);
-        emit_batch(&shared_vars, "vp_release_batch", &self.builder);
+        for var in &shared_vars {
+            if let crate::codegen::variables::VarStorage::Stack(stack_ptr) = &var.storage {
+                let value = self.builder.build_load(ptr_type, *stack_ptr, "load_var").unwrap();
+                if let inkwell::values::BasicValueEnum::PointerValue(ptr_val) = value {
+                    if let Some(release_func) = self.module.get_function("vp_release") {
+                        self.builder.build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var").unwrap();
+                    }
+                }
+            }
+        }
     }
 
     /// Create a global constant from a literal expression
@@ -612,6 +615,12 @@ impl<'ctx> CodeGen<'ctx> {
     /// Get the generated LLVM module
     pub fn module(&self) -> &inkwell::module::Module<'ctx> {
         &self.module
+    }
+
+    /// Get the list of functions containing BigInt variables
+    /// These functions should skip mem2reg optimization
+    pub fn bigint_functions(&self) -> &HashSet<String> {
+        &self.bigint_functions
     }
 
     /// Verify the generated code

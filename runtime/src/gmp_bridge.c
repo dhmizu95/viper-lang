@@ -68,6 +68,16 @@ ViperBigInt* vp_bigint_from_i64(int64_t value) {
     return bigint;
 }
 
+/**
+ * Create a BigInt from i64 for internal operation results
+ * Returns a BigInt with ref_count=1 (standard allocation)
+ * The caller takes ownership - do NOT call retain when assigning
+ */
+ViperBigInt* vp_bigint_from_i64_temp(int64_t value) {
+    /* Just use the standard allocation - caller takes ownership */
+    return vp_bigint_from_i64(value);
+}
+
 ViperBigInt* vp_bigint_from_u64(uint64_t value) {
     ViperBigInt* bigint = (ViperBigInt*)vp_arc_alloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;

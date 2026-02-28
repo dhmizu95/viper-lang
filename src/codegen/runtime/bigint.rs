@@ -23,6 +23,10 @@ pub fn declare_bigint_functions<'ctx>(
     let from_i64_fn_type = ptr_type.fn_type(&[i64_type.into()], false);
     module.add_function("vp_bigint_from_i64", from_i64_fn_type, None);
 
+    // vp_bigint_from_i64_temp: Create BigInt from i64 for temporary results
+    // ViperBigInt* vp_bigint_from_i64_temp(int64_t value)
+    module.add_function("vp_bigint_from_i64_temp", from_i64_fn_type, None);
+
     // vp_bigint_destroy: Destroy BigInt
     // void vp_bigint_destroy(ViperBigInt* bigint)
     let destroy_fn_type = void_type.fn_type(&[ptr_type.into()], false);

@@ -44,6 +44,10 @@ pub(crate) fn generate_declare<'ctx>(
             state.mark_as_bigint(name.to_string());
         }
 
+        // For BigInt values, determine if this is a "fresh" allocation (from literal/conversion)
+        // or an existing reference. Fresh allocations already have ref_count=1 and don't need retain.
+        let is_fresh_bigint = is_bigint && !matches!(expr, Expr::Ident(..));
+
         // Track list variables
         // Check for explicit list expressions, list comprehensions, or variables that hold lists
         let is_list = match expr {
@@ -131,8 +135,10 @@ pub(crate) fn generate_declare<'ctx>(
 
         // For scalar types (int, float), use stack allocation if mutable
         // to allow reassignment in loops
+        // CRITICAL: BigInt values MUST remain as alloca (not promoted to SSA)
+        // because ARC retain/release operations don't work correctly with PHI nodes
         let is_scalar = !is_ref_type;
-        let use_stack = !can_stack_alloc || is_scalar || mutable;
+        let use_stack = !can_stack_alloc || is_scalar || mutable || is_bigint;
 
         if !use_stack {
             // Use SSA register allocation for non-escaping variables or non-mutable scalars
@@ -159,7 +165,8 @@ pub(crate) fn generate_declare<'ctx>(
             state.variables.insert(name.to_string(), VarInfo::new_stack(alloca, var_type));
 
             // Insert ARC retain if this is a reference type that escapes
-            if is_ref_type && state.needs_arc(name) {
+            // Exception: Fresh BigInt allocations already have ref_count=1
+            if is_ref_type && state.needs_arc(name) && !is_fresh_bigint {
                 state.build_retain(val, name);
             }
         }

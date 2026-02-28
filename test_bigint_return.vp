@@ -1,0 +1,7 @@
+def get_bigint() -> BigInt:
+    x: BigInt = 42
+    return x
+
+def main():
+    result = get_bigint()
+    print(str(result))
