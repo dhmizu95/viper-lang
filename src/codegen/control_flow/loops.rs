@@ -76,7 +76,8 @@ fn generate_while_simple<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
-                    state.bool_list_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
             stmt,
         )?;
     }
@@ -103,6 +104,7 @@ fn generate_while_simple<'ctx>(
                 state.list_vars,
                 state.dict_vars,
                 state.bool_list_vars,
+                state.bigint_vars,
                 stmt,
             )?;
         }
@@ -192,6 +194,7 @@ fn generate_while_unrolled<'ctx>(
                 state.list_vars,
                 state.dict_vars,
                 state.bool_list_vars,
+                state.bigint_vars,
                 stmt,
             )?;
         }
@@ -320,7 +323,8 @@ pub fn generate_for<'ctx>(
                         state.loop_stack,
                         state.list_vars,
                         state.dict_vars,
-                    state.bool_list_vars,
+                        state.bool_list_vars,
+                        state.bigint_vars,
                         stmt,
                     )?;
                 }
@@ -364,6 +368,7 @@ pub fn generate_for<'ctx>(
                             state.list_vars,
                             state.dict_vars,
                             state.bool_list_vars,
+                            state.bigint_vars,
                             stmt,
                         )?;
                     }
@@ -481,7 +486,8 @@ pub fn generate_for<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
-                    state.bool_list_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
             stmt,
         )?;
     }
@@ -723,7 +729,8 @@ pub fn generate_async_for<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
-                    state.bool_list_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
             stmt,
         )?;
     }

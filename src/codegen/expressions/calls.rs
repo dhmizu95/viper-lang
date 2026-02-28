@@ -131,6 +131,24 @@ pub fn generate_call<'ctx>(
         if name == "sqrt_bigint" {
             return generate_bigint_sqrt(state, args);
         }
+        if name == "min_bigint" {
+            return generate_bigint_min(state, args);
+        }
+        if name == "max_bigint" {
+            return generate_bigint_max(state, args);
+        }
+        if name == "is_zero_bigint" {
+            return generate_bigint_is_zero(state, args);
+        }
+        if name == "is_negative_bigint" {
+            return generate_bigint_is_negative(state, args);
+        }
+        if name == "sign_bigint" {
+            return generate_bigint_sign(state, args);
+        }
+        if name == "bit_length_bigint" {
+            return generate_bigint_bit_length(state, args);
+        }
 
         // Math builtins
         if name == "sqrt" || name == "abs" || name == "ln" || name == "floor" {
@@ -731,7 +749,7 @@ pub fn generate_bigint_to_str<'ctx>(
         .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
     
     // Call vp_bigint_to_str(bigint, 10) - base 10
-    let base = state.ir_builder.i64_const(10);
+    let base = state.context.i32_type().const_int(10, false);
     let result = state
         .ir_builder
         .build_call(state.builder, to_str_func, &[bigint_val.into(), base.into()], "bigint_to_str")
@@ -774,10 +792,17 @@ pub fn generate_bigint_abs<'ctx>(
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+    
+    let zero = state.ir_builder.i64_const(0);
     let result_ptr = state
-        .builder
-        .build_alloca(bigint_val.get_type(), "bigint_result")
-        .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+        .into_pointer_value();
     
     let abs_func = state
         .module
@@ -790,16 +815,10 @@ pub fn generate_bigint_abs<'ctx>(
             state.builder,
             abs_func,
             &[result_ptr.into(), bigint_val.into()],
-            "bigint_abs",
-        )
-        .expect("bigint_abs call");
+            "bigint_abs_call",
+        );
     
-    let result = state
-        .builder
-        .build_load(bigint_val.get_type(), result_ptr, "bigint_abs_result")
-        .expect("load result");
-    
-    Ok(result.into())
+    Ok(result_ptr.into())
 }
 
 /// Generate pow_bigint() call - BigInt power
@@ -813,10 +832,17 @@ pub fn generate_bigint_pow<'ctx>(
 
     let base_val = generate_expr(state, &args[0])?;
     let exp_val = generate_expr(state, &args[1])?;
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+    
+    let zero = state.ir_builder.i64_const(0);
     let result_ptr = state
-        .builder
-        .build_alloca(base_val.get_type(), "bigint_result")
-        .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+        .into_pointer_value();
     
     let pow_func = state
         .module
@@ -829,16 +855,10 @@ pub fn generate_bigint_pow<'ctx>(
             state.builder,
             pow_func,
             &[result_ptr.into(), base_val.into(), exp_val.into()],
-            "bigint_pow",
-        )
-        .expect("bigint_pow call");
+            "bigint_pow_call",
+        );
     
-    let result = state
-        .builder
-        .build_load(base_val.get_type(), result_ptr, "bigint_pow_result")
-        .expect("load result");
-    
-    Ok(result.into())
+    Ok(result_ptr.into())
 }
 
 /// Generate sqrt_bigint() call - BigInt square root
@@ -851,10 +871,17 @@ pub fn generate_bigint_sqrt<'ctx>(
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+    
+    let zero = state.ir_builder.i64_const(0);
     let result_ptr = state
-        .builder
-        .build_alloca(bigint_val.get_type(), "bigint_result")
-        .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+        .into_pointer_value();
     
     let sqrt_func = state
         .module
@@ -867,14 +894,180 @@ pub fn generate_bigint_sqrt<'ctx>(
             state.builder,
             sqrt_func,
             &[result_ptr.into(), bigint_val.into()],
-            "bigint_sqrt",
-        )
-        .expect("bigint_sqrt call");
+            "bigint_sqrt_call",
+        );
+    
+    Ok(result_ptr.into())
+}
+
+/// Generate min_bigint() call
+pub fn generate_bigint_min<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 2 {
+        return Err(format!("min_bigint() takes exactly 2 arguments, got {}", args.len()));
+    }
+
+    let a_val = generate_expr(state, &args[0])?;
+    let b_val = generate_expr(state, &args[1])?;
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+    
+    let zero = state.ir_builder.i64_const(0);
+    let result_ptr = state
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+        .into_pointer_value();
+    
+    let min_func = state
+        .module
+        .get_function("vp_bigint_min")
+        .ok_or_else(|| "vp_bigint_min not declared".to_string())?;
+    
+    state
+        .ir_builder
+        .build_call(
+            state.builder,
+            min_func,
+            &[result_ptr.into(), a_val.into(), b_val.into()],
+            "bigint_min_call",
+        );
+    
+    Ok(result_ptr.into())
+}
+
+/// Generate max_bigint() call
+pub fn generate_bigint_max<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 2 {
+        return Err(format!("max_bigint() takes exactly 2 arguments, got {}", args.len()));
+    }
+
+    let a_val = generate_expr(state, &args[0])?;
+    let b_val = generate_expr(state, &args[1])?;
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+    
+    let zero = state.ir_builder.i64_const(0);
+    let result_ptr = state
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+        .into_pointer_value();
+    
+    let max_func = state
+        .module
+        .get_function("vp_bigint_max")
+        .ok_or_else(|| "vp_bigint_max not declared".to_string())?;
+    
+    state
+        .ir_builder
+        .build_call(
+            state.builder,
+            max_func,
+            &[result_ptr.into(), a_val.into(), b_val.into()],
+            "bigint_max_call",
+        );
+    
+    Ok(result_ptr.into())
+}
+
+/// Generate is_zero_bigint() call
+pub fn generate_bigint_is_zero<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("is_zero_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    let is_zero_func = state
+        .module
+        .get_function("vp_bigint_is_zero")
+        .ok_or_else(|| "vp_bigint_is_zero not declared".to_string())?;
     
     let result = state
-        .builder
-        .build_load(bigint_val.get_type(), result_ptr, "bigint_sqrt_result")
-        .expect("load result");
+        .ir_builder
+        .build_call(state.builder, is_zero_func, &[bigint_val.into()], "bigint_is_zero")
+        .ok_or_else(|| "Failed to call vp_bigint_is_zero".to_string())?;
     
-    Ok(result.into())
+    Ok(result)
+}
+
+/// Generate is_negative_bigint() call
+pub fn generate_bigint_is_negative<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("is_negative_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    let is_neg_func = state
+        .module
+        .get_function("vp_bigint_is_negative")
+        .ok_or_else(|| "vp_bigint_is_negative not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, is_neg_func, &[bigint_val.into()], "bigint_is_negative")
+        .ok_or_else(|| "Failed to call vp_bigint_is_negative".to_string())?;
+    
+    Ok(result)
+}
+
+/// Generate sign_bigint() call
+pub fn generate_bigint_sign<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("sign_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    let sign_func = state
+        .module
+        .get_function("vp_bigint_sign")
+        .ok_or_else(|| "vp_bigint_sign not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, sign_func, &[bigint_val.into()], "bigint_sign")
+        .ok_or_else(|| "Failed to call vp_bigint_sign".to_string())?;
+    
+    Ok(result)
+}
+
+/// Generate bit_length_bigint() call
+pub fn generate_bigint_bit_length<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("bit_length_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    let bit_len_func = state
+        .module
+        .get_function("vp_bigint_bit_length")
+        .ok_or_else(|| "vp_bigint_bit_length not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, bit_len_func, &[bigint_val.into()], "bigint_bit_length")
+        .ok_or_else(|| "Failed to call vp_bigint_bit_length".to_string())?;
+    
+    Ok(result)
 }

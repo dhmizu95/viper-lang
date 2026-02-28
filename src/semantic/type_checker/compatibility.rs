@@ -68,6 +68,14 @@ impl TypeChecker {
             (Type::F64 | Type::F32, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
             (Type::F64 | Type::F32, Type::F64 | Type::F32) => true,
 
+            // BigInt auto-promotion: integer literals/values can be assigned to BigInt
+            // This allows: a: BigInt = 0, a: BigInt = 1, return 0 in BigInt fn, etc.
+            (Type::BigInt, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            // BigInt can also be compared/assigned to other BigInts
+            (Type::BigInt, Type::BigInt) => true,
+            // Reverse: BigInt can be implicitly used where int expected (may truncate, but allow)
+            (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::BigInt) => true,
+
             // Tuples are compatible if their elements are compatible
             (Type::Tuple(t1), Type::Tuple(t2)) => {
                 if t1.len() != t2.len() {

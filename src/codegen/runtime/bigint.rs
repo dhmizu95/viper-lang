@@ -28,9 +28,8 @@ pub fn declare_bigint_functions<'ctx>(
     let destroy_fn_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_bigint_destroy", destroy_fn_type, None);
 
-    // vp_bigint_to_str: Convert BigInt to string
     // char* vp_bigint_to_str(ViperBigInt* bigint, int base)
-    let to_str_fn_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    let to_str_fn_type = ptr_type.fn_type(&[ptr_type.into(), context.i32_type().into()], false);
     module.add_function("vp_bigint_to_str", to_str_fn_type, None);
 
     // vp_bigint_to_i64: Convert BigInt to i64
@@ -89,6 +88,28 @@ pub fn declare_bigint_functions<'ctx>(
     // Square root
     let sqrt_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_bigint_sqrt", sqrt_fn_type, None);
+
+    // Absolute value
+    let unary_arith_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_bigint_abs", unary_arith_fn_type, None);
+
+    // Negation
+    module.add_function("vp_bigint_neg", unary_arith_fn_type, None);
+
+    // Inversion (bitwise NOT)
+    module.add_function("vp_bigint_invert", unary_arith_fn_type, None);
+
+    // Boolean checks
+    let check_fn_type = bool_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bigint_is_zero", check_fn_type, None);
+    module.add_function("vp_bigint_is_negative", check_fn_type, None);
+
+    // Utility
+    let sign_fn_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bigint_sign", sign_fn_type, None);
+
+    let bit_len_fn_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bigint_bit_length", bit_len_fn_type, None);
 
     Ok(())
 }

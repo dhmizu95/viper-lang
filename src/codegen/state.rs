@@ -21,6 +21,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub list_vars: &'a mut HashSet<String>,
     pub dict_vars: &'a mut HashSet<String>,
     pub bool_list_vars: &'a mut HashSet<String>,  // Track bool-specific lists
+    pub bigint_vars: &'a mut HashSet<String>,     // Track BigInt variables
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
 }
@@ -39,6 +40,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        bigint_vars: &'a mut HashSet<String>,
     ) -> Self {
         Self {
             context,
@@ -52,6 +54,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            bigint_vars,
             escape_analyzer: None,
             current_function: None,
         }
@@ -71,6 +74,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        bigint_vars: &'a mut HashSet<String>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
     ) -> Self {
@@ -86,6 +90,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            bigint_vars,
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
         }
@@ -168,6 +173,16 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
     /// Check if a variable is a dict
     pub fn is_dict(&self, name: &str) -> bool {
         self.dict_vars.contains(name)
+    }
+
+    /// Mark a variable as a BigInt
+    pub fn mark_as_bigint(&mut self, name: String) {
+        self.bigint_vars.insert(name);
+    }
+
+    /// Check if a variable is a BigInt
+    pub fn is_bigint(&self, name: &str) -> bool {
+        self.bigint_vars.contains(name)
     }
 
     /// Generate ARC retain call for a value

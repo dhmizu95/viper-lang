@@ -1,0 +1,9 @@
+def main():
+    a = 2n
+    print(a)
+    b = 100n
+    print(b)
+    p = pow_bigint(a, b)
+    print(p)
+
+main()

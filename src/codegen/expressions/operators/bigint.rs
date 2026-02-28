@@ -1,8 +1,34 @@
 //! BigInt binary operations using GMP
 
-use crate::ast::BinOp;
+use crate::ast::{BinOp, Expr, UnaryOp};
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
+
+/// Check if an expression is a BigInt expression
+pub fn is_bigint_expr<'a, 'ctx>(expr: &Expr, state: &CodeGenState<'a, 'ctx>) -> bool {
+    match expr {
+        Expr::BigInt(..) => true,
+        Expr::Ident(name, _) => state.is_bigint(name),
+        Expr::BinOp { left, right, .. } => {
+            is_bigint_expr(left, state) || is_bigint_expr(right, state)
+        }
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" 
+                    || name == "min_bigint" || name == "max_bigint" || name == "is_zero_bigint" 
+                    || name == "is_negative_bigint" || name == "sign_bigint" || name == "bit_length_bigint"
+            } else {
+                false
+            }
+        }
+        Expr::UnaryOp { operand, .. } => is_bigint_expr(operand, state),
+        Expr::AssignmentExpr { value, .. } => is_bigint_expr(value, state),
+        Expr::Conditional { then_expr, else_expr, .. } => {
+            is_bigint_expr(then_expr, state) || is_bigint_expr(else_expr, state)
+        }
+        _ => false,
+    }
+}
 
 /// Generate BigInt binary operation
 /// 
@@ -14,8 +40,18 @@ pub fn generate_bigint_binop<'ctx>(
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    let lhs_ptr = lhs.into_pointer_value();
-    let rhs_ptr = rhs.into_pointer_value();
+    // Auto-promote i64 to BigInt if needed
+    let lhs_ptr = if lhs.is_int_value() {
+        promote_to_bigint(state, lhs)?
+    } else {
+        lhs.into_pointer_value()
+    };
+    
+    let rhs_ptr = if rhs.is_int_value() {
+        promote_to_bigint(state, rhs)?
+    } else {
+        rhs.into_pointer_value()
+    };
 
     // For comparison operations, we need to call comparison functions and return bool
     match op {
@@ -117,11 +153,7 @@ pub fn generate_bigint_binop<'ctx>(
         }
         // Arithmetic operations
         BinOp::Add => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let add_func = state
                 .module
                 .get_function("vp_bigint_add")
@@ -133,24 +165,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     add_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_add",
-                )
-                .expect("bigint_add call");
+                    "bigint_add_call",
+                );
             
-            // Load the result
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_add_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::Sub => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let sub_func = state
                 .module
                 .get_function("vp_bigint_sub")
@@ -162,23 +183,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     sub_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_sub",
-                )
-                .expect("bigint_sub call");
+                    "bigint_sub_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_sub_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::Mul => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let mul_func = state
                 .module
                 .get_function("vp_bigint_mul")
@@ -190,23 +201,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     mul_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_mul",
-                )
-                .expect("bigint_mul call");
+                    "bigint_mul_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_mul_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::Div => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let div_func = state
                 .module
                 .get_function("vp_bigint_div")
@@ -218,23 +219,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     div_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_div",
-                )
-                .expect("bigint_div call");
+                    "bigint_div_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_div_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::Mod => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let mod_func = state
                 .module
                 .get_function("vp_bigint_mod")
@@ -246,23 +237,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     mod_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_mod",
-                )
-                .expect("bigint_mod call");
+                    "bigint_mod_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_mod_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::BitAnd => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let and_func = state
                 .module
                 .get_function("vp_bigint_and")
@@ -274,23 +255,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     and_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_and",
-                )
-                .expect("bigint_and call");
+                    "bigint_and_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_and_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::BitOr => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let or_func = state
                 .module
                 .get_function("vp_bigint_or")
@@ -302,23 +273,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     or_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_or",
-                )
-                .expect("bigint_or call");
+                    "bigint_or_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_or_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::BitXor => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let xor_func = state
                 .module
                 .get_function("vp_bigint_xor")
@@ -330,23 +291,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     xor_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_xor",
-                )
-                .expect("bigint_xor call");
+                    "bigint_xor_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_xor_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::LShift => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let lshift_func = state
                 .module
                 .get_function("vp_bigint_lshift")
@@ -358,23 +309,13 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     lshift_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_lshift",
-                )
-                .expect("bigint_lshift call");
+                    "bigint_lshift_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_lshift_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         BinOp::RShift => {
-            let result_ptr = state
-                .builder
-                .build_alloca(lhs_ptr.get_type(), "bigint_result")
-                .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
-            
+            let result_ptr = initialize_bigint_result(state)?;
             let rshift_func = state
                 .module
                 .get_function("vp_bigint_rshift")
@@ -386,17 +327,121 @@ pub fn generate_bigint_binop<'ctx>(
                     state.builder,
                     rshift_func,
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
-                    "bigint_rshift",
-                )
-                .expect("bigint_rshift call");
+                    "bigint_rshift_call",
+                );
             
-            let result = state
-                .builder
-                .build_load(lhs_ptr.get_type(), result_ptr, "bigint_rshift_result")
-                .expect("load result");
-            
-            Ok(result.into())
+            Ok(result_ptr.into())
         }
         _ => Err(format!("Unsupported BigInt operator: {:?}", op)),
     }
+}
+
+/// Generate BigInt unary operation
+pub fn generate_bigint_unary<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    op: &UnaryOp,
+    operand: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let operand_ptr = operand.into_pointer_value();
+
+    match op {
+        UnaryOp::Pos => Ok(operand),
+        UnaryOp::Neg => {
+            let result_ptr = initialize_bigint_result(state)?;
+            let neg_func = state
+                .module
+                .get_function("vp_bigint_neg")
+                .ok_or_else(|| "vp_bigint_neg not declared".to_string())?;
+            
+            state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    neg_func,
+                    &[result_ptr.into(), operand_ptr.into()],
+                    "bigint_neg_call",
+                );
+            
+            Ok(result_ptr.into())
+        }
+        UnaryOp::Invert => {
+            let result_ptr = initialize_bigint_result(state)?;
+            let invert_func = state
+                .module
+                .get_function("vp_bigint_invert")
+                .ok_or_else(|| "vp_bigint_invert not declared".to_string())?;
+            
+            state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    invert_func,
+                    &[result_ptr.into(), operand_ptr.into()],
+                    "bigint_invert_call",
+                );
+            
+            Ok(result_ptr.into())
+        }
+        UnaryOp::Not => {
+            let is_zero_func = state
+                .module
+                .get_function("vp_bigint_is_zero")
+                .ok_or_else(|| "vp_bigint_is_zero not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(state.builder, is_zero_func, &[operand_ptr.into()], "is_zero")
+                .expect("is_zero call");
+            
+            Ok(result.into())
+        }
+        _ => Err(format!("Unsupported BigInt unary operator: {:?}", op)),
+    }
+}
+
+/// Initialize a new BigInt result object
+fn initialize_bigint_result<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+) -> Result<inkwell::values::PointerValue<'ctx>, String> {
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+    
+    let zero = state.ir_builder.i64_const(0);
+    let result = state
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res_tmp")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
+    
+    Ok(result.into_pointer_value())
+}
+
+/// Promote an integer value to BigInt
+fn promote_to_bigint<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    val: BasicValueEnum<'ctx>,
+) -> Result<inkwell::values::PointerValue<'ctx>, String> {
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+    
+    let int_val = val.into_int_value();
+    
+    // Sign-extend if bit width is less than 64 (e.g. i1)
+    let bit_width = int_val.get_type().get_bit_width();
+    let i64_val = if bit_width < 64 {
+        state.builder.build_int_s_extend(int_val, state.context.i64_type(), "i64_extend")
+            .map_err(|e| format!("Failed to extend int: {:?}", e))?
+    } else {
+        int_val
+    };
+
+    let result = state
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[i64_val.into()], "bigint_promoted")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
+    
+    Ok(result.into_pointer_value())
 }

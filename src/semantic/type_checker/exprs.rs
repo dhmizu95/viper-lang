@@ -70,7 +70,8 @@ impl TypeChecker {
                             }
                         }
                         BinOp::Eq | BinOp::NotEq => {
-                            if lt != rt {
+                            // Allow comparison between compatible types (e.g. BigInt == i64)
+                            if lt != rt && !self.is_compatible(&lt, &rt) {
                                 self.errors.push(TypeError::new(
                                     format!("Cannot compare {} with {}", lt, rt),
                                     *span,

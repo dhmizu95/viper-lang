@@ -110,7 +110,7 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, St
                     name,
                     type_ann,
                     value: Some(value),
-                    mutable: false, // Default is immutable unless `mut` is used
+                    mutable: true, // Variables with type annotations are mutable by default (Python semantics)
                     span,
                 });
             }

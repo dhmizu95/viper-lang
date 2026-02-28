@@ -73,7 +73,35 @@ pub fn generate_print_call<'ctx>(
                 _ => false,
             };
 
-            if is_bytes_arg {
+            // Check if BigInt
+            let is_bigint_arg = match arg {
+                Expr::Ident(name, _) => state.is_bigint(name),
+                Expr::BigInt(_, _) => true,
+                _ => infer_expr_type(arg) == Type::BigInt,
+            };
+
+            if is_bigint_arg {
+                // Convert BigInt to string and print
+                let to_str_func = state
+                    .module
+                    .get_function("vp_bigint_to_str")
+                    .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+                
+                let base = state.context.i32_type().const_int(10, false);
+                let str_val = state
+                    .ir_builder
+                    .build_call(state.builder, to_str_func, &[val.into(), base.into()], "str_conv")
+                    .expect("vp_bigint_to_str");
+
+                let print_func = state
+                    .module
+                    .get_function("vp_print_str")
+                    .ok_or_else(|| "vp_print_str not declared".to_string())?;
+                state
+                    .builder
+                    .build_call(print_func, &[str_val.into()], "print_bigint_str")
+                    .expect("vp_print_str");
+            } else if is_bytes_arg {
                 // Print bytes using vp_bytes_print
                 let print_func = state
                     .module

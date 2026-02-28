@@ -70,7 +70,10 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
             _ => {
                 let lt = infer_type_from_expr(left, param_types);
                 let rt = infer_type_from_expr(right, param_types);
-                if lt == Type::F64 || rt == Type::F64 {
+                // BigInt operations return BigInt
+                if lt == Type::BigInt || rt == Type::BigInt {
+                    Type::BigInt
+                } else if lt == Type::F64 || rt == Type::F64 {
                     Type::F64
                 } else {
                     Type::I64

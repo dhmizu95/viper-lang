@@ -68,6 +68,11 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
+                // Built-in BigInt functions
+                if name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
+                    return Type::BigInt;
+                }
+                
                 let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
                 let _mangled = mangle_function_name(name, &arg_types);
                 Type::Fn(arg_types, Box::new(Type::Infer))
@@ -94,7 +99,9 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::BinOp { op: _, left, right, .. } => {
             let lt = infer_expr_type(left);
             let rt = infer_expr_type(right);
-            if lt == Type::F64 || rt == Type::F64 {
+            if lt == Type::BigInt || rt == Type::BigInt {
+                Type::BigInt
+            } else if lt == Type::F64 || rt == Type::F64 {
                 Type::F64
             } else {
                 Type::I64

@@ -275,6 +275,9 @@ pub fn link_with_gcc(
         "-lm".to_string(),
     ]);
 
+    // Add GMP library for BigInt support
+    args.push("-lgmp".to_string());
+
     println!("   Linking with GCC...");
     let output = std::process::Command::new("gcc")
         .args(&args)

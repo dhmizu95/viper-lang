@@ -15,9 +15,7 @@
 #include <stdbool.h>
 #include <gmp.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "viper_arc.h"
 
 /* ============================================ */
 /* ViperBigInt Structure                        */
@@ -26,23 +24,11 @@ extern "C" {
 /**
  * ViperBigInt - Arbitrary precision integer backed by GMP mpz_t
  * 
- * Memory layout:
- *   [ViperHeader (16 bytes)][ViperBigInt (24+ bytes)]
- *   
- * The mpz_t structure contains:
- *   - _mp_alloc: number of allocated limbs
- *   - _mp_size: size (negative for negative numbers)
- *   - _mp_d: pointer to limb data
- * 
- * This struct is designed to work with Viper's ARC system.
- * The destructor should call vp_bigint_destroy().
+ * This struct is managed by Viper's ARC system.
+ * The header is prepended by vp_arc_alloc().
  */
 typedef struct {
-    int64_t ref_count;      /* ARC reference count (managed by viper_arc.h) */
-    void (*destructor)(void*);  /* Destructor callback for ARC */
-    uint8_t flags;          /* Object flags */
-    uint8_t reserved[7];    /* Padding */
-    mpz_t value;            /* GMP integer value (variable size) */
+    mpz_t value;            /* GMP integer value */
 } ViperBigInt;
 
 /* ============================================ */
@@ -246,6 +232,13 @@ void vp_bigint_xor(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 void vp_bigint_lshift(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 
 /**
+ * Bitwise NOT / Inversion: result = ~a
+ * @param result Result BigInt
+ * @param a Operand
+ */
+void vp_bigint_invert(ViperBigInt* result, ViperBigInt* a);
+
+/**
  * Right shift: result = a >> b
  * @param result Result BigInt
  * @param a Operand
@@ -342,6 +335,16 @@ void vp_bigint_copy(ViperBigInt* dest, ViperBigInt* src);
  * @return Hash value
  */
 uint64_t vp_bigint_hash(ViperBigInt* a);
+
+/**
+ * Minimum of two BigInts: result = min(a, b)
+ */
+void vp_bigint_min(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+
+/**
+ * Maximum of two BigInts: result = max(a, b)
+ */
+void vp_bigint_max(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 
 #ifdef __cplusplus
 }

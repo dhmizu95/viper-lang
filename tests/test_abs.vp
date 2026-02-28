@@ -1,0 +1,7 @@
+def main():
+    neg_a = -1000000000000000000000000000000n
+    abs_a = abs_bigint(neg_a)
+    print("abs(...) = ")
+    print(abs_a)
+
+main()

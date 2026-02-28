@@ -2320,6 +2320,34 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bigint_gt_stub as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_bigint_neg") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_neg_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_invert") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_invert_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_is_zero") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_is_zero_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_is_negative") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_is_negative_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_sign") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_sign_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_bit_length") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_bit_length_stub as *const () as usize,
+        );
+    }
     if let Some(func) = module.get_function("vp_bigint_destroy") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bigint_destroy_stub as *const () as usize);

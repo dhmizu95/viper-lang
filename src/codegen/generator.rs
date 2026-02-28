@@ -25,6 +25,7 @@ pub struct CodeGen<'ctx> {
     list_vars: HashSet<String>,
     dict_vars: HashSet<String>,
     bool_list_vars: HashSet<String>,
+    bigint_vars: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
     current_function: Option<String>,
 }
@@ -49,6 +50,7 @@ impl<'ctx> CodeGen<'ctx> {
             list_vars: HashSet::new(),
             dict_vars: HashSet::new(),
             bool_list_vars: HashSet::new(),
+            bigint_vars: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
         }
@@ -92,6 +94,7 @@ impl<'ctx> CodeGen<'ctx> {
                             &mut self.list_vars,
                             &mut self.dict_vars,
                             &mut self.bool_list_vars,
+                            &mut self.bigint_vars,
                         ),
                         value,
                     )?;
@@ -125,6 +128,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.list_vars,
                                 &mut self.dict_vars,
                                 &mut self.bool_list_vars,
+                                &mut self.bigint_vars,
                             ),
                             value,
                         )?;
@@ -235,6 +239,7 @@ impl<'ctx> CodeGen<'ctx> {
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
         let saved_list_vars = std::mem::take(&mut self.list_vars);
+        let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
         let saved_current_function = self.current_function.clone();
         self.current_function = Some(name.to_string());
 
@@ -293,6 +298,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.bigint_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 name,
@@ -342,6 +348,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
+        self.bigint_vars = saved_bigint_vars;
         self.current_function = saved_current_function;
 
         Ok(())
@@ -374,6 +381,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.bigint_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 "__module_level__",

@@ -1,0 +1,5 @@
+def main():
+    a = 100n
+    neg_a = -a
+
+main()

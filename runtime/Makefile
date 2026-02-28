@@ -65,6 +65,41 @@ INCLUDE_DIR = include
 INSTALL_PREFIX ?= /usr/local
 
 # ============================================
+# GMP Bridge (BigInt support) - Optional
+# ============================================
+
+# Check if GMP is available (try pkg-config first, then vendor, then direct check)
+GMP_FOUND := $(shell pkg-config --exists gmp 2>/dev/null && echo yes || echo no)
+VENDOR_GMP_DIR = $(shell pwd)/../vendor/gmp
+
+ifeq ($(GMP_FOUND),yes)
+    GMP_CFLAGS := $(shell pkg-config --cflags gmp)
+    GMP_LIBS := $(shell pkg-config --libs gmp)
+    GMP_TARGET = $(OBJ_DIR)/gmp_bridge.o
+    $(info Building with GMP support (BigInt enabled))
+else ifneq ($(wildcard $(VENDOR_GMP_DIR)/include/gmp.h),)
+    GMP_CFLAGS := -I$(VENDOR_GMP_DIR)/include
+    GMP_LIBS := -L$(VENDOR_GMP_DIR)/lib -lgmp
+    GMP_TARGET = $(OBJ_DIR)/gmp_bridge.o
+    $(info Building with VENDORED GMP support (BigInt enabled))
+else
+    # Fallback: check for GMP library directly
+    GMP_EXISTS := $(shell test -f /usr/lib/x86_64-linux-gnu/libgmp.a && echo yes || echo no)
+    ifeq ($(GMP_EXISTS),yes)
+        GMP_CFLAGS :=
+        GMP_LIBS := -lgmp
+        GMP_TARGET = $(OBJ_DIR)/gmp_bridge.o
+        $(info Building with GMP support (BigInt enabled) - direct detection)
+    else
+        GMP_CFLAGS :=
+        GMP_LIBS := -lgmp
+        GMP_TARGET =
+        $(info WARNING: GMP not found - building without BigInt support)
+        $(info Install libgmp-dev to enable BigInt support)
+    endif
+endif
+
+# ============================================
 # Build Profiles
 # ============================================
 
@@ -287,35 +322,6 @@ $(OBJ_DIR)/decimal_mod.o: $(DECIMAL_MOD_SRC)
 
 $(OBJ_DIR)/logging.o: $(LOGGING_SRC)
 	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -pthread -c $< -o $@
-
-# ============================================
-# GMP Bridge (BigInt support) - Optional
-# ============================================
-
-# Check if GMP is available (try pkg-config first, then direct check)
-GMP_FOUND := $(shell pkg-config --exists gmp 2>/dev/null && echo yes || echo no)
-
-ifeq ($(GMP_FOUND),yes)
-    GMP_CFLAGS := $(shell pkg-config --cflags gmp)
-    GMP_LIBS := $(shell pkg-config --libs gmp)
-    GMP_TARGET = $(OBJ_DIR)/gmp_bridge.o
-    $(info Building with GMP support (BigInt enabled))
-else
-    # Fallback: check for GMP library directly
-    GMP_EXISTS := $(shell test -f /usr/lib/x86_64-linux-gnu/libgmp.a && echo yes || echo no)
-    ifeq ($(GMP_EXISTS),yes)
-        GMP_CFLAGS :=
-        GMP_LIBS := -lgmp
-        GMP_TARGET = $(OBJ_DIR)/gmp_bridge.o
-        $(info Building with GMP support (BigInt enabled) - direct detection)
-    else
-        GMP_CFLAGS :=
-        GMP_LIBS := -lgmp
-        GMP_TARGET =
-        $(info WARNING: GMP not found - building without BigInt support)
-        $(info Install libgmp-dev to enable BigInt support)
-    endif
-endif
 
 $(OBJ_DIR)/gmp_bridge.o: $(GMP_BRIDGE_SRC)
 	$(CC) $(CFLAGS) $(COMMON_INCLUDES) $(GMP_CFLAGS) -c $< -o $@

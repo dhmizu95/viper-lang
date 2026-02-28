@@ -360,6 +360,10 @@ impl<'a> Lexer<'a> {
                             }
                             // Triple-quoted strings are treated as comments (ignored)
                             continue;
+                        } else {
+                            // Only two quotes: this is an empty string ""
+                            let span = Span::new(start_pos, self.pos, start_line, start_column);
+                            return Ok(Token::new(TokenKind::Str("".to_string()), span));
                         }
                     }
                     let s = self.read_string(quote_char)?;

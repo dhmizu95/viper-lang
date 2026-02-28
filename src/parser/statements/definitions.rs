@@ -207,6 +207,7 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
             // Python-style aliases
             "int" => Type::I64,   // Python int -> Viper i64
             "float" => Type::F64, // Python float -> Viper f64
+            "BigInt" => Type::BigInt,  // BigInt type
             "list" => {
                 // list[T] syntax
                 parser.advance();

@@ -16,54 +16,64 @@
 
 ViperBigInt* vp_bigint_from_str(const char* str) {
     if (!str) return NULL;
-    
-    ViperBigInt* bigint = (ViperBigInt*)malloc(sizeof(ViperBigInt));
+
+    ViperBigInt* bigint = (ViperBigInt*)vp_arc_alloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;
-    
-    /* Initialize ARC header */
-    bigint->ref_count = 1;
-    bigint->destructor = (void (*)(void*))vp_bigint_destroy;
-    bigint->flags = 0;
-    memset(bigint->reserved, 0, sizeof(bigint->reserved));
-    
+
+    /* Set destructor for ARC cleanup */
+    vp_arc_set_destructor(bigint, (void (*)(void*))vp_bigint_destroy);
+
     /* Initialize GMP value */
     mpz_init(bigint->value);
+
+    /* Determine base from prefix */
+    int base = 10;  /* Default to decimal */
+    const char* actual_str = str;
     
-    /* Parse string (auto-detect base: 0x for hex, 0b for binary, etc.) */
-    if (mpz_set_str(bigint->value, str, 0) != 0) {
-        mpz_clear(bigint->value);
-        free(bigint);
+    if (str[0] == '0' && str[1] != '\0') {
+        if (str[1] == 'x' || str[1] == 'X') {
+            base = 16;
+            actual_str = str + 2;  /* Skip 0x prefix */
+        } else if (str[1] == 'o' || str[1] == 'O') {
+            base = 8;
+            actual_str = str + 2;  /* Skip 0o prefix */
+        } else if (str[1] == 'b' || str[1] == 'B') {
+            base = 2;
+            actual_str = str + 2;  /* Skip 0b prefix */
+        } else if (str[1] >= '0' && str[1] <= '7') {
+            /* Legacy octal notation (just 0 prefix) */
+            base = 8;
+            actual_str = str + 1;  /* Skip leading 0 */
+        }
+    }
+
+    if (mpz_set_str(bigint->value, actual_str, base) != 0) {
+        vp_arc_release(bigint); /* This will call destructor and free memory */
         return NULL;
     }
-    
+
     return bigint;
 }
 
 ViperBigInt* vp_bigint_from_i64(int64_t value) {
-    ViperBigInt* bigint = (ViperBigInt*)malloc(sizeof(ViperBigInt));
+    ViperBigInt* bigint = (ViperBigInt*)vp_arc_alloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;
-    
-    /* Initialize ARC header */
-    bigint->ref_count = 1;
-    bigint->destructor = (void (*)(void*))vp_bigint_destroy;
-    bigint->flags = 0;
-    memset(bigint->reserved, 0, sizeof(bigint->reserved));
-    
+
+    /* Set destructor for ARC cleanup */
+    vp_arc_set_destructor(bigint, (void (*)(void*))vp_bigint_destroy);
+
     /* Initialize and set GMP value */
     mpz_init_set_si(bigint->value, value);
-    
+
     return bigint;
 }
 
 ViperBigInt* vp_bigint_from_u64(uint64_t value) {
-    ViperBigInt* bigint = (ViperBigInt*)malloc(sizeof(ViperBigInt));
+    ViperBigInt* bigint = (ViperBigInt*)vp_arc_alloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;
     
-    /* Initialize ARC header */
-    bigint->ref_count = 1;
-    bigint->destructor = (void (*)(void*))vp_bigint_destroy;
-    bigint->flags = 0;
-    memset(bigint->reserved, 0, sizeof(bigint->reserved));
+    /* Set destructor for ARC cleanup */
+    vp_arc_set_destructor(bigint, (void (*)(void*))vp_bigint_destroy);
     
     /* Initialize and set GMP value */
     mpz_init_set_ui(bigint->value, value);
@@ -74,11 +84,8 @@ ViperBigInt* vp_bigint_from_u64(uint64_t value) {
 void vp_bigint_destroy(ViperBigInt* bigint) {
     if (!bigint) return;
     
-    /* Clear GMP value */
+    /* Clear GMP resources */
     mpz_clear(bigint->value);
-    
-    /* Free memory */
-    free(bigint);
 }
 
 char* vp_bigint_to_str(ViperBigInt* bigint, int base) {
@@ -284,6 +291,11 @@ void vp_bigint_lshift(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
         mpz_mul(result->value, a->value, shift_factor);
         mpz_clear(shift_factor);
     }
+}
+
+void vp_bigint_invert(ViperBigInt* result, ViperBigInt* a) {
+    if (!result || !a) return;
+    mpz_com(result->value, a->value);
 }
 
 void vp_bigint_rshift(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
