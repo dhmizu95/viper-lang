@@ -101,9 +101,17 @@ void vp_bigint_destroy(ViperBigInt* bigint) {
 char* vp_bigint_to_str(ViperBigInt* bigint, int base) {
     if (!bigint) return NULL;
     if (base < 2 || base > 62) return NULL;
-    
+
     /* Get string representation from GMP */
-    char* str = mpz_get_str(NULL, base, bigint->value);
+    char* gmp_str = mpz_get_str(NULL, base, bigint->value);
+    if (!gmp_str) return NULL;
+    
+    /* Copy to standard malloc'd string so caller can free() it */
+    char* str = strdup(gmp_str);
+    
+    /* Free GMP's internal allocation */
+    free(gmp_str);
+    
     return str;  /* Caller must free with free() */
 }
 

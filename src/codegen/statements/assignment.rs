@@ -57,10 +57,13 @@ pub(crate) fn generate_assign<'ctx>(
         // Check if the value is a stack-allocated array (should not use ARC)
         let is_stack_array = matches!(value, Expr::Array { .. });
 
-        // Track BigInt variables - check expression type and LLVM value type
-        let is_bigint = crate::codegen::expressions::operators::bigint::is_bigint_expr(value, state)
-            || (val.is_pointer_value() && matches!(value, Expr::Call { .. }))
-            || matches!(value, Expr::BigInt(..));
+        // Track BigInt variables - check inferred type and LLVM value
+        // Note: str() returns a char* pointer, not a BigInt
+        let inferred_type = crate::codegen::expressions::core::infer_expr_type(value);
+        let is_bigint = inferred_type == crate::ast::Type::BigInt
+            || (inferred_type == crate::ast::Type::Infer && val.is_pointer_value()
+                && !matches!(value, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "str")));
+        
         if is_bigint {
             state.mark_as_bigint(name.clone());
         } else {

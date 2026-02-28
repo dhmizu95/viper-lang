@@ -73,11 +73,23 @@ pub fn generate_print_call<'ctx>(
                 _ => false,
             };
 
-            // Check if BigInt
+            // Check if BigInt - check variable, expression type, or if it's a pointer from a BigInt function
             let is_bigint_arg = match arg {
                 Expr::Ident(name, _) => state.is_bigint(name),
                 Expr::BigInt(_, _) => true,
-                _ => infer_expr_type(arg) == Type::BigInt,
+                Expr::Call { func, .. } => {
+                    // Check if calling a known BigInt function or if result is a pointer
+                    if let Expr::Ident(func_name, _) = func.as_ref() {
+                        func_name == "BigInt" || func_name == "abs_bigint" || func_name == "pow_bigint" 
+                            || func_name == "sqrt_bigint" || func_name == "min_bigint" || func_name == "max_bigint"
+                            || val.is_pointer_value()  // User-defined BigInt function
+                    } else {
+                        val.is_pointer_value()
+                    }
+                }
+                _ => {
+                    val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt
+                }
             };
 
             if is_bigint_arg {

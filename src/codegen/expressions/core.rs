@@ -72,9 +72,16 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
                 if name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
                     return Type::BigInt;
                 }
-                
+                // str() returns string, not BigInt
+                if name == "str" {
+                    return Type::Str;
+                }
+                // print(), len() etc. return None or i64
+                if name == "print" || name == "len" || name == "range" {
+                    return if name == "len" { Type::I64 } else { Type::None };
+                }
+
                 let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
-                let _mangled = mangle_function_name(name, &arg_types);
                 Type::Fn(arg_types, Box::new(Type::Infer))
             } else {
                 Type::Infer
