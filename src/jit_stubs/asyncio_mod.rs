@@ -2,9 +2,9 @@
 // Async I/O adapter
 
 use std::collections::HashMap;
-use std::sync::{Mutex, Arc};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 lazy_static::lazy_static! {
     static ref TASK_REGISTRY: Mutex<HashMap<i64, Arc<Mutex<TaskState>>>> = Mutex::new(HashMap::new());
@@ -47,10 +47,7 @@ pub extern "C" fn vp_asyncio_sleep(seconds: f64) {
 pub extern "C" fn vp_asyncio_create_task(coro: *mut std::ffi::c_void) -> i64 {
     let _ = coro;
     let id = get_next_task_id();
-    TASK_REGISTRY.lock().unwrap().insert(
-        id,
-        Arc::new(Mutex::new(TaskState::Pending))
-    );
+    TASK_REGISTRY.lock().unwrap().insert(id, Arc::new(Mutex::new(TaskState::Pending)));
     id
 }
 
@@ -59,7 +56,11 @@ pub extern "C" fn vp_asyncio_task_done(task_id: i64) -> i64 {
     let registry = TASK_REGISTRY.lock().unwrap();
     if let Some(state_arc) = registry.get(&task_id) {
         let state = state_arc.lock().unwrap();
-        if *state == TaskState::Done { 1 } else { 0 }
+        if *state == TaskState::Done {
+            1
+        } else {
+            0
+        }
     } else {
         0
     }
@@ -70,7 +71,11 @@ pub extern "C" fn vp_asyncio_task_cancelled(task_id: i64) -> i64 {
     let registry = TASK_REGISTRY.lock().unwrap();
     if let Some(state_arc) = registry.get(&task_id) {
         let state = state_arc.lock().unwrap();
-        if *state == TaskState::Cancelled { 1 } else { 0 }
+        if *state == TaskState::Cancelled {
+            1
+        } else {
+            0
+        }
     } else {
         0
     }
@@ -125,7 +130,9 @@ pub extern "C" fn vp_asyncio_lock_create() -> *mut std::ffi::c_void {
 #[no_mangle]
 pub extern "C" fn vp_asyncio_lock_free(lock: *mut std::ffi::c_void) {
     if !lock.is_null() {
-        unsafe { drop(Box::from_raw(lock as *mut Mutex<bool>)); }
+        unsafe {
+            drop(Box::from_raw(lock as *mut Mutex<bool>));
+        }
     }
 }
 
@@ -168,7 +175,9 @@ pub extern "C" fn vp_asyncio_event_create() -> *mut std::ffi::c_void {
 #[no_mangle]
 pub extern "C" fn vp_asyncio_event_free(event: *mut std::ffi::c_void) {
     if !event.is_null() {
-        unsafe { drop(Box::from_raw(event as *mut Mutex<bool>)); }
+        unsafe {
+            drop(Box::from_raw(event as *mut Mutex<bool>));
+        }
     }
 }
 
@@ -180,7 +189,11 @@ pub extern "C" fn vp_asyncio_event_is_set(event: *mut std::ffi::c_void) -> i64 {
     unsafe {
         let mutex = &*(event as *mut Mutex<bool>);
         let set = mutex.lock().unwrap();
-        if *set { 1 } else { 0 }
+        if *set {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -239,7 +252,9 @@ pub extern "C" fn vp_asyncio_queue_create(maxsize: i64) -> *mut std::ffi::c_void
 #[no_mangle]
 pub extern "C" fn vp_asyncio_queue_free(queue: *mut std::ffi::c_void) {
     if !queue.is_null() {
-        unsafe { drop(Box::from_raw(queue as *mut Mutex<Vec<i64>>)); }
+        unsafe {
+            drop(Box::from_raw(queue as *mut Mutex<Vec<i64>>));
+        }
     }
 }
 
@@ -256,7 +271,11 @@ pub extern "C" fn vp_asyncio_queue_size(queue: *mut std::ffi::c_void) -> i64 {
 
 #[no_mangle]
 pub extern "C" fn vp_asyncio_queue_empty(queue: *mut std::ffi::c_void) -> i64 {
-    if vp_asyncio_queue_size(queue) == 0 { 1 } else { 0 }
+    if vp_asyncio_queue_size(queue) == 0 {
+        1
+    } else {
+        0
+    }
 }
 
 #[no_mangle]
@@ -303,7 +322,9 @@ pub extern "C" fn vp_asyncio_semaphore_create(value: i64) -> *mut std::ffi::c_vo
 #[no_mangle]
 pub extern "C" fn vp_asyncio_semaphore_free(sem: *mut std::ffi::c_void) {
     if !sem.is_null() {
-        unsafe { drop(Box::from_raw(sem as *mut Mutex<i64>)); }
+        unsafe {
+            drop(Box::from_raw(sem as *mut Mutex<i64>));
+        }
     }
 }
 
@@ -347,7 +368,9 @@ pub extern "C" fn vp_asyncio_timeout_create(seconds: f64) -> *mut std::ffi::c_vo
 #[no_mangle]
 pub extern "C" fn vp_asyncio_timeout_free(timeout: *mut std::ffi::c_void) {
     if !timeout.is_null() {
-        unsafe { drop(Box::from_raw(timeout as *mut Mutex<Instant>)); }
+        unsafe {
+            drop(Box::from_raw(timeout as *mut Mutex<Instant>));
+        }
     }
 }
 
@@ -359,6 +382,10 @@ pub extern "C" fn vp_asyncio_timeout_expired(timeout: *mut std::ffi::c_void) -> 
     unsafe {
         let t = &*(timeout as *mut Mutex<Instant>);
         let deadline = t.lock().unwrap();
-        if Instant::now() >= *deadline { 1 } else { 0 }
+        if Instant::now() >= *deadline {
+            1
+        } else {
+            0
+        }
     }
 }

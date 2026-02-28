@@ -13,10 +13,10 @@ fn pcg_init(seed: u64, seq: u64) {
         let mut s = state.borrow_mut();
         s.0 = 0;
         s.1 = (seq << 1) | 1;
-        
+
         let old_state = s.0;
         s.0 = old_state.wrapping_mul(6364136223846793005).wrapping_add(s.1);
-        
+
         s.0 = old_state.wrapping_add(seed);
         let old_state = s.0;
         s.0 = old_state.wrapping_mul(6364136223846793005).wrapping_add(s.1);
@@ -29,7 +29,7 @@ fn pcg_next() -> u64 {
         let mut s = state.borrow_mut();
         let old_state = s.0;
         s.0 = old_state.wrapping_mul(6364136223846793005).wrapping_add(s.1);
-        
+
         let xorshifted = (((old_state >> 18) ^ old_state) >> 27) as u32;
         let rot = (old_state >> 59) as u32;
         ((xorshifted >> rot) | (xorshifted << (rot.wrapping_neg() & 31))) as u64
@@ -58,11 +58,11 @@ pub extern "C" fn vp_random_random() -> f64 {
 #[no_mangle]
 pub extern "C" fn vp_random_randint(a: i64, b: i64) -> i64 {
     ensure_initialized();
-    
+
     let (min, max) = if a > b { (b, a) } else { (a, b) };
     let range = (max - min + 1) as u64;
     let r = pcg_next();
-    
+
     min + (r % range) as i64
 }
 
@@ -78,12 +78,24 @@ pub extern "C" fn vp_random_seed_secure() {
     if let Ok(random_bytes) = std::fs::read("/dev/urandom") {
         if random_bytes.len() >= 16 {
             let seed = u64::from_ne_bytes([
-                random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3],
-                random_bytes[4], random_bytes[5], random_bytes[6], random_bytes[7],
+                random_bytes[0],
+                random_bytes[1],
+                random_bytes[2],
+                random_bytes[3],
+                random_bytes[4],
+                random_bytes[5],
+                random_bytes[6],
+                random_bytes[7],
             ]);
             let seq = u64::from_ne_bytes([
-                random_bytes[8], random_bytes[9], random_bytes[10], random_bytes[11],
-                random_bytes[12], random_bytes[13], random_bytes[14], random_bytes[15],
+                random_bytes[8],
+                random_bytes[9],
+                random_bytes[10],
+                random_bytes[11],
+                random_bytes[12],
+                random_bytes[13],
+                random_bytes[14],
+                random_bytes[15],
             ]);
             pcg_init(seed, seq);
             PCG_INITIALIZED.with(|init| *init.borrow_mut() = true);
@@ -91,10 +103,12 @@ pub extern "C" fn vp_random_seed_secure() {
         }
     }
     // Fallback to time-based seed
-    vp_random_seed(std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos() as i64);
+    vp_random_seed(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as i64,
+    );
 }
 
 #[no_mangle]
@@ -149,7 +163,7 @@ pub extern "C" fn vp_random_gauss() -> f64 {
 
     SPARE.with(|s| *s.borrow_mut() = spare);
     HAS_SPARE.with(|h| *h.borrow_mut() = true);
-    
+
     u * multiplier
 }
 
@@ -176,7 +190,11 @@ pub extern "C" fn vp_random_sample(list: *mut std::ffi::c_void, k: i64) -> *mut 
 
 #[no_mangle]
 pub extern "C" fn vp_random_bool(probability: f64) -> i64 {
-    if vp_random_random() < probability { 1 } else { 0 }
+    if vp_random_random() < probability {
+        1
+    } else {
+        0
+    }
 }
 
 #[no_mangle]
@@ -214,11 +232,11 @@ pub extern "C" fn vp_random_randbytes(n: i64) -> *mut i8 {
     if n <= 0 {
         return std::ptr::null_mut();
     }
-    
+
     let mut bytes = Vec::with_capacity(n as usize);
     for _ in 0..n {
         bytes.push((pcg_next() & 0xFF) as i8);
     }
-    
+
     bytes.as_mut_ptr()
 }

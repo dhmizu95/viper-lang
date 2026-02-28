@@ -23,7 +23,9 @@ pub extern "C" fn vp_select_fdset_create() -> *mut std::ffi::c_void {
 #[no_mangle]
 pub extern "C" fn vp_select_fdset_free(fdset: *mut std::ffi::c_void) {
     if !fdset.is_null() {
-        unsafe { drop(Box::from_raw(fdset as *mut Vec<i64>)); }
+        unsafe {
+            drop(Box::from_raw(fdset as *mut Vec<i64>));
+        }
     }
 }
 
@@ -60,7 +62,11 @@ pub extern "C" fn vp_select_fdset_contains(fdset: *mut std::ffi::c_void, fd: i64
     }
     unsafe {
         let set = &*(fdset as *mut Vec<i64>);
-        if set.contains(&fd) { 1 } else { 0 }
+        if set.contains(&fd) {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -92,7 +98,7 @@ pub extern "C" fn vp_select_select(
     let _ = write_fds;
     let _ = error_fds;
     let _ = timeout;
-    
+
     // Return empty result
     let result = Box::new(SelectResult {
         readable: Vec::new(),
@@ -100,14 +106,16 @@ pub extern "C" fn vp_select_select(
         error: Vec::new(),
         count: 0,
     });
-    
+
     Box::into_raw(result) as *mut std::ffi::c_void
 }
 
 #[no_mangle]
 pub extern "C" fn vp_select_result_free(result: *mut std::ffi::c_void) {
     if !result.is_null() {
-        unsafe { drop(Box::from_raw(result as *mut SelectResult)); }
+        unsafe {
+            drop(Box::from_raw(result as *mut SelectResult));
+        }
     }
 }
 
@@ -162,7 +170,7 @@ pub extern "C" fn vp_poll_result_free(result: *mut std::ffi::c_void) {
 // Epoll (Linux-specific, simplified)
 #[no_mangle]
 pub extern "C" fn vp_epoll_create() -> i64 {
-    -1  // Not implemented
+    -1 // Not implemented
 }
 
 #[no_mangle]
@@ -190,25 +198,41 @@ pub extern "C" fn vp_epoll_wait(epfd: i64, timeout_ms: i64) -> *mut std::ffi::c_
 
 // Epoll constants
 #[no_mangle]
-pub extern "C" fn vp_epollin() -> i64 { 0x001 }
+pub extern "C" fn vp_epollin() -> i64 {
+    0x001
+}
 
 #[no_mangle]
-pub extern "C" fn vp_epollout() -> i64 { 0x004 }
+pub extern "C" fn vp_epollout() -> i64 {
+    0x004
+}
 
 #[no_mangle]
-pub extern "C" fn vp_epollerr() -> i64 { 0x008 }
+pub extern "C" fn vp_epollerr() -> i64 {
+    0x008
+}
 
 #[no_mangle]
-pub extern "C" fn vp_epollhup() -> i64 { 0x010 }
+pub extern "C" fn vp_epollhup() -> i64 {
+    0x010
+}
 
 #[no_mangle]
-pub extern "C" fn vp_epollet() -> i64 { 0x80000000 }
+pub extern "C" fn vp_epollet() -> i64 {
+    0x80000000
+}
 
 #[no_mangle]
-pub extern "C" fn vp_epoll_ctl_add() -> i64 { 1 }
+pub extern "C" fn vp_epoll_ctl_add() -> i64 {
+    1
+}
 
 #[no_mangle]
-pub extern "C" fn vp_epoll_ctl_mod() -> i64 { 2 }
+pub extern "C" fn vp_epoll_ctl_mod() -> i64 {
+    2
+}
 
 #[no_mangle]
-pub extern "C" fn vp_epoll_ctl_del() -> i64 { 3 }
+pub extern "C" fn vp_epoll_ctl_del() -> i64 {
+    3
+}

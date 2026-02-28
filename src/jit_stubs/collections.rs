@@ -1,8 +1,8 @@
 // Collections module stubs for JIT - Phase 2
 // Deque, Counter, OrderedDict, defaultdict, NamedTuple
 
-use std::collections::VecDeque;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 
 /* ============================================ */
 // Deque (Double-ended queue)
@@ -19,21 +19,27 @@ pub extern "C" fn vp_deque_create() -> *mut ViperDeque {
 #[no_mangle]
 pub extern "C" fn vp_deque_free(dq: *mut ViperDeque) {
     if !dq.is_null() {
-        unsafe { drop(Box::from_raw(dq)); }
+        unsafe {
+            drop(Box::from_raw(dq));
+        }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn vp_deque_append(dq: *mut ViperDeque, value: i64) {
     if !dq.is_null() {
-        unsafe { (*dq).push_back(value); }
+        unsafe {
+            (*dq).push_back(value);
+        }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn vp_deque_appendleft(dq: *mut ViperDeque, value: i64) {
     if !dq.is_null() {
-        unsafe { (*dq).push_front(value); }
+        unsafe {
+            (*dq).push_front(value);
+        }
     }
 }
 
@@ -72,7 +78,9 @@ pub extern "C" fn vp_deque_len(dq: *mut ViperDeque) -> i64 {
 #[no_mangle]
 pub extern "C" fn vp_deque_clear(dq: *mut ViperDeque) {
     if !dq.is_null() {
-        unsafe { (*dq).clear(); }
+        unsafe {
+            (*dq).clear();
+        }
     }
 }
 
@@ -83,7 +91,9 @@ pub extern "C" fn vp_deque_rotate(dq: *mut ViperDeque, n: i64) {
     }
     unsafe {
         let len = (*dq).len();
-        if len == 0 { return; }
+        if len == 0 {
+            return;
+        }
         let n = n.rem_euclid(len as i64) as usize;
         if n > 0 {
             (*dq).rotate_right(n);
@@ -135,7 +145,11 @@ pub extern "C" fn vp_deque_contains(dq: *mut ViperDeque, value: i64) -> i64 {
         return 0;
     }
     unsafe {
-        if (*dq).contains(&value) { 1 } else { 0 }
+        if (*dq).contains(&value) {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -168,7 +182,9 @@ pub extern "C" fn vp_counter_create() -> *mut ViperCounter {
 #[no_mangle]
 pub extern "C" fn vp_counter_free(counter: *mut ViperCounter) {
     if !counter.is_null() {
-        unsafe { drop(Box::from_raw(counter)); }
+        unsafe {
+            drop(Box::from_raw(counter));
+        }
     }
 }
 
@@ -233,7 +249,9 @@ pub extern "C" fn vp_counter_len(counter: *mut ViperCounter) -> i64 {
 #[no_mangle]
 pub extern "C" fn vp_counter_clear(counter: *mut ViperCounter) {
     if !counter.is_null() {
-        unsafe { (*counter).clear(); }
+        unsafe {
+            (*counter).clear();
+        }
     }
 }
 
@@ -248,17 +266,16 @@ pub struct ViperOrderedDict {
 
 #[no_mangle]
 pub extern "C" fn vp_ordered_dict_create() -> *mut ViperOrderedDict {
-    let od = Box::new(ViperOrderedDict {
-        map: HashMap::new(),
-        order: Vec::new(),
-    });
+    let od = Box::new(ViperOrderedDict { map: HashMap::new(), order: Vec::new() });
     Box::into_raw(od)
 }
 
 #[no_mangle]
 pub extern "C" fn vp_ordered_dict_free(od: *mut ViperOrderedDict) {
     if !od.is_null() {
-        unsafe { drop(Box::from_raw(od)); }
+        unsafe {
+            drop(Box::from_raw(od));
+        }
     }
 }
 
@@ -302,7 +319,11 @@ pub extern "C" fn vp_ordered_dict_contains(od: *mut ViperOrderedDict, key: *cons
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(key);
         if let Ok(key_str) = c_str.to_str() {
-            if (*od).map.contains_key(key_str) { 1 } else { 0 }
+            if (*od).map.contains_key(key_str) {
+                1
+            } else {
+                0
+            }
         } else {
             0
         }
@@ -341,7 +362,11 @@ pub extern "C" fn vp_ordered_dict_values(_od: *mut ViperOrderedDict) -> *mut std
 }
 
 #[no_mangle]
-pub extern "C" fn vp_ordered_dict_move_to_end(od: *mut ViperOrderedDict, key: *const i8, last: i64) {
+pub extern "C" fn vp_ordered_dict_move_to_end(
+    od: *mut ViperOrderedDict,
+    key: *const i8,
+    last: i64,
+) {
     if od.is_null() || key.is_null() {
         return;
     }
@@ -374,17 +399,16 @@ pub struct ViperDefaultDict {
 
 #[no_mangle]
 pub extern "C" fn vp_default_dict_create(default_value: i64) -> *mut ViperDefaultDict {
-    let dd = Box::new(ViperDefaultDict {
-        map: HashMap::new(),
-        default_value,
-    });
+    let dd = Box::new(ViperDefaultDict { map: HashMap::new(), default_value });
     Box::into_raw(dd)
 }
 
 #[no_mangle]
 pub extern "C" fn vp_default_dict_free(dd: *mut ViperDefaultDict) {
     if !dd.is_null() {
-        unsafe { drop(Box::from_raw(dd)); }
+        unsafe {
+            drop(Box::from_raw(dd));
+        }
     }
 }
 
@@ -445,7 +469,9 @@ pub extern "C" fn vp_named_tuple_create(size: i64) -> *mut ViperNamedTuple {
 #[no_mangle]
 pub extern "C" fn vp_named_tuple_free(nt: *mut ViperNamedTuple) {
     if !nt.is_null() {
-        unsafe { drop(Box::from_raw(nt)); }
+        unsafe {
+            drop(Box::from_raw(nt));
+        }
     }
 }
 

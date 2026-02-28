@@ -17,7 +17,7 @@ pub extern "C" fn vp_os_chdir(path: *const i8) -> i64 {
     if path.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -38,18 +38,18 @@ pub extern "C" fn vp_os_listdir(_path: *const i8) -> *mut std::ffi::c_void {
 }
 
 pub extern "C" fn vp_os_path_join(a: *const i8, b: *const i8) -> *mut i8 {
-    let a_str = if a.is_null() { "" } else {
-        unsafe {
-            std::ffi::CStr::from_ptr(a).to_str().unwrap_or("")
-        }
+    let a_str = if a.is_null() {
+        ""
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(a).to_str().unwrap_or("") }
     };
-    
-    let b_str = if b.is_null() { "" } else {
-        unsafe {
-            std::ffi::CStr::from_ptr(b).to_str().unwrap_or("")
-        }
+
+    let b_str = if b.is_null() {
+        ""
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(b).to_str().unwrap_or("") }
     };
-    
+
     let path = Path::new(a_str).join(b_str);
     let path_str = path.to_string_lossy();
     let c_str = std::ffi::CString::new(path_str.as_bytes()).unwrap();
@@ -60,7 +60,7 @@ pub extern "C" fn vp_os_getenv(name: *const i8) -> *const i8 {
     if name.is_null() {
         return std::ptr::null();
     }
-    
+
     unsafe {
         let name_str = std::ffi::CStr::from_ptr(name);
         if let Ok(name_rust) = name_str.to_str() {
@@ -77,7 +77,7 @@ pub extern "C" fn vp_os_mkdir(path: *const i8, _mode: i64) -> i64 {
     if path.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -95,7 +95,7 @@ pub extern "C" fn vp_os_makedirs(path: *const i8, _mode: i64) -> i64 {
     if path.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -113,7 +113,7 @@ pub extern "C" fn vp_os_remove(path: *const i8) -> i64 {
     if path.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -143,7 +143,7 @@ pub extern "C" fn vp_os_path_exists(path: *const i8) -> i64 {
     if path.is_null() {
         return 0;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -158,7 +158,7 @@ pub extern "C" fn vp_os_path_isfile(path: *const i8) -> i64 {
     if path.is_null() {
         return 0;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -173,7 +173,7 @@ pub extern "C" fn vp_os_path_isdir(path: *const i8) -> i64 {
     if path.is_null() {
         return 0;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -188,7 +188,7 @@ pub extern "C" fn vp_os_path_getsize(path: *const i8) -> i64 {
     if path.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -206,11 +206,13 @@ pub extern "C" fn vp_os_path_abspath(path: *const i8) -> *mut i8 {
     if path.is_null() {
         return std::ptr::null_mut();
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
-            let abs_path = Path::new(path_rust).canonicalize().unwrap_or_else(|_| Path::new(path_rust).to_path_buf());
+            let abs_path = Path::new(path_rust)
+                .canonicalize()
+                .unwrap_or_else(|_| Path::new(path_rust).to_path_buf());
             let path_string = abs_path.to_string_lossy();
             let c_str = std::ffi::CString::new(path_string.as_bytes()).unwrap();
             c_str.into_raw()
@@ -224,7 +226,7 @@ pub extern "C" fn vp_os_path_basename(path: *const i8) -> *mut i8 {
     if path.is_null() {
         return std::ptr::null_mut();
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -245,7 +247,7 @@ pub extern "C" fn vp_os_path_dirname(path: *const i8) -> *mut i8 {
     if path.is_null() {
         return std::ptr::null_mut();
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -263,11 +265,11 @@ pub extern "C" fn vp_os_rename(src: *const i8, dst: *const i8) -> i64 {
     if src.is_null() || dst.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let src_str = std::ffi::CStr::from_ptr(src);
         let dst_str = std::ffi::CStr::from_ptr(dst);
-        
+
         if let (Ok(src_rust), Ok(dst_rust)) = (src_str.to_str(), dst_str.to_str()) {
             match fs::rename(src_rust, dst_rust) {
                 Ok(_) => 0,
@@ -283,11 +285,11 @@ pub extern "C" fn vp_os_copy(src: *const i8, dst: *const i8) -> i64 {
     if src.is_null() || dst.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let src_str = std::ffi::CStr::from_ptr(src);
         let dst_str = std::ffi::CStr::from_ptr(dst);
-        
+
         if let (Ok(src_rust), Ok(dst_rust)) = (src_str.to_str(), dst_str.to_str()) {
             match fs::copy(src_rust, dst_rust) {
                 Ok(_) => 0,
@@ -300,8 +302,7 @@ pub extern "C" fn vp_os_copy(src: *const i8, dst: *const i8) -> i64 {
 }
 
 pub extern "C" fn vp_os_get_home() -> *mut i8 {
-    if let Some(home) = env::var("HOME").ok()
-        .or_else(|| env::var("USERPROFILE").ok()) {
+    if let Some(home) = env::var("HOME").ok().or_else(|| env::var("USERPROFILE").ok()) {
         let c_str = std::ffi::CString::new(home).unwrap();
         c_str.into_raw()
     } else {
@@ -324,14 +325,18 @@ pub extern "C" fn vp_os_stat(
     if path.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
             match fs::metadata(path_rust) {
                 Ok(meta) => {
-                    if !size.is_null() { *size = meta.len() as i64; }
-                    if !mode.is_null() { *mode = 0; } // Mode not easily available in Rust std
+                    if !size.is_null() {
+                        *size = meta.len() as i64;
+                    }
+                    if !mode.is_null() {
+                        *mode = 0;
+                    } // Mode not easily available in Rust std
                     if !mtime.is_null() {
                         if let Ok(m) = meta.modified() {
                             if let Ok(d) = m.duration_since(std::time::UNIX_EPOCH) {
@@ -339,8 +344,12 @@ pub extern "C" fn vp_os_stat(
                             }
                         }
                     }
-                    if !is_dir.is_null() { *is_dir = meta.is_dir() as i64; }
-                    if !is_file.is_null() { *is_file = meta.is_file() as i64; }
+                    if !is_dir.is_null() {
+                        *is_dir = meta.is_dir() as i64;
+                    }
+                    if !is_file.is_null() {
+                        *is_file = meta.is_file() as i64;
+                    }
                     0
                 }
                 Err(_) => -1,

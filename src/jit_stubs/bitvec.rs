@@ -9,11 +9,11 @@ pub struct ViperList {
     pub ref_count: i64,
     pub length: i64,
     pub capacity: i64,
-    pub elem_type: i64,  // ViperListType (i32 but aligned to 8 bytes)
-    pub data: *mut c_void,   // Union pointer - for bit vectors: *mut Vec<u64>
+    pub elem_type: i64,    // ViperListType (i32 but aligned to 8 bytes)
+    pub data: *mut c_void, // Union pointer - for bit vectors: *mut Vec<u64>
 }
 
-const VIPER_LIST_BITVEC: i64 = 7;  // Must match viper_types.h
+const VIPER_LIST_BITVEC: i64 = 7; // Must match viper_types.h
 
 /// Get the word index for a given bit index
 fn word_index(bit_index: i64) -> usize {
@@ -72,7 +72,7 @@ pub extern "C" fn vp_bitvec_create_with_capacity_stub(cap: i64) -> *mut ViperLis
 pub extern "C" fn vp_bitvec_repeat_stub(elem: bool, count: i64) -> *mut ViperList {
     let words = words_needed(count);
     let mut vec = Vec::<u64>::with_capacity(words);
-    
+
     if elem {
         // Set all bits to 1
         for _ in 0..words {
@@ -90,7 +90,7 @@ pub extern "C" fn vp_bitvec_repeat_stub(elem: bool, count: i64) -> *mut ViperLis
         // All bits 0
         vec.resize(words, 0u64);
     }
-    
+
     let data_ptr = Box::into_raw(Box::new(vec)) as *mut c_void;
 
     let list = Box::new(ViperList {
@@ -155,20 +155,20 @@ pub extern "C" fn vp_bitvec_get_stub(list: *mut ViperList, index: i64) -> bool {
     unsafe {
         let list_ref = &*list;
         let mut idx = index;
-        
+
         // Handle negative indexing
         if idx < 0 {
             idx = list_ref.length + idx;
         }
-        
+
         if idx < 0 || idx >= list_ref.length {
             return false;
         }
-        
+
         let vec = &*(list_ref.data as *mut Vec<u64>);
         let word_idx = word_index(idx);
         let mask = bit_mask(idx);
-        
+
         (vec[word_idx] & mask) != 0
     }
 }
@@ -181,17 +181,17 @@ pub extern "C" fn vp_bitvec_set_stub(list: *mut ViperList, index: i64, value: bo
     unsafe {
         let list_ref = &mut *list;
         let mut idx = index;
-        
+
         // Handle negative indexing
         if idx < 0 {
             idx = list_ref.length + idx;
         }
-        
+
         if idx >= 0 && idx < list_ref.length {
             let vec = &mut *(list_ref.data as *mut Vec<u64>);
             let word_idx = word_index(idx);
             let mask = bit_mask(idx);
-            
+
             if value {
                 vec[word_idx] |= mask;
             } else {
@@ -262,33 +262,33 @@ pub extern "C" fn vp_bitvec_remove_stub(list: *mut ViperList, index: i64) -> boo
     }
     unsafe {
         let list_ref = &mut *list;
-        
+
         if index < 0 || index >= list_ref.length {
             return false;
         }
-        
+
         let vec = &mut *(list_ref.data as *mut Vec<u64>);
         let value = (vec[word_index(index) as usize] & bit_mask(index)) != 0;
-        
+
         // Shift bits to the left
         for i in index..list_ref.length - 1 {
             let bit = (vec[word_index(i + 1) as usize] & bit_mask(i + 1)) != 0;
             let word_idx = word_index(i);
             let mask = bit_mask(i);
-            
+
             if bit {
                 vec[word_idx as usize] |= mask;
             } else {
                 vec[word_idx as usize] &= !mask;
             }
         }
-        
+
         // Clear the last bit
         list_ref.length -= 1;
         let last_word = word_index(list_ref.length);
         let last_mask = bit_mask(list_ref.length);
         vec[last_word as usize] &= !last_mask;
-        
+
         value
     }
 }
@@ -300,11 +300,11 @@ pub extern "C" fn vp_bitvec_pop_stub(list: *mut ViperList) -> bool {
     }
     unsafe {
         let list_ref = &mut *list;
-        
+
         if list_ref.length == 0 {
             return false;
         }
-        
+
         list_ref.length -= 1;
         vp_bitvec_get_stub(list, list_ref.length)
     }
@@ -334,7 +334,7 @@ pub extern "C" fn vp_bitvec_contains_stub(list: *mut ViperList, value: bool) -> 
         let list_ref = &*list;
         let vec = &*(list_ref.data as *mut Vec<u64>);
         let words = words_needed(list_ref.length);
-        
+
         if value {
             // Check if any bit is set
             for i in 0..words {
@@ -395,7 +395,7 @@ pub extern "C" fn vp_bitvec_slice_stub(
         let list_ref = &*list;
         let mut s = start;
         let mut e = end;
-        
+
         // Handle negative indices
         if s < 0 {
             s = list_ref.length + s;
@@ -403,7 +403,7 @@ pub extern "C" fn vp_bitvec_slice_stub(
         if e < 0 {
             e = list_ref.length + e;
         }
-        
+
         // Clamp to valid range
         if s < 0 {
             s = 0;
@@ -414,15 +414,15 @@ pub extern "C" fn vp_bitvec_slice_stub(
         if s >= e {
             return vp_bitvec_create_stub();
         }
-        
+
         let mut step_val = step;
         if step_val == 0 {
             step_val = 1;
         }
-        
+
         let mut result_vec = Vec::<u64>::new();
         let mut result_len = 0i64;
-        
+
         if step_val > 0 {
             let mut i = s;
             while i < e {
@@ -455,7 +455,7 @@ pub extern "C" fn vp_bitvec_slice_stub(
                 i += step_val;
             }
         }
-        
+
         let data_ptr = Box::into_raw(Box::new(result_vec)) as *mut c_void;
 
         let result_list = Box::new(ViperList {
@@ -590,7 +590,7 @@ pub extern "C" fn vp_bitvec_reverse_stub(list: *mut ViperList) {
         let list_ref = &mut *list;
         let mut left = 0i64;
         let mut right = list_ref.length - 1;
-        
+
         while left < right {
             let left_val = vp_bitvec_get_stub(list, left);
             let right_val = vp_bitvec_get_stub(list, right);
@@ -613,7 +613,10 @@ pub extern "C" fn vp_bitvec_reversed_stub(list: *mut ViperList) -> *mut ViperLis
 }
 
 /// Concatenate two bit vectors - JIT stub
-pub extern "C" fn vp_bitvec_concat_stub(vec1: *mut ViperList, vec2: *mut ViperList) -> *mut ViperList {
+pub extern "C" fn vp_bitvec_concat_stub(
+    vec1: *mut ViperList,
+    vec2: *mut ViperList,
+) -> *mut ViperList {
     if vec1.is_null() || vec2.is_null() {
         return std::ptr::null_mut();
     }

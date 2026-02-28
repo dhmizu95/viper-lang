@@ -10,9 +10,7 @@ struct JitChannel {
 
 impl JitChannel {
     fn new() -> Self {
-        JitChannel {
-            buffer: VecDeque::new(),
-        }
+        JitChannel { buffer: VecDeque::new() }
     }
 
     fn send(&mut self, value: i64) {
@@ -31,10 +29,7 @@ struct JitConcurrency {
 
 impl JitConcurrency {
     fn new() -> Self {
-        JitConcurrency {
-            channels: Vec::new(),
-            wg_count: 0,
-        }
+        JitConcurrency { channels: Vec::new(), wg_count: 0 }
     }
 }
 
@@ -113,7 +108,10 @@ pub extern "C" fn vp_shutdown_threadpool() {
     // No-op for JIT
 }
 
-pub extern "C" fn vp_submit_task(func: extern "C" fn(*mut std::ffi::c_void), data: *mut std::ffi::c_void) {
+pub extern "C" fn vp_submit_task(
+    func: extern "C" fn(*mut std::ffi::c_void),
+    data: *mut std::ffi::c_void,
+) {
     // For JIT: execute the task synchronously
     // This is a simplified implementation that runs tasks inline
     if !data.is_null() {
@@ -138,11 +136,8 @@ pub extern "C" fn vp_future_await(future: i64) -> i64 {
 // Async range for "async for i in async_range(n)"
 pub extern "C" fn vp_async_range_create(start: i64, end: i64, step: i64) -> *mut std::ffi::c_void {
     // Allocate a simple range struct
-    let range = Box::new(JitAsyncRange {
-        current: start,
-        end,
-        step: if step == 0 { 1 } else { step },
-    });
+    let range =
+        Box::new(JitAsyncRange { current: start, end, step: if step == 0 { 1 } else { step } });
     Box::into_raw(range) as *mut std::ffi::c_void
 }
 
@@ -151,11 +146,11 @@ pub extern "C" fn vp_async_range_next(range_ptr: *mut std::ffi::c_void) -> i64 {
         return -1;
     }
     let range = unsafe { &mut *(range_ptr as *mut JitAsyncRange) };
-    
+
     if range.current >= range.end {
-        return -1;  // StopAsyncIteration
+        return -1; // StopAsyncIteration
     }
-    
+
     let value = range.current;
     range.current += range.step;
     value
@@ -179,7 +174,10 @@ pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
     vp_async_range_next(iterator)
 }
 
-pub extern "C" fn vp_async_spawn(_func: extern "C" fn(*mut std::ffi::c_void), _arg: *mut std::ffi::c_void) -> i64 {
+pub extern "C" fn vp_async_spawn(
+    _func: extern "C" fn(*mut std::ffi::c_void),
+    _arg: *mut std::ffi::c_void,
+) -> i64 {
     // Same as vp_submit_task for now
     0
 }

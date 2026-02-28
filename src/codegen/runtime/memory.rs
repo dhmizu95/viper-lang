@@ -26,7 +26,7 @@ pub fn declare_memory_functions<'ctx>(
 
     // malloc and free for heap allocations (used for task closures)
     let i64_type = context.i64_type();
-    
+
     // vp_release_batch_local(ptrs, count)
     let release_batch_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_release_batch_local", release_batch_type, None);
