@@ -1,0 +1,17 @@
+# Debug BigInt test
+
+x = 123456789012345678901234567890
+print("x type check")
+print(x)
+
+y = 987654321098765432109876543210
+print("y type check")
+print(y)
+
+print("About to add")
+z = x + y
+print("z = x + y")
+print(z)
+
+print("Direct add")
+print(x + y)

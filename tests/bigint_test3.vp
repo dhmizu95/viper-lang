@@ -1,0 +1,11 @@
+# Test to check if x and y are marked as BigInt
+
+x = 123456789012345678901234567890
+y = 987654321098765432109876543210
+
+# This should work
+print(x)
+print(y)
+
+# Check if x + y works
+print(x + y)

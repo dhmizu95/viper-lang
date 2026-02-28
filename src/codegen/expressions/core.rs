@@ -56,6 +56,7 @@ pub fn generate_tuple<'ctx>(
     Ok(struct_value.into())
 }
 
+/// Infer expression type without state (for static analysis)
 pub fn infer_expr_type(expr: &Expr) -> Type {
     match expr {
         Expr::Int(_, _) => Type::I64,
@@ -65,7 +66,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Str(_, _) => Type::Str,
         Expr::Bytes(_, _) => Type::Bytes,
         Expr::None(_) => Type::None,
-        Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
+        Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen via state
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
@@ -91,10 +92,23 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         }
         Expr::Tuple { elements, .. } => Type::Tuple(elements.iter().map(infer_expr_type).collect()),
         Expr::Dict { .. } => Type::Var("dict".to_string()),
-        Expr::BinOp { op: _, left, right, .. } => {
+        Expr::BinOp { op, left, right, .. } => {
             let lt = infer_expr_type(left);
             let rt = infer_expr_type(right);
-            if lt == Type::F64 || rt == Type::F64 {
+            
+            // BigInt operations: if either operand is BigInt, result is BigInt
+            // (except for comparison operators which return bool)
+            if lt == Type::BigInt || rt == Type::BigInt {
+                use crate::ast::BinOp;
+                match op {
+                    // Comparison operators return bool
+                    BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq => {
+                        Type::Bool
+                    }
+                    // All other operations on BigInt return BigInt
+                    _ => Type::BigInt,
+                }
+            } else if lt == Type::F64 || rt == Type::F64 {
                 Type::F64
             } else {
                 Type::I64
@@ -110,6 +124,48 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Conditional { .. } => Type::Infer,
         Expr::ListComprehension { .. } => Type::List(Box::new(Type::Infer)),
         Expr::AssignmentExpr { value, .. } => infer_expr_type(value),
+    }
+}
+
+/// Get expression type with state awareness (resolves identifiers)
+pub fn get_expr_type_with_state<'a, 'ctx>(
+    expr: &Expr,
+    state: &crate::codegen::state::CodeGenState<'a, 'ctx>,
+) -> Type {
+    match expr {
+        Expr::Ident(name, _) => {
+            // Check state for variable type
+            if state.is_bigint(name) {
+                Type::BigInt
+            } else if state.is_list(name) {
+                Type::Infer // List type
+            } else if state.is_dict(name) {
+                Type::Infer // Dict type
+            } else {
+                Type::Infer
+            }
+        }
+        Expr::BinOp { op, left, right, .. } => {
+            let lt = get_expr_type_with_state(left, state);
+            let rt = get_expr_type_with_state(right, state);
+            
+            // BigInt operations: if either operand is BigInt, result is BigInt
+            if lt == Type::BigInt || rt == Type::BigInt {
+                use crate::ast::BinOp;
+                match op {
+                    BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq => {
+                        Type::Bool
+                    }
+                    _ => Type::BigInt,
+                }
+            } else if lt == Type::F64 || rt == Type::F64 {
+                Type::F64
+            } else {
+                Type::I64
+            }
+        }
+        // For other expressions, use the basic infer
+        _ => infer_expr_type(expr),
     }
 }
 

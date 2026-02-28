@@ -1,8 +1,8 @@
 //! Expression code generation for Viper - Operators
 
-use crate::ast::{BinOp, Expr, UnaryOp};
+use crate::ast::{BinOp, Expr, Type, UnaryOp};
 use crate::codegen::expressions::bigint::generate_bigint_binop;
-use crate::codegen::expressions::core::generate_expr;
+use crate::codegen::expressions::core::{generate_expr, get_expr_type_with_state};
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
@@ -122,6 +122,16 @@ pub fn generate_binop<'ctx>(
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
 
+    // Handle BigInt arithmetic and comparison operations FIRST
+    // (BigInt values are pointers, so this must come before pointer checks)
+    let is_bigint_expr = |expr: &Expr| -> bool {
+        get_expr_type_with_state(expr, state) == Type::BigInt
+    };
+
+    if is_bigint_expr(left) || is_bigint_expr(right) {
+        return generate_bigint_binop(state, left, op, right);
+    }
+
     // Handle string concatenation with + operator
     if *op == BinOp::Add {
         // Check if both operands are strings (pointer types)
@@ -190,20 +200,8 @@ pub fn generate_binop<'ctx>(
     }
 
     // Handle comparison operators on pointers (identity comparison)
-    // But skip for BigInt - we handle BigInt comparison separately
-    let is_bigint_expr = |expr: &Expr| -> bool {
-        match expr {
-            Expr::BigInt(_, _) => true,
-            Expr::Ident(name, _) => state.is_bigint(name),
-            _ => false,
-        }
-    };
-
-    if lhs_val.is_pointer_value()
-        && rhs_val.is_pointer_value()
-        && !is_bigint_expr(left)
-        && !is_bigint_expr(right)
-    {
+    // (BigInt already handled above, so this is safe for non-BigInt pointers)
+    if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
         return comparison::generate_pointer_binop(
             state.builder,
             state.context,
@@ -211,11 +209,6 @@ pub fn generate_binop<'ctx>(
             rhs_val,
             op,
         );
-    }
-
-    // Handle BigInt arithmetic operations
-    if is_bigint_expr(left) || is_bigint_expr(right) {
-        return generate_bigint_binop(state, left, op, right);
     }
 
     // Reject pointer values in arithmetic operations (except for Add with strings, handled above)

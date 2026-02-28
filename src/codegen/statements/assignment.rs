@@ -153,6 +153,23 @@ pub(crate) fn generate_assign<'ctx>(
         // Check if value is BigInt
         let is_bigint = match value {
             Expr::BigInt(_, _) => true,
+            // Also check for BinOp that results in BigInt
+            Expr::BinOp { left, right, .. } => {
+                // Check if operands are BigInt literals or BigInt variables
+                let left_is_bigint = matches!(left.as_ref(), Expr::BigInt(_, _))
+                    || match left.as_ref() {
+                        Expr::Ident(name, _) => state.is_bigint(name),
+                        _ => false,
+                    };
+                let right_is_bigint = matches!(right.as_ref(), Expr::BigInt(_, _))
+                    || match right.as_ref() {
+                        Expr::Ident(name, _) => state.is_bigint(name),
+                        _ => false,
+                    };
+                left_is_bigint || right_is_bigint
+            }
+            // Check if it's an identifier that's a BigInt
+            Expr::Ident(name, _) => state.is_bigint(name),
             _ => false,
         };
 

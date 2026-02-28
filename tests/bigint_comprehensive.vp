@@ -1,0 +1,65 @@
+# Comprehensive BigInt test for JIT
+
+# Test 1: Basic BigInt literals and printing
+print("Test 1: Basic BigInt")
+a = 123456789012345678901234567890
+b = 987654321098765432109876543210
+print(a)
+print(b)
+
+# Test 2: BigInt addition in print
+print("Test 2: BigInt addition in print")
+print(a + b)
+
+# Test 3: BigInt subtraction in print
+print("Test 3: BigInt subtraction in print")
+print(a - b)
+
+# Test 4: BigInt multiplication in print
+print("Test 4: BigInt multiplication in print")
+print(a * b)
+
+# Test 5: BigInt floor division in print
+print("Test 5: BigInt floor division in print")
+print(b // a)
+
+# Test 6: BigInt modulo in print
+print("Test 6: BigInt modulo in print")
+print(b % a)
+
+# Test 7: BigInt comparison in print
+print("Test 7: BigInt comparison in print")
+print(a < b)
+print(a > b)
+print(a == b)
+
+# Test 8: BigInt with small int
+print("Test 8: BigInt with small int")
+print(a + 100)
+print(100 + a)
+print(a * 2)
+
+# Test 9: Chained BigInt operations
+print("Test 9: Chained BigInt operations")
+print(a + b + 100)
+print(a * b + a)
+
+# Test 10: BigInt in variable assignment
+print("Test 10: BigInt in variable assignment")
+c = a + b
+print(c)
+d = a * b
+print(d)
+
+# Test 11: BigInt bitwise operations
+print("Test 11: BigInt bitwise operations")
+print(a & b)
+print(a | b)
+print(a ^ b)
+
+# Test 12: BigInt shifts
+print("Test 12: BigInt shifts")
+print(a << 10)
+print(b >> 10)
+
+print("All tests passed!")

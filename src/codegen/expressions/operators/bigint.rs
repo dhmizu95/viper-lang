@@ -12,8 +12,40 @@ pub fn generate_bigint_binop<'ctx>(
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
 
-    let lhs_ptr = lhs_val.into_pointer_value();
-    let rhs_ptr = rhs_val.into_pointer_value();
+    // Convert operands to BigInt pointers if needed
+    let lhs_ptr = if lhs_val.is_pointer_value() {
+        lhs_val.into_pointer_value()
+    } else if lhs_val.is_int_value() {
+        // Convert i64 to BigInt
+        let from_i64_func = state
+            .module
+            .get_function("vp_bigint_from_i64")
+            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, from_i64_func, &[lhs_val.into()], "bigint_from_i64")
+            .expect("bigint_from_i64 call");
+        result.into_pointer_value()
+    } else {
+        return Err(format!("BigInt: invalid left operand type"));
+    };
+
+    let rhs_ptr = if rhs_val.is_pointer_value() {
+        rhs_val.into_pointer_value()
+    } else if rhs_val.is_int_value() {
+        // Convert i64 to BigInt
+        let from_i64_func = state
+            .module
+            .get_function("vp_bigint_from_i64")
+            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, from_i64_func, &[rhs_val.into()], "bigint_from_i64")
+            .expect("bigint_from_i64 call");
+        result.into_pointer_value()
+    } else {
+        return Err(format!("BigInt: invalid right operand type"));
+    };
 
     let func_name = match op {
         BinOp::Add => "vp_bigint_add",
@@ -22,11 +54,69 @@ pub fn generate_bigint_binop<'ctx>(
         BinOp::Div => "vp_bigint_div",
         BinOp::Mod => "vp_bigint_mod",
         BinOp::FloorDiv => "vp_bigint_floor_div",
-        BinOp::And => "vp_bigint_and",
-        BinOp::Or => "vp_bigint_or",
+        BinOp::BitAnd => "vp_bigint_and",
+        BinOp::BitOr => "vp_bigint_or",
         BinOp::BitXor => "vp_bigint_xor",
-        BinOp::LShift => "vp_bigint_shl",
-        BinOp::RShift => "vp_bigint_shr",
+        BinOp::LShift => {
+            // Left shift: lhs is BigInt, rhs is i64 shift amount
+            let rhs_i64 = if rhs_val.is_int_value() {
+                rhs_val.into_int_value()
+            } else if rhs_val.is_pointer_value() {
+                // Convert BigInt to i64 for shift amount
+                let to_i64_func = state
+                    .module
+                    .get_function("vp_bigint_to_i64")
+                    .ok_or_else(|| "vp_bigint_to_i64 not declared".to_string())?;
+                let result = state
+                    .ir_builder
+                    .build_call(state.builder, to_i64_func, &[rhs_val.into()], "bigint_to_i64")
+                    .expect("bigint_to_i64 call");
+                result.into_int_value()
+            } else {
+                return Err(format!("BigInt: invalid shift operand type"));
+            };
+            
+            let shift_func = state
+                .module
+                .get_function("vp_bigint_shl")
+                .ok_or_else(|| "vp_bigint_shl not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(state.builder, shift_func, &[lhs_ptr.into(), rhs_i64.into()], "bigint_shl")
+                .expect("bigint_shl call");
+            return Ok(result.into());
+        }
+        BinOp::RShift => {
+            // Right shift: lhs is BigInt, rhs is i64 shift amount
+            let rhs_i64 = if rhs_val.is_int_value() {
+                rhs_val.into_int_value()
+            } else if rhs_val.is_pointer_value() {
+                // Convert BigInt to i64 for shift amount
+                let to_i64_func = state
+                    .module
+                    .get_function("vp_bigint_to_i64")
+                    .ok_or_else(|| "vp_bigint_to_i64 not declared".to_string())?;
+                let result = state
+                    .ir_builder
+                    .build_call(state.builder, to_i64_func, &[rhs_val.into()], "bigint_to_i64")
+                    .expect("bigint_to_i64 call");
+                result.into_int_value()
+            } else {
+                return Err(format!("BigInt: invalid shift operand type"));
+            };
+            
+            let shift_func = state
+                .module
+                .get_function("vp_bigint_shr")
+                .ok_or_else(|| "vp_bigint_shr not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(state.builder, shift_func, &[lhs_ptr.into(), rhs_i64.into()], "bigint_shr")
+                .expect("bigint_shr call");
+            return Ok(result.into());
+        }
         BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq => {
             return generate_bigint_cmp(state, lhs_ptr, rhs_ptr, op);
         }

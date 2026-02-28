@@ -49,11 +49,14 @@ pub fn generate_print_call<'ctx>(
                 .build_call(print_func, &[val.into()], "print_bool")
                 .expect("vp_print_bool");
         } else if val.is_pointer_value() {
-            // Check if this is a BigInt - either direct literal or identifier
+            // Use type inference and state to detect BigInt expressions
             let is_bigint_arg = match arg {
-                Expr::BigInt(..) => true,
+                // Direct BigInt literal
+                Expr::BigInt(_, _) => true,
+                // Variable - check bigint_vars set
                 Expr::Ident(name, _) => state.is_bigint(name),
-                _ => false,
+                // Binary op or other expression - check with state awareness
+                _ => super::core::get_expr_type_with_state(arg, state) == crate::ast::Type::BigInt,
             };
 
             // Check if this is a list - if so, use vp_list_print

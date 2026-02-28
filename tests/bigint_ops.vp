@@ -1,0 +1,43 @@
+# Test BigInt operations in print statements
+
+x = 123456789012345678901234567890
+y = 987654321098765432109876543210
+
+# Test direct BigInt literal printing
+print("Direct BigInt:")
+print(x)
+print(y)
+
+# Test BigInt addition in print
+print("x + y:")
+print(x + y)
+
+# Test BigInt subtraction in print
+print("x - y:")
+print(x - y)
+
+# Test BigInt multiplication in print
+print("x * y:")
+print(x * y)
+
+# Test BigInt floor division in print
+print("x // y:")
+print(x // y)
+
+# Test BigInt modulo in print
+print("x % y:")
+print(x % y)
+
+# Test with variables
+a = 1000000000000000000000
+b = 3000000000000000000000
+
+print("a + b:")
+print(a + b)
+
+print("a * b:")
+print(a * b)
+
+# Test chained operations
+print("x + y + 100:")
+print(x + y + 100)
