@@ -57,20 +57,50 @@ impl TypeChecker {
             }
             Expr::Call { func, args, span: _ } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
-                    // Handle Result constructors
+                    // Handle Result constructors with context from function return type
                     match name.as_str() {
                         "Ok" => {
-                            // Ok(value) -> Result[value_type, Infer]
-                            return if let Some(value_type) = args.first().and_then(|a| self.infer_expr_type(a)) {
-                                Some(Type::Result(Box::new(value_type), Box::new(Type::Infer)))
+                            // Ok(value) -> Result[value_type, Infer] or use return type context
+                            let value_type = args.first().and_then(|a| self.infer_expr_type(a));
+                            
+                            // Check if we're in a function returning Result[T, E]
+                            if let Some(ref ret_type) = self.current_return_type {
+                                if let Type::Result(_expected_ok, expected_err) = ret_type {
+                                    // Use the expected error type from return type
+                                    let vt = value_type.clone().unwrap_or(Type::Infer);
+                                    return Some(Type::Result(
+                                        Box::new(vt),
+                                        Box::new((**expected_err).clone())
+                                    ));
+                                }
+                            }
+                            
+                            // No context, use Infer for error type
+                            return if let Some(vt) = value_type {
+                                Some(Type::Result(Box::new(vt), Box::new(Type::Infer)))
                             } else {
                                 Some(Type::Result(Box::new(Type::Infer), Box::new(Type::Infer)))
                             };
                         }
                         "Err" => {
-                            // Err(error) -> Result[Infer, error_type]
-                            return if let Some(error_type) = args.first().and_then(|a| self.infer_expr_type(a)) {
-                                Some(Type::Result(Box::new(Type::Infer), Box::new(error_type)))
+                            // Err(error) -> Result[Infer, error_type] or use return type context
+                            let error_type = args.first().and_then(|a| self.infer_expr_type(a));
+                            
+                            // Check if we're in a function returning Result[T, E]
+                            if let Some(ref ret_type) = self.current_return_type {
+                                if let Type::Result(expected_ok, _expected_err) = ret_type {
+                                    // Use the expected ok type from return type
+                                    let et = error_type.clone().unwrap_or(Type::Infer);
+                                    return Some(Type::Result(
+                                        Box::new((**expected_ok).clone()),
+                                        Box::new(et)
+                                    ));
+                                }
+                            }
+                            
+                            // No context, use Infer for ok type
+                            return if let Some(et) = error_type {
+                                Some(Type::Result(Box::new(Type::Infer), Box::new(et)))
                             } else {
                                 Some(Type::Result(Box::new(Type::Infer), Box::new(Type::Infer)))
                             };

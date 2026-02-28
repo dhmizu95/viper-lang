@@ -20,3 +20,8 @@ Current Limitations
 Ok(x) and Err(e) currently just return the value directly
 Full tagged union representation for proper runtime discrimination needs future work
 Methods like .unwrap(), .expect(), .is_ok(), .is_err() need to be added
+
+Type inference doesn’t fully unify error types yet
+Error propagation currently panics instead of returning error to caller
+Helper methods (.unwrap(), .is_ok(), etc.) not implemented
+Generic support limited to i64 values in Result struct

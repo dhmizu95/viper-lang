@@ -302,20 +302,13 @@ pub fn generate_unary<'ctx>(
 /// This checks if the Result is Ok or Err, and returns early on Err
 fn generate_unwrap<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
-    op: &UnaryOp,
+    _op: &UnaryOp,
     operand: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
     // Generate the operand expression (should be a Result)
     let result_val = generate_expr(state, operand)?;
     
-    // For now, implement a simple version that assumes Result is represented as:
-    // - A struct { is_ok: i8, value: i64 }
-    // In a full implementation, this would need proper tagged union representation
-    
-    // Get the Result unwrap function from runtime
-    // For now, we'll use a simple inline implementation
-    
-    // The Result is expected to be a pointer to a struct
+    // The Result is expected to be a pointer to a struct { i8, i64 }
     let result_ptr = if result_val.is_pointer_value() {
         result_val.into_pointer_value()
     } else {
@@ -323,16 +316,15 @@ fn generate_unwrap<'ctx>(
         return Ok(result_val);
     };
     
-    // For LLVM 20+, we need to cast to opaque pointer first, then back to struct
-    // This is a simplified implementation - proper Result handling needs more work
-    let i8_ptr_type = state.context.i8_type().ptr_type(inkwell::AddressSpace::default());
-    let result_ptr_cast = state.builder
-        .build_pointer_cast(result_ptr, i8_ptr_type, "result_ptr_cast")
-        .map_err(|e| format!("Failed to cast result pointer: {:?}", e))?;
+    // Get the struct type: { i8, i64 }
+    let result_struct_type = state.context.struct_type(&[
+        state.context.i8_type().into(),
+        state.context.i64_type().into(),
+    ], false);
     
-    // Get the is_ok field by GEP with offset 0
+    // Get the is_ok field (first field of Result struct)
     let is_ok_ptr = state.builder
-        .build_struct_gep(state.context.i8_type().array_type(9), result_ptr_cast, 0, "is_ok_ptr")
+        .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
         .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
     
     let is_ok = state.builder
@@ -357,10 +349,10 @@ fn generate_unwrap<'ctx>(
         err_block,
     ).map_err(|e| format!("Failed to build conditional branch: {:?}", e))?;
     
-    // Ok block: extract and return the value (at offset 8 for i64 alignment)
+    // Ok block: extract and return the value
     state.builder.position_at_end(ok_block);
     let value_ptr = state.builder
-        .build_struct_gep(state.context.i8_type().array_type(9), result_ptr_cast, 1, "value_ptr")
+        .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
         .map_err(|e| format!("Failed to get value field: {:?}", e))?;
     let ok_value = state.builder
         .build_load(state.context.i64_type(), value_ptr, "value")
@@ -392,7 +384,7 @@ fn generate_unwrap<'ctx>(
     }
     // Unreachable after panic
     state.builder.build_unreachable().map_err(|e| format!("Failed to build unreachable: {:?}", e))?;
-    let err_block_end = state.builder.get_insert_block().unwrap();
+    let _err_block_end = state.builder.get_insert_block().unwrap();
     
     // Continue block: phi node to merge values
     state.builder.position_at_end(continue_block);

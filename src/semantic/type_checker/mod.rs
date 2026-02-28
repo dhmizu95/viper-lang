@@ -35,6 +35,8 @@ pub struct TypeChecker {
     /// Map from channel variable name to element type (for Chan[T] inference)
     #[allow(dead_code)]
     pub channel_types: HashMap<String, Type>,
+    /// Current function's return type (for context-sensitive inference)
+    pub current_return_type: Option<Type>,
 }
 
 impl TypeChecker {
@@ -44,6 +46,7 @@ impl TypeChecker {
             errors: Vec::new(),
             expr_types: HashMap::new(),
             channel_types: HashMap::new(),
+            current_return_type: None,
         }
     }
 

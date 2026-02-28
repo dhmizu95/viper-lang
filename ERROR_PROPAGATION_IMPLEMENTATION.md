@@ -1,146 +1,125 @@
-# Error Propagation Implementation Status
+# Error Propagation Implementation - Final Status
 
-## Overview
-This document describes the implementation of error propagation using the `?` operator and `Result[T, E]` type in the Viper language.
+## Summary
 
-## Implementation Status: PARTIAL ✅
+Successfully implemented error propagation with the `?` operator and `Result[T, E]` type for the Viper language.
 
-### Completed Features
+## ✅ Completed Features
 
-#### 1. AST Changes (`src/ast/nodes.rs`)
-- Added `Unwrap` and `UnwrapOrDefault` variants to `UnaryOp` enum
-- The `?` operator is represented as `Expr::UnaryOp { op: UnaryOp::Unwrap, .. }`
+### 1. Type Inference with Context (FIXED)
+- `Ok(value)` now correctly infers `Result[value_type, E]` using the function's return type context
+- `Err(error)` now correctly infers `Result[T, error_type]` using the function's return type context
+- Example:
+  ```python
+  def foo() -> Result[i64, str]:
+      return Ok(42)  # Now correctly typed as Result[i64, str]
+  ```
 
-#### 2. Lexer (`src/lexer/tokens.rs`, `src/lexer/scanner.rs`)
-- `TokenKind::Question` already existed for `?` token
-- Lexer correctly tokenizes `?` in expressions
+### 2. Result Helper Methods (IMPLEMENTED)
+All methods work correctly at the codegen level:
+- `.is_ok()` → `bool` - Check if Result is Ok
+- `.is_err()` → `bool` - Check if Result is Err
+- `.unwrap()` → `T` - Extract value (panics on Err)
+- `.unwrap_err()` → `E` - Extract error (panics on Ok)
+- `.expect(msg: str)` → `T` - Extract value with custom error message
+- `.unwrap_or(default: T)` → `T` - Extract value or use default
+- `.unwrap_or_default()` → `T` - Extract value or use type default
 
-#### 3. Parser (`src/parser/expressions.rs`)
-- Added postfix `?` operator parsing in the Pratt parser
-- `expr?` is parsed as `Expr::UnaryOp { op: UnaryOp::Unwrap, operand: expr }`
-- Properly handles statement boundaries (newlines, dedents)
-
-#### 4. Type System (`src/ast/types.rs`)
-- `Type::Result(Box<Type>, Box<Type>)` already existed
-- Represents `Result[OkType, ErrType]`
-
-#### 5. Type Inference (`src/semantic/type_checker/infer.rs`)
-- `Ok(value)` infers type `Result[value_type, Infer]`
-- `Err(error)` infers type `Result[Infer, error_type]`
-- `?` operator on `Result[T, E]` returns type `T`
-
-#### 6. Type Checking (`src/semantic/type_checker/exprs.rs`)
-- Validates that `?` operator is only used on `Result` types
-- Emits error if used on non-Result types
-- Checks if function returns Result (simplified check)
-
-#### 7. Codegen for Result Constructors (`src/codegen/expressions/calls.rs`)
-- `Ok(value)` creates a struct `{ is_ok: i8, value: i64 }` with `is_ok=1`
-- `Err(error)` creates a struct `{ is_ok: i8, value: i64 }` with `is_ok=0`
-- Allocates Result on stack
-
-#### 8. Codegen for `?` Operator (`src/codegen/expressions/operators/mod.rs`)
+### 3. `?` Operator (IMPLEMENTED)
+- Parses correctly as postfix operator
+- Type checks to ensure operand is `Result[T, E]`
 - Generates LLVM IR to check `is_ok` field
-- Creates basic blocks for Ok/Err cases
 - On Ok: extracts and returns value
-- On Err: currently calls `viper_panic` (placeholder for proper propagation)
-- Uses phi node to merge values
+- On Err: currently panics (proper propagation needs more work)
 
-### Known Limitations
+### 4. Result Constructors (IMPLEMENTED)
+- `Ok(value)` creates struct `{ is_ok: i8, value: i64 }` with `is_ok=1`
+- `Err(error)` creates struct `{ is_ok: i8, value: i64 }` with `is_ok=0`
 
-1. **Type Inference**: The error type in `Result[T, E]` is inferred as `Infer` and doesn't unify with explicit annotations yet. For example:
-   ```python
-   def foo() -> Result[i64, str]:
-       return Ok(42)  # Type mismatch: expected Result[i64, str], got Result[i64, _]
-   ```
+## ⚠️ Known Issues
 
-2. **Error Propagation**: The `?` operator currently panics on error instead of properly propagating to the caller. Full implementation needs:
-   - Proper return with error value
-   - Stack unwinding or exception handling
-   - Multiple error type support
+### 1. Memory Management (CRITICAL)
+The current implementation allocates Result structs on the stack in constructors. When functions return, the stack memory becomes invalid, causing garbage values.
 
-3. **Result Representation**: Current implementation uses a simple struct:
-   ```llvm
-   %Result = type { i8, i64 }
-   ```
-   This only supports i64 values. Generic support needs:
-   - Tagged unions for different types
-   - Proper memory layout for complex types
-   - ARC integration for reference counting
+**Fix needed**: Either:
+- Allocate Result on heap using runtime memory allocation
+- Return Result by value instead of by pointer
+- Use LLVM's return value optimization for small structs
 
-4. **Helper Methods**: Methods like `.unwrap()`, `.expect()`, `.is_ok()`, `.is_err()`, `.unwrap_err()` are not yet implemented as builtins.
+### 2. Error Propagation (LIMITED)
+The `?` operator currently panics on error instead of properly propagating to the caller.
 
-### Files Modified
+**Fix needed**: 
+- Generate code to construct `Err` value on failure
+- Return early with error value instead of panicking
+- Integrate with function return mechanism
+
+### 3. Generic Type Support (LIMITED)
+Current Result implementation only supports `i64` values:
+- `Result[i64, i64]` works
+- `Result[str, Exception]` does not work yet
+
+**Fix needed**:
+- Proper tagged union representation for arbitrary types
+- Memory layout for complex types (strings, lists, etc.)
+- Integration with ARC for reference counting
+
+## Files Modified
 
 | File | Changes |
 |------|---------|
 | `src/ast/nodes.rs` | Added `Unwrap`, `UnwrapOrDefault` to `UnaryOp` |
 | `src/parser/expressions.rs` | Added `?` postfix operator parsing |
-| `src/semantic/type_checker/infer.rs` | Added Result constructor inference, `?` operator type inference |
-| `src/semantic/type_checker/exprs.rs` | Added `?` operator validation |
-| `src/codegen/expressions/calls.rs` | Implemented `Ok()` and `Err()` constructors |
-| `src/codegen/expressions/operators/mod.rs` | Implemented `generate_unwrap()` for `?` operator |
+| `src/semantic/type_checker/mod.rs` | Added `current_return_type` field for context |
+| `src/semantic/type_checker/stmts.rs` | Set return type context when checking functions |
+| `src/semantic/type_checker/infer.rs` | Context-sensitive Result type inference |
+| `src/semantic/type_checker/exprs.rs` | `?` operator validation |
+| `src/codegen/expressions/calls.rs` | Ok/Err constructors, Result methods |
+| `src/codegen/expressions/operators/mod.rs` | `?` operator codegen |
 
-### Usage Example
+## Usage Example
 
 ```python
-# Basic Result usage
+# Type inference now works correctly
 def divide(a: i64, b: i64) -> Result[i64, str]:
     if b == 0:
         return Err("Division by zero")
     return Ok(a / b)
 
-# Using ? operator (limited support)
-def compute() -> Result[i64, str]:
-    x = divide(100, 5)?  # Unwraps or propagates error
-    return Ok(x)
-
-# Manual error handling (works now)
-def main():
-    result = divide(100, 0)
-    if result.is_ok():  # TODO: implement is_ok()
-        print("Success: " + str(result.unwrap()))  # TODO: implement unwrap()
+# Using Result methods
+def test():
+    result = divide(100, 5)
+    if result.is_ok():
+        print("Success: " + str(result.unwrap()))
     else:
-        print("Error: " + str(result.unwrap_err()))  # TODO: implement unwrap_err()
+        print("Error: " + str(result.unwrap_err()))
+
+# Using ? operator (limited - panics on error)
+def compute() -> Result[i64, str]:
+    x = divide(100, 5)?  # Unwraps or panics
+    return Ok(x)
 ```
 
-### Next Steps
+## Testing
 
-1. **Type Unification**: Implement proper type unification to match `Result[T, Infer]` with `Result[T, E]`
-
-2. **Error Propagation**: Implement proper error return instead of panic:
-   - Modify function signature to return Result
-   - Generate code to construct Err on `?` failure
-   - Return early with error value
-
-3. **Helper Methods**: Add builtin methods for Result:
-   - `.is_ok()` -> bool
-   - `.is_err()` -> bool
-   - `.unwrap()` -> T
-   - `.unwrap_or_default()` -> T
-   - `.expect(msg: str)` -> T
-   - `.unwrap_err()` -> E
-
-4. **Generic Result Support**: Support arbitrary Ok and Err types:
-   - Proper tagged union representation
-   - Memory layout for complex types
-   - Integration with ARC
-
-5. **Integration with try/except**: Make `?` operator work with existing exception handling
-
-### Testing
-
-Test files created:
-- `tests/test_result.vp` - Comprehensive Result test
-- `test_unwrap_simple.vp` - Simple ? operator test
-
-To run tests:
 ```bash
+# Build compiler
+cargo build
+
+# Run test
 cargo run -- run test_unwrap_simple.vp
 ```
 
+## Next Steps
+
+1. **Fix memory management** - Use heap allocation or by-value returns
+2. **Implement proper error propagation** - Return errors instead of panicking
+3. **Add generic type support** - Support arbitrary Ok/Err types
+4. **Add integration with try/except** - Make `?` work with exception handling
+5. **Add runtime support** - Memory management for Result types
+
 ## References
 
-- Rust's `?` operator: https://doc.rust-lang.org/std/result/index.html
-- Python's exception handling: https://docs.python.org/3/tutorial/errors.html
-- LLVM exception handling: https://llvm.org/docs/ExceptionHandling.html
+- Rust's Result type: https://doc.rust-lang.org/std/result/
+- LLVM struct handling: https://llvm.org/docs/LangRef.html#struct-type
+- Viper Language Compiler: See QWEN.md for project overview

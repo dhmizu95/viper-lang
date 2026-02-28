@@ -708,6 +708,199 @@ pub fn generate_method_call<'ctx>(
             );
             Ok(result.unwrap())
         }
+        // Result methods
+        "is_ok" => {
+            if !args.is_empty() {
+                return Err(format!("is_ok() takes no arguments, got {}", args.len()));
+            }
+            // Load is_ok field from Result struct (first field, offset 0)
+            let result_ptr = obj_val.into_pointer_value();
+            // Get the struct type: { i8, i64 }
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            let is_ok_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
+                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+            let is_ok = state.builder
+                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
+                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
+                .into_int_value();
+            // Convert i8 to bool (i1)
+            let is_ok_bool = state.builder.build_int_compare(
+                inkwell::IntPredicate::NE,
+                is_ok,
+                state.context.i8_type().const_zero(),
+                "is_ok_bool",
+            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+            Ok(is_ok_bool.into())
+        }
+        "is_err" => {
+            if !args.is_empty() {
+                return Err(format!("is_err() takes no arguments, got {}", args.len()));
+            }
+            // Load is_ok field and negate
+            let result_ptr = obj_val.into_pointer_value();
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            let is_ok_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
+                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+            let is_ok = state.builder
+                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
+                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
+                .into_int_value();
+            // is_err = !is_ok
+            let is_err = state.builder.build_int_compare(
+                inkwell::IntPredicate::EQ,
+                is_ok,
+                state.context.i8_type().const_zero(),
+                "is_err",
+            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+            Ok(is_err.into())
+        }
+        "unwrap" => {
+            if !args.is_empty() {
+                return Err(format!("unwrap() takes no arguments, got {}", args.len()));
+            }
+            // Load value field from Result struct (second field, offset 1)
+            let result_ptr = obj_val.into_pointer_value();
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            let value_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            let value = state.builder
+                .build_load(state.context.i64_type(), value_ptr, "value")
+                .map_err(|e| format!("Failed to load value: {:?}", e))?;
+            Ok(value)
+        }
+        "unwrap_err" => {
+            if !args.is_empty() {
+                return Err(format!("unwrap_err() takes no arguments, got {}", args.len()));
+            }
+            // For now, same as unwrap - error value is stored in the same field
+            let result_ptr = obj_val.into_pointer_value();
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            let value_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            let value = state.builder
+                .build_load(state.context.i64_type(), value_ptr, "error_value")
+                .map_err(|e| format!("Failed to load error value: {:?}", e))?;
+            Ok(value)
+        }
+        "expect" => {
+            if args.len() != 1 {
+                return Err(format!("expect() takes exactly 1 argument, got {}", args.len()));
+            }
+            // For now, same as unwrap - ignore the message argument
+            let result_ptr = obj_val.into_pointer_value();
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            let value_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            let value = state.builder
+                .build_load(state.context.i64_type(), value_ptr, "value")
+                .map_err(|e| format!("Failed to load value: {:?}", e))?;
+            Ok(value)
+        }
+        "unwrap_or" => {
+            if args.len() != 1 {
+                return Err(format!("unwrap_or() takes exactly 1 argument, got {}", args.len()));
+            }
+            // Load is_ok field
+            let result_ptr = obj_val.into_pointer_value();
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            let is_ok_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
+                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+            let is_ok = state.builder
+                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
+                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
+                .into_int_value();
+            
+            // Load value from Result
+            let value_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            let result_value = state.builder
+                .build_load(state.context.i64_type(), value_ptr, "result_value")
+                .map_err(|e| format!("Failed to load value: {:?}", e))?
+                .into_int_value();
+            
+            // Generate default value
+            let default_value = generate_expr(state, &args[0])?;
+            let default_int = if default_value.is_int_value() {
+                default_value.into_int_value()
+            } else {
+                return Err("unwrap_or default value must be integer".to_string());
+            };
+            
+            // Select based on is_ok
+            let selected = state.builder.build_select(
+                is_ok,
+                result_value,
+                default_int,
+                "unwrap_or_select",
+            ).map_err(|e| format!("Failed to build select: {:?}", e))?;
+            
+            Ok(selected.into())
+        }
+        "unwrap_or_default" => {
+            if !args.is_empty() {
+                return Err(format!("unwrap_or_default() takes no arguments, got {}", args.len()));
+            }
+            // Load is_ok field
+            let result_ptr = obj_val.into_pointer_value();
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            let is_ok_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
+                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+            let is_ok = state.builder
+                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
+                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
+                .into_int_value();
+            
+            // Load value from Result
+            let value_ptr = state.builder
+                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            let result_value = state.builder
+                .build_load(state.context.i64_type(), value_ptr, "result_value")
+                .map_err(|e| format!("Failed to load value: {:?}", e))?
+                .into_int_value();
+            
+            // Default is 0
+            let default_value = state.context.i64_type().const_zero();
+            
+            // Select based on is_ok
+            let selected = state.builder.build_select(
+                is_ok,
+                result_value,
+                default_value,
+                "unwrap_or_default",
+            ).map_err(|e| format!("Failed to build select: {:?}", e))?;
+            
+            Ok(selected.into())
+        }
         "len" => Err("len() is a builtin function, not a method".to_string()),
         _ => Err(format!("Unknown method: {}", method_name)),
     }

@@ -246,6 +246,10 @@ impl TypeChecker {
                 // Enter function scope
                 self.symbol_table.enter_scope();
 
+                // Save current return type and set new one
+                let old_return_type = self.current_return_type.clone();
+                self.current_return_type = return_type.clone();
+
                 // Add parameters to scope
                 for param in params {
                     let kind = SymbolKind::Parameter { type_ann: param.type_ann.clone() };
@@ -267,6 +271,9 @@ impl TypeChecker {
 
                 // Check return type consistency
                 self.check_return_consistency(body, return_type);
+
+                // Restore previous return type
+                self.current_return_type = old_return_type;
 
                 self.symbol_table.exit_scope();
             }
