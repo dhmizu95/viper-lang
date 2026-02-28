@@ -93,3 +93,15 @@ pub extern "C" fn vp_sys_get_argv() -> *mut std::ffi::c_void {
     // This is a stub - full implementation requires Viper list integration
     std::ptr::null_mut()
 }
+
+/// Panic function for assertion failures
+#[no_mangle]
+pub extern "C" fn viper_panic(msg: *const i8) {
+    if msg.is_null() {
+        eprintln!("Viper assertion failed");
+    } else {
+        let msg_str = unsafe { std::ffi::CStr::from_ptr(msg) };
+        eprintln!("Viper assertion failed: {}", msg_str.to_string_lossy());
+    }
+    std::process::exit(1);
+}

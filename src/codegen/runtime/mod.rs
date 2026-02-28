@@ -32,5 +32,19 @@ pub fn declare_runtime_functions<'ctx>(
     declare_hash_functions(context, module)?;
     declare_concurrency_functions(context, module)?;
     declare_bigint_functions(context, module)?;
+    declare_panic_function(context, module)?;
+    Ok(())
+}
+
+/// Declare panic function for assertion failures
+fn declare_panic_function<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> Result<(), String> {
+    let fn_type = context.void_type().fn_type(
+        &[context.i8_type().ptr_type(inkwell::AddressSpace::default()).into()],
+        false,
+    );
+    module.add_function("viper_panic", fn_type, Some(inkwell::module::Linkage::External));
     Ok(())
 }

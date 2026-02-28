@@ -231,7 +231,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
             // For now, just evaluate the condition and message (no actual assertion)
             let _cond_val = crate::codegen::expressions::generate_expr(state, condition)?;
             if let Some(msg) = message {
-                let _msg_val = crate::codegen::expressions::generate_expr(state, msg)?;
+                let _ = crate::codegen::expressions::generate_expr(state, msg);
             }
             // TODO: Implement actual assertion with runtime panic
         }
