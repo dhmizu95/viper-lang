@@ -424,3 +424,92 @@ uint64_t vp_bigint_hash(ViperBigInt* a) {
     
     return hash;
 }
+
+/* ============================================ */
+/* JIT Stub Aliases (_c suffix for Rust FFI)    */
+/* ============================================ */
+/* These are aliases for the JIT stub registry in Rust */
+
+ViperBigInt* vp_bigint_from_str_c(const char* s) {
+    return vp_bigint_from_str(s);
+}
+
+ViperBigInt* vp_bigint_from_i64_c(int64_t v) {
+    return vp_bigint_from_i64(v);
+}
+
+const char* vp_bigint_to_str_c(ViperBigInt* bigint, int base) {
+    return vp_bigint_to_str(bigint, base);
+}
+
+void vp_bigint_add_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_add(result, a, b);
+}
+
+void vp_bigint_sub_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_sub(result, a, b);
+}
+
+void vp_bigint_mul_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_mul(result, a, b);
+}
+
+void vp_bigint_div_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_div(result, a, b);
+}
+
+void vp_bigint_mod_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_mod(result, a, b);
+}
+
+void vp_bigint_pow_c(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp) {
+    vp_bigint_pow(result, base, exp);
+}
+
+void vp_bigint_sqrt_c(ViperBigInt* result, ViperBigInt* a) {
+    vp_bigint_sqrt(result, a);
+}
+
+void vp_bigint_abs_c(ViperBigInt* result, ViperBigInt* a) {
+    vp_bigint_abs(result, a);
+}
+
+void vp_bigint_neg_c(ViperBigInt* result, ViperBigInt* a) {
+    vp_bigint_neg(result, a);
+}
+
+void vp_bigint_invert_c(ViperBigInt* result, ViperBigInt* a) {
+    vp_bigint_invert(result, a);
+}
+
+void vp_bigint_and_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_and(result, a, b);
+}
+
+void vp_bigint_or_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_or(result, a, b);
+}
+
+void vp_bigint_xor_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_xor(result, a, b);
+}
+
+void vp_bigint_lshift_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_lshift(result, a, b);
+}
+
+void vp_bigint_rshift_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_rshift(result, a, b);
+}
+
+bool vp_bigint_eq_c(ViperBigInt* a, ViperBigInt* b) {
+    return vp_bigint_eq(a, b);
+}
+
+bool vp_bigint_lt_c(ViperBigInt* a, ViperBigInt* b) {
+    return vp_bigint_lt(a, b);
+}
+
+bool vp_bigint_gt_c(ViperBigInt* a, ViperBigInt* b) {
+    return vp_bigint_gt(a, b);
+}

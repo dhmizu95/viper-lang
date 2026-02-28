@@ -355,6 +355,31 @@ void vp_bigint_min(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
  */
 void vp_bigint_max(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 
+/* ============================================ */
+/* JIT Stub Aliases (_c suffix for Rust FFI)    */
+/* ============================================ */
+ViperBigInt* vp_bigint_from_str_c(const char* s);
+ViperBigInt* vp_bigint_from_i64_c(int64_t v);
+const char* vp_bigint_to_str_c(ViperBigInt* bigint, int base);
+void vp_bigint_add_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_sub_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_mul_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_div_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_mod_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_pow_c(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp);
+void vp_bigint_sqrt_c(ViperBigInt* result, ViperBigInt* a);
+void vp_bigint_abs_c(ViperBigInt* result, ViperBigInt* a);
+void vp_bigint_neg_c(ViperBigInt* result, ViperBigInt* a);
+void vp_bigint_invert_c(ViperBigInt* result, ViperBigInt* a);
+void vp_bigint_and_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_or_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_xor_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_lshift_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_rshift_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+bool vp_bigint_eq_c(ViperBigInt* a, ViperBigInt* b);
+bool vp_bigint_lt_c(ViperBigInt* a, ViperBigInt* b);
+bool vp_bigint_gt_c(ViperBigInt* a, ViperBigInt* b);
+
 #ifdef __cplusplus
 }
 #endif
