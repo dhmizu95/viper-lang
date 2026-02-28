@@ -19,11 +19,7 @@ pub fn generate_membership_op<'ctx>(
         _ => false,
     };
 
-    let contains_func_name = if is_dict {
-        "vp_dict_contains"
-    } else {
-        "vp_list_contains"
-    };
+    let contains_func_name = if is_dict { "vp_dict_contains" } else { "vp_list_contains" };
 
     let func = state
         .module

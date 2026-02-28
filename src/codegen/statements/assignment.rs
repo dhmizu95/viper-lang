@@ -82,7 +82,9 @@ pub(crate) fn generate_assign<'ctx>(
 
         // Track bool list variables
         let is_bool_list = match value {
-            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            Expr::List { elements, .. } => {
+                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+            }
             Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
                 // Handle [bool] * n pattern
                 if let Expr::List { elements, .. } = left.as_ref() {
@@ -105,7 +107,9 @@ pub(crate) fn generate_assign<'ctx>(
                 // Check if indexing a bool list (single element access)
                 match obj.as_ref() {
                     Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
-                    Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+                    Expr::List { elements, .. } => {
+                        elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+                    }
                     _ => false,
                 }
             }
@@ -113,7 +117,9 @@ pub(crate) fn generate_assign<'ctx>(
                 // Check if slicing a bool list
                 match obj.as_ref() {
                     Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
-                    Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+                    Expr::List { elements, .. } => {
+                        elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+                    }
                     _ => false,
                 }
             }
@@ -142,6 +148,16 @@ pub(crate) fn generate_assign<'ctx>(
             state.mark_as_dict(name.clone());
         } else {
             state.dict_vars.remove(name);
+        }
+
+        // Check if value is BigInt
+        let is_bigint = match value {
+            Expr::BigInt(_, _) => true,
+            _ => false,
+        };
+
+        if is_bigint {
+            state.mark_as_bigint(name.clone());
         }
 
         // Check if value is Bytes
@@ -316,9 +332,13 @@ pub(crate) fn generate_assign<'ctx>(
                         .ok_or_else(|| "vp_list_set not declared".to_string())?;
 
                     // Convert bool to i64 if needed
-                    let value_converted = if value_val.is_int_value() && value_val.get_type().into_int_type().get_bit_width() == 1 {
+                    let value_converted = if value_val.is_int_value()
+                        && value_val.get_type().into_int_type().get_bit_width() == 1
+                    {
                         let bool_val = value_val.into_int_value();
-                        state.builder.build_int_z_extend(bool_val, state.context.i64_type(), "bool_to_i64")
+                        state
+                            .builder
+                            .build_int_z_extend(bool_val, state.context.i64_type(), "bool_to_i64")
                             .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
                             .into()
                     } else {
@@ -352,13 +372,14 @@ pub(crate) fn generate_aug_assign<'ctx>(
         if state.global_constants.contains_key(name) && !state.variables.contains_key(name) {
             let global = state.global_constants.get(name).unwrap();
             let global_ptr = global.as_pointer_value();
-            
+
             // Assume it's an integer for now, as floats would need type tracking for globals
             let i64_type = state.context.i64_type();
-            let current = state.builder.build_load(i64_type, global_ptr, name).expect("load global");
-            
+            let current =
+                state.builder.build_load(i64_type, global_ptr, name).expect("load global");
+
             let new_val = crate::codegen::expressions::generate_expr(state, value)?;
-            
+
             let lhs = current.into_int_value();
             let rhs = new_val.into_int_value();
             let result = match op {
@@ -367,17 +388,19 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 BinOp::Mul => state.ir_builder.build_mul(state.builder, lhs, rhs, "mul"),
                 BinOp::Div => state.ir_builder.build_div(state.builder, lhs, rhs, "div"),
                 BinOp::Mod => state.builder.build_int_signed_rem(lhs, rhs, "mod").expect("mod"),
-                BinOp::FloorDiv => {
-                    state.ir_builder.build_div(state.builder, lhs, rhs, "floordiv")
-                }
+                BinOp::FloorDiv => state.ir_builder.build_div(state.builder, lhs, rhs, "floordiv"),
                 BinOp::Pow => {
-                    let pow_i64_func = state.module.get_function("vp_pow_i64").expect("vp_pow_i64 not found");
-                    let res = state.ir_builder.build_call(state.builder, pow_i64_func, &[lhs.into(), rhs.into()], "pow").expect("pow call");
+                    let pow_i64_func =
+                        state.module.get_function("vp_pow_i64").expect("vp_pow_i64 not found");
+                    let res = state
+                        .ir_builder
+                        .build_call(state.builder, pow_i64_func, &[lhs.into(), rhs.into()], "pow")
+                        .expect("pow call");
                     res.into_int_value()
                 }
                 _ => return Err(format!("Unsupported augmented assignment operator: {:?}", op)),
             };
-            
+
             state.builder.build_store(global_ptr, result).expect("store to global");
             return Ok(());
         }

@@ -142,6 +142,50 @@ impl<'ctx> IRBuilder<'ctx> {
         builder.build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, name).expect("lt")
     }
 
+    /// Build a comparison (greater than)
+    pub fn build_icmp_gt(
+        &self,
+        builder: &inkwell::builder::Builder<'ctx>,
+        lhs: IntValue<'ctx>,
+        rhs: IntValue<'ctx>,
+        name: &str,
+    ) -> IntValue<'ctx> {
+        builder.build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, name).expect("gt")
+    }
+
+    /// Build a comparison (less than or equal)
+    pub fn build_icmp_le(
+        &self,
+        builder: &inkwell::builder::Builder<'ctx>,
+        lhs: IntValue<'ctx>,
+        rhs: IntValue<'ctx>,
+        name: &str,
+    ) -> IntValue<'ctx> {
+        builder.build_int_compare(inkwell::IntPredicate::SLE, lhs, rhs, name).expect("le")
+    }
+
+    /// Build a comparison (greater than or equal)
+    pub fn build_icmp_ge(
+        &self,
+        builder: &inkwell::builder::Builder<'ctx>,
+        lhs: IntValue<'ctx>,
+        rhs: IntValue<'ctx>,
+        name: &str,
+    ) -> IntValue<'ctx> {
+        builder.build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, name).expect("ge")
+    }
+
+    /// Build a comparison (not equal)
+    pub fn build_icmp_ne(
+        &self,
+        builder: &inkwell::builder::Builder<'ctx>,
+        lhs: IntValue<'ctx>,
+        rhs: IntValue<'ctx>,
+        name: &str,
+    ) -> IntValue<'ctx> {
+        builder.build_int_compare(inkwell::IntPredicate::NE, lhs, rhs, name).expect("ne")
+    }
+
     /// Build a conditional branch
     pub fn build_cond_branch(
         &self,

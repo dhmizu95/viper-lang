@@ -1,11 +1,13 @@
 //! Expression code generation for Viper - Operators
 
 use crate::ast::{BinOp, Expr, UnaryOp};
+use crate::codegen::expressions::bigint::generate_bigint_binop;
 use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
 pub mod arithmetic;
+pub mod bigint;
 pub mod comparison;
 pub mod incdec;
 pub mod logical;
@@ -53,29 +55,38 @@ pub fn generate_binop<'ctx>(
 
                 let (elem_val, func_name) = match elem {
                     Expr::Bool(true, _) => {
-                        let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(1, false).into();
-                        (val, "vp_bitvec_repeat")  // Use bit vector for bool lists
+                        let val: inkwell::values::BasicMetadataValueEnum =
+                            state.context.bool_type().const_int(1, false).into();
+                        (val, "vp_bitvec_repeat") // Use bit vector for bool lists
                     }
                     Expr::Bool(false, _) => {
-                        let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(0, false).into();
-                        (val, "vp_bitvec_repeat")  // Use bit vector for bool lists
+                        let val: inkwell::values::BasicMetadataValueEnum =
+                            state.context.bool_type().const_int(0, false).into();
+                        (val, "vp_bitvec_repeat") // Use bit vector for bool lists
                     }
                     Expr::Int(val, _) => {
-                         let val: inkwell::values::BasicMetadataValueEnum = state.ir_builder.i64_const(*val).into();
-                         (val, "vp_list_repeat")
-                     }
+                        let val: inkwell::values::BasicMetadataValueEnum =
+                            state.ir_builder.i64_const(*val).into();
+                        (val, "vp_list_repeat")
+                    }
                     Expr::Float(val, _) => {
-                         let f64_val = state.context.f64_type().const_float(*val as f64);
-                         let i64_val = state.builder.build_float_to_signed_int(f64_val, state.context.i64_type(), "float_to_int")
-                             .map_err(|e| format!("Failed to convert float to int: {:?}", e))?;
-                         (i64_val.into(), "vp_list_repeat")
-                     }
+                        let f64_val = state.context.f64_type().const_float(*val as f64);
+                        let i64_val = state
+                            .builder
+                            .build_float_to_signed_int(
+                                f64_val,
+                                state.context.i64_type(),
+                                "float_to_int",
+                            )
+                            .map_err(|e| format!("Failed to convert float to int: {:?}", e))?;
+                        (i64_val.into(), "vp_list_repeat")
+                    }
                     _ => {
                         let val = generate_expr(state, elem)?;
                         if val.is_int_value() {
                             let int_val = val.into_int_value();
                             if int_val.get_type().get_bit_width() == 1 {
-                                (int_val.into(), "vp_bitvec_repeat")  // Use bit vector for bool lists
+                                (int_val.into(), "vp_bitvec_repeat") // Use bit vector for bool lists
                             } else {
                                 (int_val.into(), "vp_list_repeat")
                             }
@@ -135,19 +146,23 @@ pub fn generate_binop<'ctx>(
         // Check if these are bool lists (bit vectors)
         let is_bool_list_left = match left {
             Expr::Ident(name, _) => state.is_bool_list(name),
-            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            Expr::List { elements, .. } => {
+                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+            }
             _ => false,
         };
         let is_bool_list_right = match right {
             Expr::Ident(name, _) => state.is_bool_list(name),
-            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            Expr::List { elements, .. } => {
+                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+            }
             _ => false,
         };
 
         if is_list_left && is_list_right {
             let left_val = generate_expr(state, left)?;
             let right_val = generate_expr(state, right)?;
-            
+
             // Use bit vector concat for bool lists
             let concat_func = if is_bool_list_left && is_bool_list_right {
                 state
@@ -160,7 +175,7 @@ pub fn generate_binop<'ctx>(
                     .get_function("vp_list_concat")
                     .ok_or_else(|| "vp_list_concat not declared".to_string())?
             };
-            
+
             let result = state
                 .ir_builder
                 .build_call(
@@ -175,8 +190,32 @@ pub fn generate_binop<'ctx>(
     }
 
     // Handle comparison operators on pointers (identity comparison)
-    if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
-        return comparison::generate_pointer_binop(state.builder, state.context, lhs_val, rhs_val, op);
+    // But skip for BigInt - we handle BigInt comparison separately
+    let is_bigint_expr = |expr: &Expr| -> bool {
+        match expr {
+            Expr::BigInt(_, _) => true,
+            Expr::Ident(name, _) => state.is_bigint(name),
+            _ => false,
+        }
+    };
+
+    if lhs_val.is_pointer_value()
+        && rhs_val.is_pointer_value()
+        && !is_bigint_expr(left)
+        && !is_bigint_expr(right)
+    {
+        return comparison::generate_pointer_binop(
+            state.builder,
+            state.context,
+            lhs_val,
+            rhs_val,
+            op,
+        );
+    }
+
+    // Handle BigInt arithmetic operations
+    if is_bigint_expr(left) || is_bigint_expr(right) {
+        return generate_bigint_binop(state, left, op, right);
     }
 
     // Reject pointer values in arithmetic operations (except for Add with strings, handled above)

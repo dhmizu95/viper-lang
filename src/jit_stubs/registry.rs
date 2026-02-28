@@ -111,6 +111,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bigint_to_f64 as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_bigint_print") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_print as *const () as usize);
+    }
 
     if let Some(func) = module.get_function("vp_list_create") {
         execution_engine

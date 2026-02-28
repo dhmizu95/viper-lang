@@ -414,6 +414,7 @@ impl EscapeAnalyzer {
     fn analyze_expr(&mut self, expr: &Expr, ctx: &mut FunctionEscapeContext, state: EscapeState) {
         match expr {
             Expr::Int(_, _)
+            | Expr::BigInt(_, _)
             | Expr::Float(_, _)
             | Expr::Str(_, _)
             | Expr::Bytes(_, _)
@@ -566,9 +567,7 @@ impl EscapeAnalyzer {
     /// Returns true if it escapes to a global or thread (Shared or MayEscape)
     pub fn is_thread_shared(&self, function_name: &str, var_name: &str) -> bool {
         self.get_variable_escape_info(function_name, var_name)
-            .map(|info| {
-                matches!(info.escape_state, EscapeState::Shared | EscapeState::MayEscape)
-            })
+            .map(|info| matches!(info.escape_state, EscapeState::Shared | EscapeState::MayEscape))
             .unwrap_or(true) // Default to shared if unknown
     }
 

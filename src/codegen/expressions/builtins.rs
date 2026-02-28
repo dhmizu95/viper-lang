@@ -49,6 +49,13 @@ pub fn generate_print_call<'ctx>(
                 .build_call(print_func, &[val.into()], "print_bool")
                 .expect("vp_print_bool");
         } else if val.is_pointer_value() {
+            // Check if this is a BigInt - either direct literal or identifier
+            let is_bigint_arg = match arg {
+                Expr::BigInt(..) => true,
+                Expr::Ident(name, _) => state.is_bigint(name),
+                _ => false,
+            };
+
             // Check if this is a list - if so, use vp_list_print
             let is_list_arg = match arg {
                 Expr::Ident(name, _) => state.is_list(name),
@@ -100,6 +107,16 @@ pub fn generate_print_call<'ctx>(
                     .builder
                     .build_call(print_func, &[val.into()], "print_list")
                     .expect("vp_list_print");
+            } else if is_bigint_arg {
+                // Print BigInt
+                let print_func = state
+                    .module
+                    .get_function("vp_bigint_print")
+                    .ok_or_else(|| "vp_bigint_print not declared".to_string())?;
+                state
+                    .builder
+                    .build_call(print_func, &[val.into()], "print_bigint")
+                    .expect("vp_bigint_print");
             } else {
                 let print_func = state
                     .module
@@ -172,7 +189,9 @@ pub fn generate_len_call<'ctx>(
     // Check if it's a bool list (bit vector)
     let is_bool_list = match obj_expr {
         Expr::Ident(name, _) => state.is_bool_list(name),
-        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::List { elements, .. } => {
+            elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+        }
         Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
             if let Expr::List { elements, .. } = left.as_ref() {
                 elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)

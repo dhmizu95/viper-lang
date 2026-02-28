@@ -20,7 +20,8 @@ pub struct CodeGenState<'a, 'ctx> {
     pub loop_stack: &'a mut Vec<LoopContext<'ctx>>,
     pub list_vars: &'a mut HashSet<String>,
     pub dict_vars: &'a mut HashSet<String>,
-    pub bool_list_vars: &'a mut HashSet<String>,  // Track bool-specific lists
+    pub bool_list_vars: &'a mut HashSet<String>, // Track bool-specific lists
+    pub bigint_vars: &'a mut HashSet<String>,    // Track BigInt variables
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
 }
@@ -39,6 +40,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        bigint_vars: &'a mut HashSet<String>,
     ) -> Self {
         Self {
             context,
@@ -52,6 +54,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            bigint_vars,
             escape_analyzer: None,
             current_function: None,
         }
@@ -71,6 +74,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        bigint_vars: &'a mut HashSet<String>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
     ) -> Self {
@@ -86,6 +90,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            bigint_vars,
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
         }
@@ -157,7 +162,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
     /// Mark a variable as a bool list
     pub fn mark_as_bool_list(&mut self, name: String) {
         self.bool_list_vars.insert(name.clone());
-        self.list_vars.insert(name);  // Bool lists are also lists
+        self.list_vars.insert(name); // Bool lists are also lists
     }
 
     /// Check if a variable is a bool list
@@ -170,17 +175,23 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         self.dict_vars.contains(name)
     }
 
+    /// Mark a variable as BigInt
+    pub fn mark_as_bigint(&mut self, name: String) {
+        self.bigint_vars.insert(name);
+    }
+
+    /// Check if a variable is BigInt
+    pub fn is_bigint(&self, name: &str) -> bool {
+        self.bigint_vars.contains(name)
+    }
+
     /// Generate ARC retain call for a value
     pub fn build_retain(&self, value: inkwell::values::BasicValueEnum<'ctx>, name: &str) {
         if !self.needs_arc(name) {
             return;
         }
 
-        let func_name = if self.is_thread_shared(name) {
-            "vp_retain"
-        } else {
-            "vp_retain_local"
-        };
+        let func_name = if self.is_thread_shared(name) { "vp_retain" } else { "vp_retain_local" };
 
         if let Some(retain_func) = self.module.get_function(func_name) {
             self.builder
@@ -210,11 +221,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         } else {
             if let Some(release_func) = self.module.get_function("vp_release_local") {
                 self.builder
-                    .build_call(
-                        release_func,
-                        &[value.into()],
-                        &format!("release_{}", name),
-                    )
+                    .build_call(release_func, &[value.into()], &format!("release_{}", name))
                     .expect("build release_local call");
             }
         }

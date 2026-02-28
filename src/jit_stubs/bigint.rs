@@ -390,3 +390,15 @@ pub unsafe extern "C" fn vp_bigint_retain(_a: *mut ViperBigInt) {
 pub unsafe extern "C" fn vp_bigint_release(_a: *mut ViperBigInt) {
     // TODO: Implement ARC reference counting
 }
+
+// === PRINT ===
+
+#[no_mangle]
+pub unsafe extern "C" fn vp_bigint_print(a: *mut ViperBigInt) {
+    if a.is_null() {
+        println!("0");
+        return;
+    }
+
+    println!("{}", a.as_ref().unwrap().bigint);
+}

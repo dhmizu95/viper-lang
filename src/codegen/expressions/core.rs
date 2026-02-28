@@ -1,16 +1,16 @@
 //! Core expression code generation and type inference
 
 use crate::ast::{Expr, Type};
-use crate::codegen::state::CodeGenState;
-use crate::codegen::types::TypeMapper;
-use crate::codegen::variables::{VarStorage, VarType};
-use crate::utils::mangle_function_name;
-use inkwell::values::BasicValueEnum;
 use crate::codegen::expressions::builtins::*;
 use crate::codegen::expressions::calls::*;
 use crate::codegen::expressions::collections::*;
 use crate::codegen::expressions::concurrency::*;
 use crate::codegen::expressions::operators::*;
+use crate::codegen::state::CodeGenState;
+use crate::codegen::types::TypeMapper;
+use crate::codegen::variables::{VarStorage, VarType};
+use crate::utils::mangle_function_name;
+use inkwell::values::BasicValueEnum;
 
 pub fn generate_tuple<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -59,6 +59,7 @@ pub fn generate_tuple<'ctx>(
 pub fn infer_expr_type(expr: &Expr) -> Type {
     match expr {
         Expr::Int(_, _) => Type::I64,
+        Expr::BigInt(_, _) => Type::BigInt,
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
@@ -119,6 +120,19 @@ pub fn generate_expr<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     match expr {
         Expr::Int(n, _) => Ok(state.ir_builder.i64_const(*n).into()),
+        Expr::BigInt(n, _) => {
+            // Create BigInt from string
+            let str_val = state.ir_builder.string_const(state.module, n);
+            let create_func = state
+                .module
+                .get_function("vp_bigint_from_str")
+                .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
+            let result = state
+                .ir_builder
+                .build_call(state.builder, create_func, &[str_val.into()], "bigint_create")
+                .unwrap();
+            Ok(result)
+        }
         Expr::Float(n, _) => Ok(state.ir_builder.f64_const(*n).into()),
         Expr::Bool(b, _) => Ok(state.ir_builder.bool_const(*b).into()),
         Expr::None(_) => Ok(state.ir_builder.i64_const(0).into()),
@@ -136,13 +150,17 @@ pub fn generate_expr<'ctx>(
         }
         Expr::Bytes(b, _) => {
             let bytes_val = state.ir_builder.bytes_const(state.module, b);
-            let create_func = state
-                .module
-                .get_function("vp_bytes_create")
-                .ok_or_else(|| "vp_bytes_create not declared. Add to runtime library.".to_string())?;
+            let create_func = state.module.get_function("vp_bytes_create").ok_or_else(|| {
+                "vp_bytes_create not declared. Add to runtime library.".to_string()
+            })?;
             let result = state
                 .ir_builder
-                .build_call(state.builder, create_func, &[bytes_val.into(), state.ir_builder.i64_const(b.len() as i64).into()], "bytes_create")
+                .build_call(
+                    state.builder,
+                    create_func,
+                    &[bytes_val.into(), state.ir_builder.i64_const(b.len() as i64).into()],
+                    "bytes_create",
+                )
                 .unwrap();
             Ok(result)
         }

@@ -2,7 +2,6 @@
 
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::BasicType;
 use inkwell::AddressSpace;
 
 pub fn declare_bigint_functions<'ctx>(
@@ -77,6 +76,9 @@ pub fn declare_bigint_functions<'ctx>(
     // ARC memory management (stubs for now)
     module.add_function("vp_bigint_retain", void_type.fn_type(&[ptr_type.into()], false), None);
     module.add_function("vp_bigint_release", void_type.fn_type(&[ptr_type.into()], false), None);
+
+    // Print
+    module.add_function("vp_bigint_print", void_type.fn_type(&[ptr_type.into()], false), None);
 
     Ok(())
 }

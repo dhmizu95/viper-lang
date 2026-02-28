@@ -148,18 +148,21 @@ impl<'a> PrattParser<'a> {
                 // Check for walrus operator (:=) - assignment expression
                 if matches!(self.peek().kind, TokenKind::ColonEq) {
                     self.advance(); // consume :=
-                    
+
                     // Left side must be an identifier
                     let target_span = left.span();
                     let target = match &left {
                         Expr::Ident(name, _) => name.clone(),
-                        _ => return Err("Walrus operator requires an identifier on the left side".to_string()),
+                        _ => {
+                            return Err("Walrus operator requires an identifier on the left side"
+                                .to_string())
+                        }
                     };
-                    
+
                     // Parse the value expression
                     let value = self.parse_expr(op_prec)?;
                     let span = target_span.merge(value.span());
-                    
+
                     // Create assignment expression: target := value
                     left = Expr::AssignmentExpr {
                         target: Box::new(Expr::Ident(target, target_span)),
@@ -262,7 +265,8 @@ impl<'a> PrattParser<'a> {
                 self.advance();
                 // Check if the integer fits in i64
                 if n > i64::MAX as i128 || n < i64::MIN as i128 {
-                    return Err(format!("Integer literal too large for i64: {}", n));
+                    // Too large for i64, create BigInt literal
+                    return Ok(Expr::BigInt(n.to_string(), span));
                 }
                 Ok(Expr::Int(n as i64, span))
             }
@@ -705,7 +709,7 @@ impl<'a> PrattParser<'a> {
             }
             TokenKind::DoubleStar => Precedence::EXPONENT,
             TokenKind::Pipeline => Precedence::PIPELINE,
-            TokenKind::ColonEq => Precedence::ASSIGNMENT,  // Walrus operator
+            TokenKind::ColonEq => Precedence::ASSIGNMENT, // Walrus operator
             _ => return None,
         };
 

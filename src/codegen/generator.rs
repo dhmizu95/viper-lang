@@ -25,6 +25,7 @@ pub struct CodeGen<'ctx> {
     list_vars: HashSet<String>,
     dict_vars: HashSet<String>,
     bool_list_vars: HashSet<String>,
+    bigint_vars: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
     current_function: Option<String>,
 }
@@ -49,6 +50,7 @@ impl<'ctx> CodeGen<'ctx> {
             list_vars: HashSet::new(),
             dict_vars: HashSet::new(),
             bool_list_vars: HashSet::new(),
+            bigint_vars: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
         }
@@ -92,6 +94,7 @@ impl<'ctx> CodeGen<'ctx> {
                             &mut self.list_vars,
                             &mut self.dict_vars,
                             &mut self.bool_list_vars,
+                            &mut self.bigint_vars,
                         ),
                         value,
                     )?;
@@ -125,6 +128,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.list_vars,
                                 &mut self.dict_vars,
                                 &mut self.bool_list_vars,
+                                &mut self.bigint_vars,
                             ),
                             value,
                         )?;
@@ -293,6 +297,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.bigint_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 name,
@@ -374,6 +379,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.bigint_vars,
                 stmt,
                 &mut self.escape_analyzer,
                 "__module_level__",
@@ -525,14 +531,17 @@ impl<'ctx> CodeGen<'ctx> {
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
         // Helper function for batch release
-        let emit_batch = |vars: &[VarInfo<'ctx>], batch_func_name: &str, builder: &inkwell::builder::Builder<'ctx>| {
+        let emit_batch = |vars: &[VarInfo<'ctx>],
+                          batch_func_name: &str,
+                          builder: &inkwell::builder::Builder<'ctx>| {
             if vars.is_empty() {
                 return;
             }
             if let Some(release_batch_func) = self.module.get_function(batch_func_name) {
                 let array_size = i64_type.const_int(vars.len() as u64, false);
                 // Allocate array of pointers for the batch release
-                let ptrs_array = builder.build_array_alloca(ptr_type, array_size, "batch_ptrs").unwrap();
+                let ptrs_array =
+                    builder.build_array_alloca(ptr_type, array_size, "batch_ptrs").unwrap();
 
                 for (i, var) in vars.iter().enumerate() {
                     let index = i64_type.const_int(i as u64, false);
@@ -553,7 +562,13 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 }
 
-                builder.build_call(release_batch_func, &[ptrs_array.into(), array_size.into()], "call_batch").unwrap();
+                builder
+                    .build_call(
+                        release_batch_func,
+                        &[ptrs_array.into(), array_size.into()],
+                        "call_batch",
+                    )
+                    .unwrap();
             }
         };
 

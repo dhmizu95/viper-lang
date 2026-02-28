@@ -76,7 +76,8 @@ fn generate_while_simple<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
-                    state.bool_list_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
             stmt,
         )?;
     }
@@ -86,7 +87,7 @@ fn generate_while_simple<'ctx>(
     if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, cond_block);
     }
-    
+
     // Generate else block if it exists
     if let Some(else_stmts) = else_body {
         state.builder.position_at_end(else_block.unwrap());
@@ -103,13 +104,14 @@ fn generate_while_simple<'ctx>(
                 state.list_vars,
                 state.dict_vars,
                 state.bool_list_vars,
+                state.bigint_vars,
                 stmt,
             )?;
         }
         // After else block, jump to exit
         state.ir_builder.build_branch(state.builder, exit_block);
     }
-    
+
     state.builder.position_at_end(exit_block);
     Ok(())
 }
@@ -123,10 +125,13 @@ fn generate_while_unrolled<'ctx>(
 ) -> Result<(), String> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let while_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-    
-    let cond_block = state.context.append_basic_block(func, &format!("while_unroll_cond{}", while_num));
-    let body_block = state.context.append_basic_block(func, &format!("while_unroll_body{}", while_num));
-    let exit_block = state.context.append_basic_block(func, &format!("while_unroll_exit{}", while_num));
+
+    let cond_block =
+        state.context.append_basic_block(func, &format!("while_unroll_cond{}", while_num));
+    let body_block =
+        state.context.append_basic_block(func, &format!("while_unroll_body{}", while_num));
+    let exit_block =
+        state.context.append_basic_block(func, &format!("while_unroll_exit{}", while_num));
 
     state.ir_builder.build_branch(state.builder, cond_block);
 
@@ -172,12 +177,13 @@ fn generate_while_unrolled<'ctx>(
                     )
                     .expect("icmp")
             };
-            
-            let continue_block = state.context.append_basic_block(func, &format!("while_unroll_cont{}", while_num));
+
+            let continue_block =
+                state.context.append_basic_block(func, &format!("while_unroll_cont{}", while_num));
             state.ir_builder.build_cond_branch(state.builder, cond_i1, continue_block, exit_block);
             state.builder.position_at_end(continue_block);
         }
-        
+
         // Generate body statements
         for stmt in body {
             crate::codegen::statements::generate_stmt(
@@ -192,18 +198,19 @@ fn generate_while_unrolled<'ctx>(
                 state.list_vars,
                 state.dict_vars,
                 state.bool_list_vars,
+                state.bigint_vars,
                 stmt,
             )?;
         }
     }
 
     state.loop_stack.pop();
-    
+
     // Branch back to condition
     if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
         state.ir_builder.build_branch(state.builder, cond_block);
     }
-    
+
     state.builder.position_at_end(exit_block);
     Ok(())
 }
@@ -260,7 +267,9 @@ pub fn generate_for<'ctx>(
                 let step_block =
                     state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
                 let else_block = if else_body.is_some() {
-                    Some(state.context.append_basic_block(func_ctx, &format!("for_else{}", for_num)))
+                    Some(
+                        state.context.append_basic_block(func_ctx, &format!("for_else{}", for_num)),
+                    )
                 } else {
                     None
                 };
@@ -320,7 +329,8 @@ pub fn generate_for<'ctx>(
                         state.loop_stack,
                         state.list_vars,
                         state.dict_vars,
-                    state.bool_list_vars,
+                        state.bool_list_vars,
+                        state.bigint_vars,
                         stmt,
                     )?;
                 }
@@ -364,6 +374,7 @@ pub fn generate_for<'ctx>(
                             state.list_vars,
                             state.dict_vars,
                             state.bool_list_vars,
+                            state.bigint_vars,
                             stmt,
                         )?;
                     }
@@ -481,7 +492,8 @@ pub fn generate_for<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
-                    state.bool_list_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
             stmt,
         )?;
     }
@@ -723,7 +735,8 @@ pub fn generate_async_for<'ctx>(
             state.loop_stack,
             state.list_vars,
             state.dict_vars,
-                    state.bool_list_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
             stmt,
         )?;
     }

@@ -7,6 +7,8 @@ use crate::utils::Span;
 pub enum Expr {
     /// Integer literal
     Int(i64, Span),
+    /// Big integer literal (too large for i64)
+    BigInt(String, Span),
     /// Float literal
     Float(f64, Span),
     /// String literal
@@ -63,6 +65,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Expr::Int(_, s) => *s,
+            Expr::BigInt(_, s) => *s,
             Expr::Float(_, s) => *s,
             Expr::Str(_, s) => *s,
             Expr::FString(_, s) => *s,
@@ -146,7 +149,7 @@ impl BinOp {
             BinOp::BitOr => 8,
             BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => 7,
             BinOp::Eq | BinOp::NotEq | BinOp::Is | BinOp::IsNot | BinOp::In | BinOp::NotIn => 6,
-            BinOp::NullCoalesce => 5,  // Same as 'and' - low precedence
+            BinOp::NullCoalesce => 5, // Same as 'and' - low precedence
             BinOp::And => 5,
             BinOp::Or => 4,
         }
