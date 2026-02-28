@@ -1,0 +1,42 @@
+# Fibonacci - Python-like syntax with automatic BigInt
+
+def fib(n: i64):
+    if n <= 0:
+        return 0
+    elif n == 1:
+        return 1
+    
+    a = 0
+    b = 1
+    
+    i = 2
+    while i <= n:
+        c = a + b
+        a = b
+        b = c
+        i = i + 1
+    
+    return b
+
+def main():
+    print("=== Fibonacci with BigInt ===")
+    print("")
+    
+    print("fib(10) = ")
+    result = fib(10)
+    print(result)
+    print("")
+    
+    print("fib(50) = ")
+    result = fib(50)
+    print(result)
+    print("")
+    
+    print("fib(100) = ")
+    result = fib(100)
+    print(result)
+    print("")
+    
+    print("=== Test complete ===")
+
+main()

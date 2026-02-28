@@ -1,5 +1,6 @@
 #![allow(ambiguous_glob_reexports)]
 
+pub mod bigint;
 pub mod concurrency;
 pub mod collections;
 pub mod decimal_mod;
@@ -28,6 +29,7 @@ pub mod sys;
 pub mod time_mod;
 pub mod asyncio_mod;
 
+pub use bigint::*;
 pub use concurrency::*;
 pub use collections::*;
 pub use decimal_mod::*;

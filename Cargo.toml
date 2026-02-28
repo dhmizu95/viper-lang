@@ -57,6 +57,9 @@ lazy_static = "1.4"
 # Regex support for re module
 regex = "1.10"
 
+# GMP bindings for arbitrary-precision arithmetic (optional, used by JIT stubs)
+libc = "0.2"
+
 [build-dependencies]
 cc = "1.0"
 pkg-config = "0.3"

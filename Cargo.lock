@@ -546,6 +546,7 @@ dependencies = [
  "clap",
  "inkwell",
  "lazy_static",
+ "libc",
  "llvm-sys",
  "pkg-config",
  "regex",

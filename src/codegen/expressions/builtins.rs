@@ -2,12 +2,13 @@
 
 use super::*;
 
-use crate::ast::Expr;
+use crate::ast::{Expr, Type};
 use crate::codegen::variables::VarType;
 
 use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
+use crate::codegen::expressions::calls::generate_bigint_to_str;
 
 /// Generate print call - handles multiple arguments
 pub fn generate_print_call<'ctx>(
@@ -334,7 +335,7 @@ pub fn generate_type_convert<'ctx>(
     }
 }
 
-/// Generate str() call - convert value to string
+/// Generate str() call - convert value to string (supports BigInt automatically)
 pub fn generate_str_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
@@ -344,6 +345,13 @@ pub fn generate_str_call<'ctx>(
     }
 
     let arg = &args[0];
+    
+    // Check if argument is BigInt type
+    let arg_type = crate::codegen::expressions::core::infer_expr_type(arg);
+    if arg_type == Type::BigInt {
+        return generate_bigint_to_str(state, args);
+    }
+    
     let arg_val = generate_expr(state, arg)?;
 
     let func_name = if arg_val.is_float_value() {

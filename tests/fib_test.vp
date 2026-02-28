@@ -1,0 +1,63 @@
+# Fibonacci with BigInt - Python-like syntax
+
+def fib(n: i64) -> i64:
+    if n <= 0:
+        return 0
+    if n == 1:
+        return 1
+    
+    a = 0
+    b = 1
+    
+    i = 2
+    while i <= n:
+        c = a + b
+        a = b
+        b = c
+        i = i + 1
+    
+    return b
+
+def main():
+    print("=== Fibonacci with BigInt (Native Python) ===")
+    print("")
+    
+    print("fib(10) = ")
+    result = fib(10)
+    print(result)
+    s = str(result)
+    print("Length: ")
+    print(len(s))
+    print(" digits")
+    print("")
+    
+    print("fib(100) = ")
+    result = fib(100)
+    print(result)
+    s = str(result)
+    print("Length: ")
+    print(len(s))
+    print(" digits")
+    print("")
+    
+    print("fib(1000) = ")
+    result = fib(1000)
+    print(result)
+    s = str(result)
+    print("Length: ")
+    print(len(s))
+    print(" digits")
+    print("")
+    
+    print("fib(10000) = ")
+    result = fib(10000)
+    print(result)
+    s = str(result)
+    print("Length: ")
+    print(len(s))
+    print(" digits")
+    print("")
+    
+    print("=== Test complete ===")
+
+main()

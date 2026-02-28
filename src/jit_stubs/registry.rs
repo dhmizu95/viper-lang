@@ -2235,4 +2235,93 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_logging_filter_call as *const () as usize);
     }
+
+    // ============================================
+    // BigInt Functions (GMP)
+    // ============================================
+    
+    if let Some(func) = module.get_function("vp_bigint_from_str") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_from_str_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_from_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_from_i64_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_to_str") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_to_str_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_to_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_to_i64_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_add") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_add_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_sub") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_sub_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_mul") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_mul_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_div") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_div_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_mod") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_mod_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_pow") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_pow_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_sqrt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_sqrt_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_abs") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_abs_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_and") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_and_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_or") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_or_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_xor") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_xor_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_lshift") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_lshift_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_rshift") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_rshift_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_eq") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_eq_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_lt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_lt_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_gt") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_gt_stub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_destroy") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_destroy_stub as *const () as usize);
+    }
 }
