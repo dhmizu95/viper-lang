@@ -1,0 +1,28 @@
+# Test generic types in Viper
+
+# Generic function with type parameter T
+def identity(x):
+    return x
+
+# Generic function with multiple type parameters
+def swap(a, b):
+    return (b, a)
+
+# Test generic functions
+def test_generics():
+    # Identity with different types
+    int_val = identity(42)
+    str_val = identity("hello")
+    float_val = identity(3.14)
+    
+    print(int_val)
+    print(str_val)
+    print(float_val)
+    
+    # Swap with different type combinations
+    swapped1 = swap(1, "two")
+    swapped2 = swap("one", 2)
+    print(swapped1)
+    print(swapped2)
+
+test_generics()

@@ -50,6 +50,18 @@ fn mangle_type(ty: &Type) -> String {
         Type::Struct { name, .. } => format!("struct_{}", name),
         Type::Future(t) => format!("future_{}", mangle_type(t)),
         Type::Var(name) => format!("var_{}", name),
+        Type::TypeParam { name, bounds } => {
+            if bounds.is_empty() {
+                format!("typeparam_{}", name)
+            } else {
+                let bounds_mangled: Vec<String> = bounds.iter().map(mangle_type).collect();
+                format!("typeparam_{}_bounds_{}", name, bounds_mangled.join("_"))
+            }
+        }
+        Type::GenericApp { name, type_args } => {
+            let args_mangled: Vec<String> = type_args.iter().map(mangle_type).collect();
+            format!("generic_{}_{}", name, args_mangled.join("_"))
+        }
         Type::Infer => "infer".to_string(),
         Type::Error => "error".to_string(),
         Type::Union(variants) => {

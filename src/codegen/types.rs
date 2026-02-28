@@ -29,7 +29,10 @@ impl VarType {
             | Type::Dict(_, _)
             | Type::Fn(..)
             | Type::BigInt
-            | Type::Int => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
+            | Type::Int
+            | Type::TypeParam { .. }
+            | Type::GenericApp { .. }
+            | Type::Var(_) => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
             _ => VarType::Int,
         }
     }
@@ -77,7 +80,12 @@ impl<'ctx> TypeMapper<'ctx> {
             }
             Type::Struct { .. } => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             Type::Future(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-            Type::Var(_) | Type::Infer | Type::Error | Type::None => self.context.i64_type().into(),
+            // Type parameters and generic applications are resolved before codegen
+            // For unresolved generics, use pointer type as placeholder
+            Type::TypeParam { .. } | Type::GenericApp { .. } | Type::Var(_) => {
+                self.context.ptr_type(inkwell::AddressSpace::default()).into()
+            }
+            Type::Infer | Type::Error | Type::None => self.context.i64_type().into(),
             // Union types are represented as tagged unions (pointer-sized)
             Type::Union(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
         }
@@ -110,6 +118,12 @@ impl<'ctx> TypeMapper<'ctx> {
                 }
             }
             Some(Type::None) | None => None,
+            // Generic types and type variables use pointer type
+            Some(Type::TypeParam { .. }) | Some(Type::GenericApp { .. }) | Some(Type::Var(_)) => {
+                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+            }
+            // Union types use pointer type
+            Some(Type::Union(_)) => Some(self.context.ptr_type(inkwell::AddressSpace::default()).into()),
             _ => Some(self.context.i64_type().into()),
         }
     }

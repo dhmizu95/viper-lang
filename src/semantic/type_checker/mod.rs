@@ -53,16 +53,18 @@ impl TypeChecker {
 
         // First pass: collect function declarations
         for stmt in &module.statements {
-            if let crate::ast::Stmt::Function { name, params, return_type, span, .. } = stmt {
+            if let crate::ast::Stmt::Function { name, params, return_type, span, type_params, .. } = stmt {
                 let param_types: Vec<Type> =
                     params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Infer)).collect();
 
+                // type_params is already Vec<String>
                 let symbol = Symbol::new_function(
                     name.clone(),
                     param_types,
                     return_type.clone(),
                     *span,
                     self.symbol_table.current_scope_id(),
+                    type_params.clone(),
                 );
                 if let Err(e) = self.symbol_table.insert(symbol) {
                     self.errors.push(TypeError::new(e, *span));

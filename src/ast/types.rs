@@ -46,8 +46,12 @@ pub enum Type {
     Struct { name: String, fields: Vec<(String, Type)> },
     /// Future type (for async/await)
     Future(Box<Type>),
-    /// Type variable (for generics)
+    /// Type variable (for generics) - unbound type parameter
     Var(String),
+    /// Type parameter with bounds (for generics) - e.g., T: Hashable
+    TypeParam { name: String, bounds: Vec<Type> },
+    /// Generic type application - e.g., List[T], Dict[K, V], MyGeneric[T, U]
+    GenericApp { name: String, type_args: Vec<Type> },
     /// Unknown/to be inferred
     Infer,
     /// Error type
@@ -151,6 +155,132 @@ impl Type {
             _ => false,
         }
     }
+
+    /// Check if this is a type parameter (unbound type variable)
+    pub fn is_type_param(&self) -> bool {
+        matches!(self, Type::Var(_) | Type::TypeParam { .. })
+    }
+
+    /// Get the name of a type parameter, if this is one
+    pub fn as_type_param_name(&self) -> Option<&str> {
+        match self {
+            Type::Var(name) | Type::TypeParam { name, .. } => Some(name),
+            _ => None,
+        }
+    }
+
+    /// Check if this is a generic type application
+    pub fn is_generic_app(&self) -> bool {
+        matches!(self, Type::GenericApp { .. })
+    }
+
+    /// Get the name and type arguments if this is a generic application
+    pub fn as_generic_app(&self) -> Option<(&str, &[Type])> {
+        match self {
+            Type::GenericApp { name, type_args } => Some((name, type_args)),
+            _ => None,
+        }
+    }
+
+    /// Collect all type variables in this type
+    pub fn collect_type_vars(&self) -> Vec<String> {
+        let mut vars = Vec::new();
+        self.collect_type_vars_impl(&mut vars);
+        vars
+    }
+
+    fn collect_type_vars_impl(&self, vars: &mut Vec<String>) {
+        match self {
+            Type::Var(name) | Type::TypeParam { name, .. } => {
+                if !vars.contains(name) {
+                    vars.push(name.clone());
+                }
+            }
+            Type::List(inner) => inner.collect_type_vars_impl(vars),
+            Type::Dict(k, v) => {
+                k.collect_type_vars_impl(vars);
+                v.collect_type_vars_impl(vars);
+            }
+            Type::Tuple(types) | Type::Union(types) => {
+                for t in types {
+                    t.collect_type_vars_impl(vars);
+                }
+            }
+            Type::Array(elem, _) => elem.collect_type_vars_impl(vars),
+            Type::Fn(params, ret) => {
+                for p in params {
+                    p.collect_type_vars_impl(vars);
+                }
+                ret.collect_type_vars_impl(vars);
+            }
+            Type::Chan(inner) => inner.collect_type_vars_impl(vars),
+            Type::Optional(inner) => inner.collect_type_vars_impl(vars),
+            Type::Future(inner) => inner.collect_type_vars_impl(vars),
+            Type::Struct { fields, .. } => {
+                for (_, field_type) in fields {
+                    field_type.collect_type_vars_impl(vars);
+                }
+            }
+            Type::GenericApp { type_args, .. } => {
+                for arg in type_args {
+                    arg.collect_type_vars_impl(vars);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Substitute type variables with concrete types
+    /// 
+    /// Given a type with type variables and a substitution map,
+    /// replace all occurrences of type variables with their concrete types.
+    pub fn substitute(&self, substitution: &std::collections::HashMap<String, Type>) -> Type {
+        match self {
+            Type::Var(name) => {
+                substitution.get(name).cloned().unwrap_or_else(|| self.clone())
+            }
+            Type::TypeParam { name, bounds } => {
+                if let Some(concrete) = substitution.get(name) {
+                    concrete.clone()
+                } else {
+                    Type::TypeParam {
+                        name: name.clone(),
+                        bounds: bounds.iter().map(|b| b.substitute(substitution)).collect(),
+                    }
+                }
+            }
+            Type::List(inner) => Type::List(Box::new(inner.substitute(substitution))),
+            Type::Dict(k, v) => Type::Dict(
+                Box::new(k.substitute(substitution)),
+                Box::new(v.substitute(substitution)),
+            ),
+            Type::Tuple(types) => Type::Tuple(types.iter().map(|t| t.substitute(substitution)).collect()),
+            Type::Array(elem, size) => Type::Array(
+                Box::new(elem.substitute(substitution)),
+                *size,
+            ),
+            Type::Fn(params, ret) => Type::Fn(
+                params.iter().map(|p| p.substitute(substitution)).collect(),
+                Box::new(ret.substitute(substitution)),
+            ),
+            Type::Chan(inner) => Type::Chan(Box::new(inner.substitute(substitution))),
+            Type::Optional(inner) => Type::Optional(Box::new(inner.substitute(substitution))),
+            Type::Future(inner) => Type::Future(Box::new(inner.substitute(substitution))),
+            Type::Struct { name, fields } => Type::Struct {
+                name: name.clone(),
+                fields: fields.iter().map(|(n, t)| (n.clone(), t.substitute(substitution))).collect(),
+            },
+            Type::GenericApp { name, type_args } => Type::GenericApp {
+                name: name.clone(),
+                type_args: type_args.iter().map(|t| t.substitute(substitution)).collect(),
+            },
+            Type::Union(variants) => Type::Union(
+                variants.iter().map(|t| t.substitute(substitution)).collect(),
+            ),
+            // Primitive types and Infer/Error remain unchanged
+            _ => self.clone(),
+        }
+    }
 }
 
 impl std::fmt::Display for Type {
@@ -206,6 +336,29 @@ impl std::fmt::Display for Type {
             }
             Type::Future(t) => write!(f, "Future[{}]", t),
             Type::Var(name) => write!(f, "{}", name),
+            Type::TypeParam { name, bounds } => {
+                write!(f, "{}", name)?;
+                if !bounds.is_empty() {
+                    write!(f, ": ")?;
+                    for (i, bound) in bounds.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, " + ")?;
+                        }
+                        write!(f, "{}", bound)?;
+                    }
+                }
+                Ok(())
+            }
+            Type::GenericApp { name, type_args } => {
+                write!(f, "{}[", name)?;
+                for (i, arg) in type_args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, "]")
+            }
             Type::Infer => write!(f, "_"),
             Type::Error => write!(f, "<error>"),
             Type::Union(variants) => {

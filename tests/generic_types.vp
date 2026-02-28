@@ -1,0 +1,23 @@
+# Test generic type annotations
+
+def test_list_generic():
+    # list[T] syntax
+    nums: list[i64] = [1, 2, 3]
+    names: list[str] = ["a", "b", "c"]
+    print(len(nums))
+    print(len(names))
+
+def test_dict_generic():
+    # dict[K, V] syntax  
+    ages: dict[str, i64] = {"alice": 30, "bob": 25}
+    print(len(ages))
+
+def test_nested_generics():
+    # Nested generic types
+    matrix: list[list[i64]] = [[1, 2], [3, 4]]
+    print(len(matrix))
+
+test_list_generic()
+test_dict_generic()
+test_nested_generics()
+print("Generic type annotations work!")

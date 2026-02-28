@@ -1,0 +1,51 @@
+# Test generic types in Viper
+
+# Generic function with type parameter T
+def identity[T](x: T) -> T:
+    return x
+
+# Generic function with multiple type parameters
+def swap[T, U](a: T, b: U) -> tuple[U, T]:
+    return (b, a)
+
+# Generic function with constraint (T should be hashable for dict key)
+def count_occurrences[T](items: list[T]) -> dict[T, i64]:
+    counts: dict[T, i64] = {}
+    for item in items:
+        if item in counts:
+            counts[item] = counts[item] + 1
+        else:
+            counts[item] = 1
+    return counts
+
+# Generic function with numeric constraint
+def add[T](a: T, b: T) -> T:
+    return a + b
+
+# Test generic functions
+def test_generics():
+    # Identity with different types
+    int_val = identity(42)
+    str_val = identity("hello")
+    float_val = identity(3.14)
+    
+    print(int_val)
+    print(str_val)
+    print(float_val)
+    
+    # Swap with different type combinations
+    swapped1 = swap(1, "two")
+    swapped2 = swap("one", 2)
+    print(swapped1)
+    print(swapped2)
+    
+    # Count occurrences
+    numbers = [1, 2, 2, 3, 3, 3]
+    counts = count_occurrences(numbers)
+    print(len(counts))
+    
+    # Add numbers
+    sum_val = add(10, 20)
+    print(sum_val)
+
+test_generics()

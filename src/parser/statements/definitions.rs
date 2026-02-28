@@ -295,7 +295,30 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
                 parser.advance();
                 return Ok(Type::Fn(vec![], Box::new(Type::I64)));
             }
-            _ => Type::Var(name.clone()),
+            // Generic type application for user-defined types: MyType[T, U]
+            _ => {
+                let type_name = name.clone();
+                parser.advance();
+                
+                // Check for generic application: Type[T, U, ...]
+                if parser.match_token(&TokenKind::LBracket) {
+                    let mut type_args = Vec::new();
+                    loop {
+                        type_args.push(parse_type_annotation(parser)?);
+                        if !parser.match_token(&TokenKind::Comma) {
+                            break;
+                        }
+                    }
+                    parser.expect(&TokenKind::RBracket)?;
+                    return Ok(Type::GenericApp {
+                        name: type_name,
+                        type_args,
+                    });
+                }
+                
+                // Simple type variable or named type
+                Type::Var(type_name)
+            }
         },
         TokenKind::None | TokenKind::Void => Type::None,
         _ => return Err(format!("Expected type name, found {:?}", token.kind)),

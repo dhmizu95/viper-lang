@@ -7,10 +7,18 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {
     Variable { mutable: bool, type_ann: Option<Type> },
-    Function { params: Vec<Type>, return_type: Option<Type>, mangled_name: String },
+    /// Function with optional generic type parameters
+    Function { 
+        params: Vec<Type>, 
+        return_type: Option<Type>, 
+        mangled_name: String,
+        type_params: Vec<String>,  // Generic type parameter names (e.g., ["T", "U"])
+    },
     Parameter { type_ann: Option<Type> },
     Builtin { signature: BuiltinSignature },
     TypeAlias { type_def: Type },
+    /// Generic type definition (e.g., class MyList[T])
+    GenericTypeDef { type_params: Vec<String> },
 }
 
 /// Built-in function signatures
@@ -62,11 +70,12 @@ impl Symbol {
         return_type: Option<Type>,
         span: Span,
         scope_id: usize,
+        type_params: Vec<String>,
     ) -> Self {
         let mangled_name = mangle_function_name(&name, &params);
         Self {
             name,
-            kind: SymbolKind::Function { params, return_type, mangled_name },
+            kind: SymbolKind::Function { params, return_type, mangled_name, type_params },
             span,
             scope_id,
         }
@@ -104,6 +113,7 @@ impl Symbol {
                 BuiltinSignature::WaitGroupWait => Some(Type::None),
             },
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
+            SymbolKind::GenericTypeDef { .. } => None,
         }
     }
 }
@@ -261,6 +271,13 @@ impl SymbolTable {
             ),
             Type::Chan(inner) => Type::Chan(Box::new(self.resolve_type_alias(inner))),
             Type::Future(inner) => Type::Future(Box::new(self.resolve_type_alias(inner))),
+            Type::GenericApp { name, type_args } => Type::GenericApp {
+                name: name.clone(),
+                type_args: type_args.iter().map(|t| self.resolve_type_alias(t)).collect(),
+            },
+            Type::Union(variants) => Type::Union(
+                variants.iter().map(|t| self.resolve_type_alias(t)).collect(),
+            ),
             _ => ty.clone(),
         }
     }
