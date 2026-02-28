@@ -3,7 +3,7 @@
 //! These stubs delegate to the C bridge implementation (gmp_bridge.c)
 //! which handles all BigInt operations using GMP and ARC memory management.
 
-use std::ffi::{c_char, c_int, c_void};
+use std::ffi::{c_char, c_void};
 
 // TEMPORARY STUBS - Replace with actual C bridge calls when linking is fixed
 // These stubs provide minimal functionality to allow compilation
