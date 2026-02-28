@@ -205,7 +205,8 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
     let ty = match &token.kind {
         TokenKind::Ident(name) => match name.as_str() {
             // Python-style aliases
-            "int" => Type::I64,   // Python int -> Viper i64
+            "int" => Type::Int,   // Python int -> auto-promoting tagged integer
+            "i64" => Type::I64,   // Explicit 64-bit integer
             "float" => Type::F64, // Python float -> Viper f64
             "BigInt" => Type::BigInt,  // BigInt type
             "list" => {

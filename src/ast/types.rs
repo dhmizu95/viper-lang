@@ -10,6 +10,8 @@ pub enum Type {
     I32,
     /// 64-bit integer
     I64,
+    /// Auto-promoting integer (tagged: small int or BigInt on overflow)
+    Int,
     /// 32-bit float
     F32,
     /// 64-bit float
@@ -142,6 +144,7 @@ impl std::fmt::Display for Type {
             Type::Bytes => write!(f, "bytes"),
             Type::BigInt => write!(f, "BigInt"),
             Type::None => write!(f, "None"),
+            Type::Int => write!(f, "int"),
             Type::List(t) => write!(f, "[{}]", t),
             Type::Dict(k, v) => write!(f, "{{{}: {}}}", k, v),
             Type::Tuple(types) => {

@@ -40,6 +40,10 @@
 *_go
 *.o
 
+# Benchmark Rust project artifacts
+benchmark/**/target/
+benchmark/**/Cargo.lock
+
 # Runtime build artifacts
 runtime/libviper.a
 runtime/obj/*.o

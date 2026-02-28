@@ -27,8 +27,9 @@ impl VarType {
             | Type::WaitGroup
             | Type::List(_)
             | Type::Dict(_, _)
-            | Type::Fn(_, _)
-            | Type::BigInt => VarType::Pointer,
+            | Type::Fn(..)
+            | Type::BigInt
+            | Type::Int => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
             _ => VarType::Int,
         }
     }
@@ -47,7 +48,7 @@ impl<'ctx> TypeMapper<'ctx> {
     /// Convert Viper Type to LLVM type
     pub fn llvm_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
         match ty {
-            Type::I8 | Type::I16 | Type::I32 | Type::I64 => self.context.i64_type().into(),
+            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => self.context.i64_type().into(),
             Type::F32 | Type::F64 => self.context.f64_type().into(),
             Type::Bool => self.context.bool_type().into(),
             Type::Str
@@ -83,7 +84,7 @@ impl<'ctx> TypeMapper<'ctx> {
     /// Get LLVM type for function return
     pub fn llvm_return_type(&self, return_type: &Option<Type>) -> Option<BasicTypeEnum<'ctx>> {
         match return_type {
-            Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) => {
+            Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) | Some(Type::Int) => {
                 Some(self.context.i64_type().into())
             }
             Some(Type::F32) | Some(Type::F64) => Some(self.context.f64_type().into()),

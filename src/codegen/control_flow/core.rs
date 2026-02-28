@@ -1,8 +1,9 @@
 use crate::ast::Expr;
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::LoopContext;
+use inkwell::values::BasicValueEnum;
 
-/// Generate a return statement
+/// Generate a return statement with type coercion to match function signature
 pub fn generate_return<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     value: &Option<Expr>,
@@ -19,11 +20,70 @@ pub fn generate_return<'ctx>(
         }
 
         let v = crate::codegen::expressions::generate_expr(state, val)?;
-        state.ir_builder.build_return(state.builder, Some(&v));
+        
+        // Get the function's expected return type
+        let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let expected_return_type = func.get_type().get_return_type();
+        
+        // Coerce the value if needed
+        let coerced_value = coerce_return_value(state, v, expected_return_type)?;
+        state.ir_builder.build_return(state.builder, Some(&coerced_value));
     } else {
         state.ir_builder.build_return(state.builder, None);
     }
     Ok(())
+}
+
+/// Coerce a return value to match the function's expected return type
+fn coerce_return_value<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    value: BasicValueEnum<'ctx>,
+    expected_type: Option<inkwell::types::BasicTypeEnum<'ctx>>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if let Some(expected) = expected_type {
+        let value_type = value.get_type();
+        
+        // If types already match, no coercion needed
+        if value_type == expected {
+            return Ok(value);
+        }
+        
+        // Handle i64 -> pointer coercion (e.g., returning 0 or 1 as BigInt)
+        if value_type.is_int_type() && expected.is_pointer_type() {
+            // This is likely returning an integer literal where a BigInt is expected
+            // We need to call vp_bigint_from_i64 to convert
+            let i64_type = state.context.i64_type();
+            let bigint_from_i64 = state
+                .module
+                .get_function("vp_bigint_from_i64")
+                .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+            
+            // Ensure the value is i64
+            let i64_value = if value_type.into_int_type() != i64_type {
+                state.builder.build_int_cast(value.into_int_value(), i64_type, "to_i64")
+                    .map_err(|e| format!("int cast failed: {:?}", e))?
+            } else {
+                value.into_int_value()
+            };
+            
+            let result = state
+                .ir_builder
+                .build_call(state.builder, bigint_from_i64, &[i64_value.into()], "bigint_from_i64")
+                .expect("bigint_from_i64 call");
+            return Ok(result.into());
+        }
+        
+        // Handle pointer -> i64 coercion (shouldn't happen normally, but for completeness)
+        if value_type.is_pointer_type() && expected.is_int_type() {
+            // This would be an error case - returning a pointer where int expected
+            return Err(format!(
+                "Cannot convert pointer to integer in return value. Expected {:?}, got {:?}",
+                expected, value_type
+            ));
+        }
+    }
+    
+    Ok(value)
 }
 
 /// Generate a break statement
