@@ -28,6 +28,90 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine.add_global_mapping(&func.as_global_value(), print_newline_ptr as usize);
     }
 
+    // BigInt functions
+    if let Some(func) = module.get_function("vp_bigint_from_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_from_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_from_str") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_from_str as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_add") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_add as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_sub") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_sub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_mul") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_mul as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_div") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_div as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_floor_div") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_floor_div as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_mod") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_mod as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_pow") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_pow as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_pow_mod") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_pow_mod as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_and") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_and as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_or") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_or as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_xor") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_xor as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_not") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_not as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_shl") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_shl as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_shr") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_shr as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_cmp") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_cmp as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_bit_length") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_bit_length as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_to_i64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_to_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_bigint_to_f64") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_to_f64 as *const () as usize);
+    }
+
     if let Some(func) = module.get_function("vp_list_create") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_list_create_stub as *const () as usize);
@@ -84,8 +168,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_list_grow_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_list_reserve") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_reserve_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_reserve_stub as *const () as usize,
+        );
     }
     // Float list functions (f64)
     if let Some(func) = module.get_function("vp_list_create_f64") {
@@ -163,38 +249,54 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
 
     // Bool list functions
     if let Some(func) = module.get_function("vp_list_bool_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_bool_create_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_bool_create_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_list_bool_append") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_bool_append_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_bool_append_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_list_bool_get") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_bool_get_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_bool_get_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_list_bool_set") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_bool_set_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_bool_set_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_list_bool_repeat") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_bool_repeat_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_bool_repeat_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_list_bool_init_stack") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_bool_init_stack_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_bool_init_stack_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_list_bool_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_list_bool_free_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_list_bool_free_stub as *const () as usize,
+        );
     }
 
     // Bit vector functions (1 bit per boolean - 8x memory savings)
     if let Some(func) = module.get_function("vp_bitvec_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_create_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_create_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_create_with_capacity") {
         execution_engine.add_global_mapping(
@@ -203,32 +305,42 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         );
     }
     if let Some(func) = module.get_function("vp_bitvec_repeat") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_repeat_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_repeat_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_free") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bitvec_free_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bitvec_append") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_append_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_append_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_insert") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_insert_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_insert_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_remove") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_remove_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_remove_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_pop") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bitvec_pop_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bitvec_clear") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_clear_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_clear_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_get") {
         execution_engine
@@ -239,20 +351,26 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_bitvec_set_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bitvec_contains") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_contains_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_contains_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_copy") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bitvec_copy_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bitvec_slice") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_slice_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_slice_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_print") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_print_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_print_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_len") {
         execution_engine
@@ -271,28 +389,40 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         );
     }
     if let Some(func) = module.get_function("vp_bitvec_extend") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_extend_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_extend_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_index") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_index_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_index_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_count") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_count_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_count_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_reverse") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_reverse_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_reverse_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_reversed") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_reversed_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_reversed_stub as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_bitvec_concat") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_bitvec_concat_stub as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bitvec_concat_stub as *const () as usize,
+        );
     }
 
     if let Some(func) = module.get_function("vp_range") {
@@ -477,10 +607,8 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         );
     }
     if let Some(func) = module.get_function("vp_async_range_next") {
-        execution_engine.add_global_mapping(
-            &func.as_global_value(),
-            vp_async_range_next as *const () as usize,
-        );
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_async_range_next as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_async_iter") {
         execution_engine
@@ -495,10 +623,8 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_async_spawn as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_async_run_loop") {
-        execution_engine.add_global_mapping(
-            &func.as_global_value(),
-            vp_async_run_loop as *const () as usize,
-        );
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_async_run_loop as *const () as usize);
     }
 
     // Thread pool functions
@@ -659,8 +785,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_time_monotonic as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_time_perf_counter") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_time_perf_counter as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_time_perf_counter as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_time_sleep") {
         execution_engine
@@ -679,16 +807,20 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_time_strftime as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_time_timezone_offset") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_time_timezone_offset as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_time_timezone_offset as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_time_isdst") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_time_isdst as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_time_days_in_month") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_time_days_in_month as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_time_days_in_month as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_time_sleep_ms") {
         execution_engine
@@ -721,12 +853,16 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_gc_get_count as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_gc_get_total_freed") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_gc_get_total_freed as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_gc_get_total_freed as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_gc_get_memory_usage") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_gc_get_memory_usage as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_gc_get_memory_usage as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_gc_set_threshold") {
         execution_engine
@@ -753,16 +889,22 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_gc_set_debug as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_gc_run_finalizers") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_gc_run_finalizers as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_gc_run_finalizers as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_gc_get_object_count") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_gc_get_object_count as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_gc_get_object_count as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_gc_get_pending_count") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_gc_get_pending_count as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_gc_get_pending_count as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_gc_break_cycles") {
         execution_engine
@@ -1001,8 +1143,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_math_factorial as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_math_factorial_large") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_math_factorial_large as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_math_factorial_large as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_math_comb") {
         execution_engine
@@ -1206,12 +1350,16 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
 
     // OrderedDict functions
     if let Some(func) = module.get_function("vp_ordered_dict_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_ordered_dict_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_ordered_dict_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_ordered_dict_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_ordered_dict_set") {
         execution_engine
@@ -1222,38 +1370,52 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_ordered_dict_get as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_ordered_dict_contains") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_contains as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_ordered_dict_contains as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_ordered_dict_len") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_ordered_dict_len as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_ordered_dict_clear") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_clear as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_ordered_dict_clear as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_ordered_dict_keys") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_keys as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_ordered_dict_keys as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_ordered_dict_values") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_values as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_ordered_dict_values as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_ordered_dict_move_to_end") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_ordered_dict_move_to_end as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_ordered_dict_move_to_end as *const () as usize,
+        );
     }
 
     // DefaultDict functions
     if let Some(func) = module.get_function("vp_default_dict_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_default_dict_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_default_dict_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_default_dict_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_default_dict_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_default_dict_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_default_dict_get") {
         execution_engine
@@ -1270,24 +1432,32 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
 
     // NamedTuple functions
     if let Some(func) = module.get_function("vp_named_tuple_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_named_tuple_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_named_tuple_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_named_tuple_free") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_named_tuple_free as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_named_tuple_set_field") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_named_tuple_set_field as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_named_tuple_set_field as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_named_tuple_set_value") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_named_tuple_set_value as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_named_tuple_set_value as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_named_tuple_get_value") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_named_tuple_get_value as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_named_tuple_get_value as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_named_tuple_len") {
         execution_engine
@@ -1396,8 +1566,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_random_seed as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_random_seed_secure") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_random_seed_secure as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_random_seed_secure as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_random_choice") {
         execution_engine
@@ -1440,12 +1612,16 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_random_set_state as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_random_is_initialized") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_random_is_initialized as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_random_is_initialized as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_random_getrandbits") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_random_getrandbits as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_random_getrandbits as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_random_randbytes") {
         execution_engine
@@ -1490,16 +1666,22 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_socket_accept as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_socket_setblocking") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_setblocking as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_setblocking as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_getsockopt") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_getsockopt as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_getsockopt as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_setsockopt") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_setsockopt as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_setsockopt as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_fileno") {
         execution_engine
@@ -1516,24 +1698,34 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_socket_af_inet6 as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_socket_sock_stream") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_sock_stream as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_sock_stream as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_sock_dgram") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_sock_dgram as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_sock_dgram as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_sol_socket") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_sol_socket as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_sol_socket as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_so_reuseaddr") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_so_reuseaddr as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_so_reuseaddr as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_tcp_nodelay") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_socket_tcp_nodelay as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_socket_tcp_nodelay as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_socket_shut_rd") {
         execution_engine
@@ -1565,20 +1757,28 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_asyncio_sleep as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_asyncio_create_task") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_create_task as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_create_task as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_task_done") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_task_done as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_task_done as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_task_cancelled") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_task_cancelled as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_task_cancelled as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_task_cancel") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_task_cancel as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_task_cancel as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_gather") {
         execution_engine
@@ -1597,100 +1797,148 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_asyncio_stop as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_asyncio_lock_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_lock_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_lock_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_lock_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_lock_acquire") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_acquire as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_lock_acquire as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_lock_release") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_lock_release as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_lock_release as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_event_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_event_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_event_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_event_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_event_is_set") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_is_set as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_event_is_set as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_event_set") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_set as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_event_set as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_event_clear") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_clear as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_event_clear as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_event_wait") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_event_wait as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_event_wait as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_queue_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_queue_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_queue_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_queue_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_queue_size") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_size as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_queue_size as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_queue_empty") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_empty as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_queue_empty as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_queue_full") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_full as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_queue_full as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_queue_put") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_put as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_queue_put as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_queue_get") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_queue_get as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_queue_get as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_semaphore_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_semaphore_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_semaphore_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_semaphore_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_semaphore_acquire") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_acquire as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_semaphore_acquire as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_semaphore_release") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_semaphore_release as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_semaphore_release as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_timeout_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_timeout_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_timeout_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_timeout_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_timeout_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_timeout_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_asyncio_timeout_expired") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_asyncio_timeout_expired as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_asyncio_timeout_expired as *const () as usize,
+        );
     }
 
     // ============================================
@@ -1710,44 +1958,60 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_http_request as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_response_status") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_response_status as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_response_status as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_response_text") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_response_text as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_response_text as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_response_json") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_response_json as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_response_json as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_response_header") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_response_header as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_response_header as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_response_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_response_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_response_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_server_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_server_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_server_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_server_free") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_http_server_free as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_server_serve") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_server_serve as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_server_serve as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_server_stop") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_http_server_stop as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_server_is_running") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_server_is_running as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_server_is_running as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_urlencode") {
         execution_engine
@@ -1772,24 +2036,30 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_http_no_content as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_moved_permanently") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_moved_permanently as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_moved_permanently as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_found") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_http_found as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_not_modified") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_not_modified as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_not_modified as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_bad_request") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_http_bad_request as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_unauthorized") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_unauthorized as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_unauthorized as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_forbidden") {
         execution_engine
@@ -1800,28 +2070,36 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_http_not_found as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_method_not_allowed") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_method_not_allowed as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_method_not_allowed as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_conflict") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_http_conflict as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_internal_server_error") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_internal_server_error as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_internal_server_error as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_not_implemented") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_not_implemented as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_not_implemented as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_http_bad_gateway") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_http_bad_gateway as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_http_service_unavailable") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_http_service_unavailable as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_http_service_unavailable as *const () as usize,
+        );
     }
 
     // ============================================
@@ -1829,40 +2107,54 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
     // ============================================
 
     if let Some(func) = module.get_function("vp_select_fdset_create") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_select_fdset_create as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_select_fdset_create as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_select_fdset_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_select_fdset_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_select_fdset_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_select_fdset_add") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_select_fdset_add as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_select_fdset_remove") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_select_fdset_remove as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_select_fdset_remove as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_select_fdset_contains") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_select_fdset_contains as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_select_fdset_contains as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_select_fdset_clear") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_select_fdset_clear as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_select_fdset_clear as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_select_fdset_get_fds") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_select_fdset_get_fds as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_select_fdset_get_fds as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_select_select") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_select_select as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_select_result_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_select_result_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_select_result_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_select_can_read") {
         execution_engine
@@ -1970,32 +2262,46 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_hashlib_digest as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_hashlib_hexdigest") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_hashlib_hexdigest as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_hashlib_hexdigest as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_hashlib_block_size_md5") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_hashlib_block_size_md5 as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_hashlib_block_size_md5 as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_hashlib_block_size_sha256") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_hashlib_block_size_sha256 as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_hashlib_block_size_sha256 as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_hashlib_block_size_sha512") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_hashlib_block_size_sha512 as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_hashlib_block_size_sha512 as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_hashlib_digest_size_md5") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_hashlib_digest_size_md5 as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_hashlib_digest_size_md5 as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_hashlib_digest_size_sha256") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_hashlib_digest_size_sha256 as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_hashlib_digest_size_sha256 as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_hashlib_digest_size_sha512") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_hashlib_digest_size_sha512 as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_hashlib_digest_size_sha512 as *const () as usize,
+        );
     }
 
     // ============================================
@@ -2103,8 +2409,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_decimal_get_sign as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_decimal_get_scale") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_decimal_get_scale as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_decimal_get_scale as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_decimal_is_zero") {
         execution_engine
@@ -2115,12 +2423,16 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_decimal_is_nan as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_decimal_is_infinite") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_decimal_is_infinite as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_decimal_is_infinite as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_decimal_is_signed") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_decimal_is_signed as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_decimal_is_signed as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_decimal_zero") {
         execution_engine
@@ -2144,24 +2456,34 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
     // ============================================
 
     if let Some(func) = module.get_function("vp_logging_create_logger") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_create_logger as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_create_logger as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_logger_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_logger_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_logger_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_set_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_set_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_set_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_get_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_get_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_get_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_enabled_for") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_enabled_for as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_enabled_for as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_debug") {
         execution_engine
@@ -2184,55 +2506,79 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_logging_critical as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_logging_exception") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_exception as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_exception as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_get_logger") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_get_logger as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_get_logger as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_basic_config") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_basic_config as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_basic_config as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_cleanup") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_logging_cleanup as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_logging_debug_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_debug_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_debug_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_info_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_info_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_info_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_warning_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_warning_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_warning_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_error_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_error_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_error_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_critical_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_critical_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_critical_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_notset_level") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_notset_level as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_notset_level as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_create_filter") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_create_filter as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_create_filter as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_filter_free") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_filter_free as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_filter_free as *const () as usize,
+        );
     }
     if let Some(func) = module.get_function("vp_logging_filter_call") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), vp_logging_filter_call as *const () as usize);
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_logging_filter_call as *const () as usize,
+        );
     }
 }

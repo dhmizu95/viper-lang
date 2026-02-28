@@ -3,11 +3,7 @@ use crate::semantic::type_checker::{TypeChecker, TypeError};
 
 impl TypeChecker {
     /// Check that all return statements are consistent with declared return type
-    pub(crate) fn check_return_consistency(
-        &mut self,
-        body: &[Stmt],
-        return_type: &Option<Type>,
-    ) {
+    pub(crate) fn check_return_consistency(&mut self, body: &[Stmt], return_type: &Option<Type>) {
         let expected = return_type.clone().unwrap_or(Type::None);
 
         // Simple check: find all return statements at any nesting level
@@ -15,10 +11,8 @@ impl TypeChecker {
         for stmt in body {
             match stmt {
                 Stmt::Return { value, span } => {
-                    let actual = value
-                        .as_ref()
-                        .and_then(|e| self.get_expr_type(e))
-                        .unwrap_or(Type::None);
+                    let actual =
+                        value.as_ref().and_then(|e| self.get_expr_type(e)).unwrap_or(Type::None);
 
                     if !self.is_compatible(&expected, &actual) {
                         self.errors.push(TypeError::new(
@@ -49,7 +43,7 @@ impl TypeChecker {
 
     /// Check if a type is numeric
     pub(crate) fn is_numeric(&self, t: &Type) -> bool {
-        matches!(t, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F64)
+        matches!(t, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::BigInt | Type::F64)
     }
 
     /// Check if two types are compatible
@@ -63,7 +57,14 @@ impl TypeChecker {
             // Generic list vs specific list
             (Type::List(e1), Type::List(e2)) => self.is_compatible(e1, e2),
             // Generic auto-conversion and literal narrowing
-            (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            (
+                Type::I64 | Type::I32 | Type::I16 | Type::I8,
+                Type::I64 | Type::I32 | Type::I16 | Type::I8,
+            ) => true,
+            // BigInt auto-promotion from i64
+            (Type::BigInt, Type::BigInt) => true,
+            (Type::BigInt, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::BigInt) => true,
             (Type::F64 | Type::F32, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
             (Type::F64 | Type::F32, Type::F64 | Type::F32) => true,
 
@@ -74,7 +75,7 @@ impl TypeChecker {
                 }
                 t1.iter().zip(t2.iter()).all(|(e1, e2)| self.is_compatible(e1, e2))
             }
-            
+
             // Allow string to byte implicitly to give user standard behavior
             // TODO: this is an oversimplification, ideally would require explicit cast
             (Type::Bytes, Type::Str) => true,

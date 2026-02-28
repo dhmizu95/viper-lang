@@ -22,7 +22,8 @@ impl VarType {
             Type::F32 | Type::F64 => VarType::Float,
             Type::Bool => VarType::Bool,
             Type::Bytes => VarType::Bytes,
-            Type::Str
+            Type::BigInt
+            | Type::Str
             | Type::Chan(_)
             | Type::WaitGroup
             | Type::List(_)
@@ -47,6 +48,7 @@ impl<'ctx> TypeMapper<'ctx> {
     pub fn llvm_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
         match ty {
             Type::I8 | Type::I16 | Type::I32 | Type::I64 => self.context.i64_type().into(),
+            Type::BigInt => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             Type::F32 | Type::F64 => self.context.f64_type().into(),
             Type::Bool => self.context.bool_type().into(),
             Type::Str
@@ -83,6 +85,9 @@ impl<'ctx> TypeMapper<'ctx> {
         match return_type {
             Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) => {
                 Some(self.context.i64_type().into())
+            }
+            Some(Type::BigInt) => {
+                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
             }
             Some(Type::F32) | Some(Type::F64) => Some(self.context.f64_type().into()),
             Some(Type::Bool) => Some(self.context.bool_type().into()),

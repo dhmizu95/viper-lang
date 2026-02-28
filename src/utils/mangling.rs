@@ -25,6 +25,7 @@ fn mangle_type(ty: &Type) -> String {
         Type::I16 => "i16".to_string(),
         Type::I32 => "i32".to_string(),
         Type::I64 => "i64".to_string(),
+        Type::BigInt => "bigint".to_string(),
         Type::F32 => "f32".to_string(),
         Type::F64 => "f64".to_string(),
         Type::Bool => "bool".to_string(),

@@ -1,7 +1,10 @@
 #![allow(ambiguous_glob_reexports)]
 
-pub mod concurrency;
+pub mod asyncio_mod;
+pub mod bigint;
+pub mod bitvec;
 pub mod collections;
+pub mod concurrency;
 pub mod decimal_mod;
 pub mod dicts;
 pub mod gc;
@@ -12,7 +15,6 @@ pub mod io;
 pub mod json;
 pub mod lists;
 pub mod lists_bool;
-pub mod bitvec;
 pub mod logging;
 pub mod math;
 pub mod math_mod;
@@ -26,10 +28,12 @@ pub mod strings;
 pub mod structs;
 pub mod sys;
 pub mod time_mod;
-pub mod asyncio_mod;
 
-pub use concurrency::*;
+pub use asyncio_mod::*;
+pub use bigint::*;
+pub use bitvec::*;
 pub use collections::*;
+pub use concurrency::*;
 pub use decimal_mod::*;
 pub use dicts::*;
 pub use gc::*;
@@ -40,7 +44,6 @@ pub use io::*;
 pub use json::*;
 pub use lists::*;
 pub use lists_bool::*;
-pub use bitvec::*;
 pub use logging::*;
 pub use math::*;
 pub use math_mod::*;
@@ -54,4 +57,3 @@ pub use strings::*;
 pub use structs::*;
 pub use sys::*;
 pub use time_mod::*;
-pub use asyncio_mod::*;

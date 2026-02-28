@@ -93,13 +93,25 @@ impl TypeChecker {
                 }
             }
             Expr::BinOp { op, left, right, .. } => match op {
+                // Arithmetic: if either operand is BigInt, result is BigInt
+                // True division (/) always returns float
                 BinOp::Add
                 | BinOp::Sub
                 | BinOp::Mul
-                | BinOp::Div
                 | BinOp::Mod
                 | BinOp::FloorDiv
-                | BinOp::Pow => self.infer_expr_type(left).or_else(|| self.infer_expr_type(right)),
+                | BinOp::Pow => {
+                    let left_type = self.infer_expr_type(left);
+                    let right_type = self.infer_expr_type(right);
+                    // If either is BigInt, result is BigInt
+                    if left_type == Some(Type::BigInt) || right_type == Some(Type::BigInt) {
+                        Some(Type::BigInt)
+                    } else {
+                        left_type.or_else(|| right_type)
+                    }
+                }
+                BinOp::Div => Some(Type::F64),
+                // Comparisons return bool
                 BinOp::Eq
                 | BinOp::NotEq
                 | BinOp::Lt
@@ -108,12 +120,40 @@ impl TypeChecker {
                 | BinOp::GtEq
                 | BinOp::And
                 | BinOp::Or => Some(Type::Bool),
-                BinOp::NullCoalesce => self.infer_expr_type(left).or_else(|| self.infer_expr_type(right)),
-                _ => Some(Type::I64),
+                // Bitwise: if either is BigInt, result is BigInt
+                BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor | BinOp::LShift | BinOp::RShift => {
+                    let left_type = self.infer_expr_type(left);
+                    let right_type = self.infer_expr_type(right);
+                    if left_type == Some(Type::BigInt) || right_type == Some(Type::BigInt) {
+                        Some(Type::BigInt)
+                    } else {
+                        Some(Type::I64)
+                    }
+                }
+                BinOp::NullCoalesce => {
+                    self.infer_expr_type(left).or_else(|| self.infer_expr_type(right))
+                }
+                BinOp::Is | BinOp::IsNot | BinOp::In | BinOp::NotIn => Some(Type::Bool),
             },
             Expr::UnaryOp { op, operand, .. } => match op {
-                UnaryOp::Neg | UnaryOp::Pos => self.infer_expr_type(operand),
+                UnaryOp::Neg | UnaryOp::Pos => {
+                    let operand_type = self.infer_expr_type(operand);
+                    if operand_type == Some(Type::BigInt) {
+                        Some(Type::BigInt)
+                    } else {
+                        operand_type
+                    }
+                }
                 UnaryOp::Not => Some(Type::Bool),
+                UnaryOp::Invert => {
+                    // Bitwise NOT - if operand is BigInt, result is BigInt
+                    let operand_type = self.infer_expr_type(operand);
+                    if operand_type == Some(Type::BigInt) {
+                        Some(Type::BigInt)
+                    } else {
+                        Some(Type::I64)
+                    }
+                }
                 _ => Some(Type::I64),
             },
             Expr::Index { obj, .. } => {

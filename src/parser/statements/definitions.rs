@@ -250,6 +250,7 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
             "i16" => Type::I16,
             "i32" => Type::I32,
             "i64" => Type::I64,
+            "bigint" => Type::BigInt,
             "f32" => Type::F32,
             "f64" => Type::F64,
             "bool" => Type::Bool,
