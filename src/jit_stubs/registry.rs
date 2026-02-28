@@ -2237,9 +2237,9 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
     }
 
     // ============================================
-    // BigInt Functions (GMP)
+    // BigInt Functions (GMP) - via C bridge
     // ============================================
-    
+
     if let Some(func) = module.get_function("vp_bigint_from_str") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bigint_from_str_stub as *const () as usize);
@@ -2333,20 +2333,16 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             .add_global_mapping(&func.as_global_value(), vp_bigint_is_zero_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bigint_is_negative") {
-        execution_engine.add_global_mapping(
-            &func.as_global_value(),
-            vp_bigint_is_negative_stub as *const () as usize,
-        );
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_is_negative_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bigint_sign") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bigint_sign_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bigint_bit_length") {
-        execution_engine.add_global_mapping(
-            &func.as_global_value(),
-            vp_bigint_bit_length_stub as *const () as usize,
-        );
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_bit_length_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bigint_destroy") {
         execution_engine

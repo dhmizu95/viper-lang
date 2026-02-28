@@ -1,5 +1,5 @@
 // Build script for Viper compiler
-// Links against GMP for BigInt JIT stubs
+// Links against GMP for BigInt support via C bridge
 
 use std::env;
 use std::path::PathBuf;
@@ -21,11 +21,10 @@ fn main() {
     println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../lib/viper/gmp/lib");
     println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../vendor/gmp/lib");
 
-    // Note: Runtime library is linked via JIT stubs for execution
-    // For AOT compilation, link with: -L runtime/obj -lviper
-    // println!("cargo:rustc-link-lib=static=viper");
+    // Link against Viper runtime library (contains gmp_bridge.c and other C functions)
+    println!("cargo:rustc-link-lib=static=viper");
 
-    // Link against GMP library for BigInt JIT stubs
+    // Link against GMP library (used by gmp_bridge.c)
     println!("cargo:rustc-link-lib=gmp");
     println!("cargo:warning=GMP found - BigInt support enabled");
 
