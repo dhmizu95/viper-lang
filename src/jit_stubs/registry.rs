@@ -2474,4 +2474,66 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_destroy as *const () as usize);
     }
+
+    // Exception handling functions
+    if let Some(func) = module.get_function("viper_raise_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_raise_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_raise_with_code") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_raise_with_code as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_catch_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_catch_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_get_exception_type") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_get_exception_type as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_get_exception_message") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_get_exception_message as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_get_exception_code") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_get_exception_code as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_clear_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_clear_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_set_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_set_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_format_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_format_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_print_traceback") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_print_traceback as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_exception_matches") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_exception_matches as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_free_string") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_free_string as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_has_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_has_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_reraise_exception") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_reraise_exception as *const () as usize);
+    }
+    if let Some(func) = module.get_function("viper_exception_to_string") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_exception_to_string as *const () as usize);
+    }
 }

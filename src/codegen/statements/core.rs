@@ -243,14 +243,10 @@ pub(crate) fn generate_stmt_internal<'ctx>(
             // TODO: Implement actual deletion (decrement ref counts, etc.)
         }
         Stmt::Raise { exception, cause, span: _ } => {
-            // For now, just evaluate the exception and cause
-            if let Some(exc) = exception {
-                let _ = crate::codegen::expressions::generate_expr(state, exc)?;
-            }
-            if let Some(c) = cause {
-                let _ = crate::codegen::expressions::generate_expr(state, c)?;
-            }
-            // TODO: Implement actual exception raising
+            generate_raise(state, exception.as_deref(), cause.as_deref())?;
+        }
+        Stmt::Try { body, handlers, else_body, finally_body, span: _ } => {
+            generate_try_except(state, body, handlers, else_body.as_deref(), finally_body.as_deref())?;
         }
         Stmt::With { items, body, span: _ } => {
             // For now, just evaluate context expressions and generate body
@@ -285,5 +281,232 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         }
         _ => {}
     }
+    Ok(())
+}
+
+/// Generate code for raise statement
+fn generate_raise<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    exception: Option<&Expr>,
+    cause: Option<&Expr>,
+) -> Result<(), String> {
+    // Get the raise exception function
+    let raise_func = state.module.get_function("viper_raise_exception")
+        .ok_or("viper_raise_exception function not found")?;
+
+    // Determine exception type and message
+    let (type_ptr, msg_ptr) = if let Some(exc) = exception {
+        match exc {
+            Expr::Call { func, args, .. } if matches!(func.as_ref(), Expr::Ident(..)) => {
+                let name = if let Expr::Ident(name, _) = func.as_ref() {
+                    name.clone()
+                } else {
+                    "Exception".to_string()
+                };
+                // Exception with constructor call: ValueError("message")
+                let exc_type = state.context.const_string(name.as_bytes(), true);
+                let type_global = state.module.add_global(
+                    exc_type.get_type(),
+                    None,
+                    &format!("exc_type_{}", name)
+                );
+                type_global.set_initializer(&exc_type);
+                let type_ptr = state.builder.build_pointer_cast(
+                    type_global.as_pointer_value(),
+                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    "exc_type_ptr"
+                ).map_err(|e| format!("Failed to cast exception type: {:?}", e))?;
+
+                // Get message from first argument if present
+                let msg_ptr = if let Some(first_arg) = args.first() {
+                    let msg_val = crate::codegen::expressions::generate_expr(state, first_arg)?;
+                    // Convert to string pointer if it's a string
+                    if msg_val.is_pointer_value() {
+                        msg_val.into_pointer_value()
+                    } else {
+                        // Use empty string for non-string messages
+                        let empty = state.context.const_string(b"", true);
+                        let empty_global = state.module.add_global(
+                            empty.get_type(),
+                            None,
+                            "empty_str"
+                        );
+                        empty_global.set_initializer(&empty);
+                        state.builder.build_pointer_cast(
+                            empty_global.as_pointer_value(),
+                            state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                            "empty_msg"
+                        ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?
+                    }
+                } else {
+                    // No message argument
+                    let empty = state.context.const_string(b"", true);
+                    let empty_global = state.module.add_global(
+                        empty.get_type(),
+                        None,
+                        "empty_str"
+                    );
+                    empty_global.set_initializer(&empty);
+                    state.builder.build_pointer_cast(
+                        empty_global.as_pointer_value(),
+                        state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                        "empty_msg"
+                    ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?
+                };
+
+                (type_ptr, msg_ptr)
+            }
+            Expr::Ident(name, _) => {
+                // Exception without call: ValueError
+                let exc_type = state.context.const_string(name.as_bytes(), true);
+                let type_global = state.module.add_global(
+                    exc_type.get_type(),
+                    None,
+                    &format!("exc_type_{}", name)
+                );
+                type_global.set_initializer(&exc_type);
+                let type_ptr = state.builder.build_pointer_cast(
+                    type_global.as_pointer_value(),
+                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    "exc_type_ptr"
+                ).map_err(|e| format!("Failed to cast exception type: {:?}", e))?;
+
+                // Empty message
+                let empty = state.context.const_string(b"", true);
+                let empty_global = state.module.add_global(
+                    empty.get_type(),
+                    None,
+                    "empty_str"
+                );
+                empty_global.set_initializer(&empty);
+                let msg_ptr = state.builder.build_pointer_cast(
+                    empty_global.as_pointer_value(),
+                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    "empty_msg"
+                ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?;
+
+                (type_ptr, msg_ptr)
+            }
+            _ => {
+                // Unknown expression type, use generic Exception
+                let exc_type = state.context.const_string(b"Exception", true);
+                let type_global = state.module.add_global(
+                    exc_type.get_type(),
+                    None,
+                    "exc_type_generic"
+                );
+                type_global.set_initializer(&exc_type);
+                let type_ptr = state.builder.build_pointer_cast(
+                    type_global.as_pointer_value(),
+                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    "exc_type_ptr"
+                ).map_err(|e| format!("Failed to cast exception type: {:?}", e))?;
+
+                let empty = state.context.const_string(b"", true);
+                let empty_global = state.module.add_global(
+                    empty.get_type(),
+                    None,
+                    "empty_str"
+                );
+                empty_global.set_initializer(&empty);
+                let msg_ptr = state.builder.build_pointer_cast(
+                    empty_global.as_pointer_value(),
+                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    "empty_msg"
+                ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?;
+
+                (type_ptr, msg_ptr)
+            }
+        }
+    } else {
+        // Re-raise current exception
+        let reraise_func = state.module.get_function("viper_reraise_exception")
+            .ok_or("viper_reraise_exception function not found")?;
+        state.builder.build_call(reraise_func, &[], "reraise")
+            .map_err(|e| format!("Failed to build reraise call: {:?}", e))?;
+        return Ok(());
+    };
+
+    // Build the raise call
+    state.builder.build_call(raise_func, &[type_ptr.into(), msg_ptr.into()], "raise")
+        .map_err(|e| format!("Failed to build raise call: {:?}", e))?;
+
+    // Note: raise never returns, but we need to satisfy LLVM's control flow
+    // The runtime function exits the process
+    Ok(())
+}
+
+/// Generate code for try-except statement
+/// NOTE: This is a simplified implementation that just generates the try body
+/// Full exception handling with LLVM exception handling is a work in progress
+fn generate_try_except<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    body: &[Stmt],
+    handlers: &[crate::ast::ExceptHandler],
+    else_body: Option<&[Stmt]>,
+    finally_body: Option<&[Stmt]>,
+) -> Result<(), String> {
+    // For now, generate the try body only
+    // Full exception handling requires more complex LLVM unwinding support
+    for stmt in body {
+        crate::codegen::statements::generate_stmt(
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            state.list_vars,
+            state.dict_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
+            stmt,
+        )?;
+    }
+    
+    // Generate else body if present
+    if let Some(else_stmts) = else_body {
+        for stmt in else_stmts {
+            crate::codegen::statements::generate_stmt(
+                state.context,
+                state.module,
+                state.builder,
+                state.ir_builder,
+                state.variables,
+                state.functions,
+                state.global_constants,
+                state.loop_stack,
+                state.list_vars,
+                state.dict_vars,
+                state.bool_list_vars,
+                state.bigint_vars,
+                stmt,
+            )?;
+        }
+    }
+    
+    // Generate finally body if present
+    if let Some(finally_stmts) = finally_body {
+        for stmt in finally_stmts {
+            crate::codegen::statements::generate_stmt(
+                state.context,
+                state.module,
+                state.builder,
+                state.ir_builder,
+                state.variables,
+                state.functions,
+                state.global_constants,
+                state.loop_stack,
+                state.list_vars,
+                state.dict_vars,
+                state.bool_list_vars,
+                state.bigint_vars,
+                stmt,
+            )?;
+        }
+    }
+    
     Ok(())
 }
