@@ -44,3 +44,7 @@
 runtime/libviper.a
 runtime/obj/*.o
 
+# Vendored libraries (GMP is bundled)
+!vendor/gmp/**/*
+vendor/other/
+

@@ -26,7 +26,7 @@ extern "C" {
     fn __gmpz_mul_2exp(rop: *mut MpzStruct, op1: *const MpzStruct, cnt: u64);
     fn __gmpz_tdiv_q_2exp(rop: *mut MpzStruct, op1: *const MpzStruct, cnt: u64);
     fn __gmpz_cmp(op1: *const MpzStruct, op2: *const MpzStruct) -> i32;
-    fn __gmpz_sgn(op: *const MpzStruct) -> i32;
+    fn __gmpz_cmp_si(op1: *const MpzStruct, op2: i64) -> i32;
 }
 
 // GMP mpz_t structure (simplified - actual layout may vary)
@@ -47,9 +47,23 @@ struct ViperBigInt {
     mpz: MpzStruct,
 }
 
-// Viper string functions (from strings module)
-extern "C" {
-    fn vp_str_create(s: *const c_char) -> *mut std::ffi::c_void;
+/// Create a Viper string from a C string (minimal implementation for BigInt)
+/// This allocates memory that will be managed by the Viper ARC runtime
+#[no_mangle]
+pub extern "C" fn vp_str_create(s: *const c_char) -> *mut std::ffi::c_void {
+    unsafe {
+        if s.is_null() {
+            return std::ptr::null_mut();
+        }
+        let c_str = CStr::from_ptr(s);
+        let bytes = c_str.to_bytes_with_nul();
+        let ptr = libc::malloc(bytes.len()) as *mut c_char;
+        if ptr.is_null() {
+            return std::ptr::null_mut();
+        }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr as *mut u8, bytes.len());
+        ptr as *mut std::ffi::c_void
+    }
 }
 
 /// Allocate a new BigInt
@@ -187,7 +201,7 @@ pub extern "C" fn vp_bigint_div_stub(
         if result.is_null() || a.is_null() || b.is_null() {
             return;
         }
-        if __gmpz_sgn(&(*b.cast::<ViperBigInt>()).mpz) == 0 {
+        if __gmpz_cmp_si(&(*b.cast::<ViperBigInt>()).mpz, 0) == 0 {
             eprintln!("Error: Division by zero in BigInt division");
             return;
         }
@@ -210,7 +224,7 @@ pub extern "C" fn vp_bigint_mod_stub(
         if result.is_null() || a.is_null() || b.is_null() {
             return;
         }
-        if __gmpz_sgn(&(*b.cast::<ViperBigInt>()).mpz) == 0 {
+        if __gmpz_cmp_si(&(*b.cast::<ViperBigInt>()).mpz, 0) == 0 {
             eprintln!("Error: Modulo by zero in BigInt operation");
             return;
         }
@@ -233,7 +247,7 @@ pub extern "C" fn vp_bigint_pow_stub(
         if result.is_null() || base.is_null() || exp.is_null() {
             return;
         }
-        if __gmpz_sgn(&(*exp.cast::<ViperBigInt>()).mpz) < 0 {
+        if __gmpz_cmp_si(&(*exp.cast::<ViperBigInt>()).mpz, 0) < 0 {
             eprintln!("Error: Negative exponent in BigInt power");
             return;
         }
@@ -257,7 +271,7 @@ pub extern "C" fn vp_bigint_sqrt_stub(
         if result.is_null() || a.is_null() {
             return;
         }
-        if __gmpz_sgn(&(*a.cast::<ViperBigInt>()).mpz) < 0 {
+        if __gmpz_cmp_si(&(*a.cast::<ViperBigInt>()).mpz, 0) < 0 {
             eprintln!("Error: Square root of negative number");
             return;
         }

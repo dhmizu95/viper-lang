@@ -8,7 +8,8 @@ impl TypeChecker {
         body: &[Stmt],
         return_type: &Option<Type>,
     ) {
-        let expected = return_type.clone().unwrap_or(Type::None);
+        // If no return type annotation, use Infer to allow any return type
+        let expected = return_type.clone().unwrap_or(Type::Infer);
 
         // Simple check: find all return statements at any nesting level
         // In a real compiler, we would use a visitor pattern for this

@@ -144,7 +144,11 @@ fi
 print_info "Checking GMP (for BigInt support)..."
 GMP_FOUND=false
 
-if check_command pkg-config; then
+# Check for vendored GMP first
+if [ -d "vendor/gmp/lib" ] && [ -f "vendor/gmp/lib/libgmp.so.10" ]; then
+    print_success "Vendored GMP found: vendor/gmp/lib/"
+    GMP_FOUND=true
+elif check_command pkg-config; then
     if pkg-config --exists gmp 2>/dev/null; then
         GMP_VERSION=$(pkg-config --modversion gmp)
         print_success "GMP installed: $GMP_VERSION"
@@ -161,7 +165,7 @@ fi
 if [ "$GMP_FOUND" = false ]; then
     print_warning "GMP not found - BigInt support will be unavailable"
     print_info "Install GMP for full BigInt support:"
-    
+
     case "$OS" in
         ubuntu|debian)
             print_info "  sudo apt install libgmp-dev pkg-config"
@@ -270,6 +274,15 @@ print_info "Installing headers..."
 cp "runtime/include/"*.h "$VIPER_INCLUDE/" 2>/dev/null || true
 cp "runtime/viper_stdlib.h" "$INSTALL_DIR/include/" 2>/dev/null || true
 print_success "Headers installed: $VIPER_INCLUDE/"
+
+# Install vendored GMP (if available)
+if [ -d "vendor/gmp/lib" ] && [ -f "vendor/gmp/lib/libgmp.so.10" ]; then
+    print_info "Installing vendored GMP library..."
+    mkdir -p "$VIPER_LIB/gmp/lib" "$VIPER_LIB/gmp/include"
+    cp "vendor/gmp/lib/"*.so* "$VIPER_LIB/gmp/lib/" 2>/dev/null || true
+    cp "vendor/gmp/include/"*.h "$VIPER_LIB/gmp/include/" 2>/dev/null || true
+    print_success "Vendored GMP installed: $VIPER_LIB/gmp/"
+fi
 
 echo ""
 

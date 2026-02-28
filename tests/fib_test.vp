@@ -1,6 +1,10 @@
 # Fibonacci with BigInt - Python-like syntax
 
-def fib(n: i64) -> i64:
+def fib(n):
+    """
+    Computes the nth Fibonacci number iteratively.
+    Python handles large integers automatically.
+    """
     if n <= 0:
         return 0
     if n == 1:
@@ -20,43 +24,18 @@ def fib(n: i64) -> i64:
 
 def main():
     print("=== Fibonacci with BigInt (Native Python) ===")
-    print("")
+    print()
     
-    print("fib(10) = ")
-    result = fib(10)
-    print(result)
-    s = str(result)
-    print("Length: ")
-    print(len(s))
-    print(" digits")
-    print("")
+    # Test cases
+    test_cases = [10, 100, 1000, 10000]
     
-    print("fib(100) = ")
-    result = fib(100)
-    print(result)
-    s = str(result)
-    print("Length: ")
-    print(len(s))
-    print(" digits")
-    print("")
-    
-    print("fib(1000) = ")
-    result = fib(1000)
-    print(result)
-    s = str(result)
-    print("Length: ")
-    print(len(s))
-    print(" digits")
-    print("")
-    
-    print("fib(10000) = ")
-    result = fib(10000)
-    print(result)
-    s = str(result)
-    print("Length: ")
-    print(len(s))
-    print(" digits")
-    print("")
+    for n in test_cases:
+        print("fib(")
+        print(n)
+        print(") = ")
+        result = fib(n)
+        print(result)
+        print("")
     
     print("=== Test complete ===")
 

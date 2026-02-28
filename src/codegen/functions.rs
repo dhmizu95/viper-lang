@@ -38,6 +38,7 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
+        Expr::BigInt(_, _) => Type::BigInt,
         Expr::None(_) => Type::None,
         Expr::Ident(name, _) => param_types
             .iter()
@@ -108,6 +109,11 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
             // Check if parameter is used in arithmetic/comparison operations (indicating scalar)
             if param_is_used_as_scalar(&param.name, body) {
                 return Type::I64;
+            }
+
+            // Check if parameter is used with BigInt (assigned or compared with BigInt literals)
+            if param_is_used_as_bigint(&param.name, body) {
+                return Type::BigInt;
             }
 
             // Also check if parameter is passed to another function (indicating reference type)
@@ -197,6 +203,16 @@ fn param_is_used_as_scalar(param_name: &str, body: &[Stmt]) -> bool {
     false
 }
 
+/// Check if a parameter is used with BigInt (assigned BigInt or used in BigInt operations)
+fn param_is_used_as_bigint(param_name: &str, body: &[Stmt]) -> bool {
+    for stmt in body {
+        if stmt_contains_bigint_usage(param_name, stmt) {
+            return true;
+        }
+    }
+    false
+}
+
 /// Check if a parameter is passed as argument to a function call
 /// This indicates the parameter might be a reference type (list, dict, etc.)
 fn param_is_passed_to_function(param_name: &str, body: &[Stmt]) -> bool {
@@ -224,6 +240,58 @@ fn stmt_contains_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
         Stmt::AugAssign { target, value, .. } => {
             expr_contains_scalar_usage(param_name, target)
                 || expr_contains_scalar_usage(param_name, value)
+        }
+        _ => false,
+    }
+}
+
+/// Check if a parameter is used with BigInt (assigned BigInt or used in BigInt operations)
+fn stmt_contains_bigint_usage(param_name: &str, stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::Assign { value, .. } => {
+            expr_contains_bigint_usage(param_name, value)
+        }
+        Stmt::Declare { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_bigint_usage(param_name, v))
+        }
+        Stmt::If { condition, body, else_body, .. } => {
+            expr_contains_bigint_usage(param_name, condition)
+                || body.iter().any(|s| stmt_contains_bigint_usage(param_name, s))
+                || else_body
+                    .as_ref()
+                    .map_or(false, |eb| eb.iter().any(|s| stmt_contains_bigint_usage(param_name, s)))
+        }
+        Stmt::While { condition, body, .. } => {
+            expr_contains_bigint_usage(param_name, condition)
+                || body.iter().any(|s| stmt_contains_bigint_usage(param_name, s))
+        }
+        Stmt::Return { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_bigint_usage(param_name, v))
+        }
+        _ => false,
+    }
+}
+
+/// Check if an expression uses BigInt
+fn expr_contains_bigint_usage(param_name: &str, expr: &Expr) -> bool {
+    match expr {
+        // BigInt literal
+        Expr::BigInt(..) => true,
+        // Check if param is compared or assigned with BigInt
+        Expr::BinOp { left, right, .. } => {
+            expr_contains_bigint_usage(param_name, left)
+                || expr_contains_bigint_usage(param_name, right)
+        }
+        Expr::Call { func, args, .. } => {
+            // Check if calling BigInt constructor or related functions
+            if let Expr::Ident(name, _) = func.as_ref() {
+                if name == "BigInt" || name == "int" {
+                    return args.iter().any(|arg| {
+                        matches!(arg, Expr::Ident(n, _) if n == param_name)
+                    });
+                }
+            }
+            args.iter().any(|arg| expr_contains_bigint_usage(param_name, arg))
         }
         _ => false,
     }
