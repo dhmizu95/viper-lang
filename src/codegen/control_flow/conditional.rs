@@ -39,8 +39,8 @@ fn generate_if_chain<'ctx>(
         } else {
             // No else body - this means all elif conditions were false
             // We need to continue execution after the if/elif chain
-            // Don't add a terminator here - just return false to indicate
-            // that this path continues to merge_block
+            // Add a branch to the merge block
+            state.ir_builder.build_branch(state.builder, merge_block);
             return Ok(false);
         }
     }
@@ -88,7 +88,7 @@ fn generate_if_chain<'ctx>(
     // Position at else block and recursively process remaining elif blocks
     state.builder.position_at_end(elif_else);
     let else_terminates = generate_if_chain(state, remaining_elif, else_body, merge_block)?;
-    
+
     // All paths terminate only if both then and else terminate
     Ok(then_terminates && else_terminates)
 }

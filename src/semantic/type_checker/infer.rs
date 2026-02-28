@@ -108,7 +108,11 @@ impl TypeChecker {
                 | BinOp::Gt
                 | BinOp::GtEq
                 | BinOp::And
-                | BinOp::Or => Some(Type::Bool),
+                | BinOp::Or
+                | BinOp::Is
+                | BinOp::IsNot
+                | BinOp::In
+                | BinOp::NotIn => Some(Type::Bool),
                 BinOp::NullCoalesce => self.infer_expr_type(left).or_else(|| self.infer_expr_type(right)),
                 _ => Some(Type::I64),
             },

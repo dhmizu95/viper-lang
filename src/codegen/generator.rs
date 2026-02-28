@@ -323,7 +323,11 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         // Generate ARC cleanup for local variables before return
-        self.generate_arc_cleanup(original_name);
+        // Only generate cleanup if function doesn't already have a terminator
+        // (i.e., no explicit return/break/continue at the end)
+        if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            self.generate_arc_cleanup(original_name);
+        }
 
         // Add implicit return if needed
         if self.builder.get_insert_block().unwrap().get_terminator().is_none() {

@@ -4,6 +4,7 @@ use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
 /// Generate membership IN/NOT IN operators
+/// Runtime functions return bool (i1), which we use directly
 pub fn generate_membership_op<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     left: &Expr,
@@ -36,15 +37,12 @@ pub fn generate_membership_op<'ctx>(
         &[list_val.into(), value_val.into()],
         if matches!(op, BinOp::In) { "contains" } else { "not_in_contains" },
     );
-    let contains_val: BasicValueEnum = result.unwrap_or(state.ir_builder.i64_const(0).into());
+    // Runtime returns bool (i1), use directly
+    let bool_val = result.unwrap().into_int_value();
 
     if matches!(op, BinOp::NotIn) {
-        Ok(state
-            .builder
-            .build_not(contains_val.into_int_value(), "not_in_result")
-            .expect("not")
-            .into())
+        Ok(state.builder.build_not(bool_val, "not_in_result").expect("not").into())
     } else {
-        Ok(contains_val)
+        Ok(bool_val.into())
     }
 }
