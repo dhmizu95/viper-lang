@@ -19,23 +19,23 @@ impl TypeChecker {
                 if let (Some(lt), Some(rt)) = (left_type, right_type) {
                     match op {
                         BinOp::Add => {
+                            // String concatenation: Str + Str is allowed
+                            if lt == Type::Str && rt == Type::Str {
+                                // String concatenation is valid
+                            }
                             // List concatenation: List + List is allowed
-                            match (&lt, &rt) {
-                                (Type::List(_), Type::List(_)) => {
-                                    // List concatenation is valid
-                                }
-                                _ => {
-                                    // For other types, require numeric
-                                    if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
-                                        self.errors.push(TypeError::new(
-                                            format!(
-                                                "Arithmetic operators require numeric types, got {} and {}",
-                                                lt, rt
-                                            ),
-                                            *span,
-                                        ));
-                                    }
-                                }
+                            else if let (Type::List(_), Type::List(_)) = (&lt, &rt) {
+                                // List concatenation is valid
+                            }
+                            // For other types, require numeric
+                            else if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                                self.errors.push(TypeError::new(
+                                    format!(
+                                        "Arithmetic operators require numeric types, got {} and {}",
+                                        lt, rt
+                                    ),
+                                    *span,
+                                ));
                             }
                         }
                         BinOp::Mul => {

@@ -32,6 +32,7 @@ pub mod asyncio_mod;
 pub use bigint::*;
 pub use concurrency::*;
 pub use collections::*;
+pub use concurrency::*;
 pub use decimal_mod::*;
 pub use dicts::*;
 pub use gc::*;

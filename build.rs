@@ -5,9 +5,9 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    // Tell cargo to look for libraries in the runtime directory
+    // Tell cargo to look for libraries in the runtime/obj directory
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let runtime_dir = manifest_dir.join("runtime");
+    let runtime_dir = manifest_dir.join("runtime").join("obj");
 
     println!("cargo:rustc-link-search=native={}", runtime_dir.display());
     println!("cargo:rustc-link-search=native={}/obj", runtime_dir.display());

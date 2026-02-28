@@ -64,6 +64,14 @@ pub fn declare_print_functions<'ctx>(
         ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_replace", str_replace_type, None);
 
+    // String format method: vp_str_format(format_str, args_array, arg_count)
+    let str_format_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_str_format", str_format_type, None);
+
+    // Bool to string conversion
+    let str_from_bool_type = ptr_type.fn_type(&[bool_type.into()], false);
+    module.add_function("vp_str_from_bool", str_from_bool_type, None);
+
     // Bytes functions
     let bytes_create_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_bytes_create", bytes_create_type, None);

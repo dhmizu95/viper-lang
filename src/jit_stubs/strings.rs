@@ -120,3 +120,46 @@ pub extern "C" fn vp_str_replace_stub(
         c_str.into_raw()
     }
 }
+
+/// Convert bool to string stub for JIT
+pub extern "C" fn vp_str_from_bool_stub(val: bool) -> *const std::ffi::c_char {
+    let s = if val { "True" } else { "False" };
+    let c_str = std::ffi::CString::new(s).unwrap();
+    c_str.into_raw()
+}
+
+/// String format stub for JIT
+/// Format: vp_str_format(format_str, args_array, arg_count)
+/// args_array points to array of string pointers
+pub extern "C" fn vp_str_format_stub(
+    format_str: *const std::ffi::c_char,
+    args_array: *const *const std::ffi::c_char,
+    arg_count: i64,
+) -> *const std::ffi::c_char {
+    use std::ffi::CStr;
+
+    if format_str.is_null() {
+        return std::ptr::null();
+    }
+
+    unsafe {
+        let fmt = CStr::from_ptr(format_str).to_string_lossy();
+        
+        // Count {} placeholders and replace with arguments
+        let mut result = fmt.into_owned();
+        if !args_array.is_null() && arg_count > 0 {
+            for i in 0..arg_count {
+                let arg_ptr = *args_array.offset(i as isize);
+                if !arg_ptr.is_null() {
+                    let arg_str = CStr::from_ptr(arg_ptr).to_string_lossy();
+                    if let Some(pos) = result.find("{}") {
+                        result.replace_range(pos..pos+2, &arg_str);
+                    }
+                }
+            }
+        }
+        
+        let c_str = std::ffi::CString::new(result).unwrap();
+        c_str.into_raw()
+    }
+}

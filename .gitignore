@@ -51,4 +51,9 @@ runtime/obj/*.o
 # Vendored libraries (GMP is bundled)
 !vendor/gmp/**/*
 vendor/other/
+# Benchmark Rust workspace target
+benchmark/target/
+
+# Test files (keep in repo but ignore compiled outputs)
+test_*.vp
 
