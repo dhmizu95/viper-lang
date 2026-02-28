@@ -1,8 +1,56 @@
 use super::*;
-use crate::ast::{Param, Stmt, Type};
+use crate::ast::{Decorator, Param, Stmt, Type};
 use crate::lexer::TokenKind;
 
+/// Parse decorators before a function or class definition
+pub fn parse_decorators(parser: &mut StatementParser) -> Result<Vec<Decorator>, String> {
+    let mut decorators = Vec::new();
+    
+    while parser.match_token(&TokenKind::At) {
+        let start_span = parser.previous().span;
+        
+        // Parse decorator name
+        let name = parser.expect_ident()?;
+        
+        // Parse optional arguments
+        let mut args = Vec::new();
+        let mut keywords = Vec::new();
+        
+        if parser.match_token(&TokenKind::LParen) {
+            if !parser.match_token(&TokenKind::RParen) {
+                loop {
+                    // Check if this is a keyword argument
+                    if parser.peek().map_or(false, |t| matches!(t.kind, TokenKind::Eq)) {
+                        let keyword_name = parser.expect_ident()?;
+                        parser.expect(&TokenKind::Eq)?;
+                        let keyword_value = parse_expression(parser)?;
+                        keywords.push((keyword_name, keyword_value));
+                    } else {
+                        args.push(parse_expression(parser)?);
+                    }
+                    
+                    if !parser.match_token(&TokenKind::Comma) {
+                        break;
+                    }
+                }
+            }
+            parser.expect(&TokenKind::RParen)?;
+        }
+        
+        let span = start_span.merge(parser.previous().span);
+        decorators.push(Decorator { name, args, keywords, span });
+        
+        // Skip newline after decorator
+        parser.match_token(&TokenKind::Newline);
+    }
+    
+    Ok(decorators)
+}
+
 pub fn parse_function_def(parser: &mut StatementParser) -> Result<Stmt, String> {
+    // Parse decorators first
+    let decorators = parse_decorators(parser)?;
+    
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Def)?;
 
@@ -57,6 +105,7 @@ pub fn parse_function_def(parser: &mut StatementParser) -> Result<Stmt, String> 
         body,
         span,
         is_async: false,
+        decorators,
     })
 }
 
@@ -96,6 +145,9 @@ pub fn parse_extern_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::Extern { name: name_token, params, return_type, span })
 }
 pub fn parse_async_function_def(parser: &mut StatementParser) -> Result<Stmt, String> {
+    // Parse decorators first
+    let decorators = parse_decorators(parser)?;
+    
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Async)?;
     parser.expect(&TokenKind::Def)?;
@@ -134,6 +186,7 @@ pub fn parse_async_function_def(parser: &mut StatementParser) -> Result<Stmt, St
         body,
         span,
         is_async: true,
+        decorators,
     })
 }
 
@@ -344,6 +397,9 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
     Ok(ty)
 }
 pub fn parse_class_def(parser: &mut StatementParser) -> Result<Stmt, String> {
+    // Parse decorators first
+    let decorators = parse_decorators(parser)?;
+    
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Class)?;
 
@@ -367,7 +423,30 @@ pub fn parse_class_def(parser: &mut StatementParser) -> Result<Stmt, String> {
 
     let span = start_span.merge(parser.previous().span);
 
-    Ok(Stmt::Class { name, bases, body, span })
+    // Extract fields and methods from the class body
+    let mut fields = Vec::new();
+    let mut methods = Vec::new();
+    
+    for stmt in &body {
+        match stmt {
+            Stmt::Assign { target, .. } => {
+                // Class variable
+                if let crate::ast::Expr::Ident(field_name, _) = target.as_ref() {
+                    fields.push((field_name.clone(), None, true));
+                }
+            }
+            Stmt::Declare { name: field_name, type_ann, .. } => {
+                // Typed class variable
+                fields.push((field_name.clone(), type_ann.clone(), true));
+            }
+            Stmt::Function { name: method_name, .. } => {
+                methods.push(method_name.clone());
+            }
+            _ => {}
+        }
+    }
+
+    Ok(Stmt::Class { name, bases, body, span, decorators, fields, methods })
 }
 pub fn parse_struct_def(parser: &mut StatementParser) -> Result<Stmt, String> {
     let start_span = parser.current().span;

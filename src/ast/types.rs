@@ -60,6 +60,18 @@ pub enum Type {
     Error,
     /// Union type (e.g., int | str)
     Union(Vec<Type>),
+    /// Class type (reference to a class definition)
+    Class(String),
+    /// Instance of a class
+    Instance(String),
+    /// Method type (bound or unbound)
+    Method {
+        class_name: String,
+        method_name: String,
+        params: Vec<Type>,
+        return_type: Box<Type>,
+        is_bound: bool,  // true if 'self' is already bound
+    },
 }
 
 impl Type {
@@ -132,6 +144,8 @@ impl Type {
             Type::Tuple(types) => types.iter().all(|t| t.is_fully_hashable()),
             // List, Dict, Array are not hashable
             Type::List(_) | Type::Dict(_, _) | Type::Array(_, _) => false,
+            // Class instances are not hashable by default (mutable objects)
+            Type::Instance(_) => false,
             // Other types are not hashable by default
             _ => false,
         }
@@ -287,6 +301,15 @@ impl Type {
             Type::Union(variants) => Type::Union(
                 variants.iter().map(|t| t.substitute(substitution)).collect(),
             ),
+            Type::Class(name) => Type::Class(name.clone()),
+            Type::Instance(name) => Type::Instance(name.clone()),
+            Type::Method { class_name, method_name, params, return_type, is_bound } => Type::Method {
+                class_name: class_name.clone(),
+                method_name: method_name.clone(),
+                params: params.iter().map(|t| t.substitute(substitution)).collect(),
+                return_type: Box::new(return_type.substitute(substitution)),
+                is_bound: *is_bound,
+            },
             // Primitive types and Infer/Error remain unchanged
             _ => self.clone(),
         }
@@ -380,6 +403,22 @@ impl std::fmt::Display for Type {
                     write!(f, "{}", variant)?;
                 }
                 Ok(())
+            }
+            Type::Class(name) => write!(f, "class {}", name),
+            Type::Instance(name) => write!(f, "{}", name),
+            Type::Method { class_name, method_name, params, return_type, is_bound } => {
+                if *is_bound {
+                    write!(f, "method {}.{}(", class_name, method_name)?;
+                } else {
+                    write!(f, "unbound method {}.{}(", class_name, method_name)?;
+                }
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", p)?;
+                }
+                write!(f, ") -> {}", return_type)
             }
         }
     }

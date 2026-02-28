@@ -71,6 +71,11 @@ fn mangle_type(ty: &Type) -> String {
             let variants_mangled: Vec<String> = variants.iter().map(mangle_type).collect();
             format!("union_{}", variants_mangled.join("_"))
         }
+        Type::Class(name) => format!("class_{}", name),
+        Type::Instance(name) => format!("instance_{}", name),
+        Type::Method { class_name, method_name, .. } => {
+            format!("method_{}_{}", class_name, method_name)
+        }
     }
 }
 

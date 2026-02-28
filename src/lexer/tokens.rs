@@ -14,6 +14,9 @@ pub enum TokenKind {
     Bool(bool),
     Ident(String),
 
+    // Decorator
+    At,         // @
+
     // Keywords
     Def,
     If,
@@ -123,7 +126,6 @@ pub enum TokenKind {
     Semi, // ;
     Dot,
     Arrow,
-    At,
 
     // Indentation (Python-style)
     Indent,
@@ -167,6 +169,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Bytes(b) => write!(f, "Bytes({:?})", String::from_utf8_lossy(b)),
             TokenKind::Bool(b) => write!(f, "Bool({})", b),
             TokenKind::Ident(s) => write!(f, "Ident({})", s),
+            TokenKind::At => write!(f, "@"),
             TokenKind::Def => write!(f, "def"),
             TokenKind::If => write!(f, "if"),
             TokenKind::Else => write!(f, "else"),
@@ -268,7 +271,6 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Semi => write!(f, ";"),
             TokenKind::Dot => write!(f, "."),
             TokenKind::Arrow => write!(f, "->"),
-            TokenKind::At => write!(f, "@"),
             TokenKind::Indent => write!(f, "<INDENT>"),
             TokenKind::Dedent => write!(f, "<DEDENT>"),
             TokenKind::Newline => write!(f, "<NEWLINE>"),

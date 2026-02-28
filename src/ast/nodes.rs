@@ -221,6 +221,7 @@ pub enum Stmt {
         body: Vec<Stmt>,
         span: Span,
         is_async: bool,
+        decorators: Vec<Decorator>,
     },
     /// External C function declaration: extern "C" fn name(args...) -> ret
     Extern { name: String, params: Vec<Param>, return_type: Option<Type>, span: Span },
@@ -237,7 +238,17 @@ pub enum Stmt {
     /// From import
     FromImport { module: String, names: Vec<(String, Option<String>)>, span: Span },
     /// Class definition
-    Class { name: String, bases: Vec<Expr>, body: Vec<Stmt>, span: Span },
+    Class { 
+        name: String, 
+        bases: Vec<Expr>, 
+        body: Vec<Stmt>, 
+        span: Span,
+        decorators: Vec<Decorator>,
+        /// Fields declared in the class body (name, type, is_class_var)
+        fields: Vec<(String, Option<Type>, bool)>,
+        /// Methods defined in the class
+        methods: Vec<String>,
+    },
     /// Struct definition
     Struct { name: String, fields: Vec<(String, Type)>, span: Span },
     /// Try-except block
@@ -390,6 +401,15 @@ pub struct Param {
     pub name: String,
     pub type_ann: Option<Type>,
     pub default: Option<Expr>,
+    pub span: Span,
+}
+
+/// Decorator for functions, classes, and methods
+#[derive(Debug, Clone)]
+pub struct Decorator {
+    pub name: String,
+    pub args: Vec<Expr>,
+    pub keywords: Vec<(String, Expr)>,
     pub span: Span,
 }
 

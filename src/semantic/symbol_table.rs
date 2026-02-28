@@ -8,9 +8,9 @@ use std::collections::HashMap;
 pub enum SymbolKind {
     Variable { mutable: bool, type_ann: Option<Type> },
     /// Function with optional generic type parameters
-    Function { 
-        params: Vec<Type>, 
-        return_type: Option<Type>, 
+    Function {
+        params: Vec<Type>,
+        return_type: Option<Type>,
         mangled_name: String,
         type_params: Vec<String>,  // Generic type parameter names (e.g., ["T", "U"])
     },
@@ -19,6 +19,27 @@ pub enum SymbolKind {
     TypeAlias { type_def: Type },
     /// Generic type definition (e.g., class MyList[T])
     GenericTypeDef { type_params: Vec<String> },
+    /// Class definition
+    Class {
+        name: String,
+        bases: Vec<Type>,
+        fields: Vec<(String, Type)>,
+        methods: Vec<String>,
+        /// Mangled names for methods (for virtual dispatch)
+        method_mangles: Vec<String>,
+    },
+    /// Method within a class
+    Method {
+        class_name: String,
+        method_name: String,
+        params: Vec<Type>,
+        return_type: Option<Type>,
+        mangled_name: String,
+        is_static: bool,
+        is_class_method: bool,
+        is_property: bool,
+        is_bound: bool,
+    },
 }
 
 /// Built-in function signatures
@@ -120,6 +141,16 @@ impl Symbol {
             },
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
             SymbolKind::GenericTypeDef { .. } => None,
+            SymbolKind::Class { name, .. } => Some(Type::Class(name.clone())),
+            SymbolKind::Method { class_name, method_name, params, return_type, is_bound, .. } => {
+                Some(Type::Method {
+                    class_name: class_name.clone(),
+                    method_name: method_name.clone(),
+                    params: params.clone(),
+                    return_type: Box::new(return_type.clone().unwrap_or(Type::None)),
+                    is_bound: *is_bound,
+                })
+            }
         }
     }
 }

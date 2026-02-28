@@ -242,6 +242,7 @@ impl TypeChecker {
                 body,
                 span: _,
                 is_async: _,
+                decorators: _,
             } => {
                 // Enter function scope
                 self.symbol_table.enter_scope();
@@ -488,6 +489,44 @@ impl TypeChecker {
                     self.check_expr(val);
                 }
                 // TODO: Track that we're in a generator function
+            }
+            Stmt::Class { name, bases, body, span, decorators: _, fields, methods } => {
+                // Enter class scope
+                self.symbol_table.enter_scope();
+                
+                // Check base classes
+                let mut base_types = Vec::new();
+                for base in bases {
+                    let base_type = self.check_expr(base);
+                    if let Some(t) = base_type {
+                        base_types.push(t);
+                    }
+                }
+                
+                // Register the class in the parent scope
+                let class_symbol = crate::semantic::symbol_table::Symbol::new(
+                    name.clone(),
+                    SymbolKind::Class {
+                        name: name.clone(),
+                        bases: base_types.clone(),
+                        fields: fields.iter().map(|(n, t, _)| (n.clone(), t.clone().unwrap_or(Type::Infer))).collect(),
+                        methods: methods.clone(),
+                        method_mangles: Vec::new(),
+                    },
+                    *span,
+                    self.symbol_table.current_scope_id(),
+                );
+                if let Err(e) = self.symbol_table.insert(class_symbol) {
+                    self.errors.push(TypeError::new(e, *span));
+                }
+                
+                // Check methods and fields in class body
+                for stmt in body {
+                    self.check_stmt(stmt);
+                }
+                
+                // Exit class scope
+                self.symbol_table.exit_scope();
             }
             _ => {
                 // TODO: Handle other statement types

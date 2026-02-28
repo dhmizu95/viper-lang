@@ -93,6 +93,10 @@ impl<'ctx> TypeMapper<'ctx> {
             Type::Infer | Type::Error | Type::None => self.context.i64_type().into(),
             // Union types are represented as tagged unions (pointer-sized)
             Type::Union(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            // OOP types - classes and instances are pointer-sized
+            Type::Class(_) | Type::Instance(_) | Type::Method { .. } => {
+                self.context.ptr_type(inkwell::AddressSpace::default()).into()
+            }
         }
     }
 
