@@ -238,7 +238,9 @@ void vp_bigint_div_i64(ViperBigInt* result, ViperBigInt* a, int64_t b) {
     if (b >= 0) {
         mpz_tdiv_q_ui(result->value, a->value, (unsigned long)b);
     } else {
-        mpz_tdiv_q_si(result->value, a->value, b);
+        // For negative divisor, use absolute value then negate
+        mpz_tdiv_q_ui(result->value, a->value, (unsigned long)(-b));
+        mpz_neg(result->value, result->value);
     }
 }
 

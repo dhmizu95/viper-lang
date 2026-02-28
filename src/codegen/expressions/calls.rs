@@ -112,6 +112,26 @@ pub fn generate_call<'ctx>(
             return generate_type_convert(state, name, args);
         }
 
+        // BigInt functions
+        if name == "BigInt" {
+            return generate_bigint_constructor(state, args);
+        }
+        if name == "str_bigint" {
+            return generate_bigint_to_str(state, args);
+        }
+        if name == "int_bigint" {
+            return generate_bigint_to_i64(state, args);
+        }
+        if name == "abs_bigint" {
+            return generate_bigint_abs(state, args);
+        }
+        if name == "pow_bigint" {
+            return generate_bigint_pow(state, args);
+        }
+        if name == "sqrt_bigint" {
+            return generate_bigint_sqrt(state, args);
+        }
+
         // Math builtins
         if name == "sqrt" || name == "abs" || name == "ln" || name == "floor" {
             return generate_math_builtin(state, name, args);
@@ -644,4 +664,217 @@ pub fn generate_reversed_call<'ctx>(
         "reversed_list",
     );
     Ok(result.unwrap_or(list_val))
+}
+
+/* ============================================ */
+/* BigInt Built-in Functions                    */
+/* ============================================ */
+
+/// Generate BigInt constructor call
+pub fn generate_bigint_constructor<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("BigInt() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let arg_val = generate_expr(state, &args[0])?;
+    
+    // If argument is a string, use vp_bigint_from_str
+    if arg_val.is_pointer_value() {
+        let from_str_func = state
+            .module
+            .get_function("vp_bigint_from_str")
+            .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
+        
+        let result = state
+            .ir_builder
+            .build_call(state.builder, from_str_func, &[arg_val.into()], "bigint_create")
+            .expect("bigint_from_str call");
+        
+        return Ok(result.into());
+    }
+    
+    // If argument is i64, use vp_bigint_from_i64
+    if arg_val.is_int_value() {
+        let from_i64_func = state
+            .module
+            .get_function("vp_bigint_from_i64")
+            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+        
+        let result = state
+            .ir_builder
+            .build_call(state.builder, from_i64_func, &[arg_val.into()], "bigint_create")
+            .expect("bigint_from_i64 call");
+        
+        return Ok(result.into());
+    }
+    
+    Err("BigInt() requires string or integer argument".to_string())
+}
+
+/// Generate str_bigint() call - convert BigInt to string
+pub fn generate_bigint_to_str<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("str_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    
+    let to_str_func = state
+        .module
+        .get_function("vp_bigint_to_str")
+        .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+    
+    // Call vp_bigint_to_str(bigint, 10) - base 10
+    let base = state.ir_builder.i64_const(10);
+    let result = state
+        .ir_builder
+        .build_call(state.builder, to_str_func, &[bigint_val.into(), base.into()], "bigint_to_str")
+        .expect("bigint_to_str call");
+    
+    Ok(result.into())
+}
+
+/// Generate int_bigint() call - convert BigInt to i64
+pub fn generate_bigint_to_i64<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("int_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    
+    let to_i64_func = state
+        .module
+        .get_function("vp_bigint_to_i64")
+        .ok_or_else(|| "vp_bigint_to_i64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, to_i64_func, &[bigint_val.into()], "bigint_to_i64")
+        .expect("bigint_to_i64 call");
+    
+    Ok(result.into())
+}
+
+/// Generate abs_bigint() call - absolute value of BigInt
+pub fn generate_bigint_abs<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("abs_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    let result_ptr = state
+        .builder
+        .build_alloca(bigint_val.get_type(), "bigint_result")
+        .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
+    
+    let abs_func = state
+        .module
+        .get_function("vp_bigint_abs")
+        .ok_or_else(|| "vp_bigint_abs not declared".to_string())?;
+    
+    state
+        .ir_builder
+        .build_call(
+            state.builder,
+            abs_func,
+            &[result_ptr.into(), bigint_val.into()],
+            "bigint_abs",
+        )
+        .expect("bigint_abs call");
+    
+    let result = state
+        .builder
+        .build_load(bigint_val.get_type(), result_ptr, "bigint_abs_result")
+        .expect("load result");
+    
+    Ok(result.into())
+}
+
+/// Generate pow_bigint() call - BigInt power
+pub fn generate_bigint_pow<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 2 {
+        return Err(format!("pow_bigint() takes exactly 2 arguments, got {}", args.len()));
+    }
+
+    let base_val = generate_expr(state, &args[0])?;
+    let exp_val = generate_expr(state, &args[1])?;
+    let result_ptr = state
+        .builder
+        .build_alloca(base_val.get_type(), "bigint_result")
+        .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
+    
+    let pow_func = state
+        .module
+        .get_function("vp_bigint_pow")
+        .ok_or_else(|| "vp_bigint_pow not declared".to_string())?;
+    
+    state
+        .ir_builder
+        .build_call(
+            state.builder,
+            pow_func,
+            &[result_ptr.into(), base_val.into(), exp_val.into()],
+            "bigint_pow",
+        )
+        .expect("bigint_pow call");
+    
+    let result = state
+        .builder
+        .build_load(base_val.get_type(), result_ptr, "bigint_pow_result")
+        .expect("load result");
+    
+    Ok(result.into())
+}
+
+/// Generate sqrt_bigint() call - BigInt square root
+pub fn generate_bigint_sqrt<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("sqrt_bigint() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let bigint_val = generate_expr(state, &args[0])?;
+    let result_ptr = state
+        .builder
+        .build_alloca(bigint_val.get_type(), "bigint_result")
+        .map_err(|e| format!("Failed to allocate result: {:?}", e))?;
+    
+    let sqrt_func = state
+        .module
+        .get_function("vp_bigint_sqrt")
+        .ok_or_else(|| "vp_bigint_sqrt not declared".to_string())?;
+    
+    state
+        .ir_builder
+        .build_call(
+            state.builder,
+            sqrt_func,
+            &[result_ptr.into(), bigint_val.into()],
+            "bigint_sqrt",
+        )
+        .expect("bigint_sqrt call");
+    
+    let result = state
+        .builder
+        .build_load(bigint_val.get_type(), result_ptr, "bigint_sqrt_result")
+        .expect("load result");
+    
+    Ok(result.into())
 }

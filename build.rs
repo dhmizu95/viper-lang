@@ -16,11 +16,8 @@ fn main() {
     // println!("cargo:rustc-link-lib=static=viper");
 
     // Link against GMP library for BigInt support (optional)
-    // Use pkg-config to find GMP if available
-    let gmp_found = pkg_config::Config::new()
-        .atleast_version("6.0")
-        .probe("gmp")
-        .is_ok();
+    // Try multiple detection methods
+    let gmp_found = check_gmp();
     
     if gmp_found {
         println!("cargo:rustc-link-lib=gmp");
@@ -33,4 +30,34 @@ fn main() {
 
     // Rebuild if runtime changes
     println!("cargo:rerun-if-changed=runtime/");
+}
+
+/// Check if GMP is available via pkg-config or direct library check
+fn check_gmp() -> bool {
+    // Method 1: Try pkg-config first
+    if pkg_config::Config::new()
+        .atleast_version("6.0")
+        .probe("gmp")
+        .is_ok()
+    {
+        return true;
+    }
+    
+    // Method 2: Check for GMP library files directly
+    let gmp_paths = [
+        "/usr/lib/x86_64-linux-gnu/libgmp.a",
+        "/usr/lib/x86_64-linux-gnu/libgmp.so",
+        "/usr/lib/libgmp.a",
+        "/usr/lib/libgmp.so",
+        "/usr/local/lib/libgmp.a",
+        "/usr/local/lib/libgmp.so",
+    ];
+    
+    for path in &gmp_paths {
+        if std::path::Path::new(path).exists() {
+            return true;
+        }
+    }
+    
+    false
 }

@@ -83,5 +83,12 @@ pub fn declare_bigint_functions<'ctx>(
     // vp_bigint_gt
     module.add_function("vp_bigint_gt", cmp_fn_type, None);
 
+    // Power operation
+    module.add_function("vp_bigint_pow", arithmetic_fn_type, None);
+    
+    // Square root
+    let sqrt_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_bigint_sqrt", sqrt_fn_type, None);
+
     Ok(())
 }
