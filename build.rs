@@ -15,8 +15,10 @@ fn main() {
     // Use vendored GMP library (bundled in repository)
     let vendor_gmp_dir = manifest_dir.join("vendor/gmp/lib");
     println!("cargo:rustc-link-search=native={}", vendor_gmp_dir.display());
-    
+
     // Set rpath so the binary finds the vendored library at runtime
+    // Multiple rpaths: first looks relative to binary (for installation), then relative to build dir
+    println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../lib/viper/gmp/lib");
     println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../vendor/gmp/lib");
 
     // Note: Runtime library is linked via JIT stubs for execution
