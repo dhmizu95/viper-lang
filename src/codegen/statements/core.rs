@@ -271,7 +271,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
 fn generate_raise<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     exception: Option<&Expr>,
-    cause: Option<&Expr>,
+    _cause: Option<&Expr>,
 ) -> Result<(), String> {
     // Get the raise exception function
     let raise_func = state.module.get_function("viper_raise_exception")
@@ -425,7 +425,7 @@ fn generate_raise<'ctx>(
 fn generate_try_except<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     body: &[Stmt],
-    handlers: &[crate::ast::ExceptHandler],
+    _handlers: &[crate::ast::ExceptHandler],
     else_body: Option<&[Stmt]>,
     finally_body: Option<&[Stmt]>,
 ) -> Result<(), String> {
@@ -641,7 +641,7 @@ fn generate_async_with<'ctx>(
         .ok_or_else(|| "vp_async_context_exit not declared".to_string())?;
     
     // Call exit for each item in reverse order
-    for (i, item) in items.iter().rev().enumerate() {
+    for (i, _item) in items.iter().rev().enumerate() {
         // Re-evaluate or reload context (simplified: just use 0 for exception info)
         let exc_type = state.ir_builder.i64_const(0);
         let exc_val = state.ir_builder.i64_const(0);
