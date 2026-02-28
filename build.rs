@@ -15,6 +15,9 @@ fn main() {
     // Link against Viper runtime library (for non-BigInt runtime functions)
     println!("cargo:rustc-link-lib=static=viper");
 
+    // Link against GMP for BigInt support
+    println!("cargo:rustc-link-lib=gmp");
+
     // Rebuild if runtime changes
     println!("cargo:rerun-if-changed=runtime/");
 }

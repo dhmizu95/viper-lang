@@ -1,211 +1,46 @@
 //! BigInt JIT stubs for GMP integration
 //!
-//! These stubs delegate to the C bridge implementation (gmp_bridge.c)
-//! which handles all BigInt operations using GMP and ARC memory management.
+//! These declarations link to the actual C GMP bridge functions in libviper.a
+//! The registry maps LLVM function declarations to these external C functions.
 
-use std::ffi::{c_char, c_void};
+use std::ffi::c_void;
 
-// TEMPORARY STUBS - Replace with actual C bridge calls when linking is fixed
-// These stubs provide minimal functionality to allow compilation
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_from_str_stub(_s: *const c_char) -> *mut c_void {
-    eprintln!("BigInt not available - stub called");
-    std::ptr::null_mut()
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_from_i64_stub(_v: i64) -> *mut c_void {
-    eprintln!("BigInt not available - stub called");
-    std::ptr::null_mut()
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_to_str_stub(_bigint: *mut c_void, _base: i64) -> *const c_char {
-    eprintln!("BigInt not available - stub called");
-    std::ptr::null()
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_to_i64_stub(_bigint: *mut c_void) -> i64 {
-    eprintln!("BigInt not available - stub called");
-    0
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_add_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_sub_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_mul_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_div_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_mod_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_pow_stub(
-    _result: *mut c_void,
-    _base: *mut c_void,
-    _exp: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_sqrt_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_abs_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_neg_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_invert_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_is_zero_stub(_bigint: *mut c_void) -> bool {
-    eprintln!("BigInt not available - stub called");
-    false
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_is_negative_stub(_bigint: *mut c_void) -> bool {
-    eprintln!("BigInt not available - stub called");
-    false
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_sign_stub(_bigint: *mut c_void) -> i64 {
-    eprintln!("BigInt not available - stub called");
-    0
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_bit_length_stub(_bigint: *mut c_void) -> i64 {
-    eprintln!("BigInt not available - stub called");
-    0
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_and_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_or_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_xor_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_lshift_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_rshift_stub(
-    _result: *mut c_void,
-    _a: *mut c_void,
-    _b: *mut c_void,
-) {
-    eprintln!("BigInt not available - stub called");
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_eq_stub(_a: *mut c_void, _b: *mut c_void) -> bool {
-    eprintln!("BigInt not available - stub called");
-    false
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_lt_stub(_a: *mut c_void, _b: *mut c_void) -> bool {
-    eprintln!("BigInt not available - stub called");
-    false
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_gt_stub(_a: *mut c_void, _b: *mut c_void) -> bool {
-    eprintln!("BigInt not available - stub called");
-    false
-}
-
-#[no_mangle]
-pub extern "C" fn vp_bigint_destroy_stub(_bigint: *mut c_void) {
-    eprintln!("BigInt not available - stub called");
+// External declarations for C GMP bridge functions from libviper.a
+extern "C" {
+    pub fn vp_bigint_from_str(s: *const i8) -> *mut c_void;
+    pub fn vp_bigint_from_i64(v: i64) -> *mut c_void;
+    pub fn vp_bigint_from_i64_temp(v: i64) -> *mut c_void;
+    pub fn vp_bigint_to_str(bigint: *mut c_void, base: i32) -> *const i8;
+    pub fn vp_bigint_to_i64(bigint: *mut c_void) -> i64;
+    pub fn vp_bigint_destroy(bigint: *mut c_void);
+    
+    // Arithmetic operations
+    pub fn vp_bigint_add(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_sub(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_mul(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_div(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_mod(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_pow(result: *mut c_void, base: *mut c_void, exp: *mut c_void);
+    pub fn vp_bigint_sqrt(result: *mut c_void, a: *mut c_void);
+    pub fn vp_bigint_abs(result: *mut c_void, a: *mut c_void);
+    pub fn vp_bigint_neg(result: *mut c_void, a: *mut c_void);
+    pub fn vp_bigint_invert(result: *mut c_void, a: *mut c_void);
+    
+    // Bitwise operations
+    pub fn vp_bigint_and(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_or(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_xor(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_lshift(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_rshift(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    
+    // Comparison operations
+    pub fn vp_bigint_eq(a: *mut c_void, b: *mut c_void) -> bool;
+    pub fn vp_bigint_lt(a: *mut c_void, b: *mut c_void) -> bool;
+    pub fn vp_bigint_gt(a: *mut c_void, b: *mut c_void) -> bool;
+    
+    // Boolean checks
+    pub fn vp_bigint_is_zero(bigint: *mut c_void) -> bool;
+    pub fn vp_bigint_is_negative(bigint: *mut c_void) -> bool;
+    pub fn vp_bigint_sign(bigint: *mut c_void) -> i64;
+    pub fn vp_bigint_bit_length(bigint: *mut c_void) -> i64;
 }
