@@ -59,6 +59,7 @@ pub enum TokenKind {
     Type,     // type keyword for type aliases
     Tuple,    // tuple keyword for tuple types
     Optional, // Optional keyword for optional types
+    Result,   // Result keyword for result types
     Assert,   // assert keyword for assertions
     Del,      // del keyword for deletion
     Raise,    // raise keyword for exceptions
@@ -250,6 +251,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Type => write!(f, "type"),
             TokenKind::Tuple => write!(f, "tuple"),
             TokenKind::Optional => write!(f, "Optional"),
+            TokenKind::Result => write!(f, "Result"),
             TokenKind::Assert => write!(f, "assert"),
             TokenKind::Del => write!(f, "del"),
             TokenKind::Raise => write!(f, "raise"),

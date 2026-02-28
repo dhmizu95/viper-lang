@@ -223,6 +223,17 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
         return Ok(Type::Optional(Box::new(inner_type)));
     }
 
+    // Handle Result type: Result[Ok, Err]
+    if parser.match_token(&TokenKind::Result) {
+        // match_token already advances past Result
+        parser.expect(&TokenKind::LBracket)?;
+        let ok_type = parse_type_annotation(parser)?;
+        parser.expect(&TokenKind::Comma)?;
+        let err_type = parse_type_annotation(parser)?;
+        parser.expect(&TokenKind::RBracket)?;
+        return Ok(Type::Result(Box::new(ok_type), Box::new(err_type)));
+    }
+
     let token = parser.current();
     let ty = match &token.kind {
         TokenKind::Ident(name) => match name.as_str() {

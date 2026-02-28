@@ -175,6 +175,14 @@ pub fn generate_call<'ctx>(
             return generate_waitgroup_wait(state, args);
         }
 
+        // Result type constructors
+        if name == "Ok" {
+            return generate_ok_constructor(state, args);
+        }
+        if name == "Err" {
+            return generate_err_constructor(state, args);
+        }
+
         // Struct module builtins
         if name == "struct_pack" || name == "pack" {
             return generate_struct_pack(state, args);
@@ -1131,6 +1139,36 @@ pub fn generate_bigint_bit_length<'ctx>(
         .ir_builder
         .build_call(state.builder, bit_len_func, &[bigint_val.into()], "bigint_bit_length")
         .ok_or_else(|| "Failed to call vp_bigint_bit_length".to_string())?;
-    
+
     Ok(result)
+}
+
+/// Generate Ok constructor call
+/// For now, Ok(x) just returns x - proper Result type needs tagged union representation
+pub fn generate_ok_constructor<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("Ok() takes exactly 1 argument, got {}", args.len()));
+    }
+    
+    // For now, Ok(x) just returns the value x
+    // A proper implementation would create a tagged union
+    generate_expr(state, &args[0])
+}
+
+/// Generate Err constructor call  
+/// For now, Err(e) just returns e - proper Result type needs tagged union representation
+pub fn generate_err_constructor<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("Err() takes exactly 1 argument, got {}", args.len()));
+    }
+    
+    // For now, Err(e) just returns the error value e
+    // A proper implementation would create a tagged union
+    generate_expr(state, &args[0])
 }

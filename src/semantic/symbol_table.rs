@@ -40,6 +40,9 @@ pub enum BuiltinSignature {
     Clear,
     Index,
     Hash,
+    // Result type constructors (generic)
+    Ok,   // Ok(value) -> Result[T, E]
+    Err,  // Err(error) -> Result[T, E]
     // Concurrency primitives (Phase 3)
     ChanCreate,      // chan(capacity) -> Chan[T]
     ChanSend,        // send(chan, value) -> None
@@ -103,6 +106,9 @@ impl Symbol {
                 BuiltinSignature::Clear => Some(Type::None),
                 BuiltinSignature::Index => Some(Type::Infer),
                 BuiltinSignature::Hash => Some(Type::I64),
+                // Result constructors - return type inferred from context
+                BuiltinSignature::Ok => Some(Type::Infer),  // Result[T, E] - both inferred from usage
+                BuiltinSignature::Err => Some(Type::Infer), // Result[T, E] - both inferred from usage
                 // Concurrency primitives return pointer types
                 BuiltinSignature::ChanCreate => Some(Type::Infer), // Chan[T] - element type inferred from usage
                 BuiltinSignature::ChanSend => Some(Type::None),
@@ -146,6 +152,9 @@ impl SymbolTable {
             ("bool", SymbolKind::Builtin { signature: BuiltinSignature::Bool }),
             ("list", SymbolKind::Builtin { signature: BuiltinSignature::List }),
             ("hash", SymbolKind::Builtin { signature: BuiltinSignature::Hash }),
+            // Result constructors (generic - type inferred from usage)
+            ("Ok", SymbolKind::Builtin { signature: BuiltinSignature::Ok }),
+            ("Err", SymbolKind::Builtin { signature: BuiltinSignature::Err }),
             // Concurrency builtins (Phase 3)
             ("chan", SymbolKind::Builtin { signature: BuiltinSignature::ChanCreate }),
             ("send", SymbolKind::Builtin { signature: BuiltinSignature::ChanSend }),
@@ -275,6 +284,10 @@ impl SymbolTable {
                 name: name.clone(),
                 type_args: type_args.iter().map(|t| self.resolve_type_alias(t)).collect(),
             },
+            Type::Result(ok, err) => Type::Result(
+                Box::new(self.resolve_type_alias(ok)),
+                Box::new(self.resolve_type_alias(err)),
+            ),
             Type::Union(variants) => Type::Union(
                 variants.iter().map(|t| self.resolve_type_alias(t)).collect(),
             ),

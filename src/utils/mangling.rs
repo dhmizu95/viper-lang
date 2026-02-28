@@ -62,6 +62,9 @@ fn mangle_type(ty: &Type) -> String {
             let args_mangled: Vec<String> = type_args.iter().map(mangle_type).collect();
             format!("generic_{}_{}", name, args_mangled.join("_"))
         }
+        Type::Result(ok, err) => {
+            format!("result_{}_{}", mangle_type(ok), mangle_type(err))
+        }
         Type::Infer => "infer".to_string(),
         Type::Error => "error".to_string(),
         Type::Union(variants) => {

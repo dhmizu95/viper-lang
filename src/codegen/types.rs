@@ -32,7 +32,8 @@ impl VarType {
             | Type::Int
             | Type::TypeParam { .. }
             | Type::GenericApp { .. }
-            | Type::Var(_) => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
+            | Type::Var(_)
+            | Type::Result(_, _) => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
             _ => VarType::Int,
         }
     }
@@ -80,6 +81,8 @@ impl<'ctx> TypeMapper<'ctx> {
             }
             Type::Struct { .. } => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             Type::Future(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            // Result type is represented as a tagged union (pointer-sized)
+            Type::Result(_, _) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             // Type parameters and generic applications are resolved before codegen
             // For unresolved generics, use pointer type as placeholder
             Type::TypeParam { .. } | Type::GenericApp { .. } | Type::Var(_) => {
@@ -118,6 +121,10 @@ impl<'ctx> TypeMapper<'ctx> {
                 }
             }
             Some(Type::None) | None => None,
+            // Result type uses pointer type (tagged union)
+            Some(Type::Result(_, _)) => {
+                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+            }
             // Generic types and type variables use pointer type
             Some(Type::TypeParam { .. }) | Some(Type::GenericApp { .. }) | Some(Type::Var(_)) => {
                 Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())

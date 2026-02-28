@@ -52,6 +52,8 @@ pub enum Type {
     TypeParam { name: String, bounds: Vec<Type> },
     /// Generic type application - e.g., List[T], Dict[K, V], MyGeneric[T, U]
     GenericApp { name: String, type_args: Vec<Type> },
+    /// Result type for error handling - Result[OkType, ErrType]
+    Result(Box<Type>, Box<Type>),
     /// Unknown/to be inferred
     Infer,
     /// Error type
@@ -226,6 +228,10 @@ impl Type {
                     arg.collect_type_vars_impl(vars);
                 }
             }
+            Type::Result(ok, err) => {
+                ok.collect_type_vars_impl(vars);
+                err.collect_type_vars_impl(vars);
+            }
             _ => {}
         }
     }
@@ -274,6 +280,10 @@ impl Type {
                 name: name.clone(),
                 type_args: type_args.iter().map(|t| t.substitute(substitution)).collect(),
             },
+            Type::Result(ok, err) => Type::Result(
+                Box::new(ok.substitute(substitution)),
+                Box::new(err.substitute(substitution)),
+            ),
             Type::Union(variants) => Type::Union(
                 variants.iter().map(|t| t.substitute(substitution)).collect(),
             ),
@@ -359,6 +369,7 @@ impl std::fmt::Display for Type {
                 }
                 write!(f, "]")
             }
+            Type::Result(ok, err) => write!(f, "Result[{}, {}]", ok, err),
             Type::Infer => write!(f, "_"),
             Type::Error => write!(f, "<error>"),
             Type::Union(variants) => {

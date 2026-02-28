@@ -908,6 +908,7 @@ impl<'a> Lexer<'a> {
             "type" => TokenKind::Type,
             "tuple" => TokenKind::Tuple,
             "Optional" => TokenKind::Optional,
+            "Result" => TokenKind::Result,
             _ => TokenKind::Ident(ident),
         }
     }
