@@ -49,6 +49,12 @@ pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), Strin
     codegen.generate(&ast)?;
     codegen.verify()?;
 
+    // Report BigInt functions (they have optnone attribute for special handling)
+    let bigint_funcs = codegen.bigint_functions();
+    if !bigint_funcs.is_empty() {
+        println!("   ℹ BigInt functions (optnone applied): {}", bigint_funcs.iter().cloned().collect::<Vec<_>>().join(", "));
+    }
+
     // Use optimization level for JIT
     let opt = match opt_level {
         0 => OptimizationLevel::None,

@@ -50,6 +50,15 @@ ViperBigInt* vp_bigint_from_str(const char* str);
 ViperBigInt* vp_bigint_from_i64(int64_t value);
 
 /**
+ * Create a new BigInt from a 64-bit integer for temporary operation results
+ * This function is an alias for vp_bigint_from_i64 - the result has ref_count=1
+ * The caller takes ownership - do NOT call retain when assigning the result
+ * @param value int64_t value to convert
+ * @return Pointer to new ViperBigInt with ref_count=1
+ */
+ViperBigInt* vp_bigint_from_i64_temp(int64_t value);
+
+/**
  * Create a new BigInt from an unsigned 64-bit integer
  * @param value uint64_t value to convert
  * @return Pointer to new ViperBigInt

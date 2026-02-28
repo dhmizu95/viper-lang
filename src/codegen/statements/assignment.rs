@@ -1,6 +1,22 @@
 use crate::ast::{BinOp, Expr};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarStorage, VarType};
+use inkwell::values::BasicValueEnum;
+
+/// Check if an expression is a simple identifier
+fn value_is_identifier(value: &Expr) -> bool {
+    matches!(value, Expr::Ident(..))
+}
+
+/// Check if two pointer values are the same SSA value
+fn values_are_same_pointer<'ctx>(a: BasicValueEnum<'ctx>, b: BasicValueEnum<'ctx>) -> bool {
+    if let (inkwell::values::BasicValueEnum::PointerValue(a_ptr), inkwell::values::BasicValueEnum::PointerValue(b_ptr)) = (a, b) {
+        // Compare the underlying LLVM values
+        a_ptr == b_ptr
+    } else {
+        false
+    }
+}
 
 /// Generate assignment statement
 pub(crate) fn generate_assign<'ctx>(
@@ -50,6 +66,11 @@ pub(crate) fn generate_assign<'ctx>(
         } else {
             state.bigint_vars.remove(name);
         }
+
+        // For BigInt values, determine if this is a "fresh" allocation (from operation/literal)
+        // or an existing reference (from another variable). Fresh allocations already have
+        // ref_count=1 and don't need retain. Existing references need retain.
+        let is_fresh_bigint = is_bigint && !matches!(value, Expr::Ident(..));
 
         // Track list variables
         let is_list = match value {
@@ -186,7 +207,8 @@ pub(crate) fn generate_assign<'ctx>(
             // Update existing variable
             match &storage {
                 VarStorage::Stack(alloca) => {
-                    // Release old value if it was a reference type needing ARC
+                    // For BigInt (and other reference types), release old value before storing new
+                    // Since BigInt uses alloca (not SSA), this works correctly without PHI issues
                     if old_is_ref && old_needs_arc {
                         let old_val = state
                             .builder
@@ -207,9 +229,11 @@ pub(crate) fn generate_assign<'ctx>(
             }
 
             // Retain new value if it's a reference type that escapes (but not stack arrays)
+            // Exception: Fresh BigInt allocations already have ref_count=1
             let is_ref_type = val.is_pointer_value();
             let needs_arc = state.needs_arc(name);
-            if is_ref_type && needs_arc && !is_stack_array {
+            let should_retain = is_ref_type && needs_arc && !is_stack_array && !is_fresh_bigint;
+            if should_retain {
                 state.build_retain(val, name);
             }
         } else {
@@ -256,7 +280,8 @@ pub(crate) fn generate_assign<'ctx>(
             state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
 
             // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
-            if is_ref_type && state.needs_arc(name) {
+            // Exception: BigInt values skip retain to avoid PHI node issues - cleanup at function exit
+            if is_ref_type && state.needs_arc(name) && !is_bigint {
                 state.build_retain(val, name);
             }
         }

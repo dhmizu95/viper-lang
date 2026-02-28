@@ -401,13 +401,20 @@ pub fn generate_str_call<'ctx>(
     }
 
     let arg = &args[0];
-    
+
     // Check if argument is BigInt type
     let arg_type = crate::codegen::expressions::core::infer_expr_type(arg);
     if arg_type == Type::BigInt {
         return generate_bigint_to_str(state, args);
     }
     
+    // Also check if it's an identifier that holds a BigInt
+    if let Expr::Ident(name, _) = arg {
+        if state.is_bigint(name) {
+            return generate_bigint_to_str(state, args);
+        }
+    }
+
     let arg_val = generate_expr(state, arg)?;
 
     let func_name = if arg_val.is_float_value() {

@@ -399,21 +399,22 @@ pub fn generate_bigint_unary<'ctx>(
     }
 }
 
-/// Initialize a new BigInt result object
+/// Initialize a new BigInt result object for binary operations
+/// Uses temp allocation (ref_count=0) since the result will be immediately assigned
 fn initialize_bigint_result<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
 ) -> Result<inkwell::values::PointerValue<'ctx>, String> {
-    let from_i64_func = state
+    let from_i64_temp_func = state
         .module
-        .get_function("vp_bigint_from_i64")
-        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
-    
+        .get_function("vp_bigint_from_i64_temp")
+        .ok_or_else(|| "vp_bigint_from_i64_temp not declared".to_string())?;
+
     let zero = state.ir_builder.i64_const(0);
     let result = state
         .ir_builder
-        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res_tmp")
-        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
-    
+        .build_call(state.builder, from_i64_temp_func, &[zero.into()], "bigint_res_tmp")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64_temp".to_string())?;
+
     Ok(result.into_pointer_value())
 }
 

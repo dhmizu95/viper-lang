@@ -72,6 +72,12 @@ pub fn compile_file_aot(
     codegen.verify()?;
     println!("   ✓ Generated LLVM IR");
 
+    // Report BigInt functions (they have special optimization handling)
+    let bigint_funcs = codegen.bigint_functions();
+    if !bigint_funcs.is_empty() {
+        println!("   ℹ BigInt functions (optnone applied): {}", bigint_funcs.iter().cloned().collect::<Vec<_>>().join(", "));
+    }
+
     let module = codegen.module();
 
     /* Emit LLVM IR to .ll file if requested */
