@@ -1,0 +1,33 @@
+# Fibonacci(1000) with BigInt - Performance Benchmark
+
+def fib(n: i64) -> BigInt:
+    if n <= 0:
+        return 0
+    elif n == 1:
+        return 1
+
+    a: BigInt = 0
+    b: BigInt = 1
+
+    i = 2
+    while i <= n:
+        c = a + b
+        a = b
+        b = c
+        i = i + 1
+
+    return b
+
+def main():
+    print("=== Viper BigInt Fibonacci(1000) Benchmark ===")
+    print("")
+    
+    result = fib(1000)
+    s = str(result)
+    
+    print("fib(1000) = ", result)
+    print("Result length: ", len(s), " digits")
+    print("")
+    print("=== Benchmark complete ===")
+
+main()

@@ -90,8 +90,8 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::Expr(expr) => {
             crate::codegen::expressions::generate_expr(state, expr)?;
         }
-        Stmt::Declare { name, value, mutable, .. } => {
-            generate_declare(state, name, *mutable, value)?;
+        Stmt::Declare { name, value, mutable, type_ann, .. } => {
+            generate_declare(state, name, *mutable, value, type_ann)?;
         }
         Stmt::Global { names, .. } => {
             generate_global(state, names)?;

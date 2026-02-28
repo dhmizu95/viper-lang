@@ -1,4 +1,4 @@
-use crate::ast::Expr;
+use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarType};
 
@@ -8,10 +8,41 @@ pub(crate) fn generate_declare<'ctx>(
     name: &str,
     mutable: bool,
     value: &Option<Expr>,
+    type_ann: &Option<Type>,
 ) -> Result<(), String> {
     if let Some(expr) = value {
-        let val = crate::codegen::expressions::generate_expr(state, expr)?;
-        let ty = val.get_type();
+        let mut val = crate::codegen::expressions::generate_expr(state, expr)?;
+
+        // Convert to BigInt if type annotation is BigInt but value is not
+        if matches!(type_ann, Some(Type::BigInt)) && !val.is_pointer_value() {
+            // Convert i64 to BigInt using vp_bigint_from_i64
+            let bigint_from_i64 = state
+                .module
+                .get_function("vp_bigint_from_i64")
+                .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+            let i64_val = val.into_int_value();
+            val = state
+                .ir_builder
+                .build_call(state.builder, bigint_from_i64, &[i64_val.into()], "bigint_from_i64")
+                .expect("bigint_from_i64 call")
+                .into();
+        }
+
+        // Determine the LLVM type, considering type annotations
+        let ty = if matches!(type_ann, Some(Type::BigInt)) {
+            // BigInt values are pointers
+            state.context.ptr_type(inkwell::AddressSpace::default()).into()
+        } else {
+            val.get_type()
+        };
+
+        // Track BigInt variables
+        let is_bigint = matches!(type_ann, Some(Type::BigInt))
+            || (val.is_pointer_value() && matches!(expr, Expr::Call { .. }))
+            || matches!(expr, Expr::BigInt(..));
+        if is_bigint {
+            state.mark_as_bigint(name.to_string());
+        }
 
         // Track list variables
         // Check for explicit list expressions, list comprehensions, or variables that hold lists

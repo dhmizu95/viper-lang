@@ -235,6 +235,34 @@ pub fn generate_len_call<'ctx>(
 
     // Otherwise treat as string (for string literals or variables)
     if obj_val.is_pointer_value() {
+        // Check if it's a BigInt variable
+        let is_bigint = match obj_expr {
+            Expr::Ident(name, _) => state.is_bigint(name),
+            Expr::BigInt(..) => true,
+            _ => false,
+        };
+        
+        if is_bigint {
+            // For BigInt, convert to string first and get length
+            let to_str_func = state
+                .module
+                .get_function("vp_bigint_to_str")
+                .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+            let base = state.context.i32_type().const_int(10, false);
+            let str_val = state
+                .ir_builder
+                .build_call(state.builder, to_str_func, &[obj_val.into(), base.into()], "bigint_to_str_for_len")
+                .expect("bigint_to_str");
+            
+            let str_len = state
+                .module
+                .get_function("vp_str_len")
+                .ok_or_else(|| "vp_str_len not declared".to_string())?;
+            let result =
+                state.ir_builder.build_call(state.builder, str_len, &[str_val.into()], "str_len");
+            return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+        }
+        
         // Call vp_str_len for strings
         let str_len = state
             .module

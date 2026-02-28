@@ -2,12 +2,13 @@ use crate::ast::{Expr, Stmt};
 use crate::codegen::state::CodeGenState;
 
 /// Generate an if statement with elif chain support
+/// Returns true if all paths terminate (return/break/continue)
 fn generate_if_chain<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elif_blocks: &[(Expr, Vec<Stmt>)],
     else_body: &Option<Vec<Stmt>>,
     merge_block: inkwell::basic_block::BasicBlock<'ctx>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
 
     if elif_blocks.is_empty() {
@@ -30,15 +31,18 @@ fn generate_if_chain<'ctx>(
                     stmt,
                 )?;
             }
-            if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            let terminates = state.builder.get_insert_block().unwrap().get_terminator().is_some();
+            if !terminates {
                 state.ir_builder.build_branch(state.builder, merge_block);
             }
+            return Ok(terminates);
         } else {
-            if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
-                state.ir_builder.build_branch(state.builder, merge_block);
-            }
+            // No else body - this means all elif conditions were false
+            // We need to continue execution after the if/elif chain
+            // Don't add a terminator here - just return false to indicate
+            // that this path continues to merge_block
+            return Ok(false);
         }
-        return Ok(());
     }
 
     // Process the first elif block
@@ -76,13 +80,17 @@ fn generate_if_chain<'ctx>(
             stmt,
         )?;
     }
-    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+    let then_terminates = state.builder.get_insert_block().unwrap().get_terminator().is_some();
+    if !then_terminates {
         state.ir_builder.build_branch(state.builder, merge_block);
     }
 
     // Position at else block and recursively process remaining elif blocks
     state.builder.position_at_end(elif_else);
-    generate_if_chain(state, remaining_elif, else_body, merge_block)
+    let else_terminates = generate_if_chain(state, remaining_elif, else_body, merge_block)?;
+    
+    // All paths terminate only if both then and else terminate
+    Ok(then_terminates && else_terminates)
 }
 
 /// Generate an if statement
@@ -135,14 +143,19 @@ pub fn generate_if<'ctx>(
             stmt,
         )?;
     }
-    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+    let then_terminates = state.builder.get_insert_block().unwrap().get_terminator().is_some();
+    if !then_terminates {
         state.ir_builder.build_branch(state.builder, merge_block);
     }
 
     // Else block (handle elif chains)
     state.builder.position_at_end(else_block);
-    generate_if_chain(state, elif_blocks, else_body, merge_block)?;
+    let else_terminates = generate_if_chain(state, elif_blocks, else_body, merge_block)?;
 
-    state.builder.position_at_end(merge_block);
+    // Only position at merge_block if at least one path doesn't terminate
+    // If both then and else terminate, merge_block is unreachable
+    if !then_terminates || !else_terminates {
+        state.builder.position_at_end(merge_block);
+    }
     Ok(())
 }

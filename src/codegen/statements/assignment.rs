@@ -41,6 +41,16 @@ pub(crate) fn generate_assign<'ctx>(
         // Check if the value is a stack-allocated array (should not use ARC)
         let is_stack_array = matches!(value, Expr::Array { .. });
 
+        // Track BigInt variables - check expression type and LLVM value type
+        let is_bigint = crate::codegen::expressions::operators::bigint::is_bigint_expr(value, state)
+            || (val.is_pointer_value() && matches!(value, Expr::Call { .. }))
+            || matches!(value, Expr::BigInt(..));
+        if is_bigint {
+            state.mark_as_bigint(name.clone());
+        } else {
+            state.bigint_vars.remove(name);
+        }
+
         // Track list variables
         let is_list = match value {
             Expr::List { .. } => true,
@@ -142,13 +152,6 @@ pub(crate) fn generate_assign<'ctx>(
             state.mark_as_dict(name.clone());
         } else {
             state.dict_vars.remove(name);
-        }
-
-        let is_bigint = crate::codegen::expressions::operators::bigint::is_bigint_expr(value, state);
-        if is_bigint {
-            state.mark_as_bigint(name.clone());
-        } else {
-            state.bigint_vars.remove(name);
         }
 
         // Check if value is Bytes
