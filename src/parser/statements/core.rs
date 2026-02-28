@@ -132,9 +132,12 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         TokenKind::Nonlocal => parse_nonlocal_decl(parser),
         TokenKind::Const => parse_const_decl(parser),
         TokenKind::Async => {
-            // Check if this is async for or async def
+            // Check if this is async for, async def, or async with
             if matches!(parser.peek(), Some(t) if matches!(t.kind, TokenKind::For)) {
                 parse_async_for_stmt(parser)
+            } else if matches!(parser.peek(), Some(t) if matches!(t.kind, TokenKind::With)) {
+                parser.advance(); // consume 'async'
+                parse_with_stmt(parser, true)
             } else {
                 parse_async_function_def(parser)
             }
@@ -146,7 +149,7 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         TokenKind::Assert => parse_assert_stmt(parser),
         TokenKind::Del => parse_delete_stmt(parser),
         TokenKind::Raise => parse_raise_stmt(parser),
-        TokenKind::With => parse_with_stmt(parser),
+        TokenKind::With => parse_with_stmt(parser, false),
         TokenKind::Yield => parse_yield_stmt(parser),
         TokenKind::Await => {
             // Await expression as statement
@@ -328,7 +331,9 @@ pub fn parse_raise_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
 }
 
 /// Parse with statement: with expr as var: body or with expr1 as v1, expr2 as v2: body
-pub fn parse_with_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+/// If is_async is true, parses: async with expr as var: body
+/// Note: When is_async is true, the 'async' token has already been consumed
+pub fn parse_with_stmt(parser: &mut StatementParser, is_async: bool) -> Result<Stmt, String> {
     let span = parser.current().span;
     parser.expect(&TokenKind::With)?;
 
@@ -352,7 +357,7 @@ pub fn parse_with_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     parser.expect(&TokenKind::Colon)?;
     let body = parse_block(parser)?;
 
-    Ok(Stmt::With { items, body, span })
+    Ok(Stmt::With { items, body, is_async, span })
 }
 
 /// Parse yield statement: yield or yield expr

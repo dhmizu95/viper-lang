@@ -106,6 +106,14 @@ pub fn declare_concurrency_functions<'ctx>(
     let async_next_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_async_next", async_next_type, None);
 
+    // vp_async_context_enter(context) - calls __aenter__, returns result
+    let async_context_enter_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_async_context_enter", async_context_enter_type, None);
+
+    // vp_async_context_exit(context, exc_type, exc_val, exc_tb) - calls __aexit__
+    let async_context_exit_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_async_context_exit", async_context_exit_type, None);
+
     // Struct module functions (pack/unpack)
     // struct.pack(format, value) - returns pointer to packed data
     let struct_pack_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);

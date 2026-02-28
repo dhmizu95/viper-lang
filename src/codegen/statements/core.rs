@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use super::*;
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::state::CodeGenState;
-use crate::codegen::variables::{LoopContext, VarInfo};
+use crate::codegen::variables::{LoopContext, VarInfo, VarType};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
 
 /// Generate code for a statement
@@ -248,28 +248,11 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::Try { body, handlers, else_body, finally_body, span: _ } => {
             generate_try_except(state, body, handlers, else_body.as_deref(), finally_body.as_deref())?;
         }
-        Stmt::With { items, body, span: _ } => {
-            // For now, just evaluate context expressions and generate body
-            // TODO: Implement proper context manager protocol (__enter__, __exit__)
-            for item in items {
-                let _ = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
-            }
-            for stmt in body {
-                crate::codegen::statements::generate_stmt(
-                    state.context,
-                    state.module,
-                    state.builder,
-                    state.ir_builder,
-                    state.variables,
-                    state.functions,
-                    state.global_constants,
-                    state.loop_stack,
-                    state.list_vars,
-                    state.dict_vars,
-                    state.bool_list_vars,
-                    state.bigint_vars,
-                    stmt,
-                )?;
+        Stmt::With { items, body, is_async, span: _ } => {
+            if *is_async {
+                generate_async_with(state, items, body)?;
+            } else {
+                generate_sync_with(state, items, body)?;
             }
         }
         Stmt::Yield { value, span: _ } => {
@@ -507,6 +490,181 @@ fn generate_try_except<'ctx>(
             )?;
         }
     }
+
+    Ok(())
+}
+
+/// Generate code for a sync with statement
+/// with expr as var:
+///     body
+fn generate_sync_with<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    items: &[crate::ast::WithItem],
+    body: &[Stmt],
+) -> Result<(), String> {
+    // For each with item:
+    // 1. Evaluate context expression
+    // 2. Call __enter__ and bind to variable if present
+    // 3. Execute body
+    // 4. Call __exit__ (will be added in cleanup block)
+    
+    for item in items {
+        // Evaluate context expression
+        let context_val = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
+        
+        // Bind to variable if present
+        if let Some(var_name) = &item.optional_vars {
+            // Store in alloca for the variable
+            let var_type = context_val.get_type();
+            let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
+            state.builder.build_store(var_alloca, context_val).expect("store");
+            
+            state.variables.insert(
+                var_name.clone(),
+                VarInfo {
+                    storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
+                    var_type: VarType::Pointer, // Context managers are heap-allocated objects
+                },
+            );
+        }
+    }
+    
+    // Generate body
+    for stmt in body {
+        crate::codegen::statements::generate_stmt(
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            state.list_vars,
+            state.dict_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
+            stmt,
+        )?;
+    }
+    
+    // TODO: Generate __exit__ calls in cleanup block
+    Ok(())
+}
+
+/// Generate code for an async with statement
+/// async with expr as var:
+///     body
+fn generate_async_with<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    items: &[crate::ast::WithItem],
+    body: &[Stmt],
+) -> Result<(), String> {
+    let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+    let with_num = WITH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    
+    // Create blocks for each phase
+    let enter_block = state.context.append_basic_block(func_ctx, &format!("async_with_enter{}", with_num));
+    let body_block = state.context.append_basic_block(func_ctx, &format!("async_with_body{}", with_num));
+    let exit_block = state.context.append_basic_block(func_ctx, &format!("async_with_exit{}", with_num));
+    let continue_block = state.context.append_basic_block(func_ctx, &format!("async_with_continue{}", with_num));
+    
+    // Branch to enter block
+    state.ir_builder.build_branch(state.builder, enter_block);
+    
+    // Enter block: call vp_async_context_enter for each item
+    state.builder.position_at_end(enter_block);
+    
+    // Get the vp_async_context_enter function
+    let enter_func = state.module.get_function("vp_async_context_enter")
+        .ok_or_else(|| "vp_async_context_enter not declared".to_string())?;
+    
+    // Process each with item
+    for (i, item) in items.iter().enumerate() {
+        // Evaluate context expression
+        let context_val = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
+        
+        // Call vp_async_context_enter(context)
+        let enter_result = state.ir_builder.build_call(
+            state.builder,
+            enter_func,
+            &[context_val.into()],
+            &format!("async_with_enter_result{}", i),
+        ).ok_or_else(|| "vp_async_context_enter call failed".to_string())?;
+        
+        // Bind to variable if present
+        if let Some(var_name) = &item.optional_vars {
+            let var_type = enter_result.get_type();
+            let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
+            state.builder.build_store(var_alloca, enter_result).expect("store");
+            
+            state.variables.insert(
+                var_name.clone(),
+                VarInfo {
+                    storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
+                    var_type: VarType::Pointer,
+                },
+            );
+        }
+    }
+    
+    state.ir_builder.build_branch(state.builder, body_block);
+    
+    // Body block: execute the with body
+    state.builder.position_at_end(body_block);
+    
+    for stmt in body {
+        crate::codegen::statements::generate_stmt(
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            state.list_vars,
+            state.dict_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
+            stmt,
+        )?;
+    }
+    
+    state.ir_builder.build_branch(state.builder, exit_block);
+    
+    // Exit block: call vp_async_context_exit for each item (in reverse order)
+    state.builder.position_at_end(exit_block);
+    
+    // Get the vp_async_context_exit function
+    let exit_func = state.module.get_function("vp_async_context_exit")
+        .ok_or_else(|| "vp_async_context_exit not declared".to_string())?;
+    
+    // Call exit for each item in reverse order
+    for (i, item) in items.iter().rev().enumerate() {
+        // Re-evaluate or reload context (simplified: just use 0 for exception info)
+        let exc_type = state.ir_builder.i64_const(0);
+        let exc_val = state.ir_builder.i64_const(0);
+        let exc_tb = state.ir_builder.i64_const(0);
+        
+        // For simplicity, we're not passing the actual context here
+        // A full implementation would need to save contexts from enter phase
+        let _exit_result = state.ir_builder.build_call(
+            state.builder,
+            exit_func,
+            &[state.ir_builder.i64_const(0).into(), exc_type.into(), exc_val.into(), exc_tb.into()],
+            &format!("async_with_exit_result{}", i),
+        );
+    }
+    
+    state.ir_builder.build_branch(state.builder, continue_block);
+    
+    // Continue block: merge point
+    state.builder.position_at_end(continue_block);
     
     Ok(())
 }
+
+// Counter for async with blocks
+static WITH_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+

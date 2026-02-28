@@ -457,7 +457,7 @@ impl TypeChecker {
                     self.check_expr(c);
                 }
             }
-            Stmt::With { items, body, span: _ } => {
+            Stmt::With { items, body, is_async: _, span: _ } => {
                 self.symbol_table.enter_scope();
                 for item in items {
                     self.check_expr(&item.context_expr);

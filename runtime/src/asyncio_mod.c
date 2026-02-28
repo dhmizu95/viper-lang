@@ -455,6 +455,69 @@ int64_t vp_asyncio_timeout_expired(ViperAsyncTimeout* timeout) {
     if (now >= timeout->deadline) {
         timeout->expired = 1;
     }
-    
+
     return timeout->expired;
 }
+
+/* ============================================ */
+/* Async Context Manager Support                */
+/* ============================================ */
+
+/* 
+ * Async context manager protocol:
+ * - vp_async_context_enter(context) -> result (or -1 for error)
+ * - vp_async_context_exit(context, exc_type, exc_val, exc_tb) -> cleanup result
+ * 
+ * These functions wrap the existing ViperAsyncContext type for use
+ * with the async with statement codegen.
+ */
+
+/* Enter an async context - calls __aenter__ and returns the result */
+int64_t vp_async_context_enter(void* context) {
+    if (!context) return -1;
+    
+    /* For now, just return the context pointer as-is
+     * In a full implementation, this would:
+     * 1. Look up __aenter__ method on the context object
+     * 2. Call it as an async function
+     * 3. Await the result
+     * 4. Return the result
+     */
+    return (int64_t)context;
+}
+
+/* Exit an async context - calls __aexit__ with exception info */
+int64_t vp_async_context_exit(void* context, int64_t exc_type, int64_t exc_val, int64_t exc_tb) {
+    if (!context) return -1;
+    
+    /* For now, just release the context
+     * In a full implementation, this would:
+     * 1. Look up __aexit__ method on the context object
+     * 2. Pass exception info (exc_type, exc_val, exc_tb) - all 0 if no exception
+     * 3. Call it as an async function
+     * 4. Await the result (True to suppress exception, False/None to propagate)
+     * 5. Return whether exception was suppressed
+     */
+    vp_arc_release(context);
+    return 0; /* Don't suppress exceptions */
+}
+
+/* Create an async context wrapper using existing ViperAsyncContext */
+ViperAsyncContext* vp_async_context_create(void* inner) {
+    ViperAsyncContext* ctx = (ViperAsyncContext*)vp_arc_alloc(sizeof(ViperAsyncContext));
+    if (!ctx) return NULL;
+    
+    ctx->enter_result = inner;
+    ctx->exited = 0;
+    
+    return ctx;
+}
+
+void vp_async_context_free(ViperAsyncContext* ctx) {
+    if (!ctx) return;
+    if (ctx->enter_result) {
+        vp_arc_release(ctx->enter_result);
+    }
+    vp_arc_release(ctx);
+}
+

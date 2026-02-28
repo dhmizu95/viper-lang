@@ -237,6 +237,10 @@ void vp_async_range_free(ViperAsyncRange* range);
 void* vp_async_iter(void* obj);
 int64_t vp_async_next(void* iterator);
 
+/* Async context manager functions */
+int64_t vp_async_context_enter(void* context);
+int64_t vp_async_context_exit(void* context, int64_t exc_type, int64_t exc_val, int64_t exc_tb);
+
 /* ============================================ */
 /* Type Conversion Functions                    */
 /* ============================================ */

@@ -280,7 +280,7 @@ pub enum Stmt {
     /// Raise statement: raise Exception() or raise Exception() from cause
     Raise { exception: Option<Box<Expr>>, cause: Option<Box<Expr>>, span: Span },
     /// With statement: with expr as var: body
-    With { items: Vec<WithItem>, body: Vec<Stmt>, span: Span },
+    With { items: Vec<WithItem>, body: Vec<Stmt>, is_async: bool, span: Span },
     /// Yield statement: yield expr or yield
     Yield { value: Option<Box<Expr>>, span: Span },
 }
