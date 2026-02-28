@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::ast::types::Type;
 use crate::utils::Span;
 
