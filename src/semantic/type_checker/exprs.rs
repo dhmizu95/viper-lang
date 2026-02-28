@@ -105,8 +105,29 @@ impl TypeChecker {
                 }
             }
             Expr::Call { func, args, span } => {
+                // First, check all argument expressions to infer their types
+                for arg in args {
+                    self.check_expr(arg);
+                }
+                
+                // Handle function call with overload resolution
                 if let Expr::Ident(name, _) = func.as_ref() {
-                    if let Some(symbol) = self.symbol_table.lookup(name) {
+                    // Check if this function has overloads
+                    let overloads = self.symbol_table.get_function_overloads(name);
+                    
+                    if overloads.len() > 1 {
+                        // Multiple overloads - resolve to the best match
+                        match self.resolve_overload(name, args) {
+                            Ok(_mangled_name) => {
+                                // Successfully resolved - the mangled name is used by codegen
+                                // Type is inferred from the resolved function
+                            }
+                            Err(msg) => {
+                                self.errors.push(TypeError::new(msg, *span));
+                            }
+                        }
+                    } else if let Some(symbol) = self.symbol_table.lookup(name) {
+                        // Single function or builtin - check argument count
                         if let SymbolKind::Function { params, .. } = &symbol.kind {
                             if params.len() != args.len() {
                                 self.errors.push(TypeError::new(
@@ -119,12 +140,21 @@ impl TypeChecker {
                                 ));
                             }
                         }
+                        // For builtins, argument checking is done elsewhere
+                    } else {
+                        // Try looking up by mangled name in case it's a function
+                        // Check if any function with this name prefix exists
+                        let has_function = self.symbol_table.get_function_overloads(name).len() > 0;
+                        if has_function {
+                            // Function exists but lookup failed - this is OK for single definitions
+                        } else {
+                            // Function not found
+                            self.errors.push(TypeError::new(
+                                format!("Undefined function '{}'", name),
+                                *span,
+                            ));
+                        }
                     }
-                }
-
-                // Check argument types
-                for arg in args {
-                    self.check_expr(arg);
                 }
             }
             Expr::Index { obj, index, span } => {

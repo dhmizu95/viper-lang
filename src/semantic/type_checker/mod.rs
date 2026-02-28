@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub mod compatibility;
 pub mod exprs;
 pub mod infer;
+pub mod overload;
 pub mod stmts;
 
 /// Type error with location information

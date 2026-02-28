@@ -1,0 +1,50 @@
+# Test function overloading in Viper
+
+# Overload 1: Takes i64
+def process(x: i64) -> i64:
+    print("Processing integer")
+    return x * 2
+
+# Overload 2: Takes f64
+def process(x: f64) -> f64:
+    print("Processing float")
+    return x * 2.0
+
+# Overload 3: Takes str
+def process(x: str) -> str:
+    print("Processing string")
+    return x + x
+
+# Overload 4: Takes two i64 arguments
+def add(a: i64, b: i64) -> i64:
+    print("Adding integers")
+    return a + b
+
+# Overload 5: Takes two f64 arguments
+def add(a: f64, b: f64) -> f64:
+    print("Adding floats")
+    return a + b
+
+# Main function
+def main():
+    # Test integer overload
+    result_int = process(5)
+    print(result_int)
+    
+    # Test float overload
+    result_float = process(3.14)
+    print(result_float)
+    
+    # Test string overload
+    result_str = process("hello")
+    print(result_str)
+    
+    # Test integer addition
+    sum_int = add(10, 20)
+    print(sum_int)
+    
+    # Test float addition
+    sum_float = add(1.5, 2.5)
+    print(sum_float)
+    
+    print("All overloads work correctly!")

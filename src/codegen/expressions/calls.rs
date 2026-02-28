@@ -199,22 +199,32 @@ pub fn generate_call<'ctx>(
             return generate_reversed_call(state, args);
         }
 
-        // Check for user-defined functions BEFORE builtins (to support overloading)
+        // Check for user-defined functions with overload resolution
         let arg_types: Vec<Type> = args.iter().map(|a| infer_expr_type(a)).collect();
+        
+        // First try exact match with mangled name
         let mangled_name = mangle_function_name(name, &arg_types);
-
-        // Check if it's a user-defined function first
-        // Try exact match first, then fallback to any function that starts with the name
-        let func_val = if let Some(&f) = state.functions.get(&mangled_name) {
-            Some(f)
-        } else {
-            // Fallback: find any function that starts with the name (ignoring type info)
-            state
+        let func_val = state.functions.get(&mangled_name).copied();
+        
+        // If no exact match, try overload resolution
+        let func_val = func_val.or_else(|| {
+            // Find all overloads of this function
+            let overloads: Vec<_> = state
                 .functions
                 .iter()
-                .find(|(k, _)| k.starts_with(&format!("{}_", name)))
-                .map(|(_, v)| *v)
-        };
+                .filter(|(k, _)| {
+                    k == &name || k.starts_with(&format!("{}_", name))
+                })
+                .collect();
+            
+            if overloads.len() <= 1 {
+                return None;
+            }
+            
+            // Find the best matching overload
+            find_best_overload(&arg_types, &overloads)
+                .and_then(|mangled| state.functions.get(mangled).copied())
+        });
 
         if let Some(func_val) = func_val {
             let arg_values: Vec<_> = args
@@ -1371,6 +1381,128 @@ pub fn generate_err_constructor<'ctx>(
         state.context.i8_type().const_int(0, false).into(), // is_ok = false
         error_field.into(),
     ]);
-    
+
     Ok(result_val.into())
+}
+
+/// Find the best matching overload for a function call
+/// 
+/// Returns the mangled name of the best matching function, or None if no match found.
+fn find_best_overload<'a>(
+    arg_types: &[Type],
+    overloads: &[(&'a String, &'a inkwell::values::FunctionValue<'_>)],
+) -> Option<&'a String> {
+    let mut best_match: Option<&'a String> = None;
+    let mut best_score = usize::MAX;
+    
+    for (mangled_name, _) in overloads {
+        // Parse the mangled name to get parameter types
+        // Format: name_type1_type2_...
+        let parts: Vec<&str> = mangled_name.split('_').skip(1).collect();
+        
+        if parts.len() != arg_types.len() {
+            continue;
+        }
+        
+        // Calculate match score
+        let mut score = 0;
+        let mut is_viable = true;
+        
+        for (param_str, arg_type) in parts.iter().zip(arg_types.iter()) {
+            let param_type = mangled_str_to_type(param_str);
+            let match_score = type_match_score(&param_type, arg_type);
+            
+            if match_score == usize::MAX {
+                is_viable = false;
+                break;
+            }
+            score += match_score;
+        }
+        
+        if is_viable && score < best_score {
+            best_score = score;
+            best_match = Some(mangled_name);
+        }
+    }
+    
+    best_match
+}
+
+/// Convert a mangled type string back to a Type
+fn mangled_str_to_type(s: &str) -> Type {
+    match s {
+        "i8" => Type::I8,
+        "i16" => Type::I16,
+        "i32" => Type::I32,
+        "i64" => Type::I64,
+        "f32" => Type::F32,
+        "f64" => Type::F64,
+        "bool" => Type::Bool,
+        "str" => Type::Str,
+        "bytes" => Type::Bytes,
+        "bigint" => Type::BigInt,
+        "int" => Type::Int,
+        "none" => Type::None,
+        "infer" => Type::Infer,
+        "error" => Type::Error,
+        "waitgroup" => Type::WaitGroup,
+        _ if s.starts_with("list_") => Type::List(Box::new(mangled_str_to_type(&s[5..]))),
+        _ if s.starts_with("opt_") => Type::Optional(Box::new(mangled_str_to_type(&s[4..]))),
+        _ if s.starts_with("chan_") => Type::Chan(Box::new(mangled_str_to_type(&s[5..]))),
+        _ if s.starts_with("future_") => Type::Future(Box::new(mangled_str_to_type(&s[7..]))),
+        _ if s.starts_with("union_") => {
+            // Simple union handling - just take first variant for matching
+            let rest = &s[6..];
+            let first_variant = rest.split('_').next().unwrap_or(rest);
+            mangled_str_to_type(first_variant)
+        }
+        _ => Type::Infer,  // Unknown types treated as Infer
+    }
+}
+
+/// Calculate match score between parameter and argument types
+/// Returns 0 for exact match, higher for conversions, usize::MAX for incompatible
+fn type_match_score(param_type: &Type, arg_type: &Type) -> usize {
+    // Exact match
+    if param_type == arg_type {
+        return 0;
+    }
+    
+    // Infer matches anything
+    if matches!(param_type, Type::Infer) || matches!(arg_type, Type::Infer) {
+        return 3;
+    }
+    
+    // Error type matches anything
+    if matches!(param_type, Type::Error) || matches!(arg_type, Type::Error) {
+        return 3;
+    }
+    
+    // Widening conversions
+    match (param_type, arg_type) {
+        // Integer widening
+        (Type::I64, Type::I8) | (Type::I64, Type::I16) | (Type::I64, Type::I32) => 1,
+        (Type::F64, Type::F32) => 1,
+        (Type::F64, Type::I64) => 1,
+        (Type::Int, Type::I64) => 1,
+        (Type::BigInt, Type::I64) => 1,
+        
+        // Int (tagged integer) conversions
+        (Type::Int, Type::I8) | (Type::Int, Type::I16) | (Type::Int, Type::I32) => 1,
+        
+        // Narrowing conversions
+        (Type::Int, Type::BigInt) => 2,
+        
+        // List variance
+        (Type::List(param_inner), Type::List(arg_inner)) => {
+            type_match_score(param_inner, arg_inner)
+        }
+        
+        // Optional: non-optional can match optional parameter
+        (Type::Optional(inner), arg_type) if arg_type != &Type::None => {
+            type_match_score(inner, arg_type)
+        }
+        
+        _ => usize::MAX,  // Not compatible
+    }
 }

@@ -195,6 +195,7 @@ impl SymbolTable {
         let scope = &mut self.scopes[self.current_scope];
 
         if let SymbolKind::Function { mangled_name, .. } = &symbol.kind {
+            // Store by mangled name for uniqueness
             let key = mangled_name.clone();
             scope.insert(key, symbol);
         } else {
@@ -204,6 +205,25 @@ impl SymbolTable {
             scope.insert(symbol.name.clone(), symbol);
         }
         Ok(())
+    }
+
+    /// Get all overloads of a function by name
+    /// Returns a list of symbols for functions with the given name (different mangled versions)
+    pub fn get_function_overloads(&self, name: &str) -> Vec<&Symbol> {
+        let mut overloads = Vec::new();
+        let prefix = format!("{}_", name);
+        
+        for &scope_id in self.scope_chain.iter().rev() {
+            for (key, symbol) in &self.scopes[scope_id] {
+                if let SymbolKind::Function { .. } = &symbol.kind {
+                    // Check if this is the exact name (no params) or starts with name_
+                    if key == name || key.starts_with(&prefix) {
+                        overloads.push(symbol);
+                    }
+                }
+            }
+        }
+        overloads
     }
 
     /// Look up a symbol by name

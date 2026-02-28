@@ -199,22 +199,23 @@ fn test_symbol_table_lookup_not_found() {
 #[test]
 fn test_symbol_table_insert_function() {
     let mut table = SymbolTable::new();
-    
+
     let symbol = Symbol::new_function(
         "foo".to_string(),
         vec![Type::I64, Type::I64],
         Some(Type::I64),
         test_span(),
         0,
+        vec![],  // type_params
     );
-    
+
     table.insert(symbol).unwrap();
-    
+
     // Functions are stored by mangled name
     let found = table.lookup_mangled("foo_i64_i64").unwrap();
     assert_eq!(found.name, "foo");
-    
-    if let SymbolKind::Function { params, return_type, mangled_name } = &found.kind {
+
+    if let SymbolKind::Function { params, return_type, mangled_name, .. } = &found.kind {
         assert_eq!(params.len(), 2);
         assert_eq!(params[0], Type::I64);
         assert_eq!(params[1], Type::I64);
@@ -252,7 +253,7 @@ fn test_symbol_table_duplicate_variable_insert() {
 #[test]
 fn test_symbol_table_function_overloading() {
     let mut table = SymbolTable::new();
-    
+
     // Insert foo(i64)
     let sym1 = Symbol::new_function(
         "foo".to_string(),
@@ -260,9 +261,10 @@ fn test_symbol_table_function_overloading() {
         Some(Type::I64),
         test_span(),
         0,
+        vec![],  // type_params
     );
     table.insert(sym1).unwrap();
-    
+
     // Insert foo(f64) - should succeed (different mangled name)
     let sym2 = Symbol::new_function(
         "foo".to_string(),
@@ -270,13 +272,60 @@ fn test_symbol_table_function_overloading() {
         Some(Type::F64),
         test_span(),
         0,
+        vec![],  // type_params
     );
     let result = table.insert(sym2);
     assert!(result.is_ok());
-    
+
     // Both should be findable by mangled name
     assert!(table.lookup_mangled("foo_i64").is_some());
     assert!(table.lookup_mangled("foo_f64").is_some());
+}
+
+#[test]
+fn test_symbol_table_get_function_overloads() {
+    let table = SymbolTable::new();
+
+    // Manually insert some overloads
+    let mut table_mut = table;
+    
+    let sym1 = Symbol::new_function(
+        "bar".to_string(),
+        vec![Type::I64],
+        Some(Type::I64),
+        test_span(),
+        0,
+        vec![],  // type_params
+    );
+    table_mut.insert(sym1).unwrap();
+    
+    let sym2 = Symbol::new_function(
+        "bar".to_string(),
+        vec![Type::F64],
+        Some(Type::F64),
+        test_span(),
+        0,
+        vec![],  // type_params
+    );
+    table_mut.insert(sym2).unwrap();
+    
+    let sym3 = Symbol::new_function(
+        "bar".to_string(),
+        vec![Type::Str],
+        Some(Type::Str),
+        test_span(),
+        0,
+        vec![],  // type_params
+    );
+    table_mut.insert(sym3).unwrap();
+
+    // Get all overloads
+    let overloads = table_mut.get_function_overloads("bar");
+    assert_eq!(overloads.len(), 3);
+    
+    // Get overloads for non-existent function
+    let empty = table_mut.get_function_overloads("nonexistent");
+    assert_eq!(empty.len(), 0);
 }
 
 // ============================================================================
@@ -482,6 +531,7 @@ fn test_symbol_get_type_function() {
         Some(Type::I64),
         test_span(),
         0,
+        vec![],  // type_params
     );
     assert_eq!(symbol.get_type(), Some(Type::I64));
 }
