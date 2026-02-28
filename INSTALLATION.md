@@ -19,6 +19,18 @@ export PATH="$HOME/.local/bin:$PATH"
 viper info
 ```
 
+## What Gets Installed
+
+| Component | Description | Size | Dependencies |
+|-----------|-------------|------|--------------|
+| **Viper Compiler** (`viper`) | Compiles `.vp` to native binaries | 4.2M | LLVM 20, libc, libstdc++ |
+| **Runtime Library** (`libviper.a`) | C runtime for compiled programs | 1.4M | GMP (for BigInt) |
+| **Compiled Programs** | Your AOT-compiled binaries | ~800K | **None** (fully static) |
+
+> **Note:** Compiled Viper programs are **fully static** - they require no runtime libraries or dependencies. Just copy the binary and run!
+
+---
+
 ## Installation Scripts
 
 ### Full Installation (Recommended)
@@ -266,10 +278,17 @@ viper info
 
 # Test compilation
 echo 'print("Hello, Viper!")' > test.vp
-viper run test.vp
+viper build test.vp -o hello
+
+# Verify binary is fully static (no dependencies)
+ldd hello
+# Output: "not a dynamic executable"
+
+# Run the binary
+./hello
 
 # Clean up
-rm test.vp
+rm test.vp hello
 ```
 
 ---

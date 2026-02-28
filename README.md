@@ -47,6 +47,8 @@ See **[INSTALLATION.md](INSTALLATION.md)** for:
 | GCC | Any | Linking |
 | GMP | 6.0+ | BigInt support (optional) |
 
+> **Note:** Compiled Viper programs are **fully static** - they have zero runtime dependencies. Deploy by copying a single binary!
+
 ## Quick Start
 
 ```bash

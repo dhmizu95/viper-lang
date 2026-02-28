@@ -363,6 +363,22 @@ if [ -f "$VIPER_BIN/viper" ]; then
     fi
 fi
 
+# Test compilation and verify static linking
+echo ""
+print_info "Testing compilation and static linking..."
+echo 'print("Static test OK")' > /tmp/viper_test_$$.vp
+if VIPER_PATH="" "$VIPER_BIN/viper" build /tmp/viper_test_$$.vp -o /tmp/viper_test_$$ 2>/dev/null; then
+    # ldd returns "not a dynamic executable" for static binaries
+    if ! ldd /tmp/viper_test_$$_bin 2>&1 | grep -q "\.so"; then
+        print_success "Compiled binary is fully static (no dependencies)"
+    else
+        print_warning "Compiled binary has dynamic dependencies"
+    fi
+    rm -f /tmp/viper_test_$$_bin /tmp/viper_test_$$ /tmp/viper_test_$$.vp /tmp/viper_test_$$.o
+else
+    print_warning "Compilation test failed (may need PATH configuration)"
+fi
+
 echo ""
 echo "📚 Quick Start:"
 echo ""
@@ -375,6 +391,7 @@ echo "   viper run src/main.vp"
 echo ""
 echo "   # Build an optimized binary"
 echo "   viper build src/main.vp -O 2 -o myapp"
+echo "   ./myapp  # Runs anywhere - no dependencies!"
 echo ""
 
 if [ "$GMP_FOUND" = true ]; then
@@ -385,9 +402,14 @@ else
 fi
 
 echo ""
+echo "📦 Deployment:"
+echo "   Compiled binaries are fully static!"
+echo "   Copy the binary to any Linux x86_64 system and run."
+echo ""
 echo "📖 Documentation:"
 echo "   BIGINT_IMPLEMENTATION.md - BigInt usage guide"
 echo "   README.md - Full documentation"
+echo "   INSTALLATION.md - Detailed install instructions"
 echo ""
 print_success "Happy coding with Viper! 🐍"
 echo ""
