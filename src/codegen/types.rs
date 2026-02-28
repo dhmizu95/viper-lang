@@ -13,6 +13,7 @@ pub enum VarType {
     Pointer,
     Bool,
     Bytes,
+    Struct,  // For by-value struct types like Result
 }
 
 impl VarType {
@@ -22,6 +23,8 @@ impl VarType {
             Type::F32 | Type::F64 => VarType::Float,
             Type::Bool => VarType::Bool,
             Type::Bytes => VarType::Bytes,
+            // Result is now a by-value struct
+            Type::Result(_, _) => VarType::Struct,
             Type::Str
             | Type::Chan(_)
             | Type::WaitGroup
@@ -32,8 +35,7 @@ impl VarType {
             | Type::Int
             | Type::TypeParam { .. }
             | Type::GenericApp { .. }
-            | Type::Var(_)
-            | Type::Result(_, _) => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
+            | Type::Var(_) => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
             _ => VarType::Int,
         }
     }
@@ -121,9 +123,12 @@ impl<'ctx> TypeMapper<'ctx> {
                 }
             }
             Some(Type::None) | None => None,
-            // Result type uses pointer type (tagged union)
+            // Result type is returned by value as a struct { is_ok: i8, value: i64 }
             Some(Type::Result(_, _)) => {
-                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+                Some(self.context.struct_type(&[
+                    self.context.i8_type().into(),
+                    self.context.i64_type().into(),
+                ], false).into())
             }
             // Generic types and type variables use pointer type
             Some(Type::TypeParam { .. }) | Some(Type::GenericApp { .. }) | Some(Type::Var(_)) => {

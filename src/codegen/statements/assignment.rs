@@ -257,6 +257,8 @@ pub(crate) fn generate_assign<'ctx>(
                 VarType::Pointer
             } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
                 VarType::Bool
+            } else if val.is_struct_value() {
+                VarType::Struct
             } else {
                 VarType::Int
             };

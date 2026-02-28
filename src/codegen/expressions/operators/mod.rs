@@ -305,32 +305,22 @@ fn generate_unwrap<'ctx>(
     _op: &UnaryOp,
     operand: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Generate the operand expression (should be a Result)
+    // Generate the operand expression (should be a Result struct by value)
     let result_val = generate_expr(state, operand)?;
     
-    // The Result is expected to be a pointer to a struct { i8, i64 }
-    let result_ptr = if result_val.is_pointer_value() {
-        result_val.into_pointer_value()
+    // Result is now a struct value { is_ok: i8, value: i64 }
+    let result_struct = if result_val.is_struct_value() {
+        result_val.into_struct_value()
     } else {
-        // If not a pointer, it's already the unwrapped value (simplified for non-pointer Results)
+        // If not a struct, it's already the unwrapped value (fallback)
         return Ok(result_val);
     };
     
-    // Get the struct type: { i8, i64 }
-    let result_struct_type = state.context.struct_type(&[
-        state.context.i8_type().into(),
-        state.context.i64_type().into(),
-    ], false);
-    
-    // Get the is_ok field (first field of Result struct)
-    let is_ok_ptr = state.builder
-        .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
-        .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-    
-    let is_ok = state.builder
-        .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
-        .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
-        .into_int_value();
+    // Extract is_ok field (first field)
+    let is_ok_val = state.builder
+        .build_extract_value(result_struct, 0, "is_ok")
+        .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
+    let is_ok = is_ok_val.into_int_value();
     
     // Get the current function from the builder
     let func = state.builder.get_insert_block()
@@ -351,12 +341,9 @@ fn generate_unwrap<'ctx>(
     
     // Ok block: extract and return the value
     state.builder.position_at_end(ok_block);
-    let value_ptr = state.builder
-        .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-        .map_err(|e| format!("Failed to get value field: {:?}", e))?;
     let ok_value = state.builder
-        .build_load(state.context.i64_type(), value_ptr, "value")
-        .map_err(|e| format!("Failed to load value: {:?}", e))?;
+        .build_extract_value(result_struct, 1, "value")
+        .map_err(|e| format!("Failed to extract value: {:?}", e))?;
     state.builder.build_unconditional_branch(continue_block)
         .map_err(|e| format!("Failed to build branch: {:?}", e))?;
     let ok_block_end = state.builder.get_insert_block().unwrap();

@@ -278,6 +278,24 @@ pub fn generate_method_call<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let obj_val = generate_expr(state, obj)?;
 
+    // For Result methods, we need to load the struct value from alloca if it's a pointer
+    let obj_val = if matches!(method_name, "is_ok" | "is_err" | "unwrap" | "unwrap_err" | "expect" | "unwrap_or" | "unwrap_or_default") {
+        if obj_val.is_pointer_value() {
+            // Load the struct value from the alloca
+            let result_struct_type = state.context.struct_type(&[
+                state.context.i8_type().into(),
+                state.context.i64_type().into(),
+            ], false);
+            state.builder
+                .build_load(result_struct_type, obj_val.into_pointer_value(), "result_loaded")
+                .map_err(|e| format!("Failed to load Result: {:?}", e))?
+        } else {
+            obj_val
+        }
+    } else {
+        obj_val
+    };
+
     // Check if this is a bool list (bit vector)
     let is_bool_list = match obj {
         Expr::Ident(name, _) => state.is_bool_list(name),
@@ -713,20 +731,13 @@ pub fn generate_method_call<'ctx>(
             if !args.is_empty() {
                 return Err(format!("is_ok() takes no arguments, got {}", args.len()));
             }
-            // Load is_ok field from Result struct (first field, offset 0)
-            let result_ptr = obj_val.into_pointer_value();
-            // Get the struct type: { i8, i64 }
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            let is_ok_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
-                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-            let is_ok = state.builder
-                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
-                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
-                .into_int_value();
+            // obj_val is now a struct value, not a pointer
+            let result_struct = obj_val.into_struct_value();
+            // Extract is_ok field (first field)
+            let is_ok_val = state.builder
+                .build_extract_value(result_struct, 0, "is_ok")
+                .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
+            let is_ok = is_ok_val.into_int_value();
             // Convert i8 to bool (i1)
             let is_ok_bool = state.builder.build_int_compare(
                 inkwell::IntPredicate::NE,
@@ -740,19 +751,13 @@ pub fn generate_method_call<'ctx>(
             if !args.is_empty() {
                 return Err(format!("is_err() takes no arguments, got {}", args.len()));
             }
-            // Load is_ok field and negate
-            let result_ptr = obj_val.into_pointer_value();
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            let is_ok_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
-                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-            let is_ok = state.builder
-                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
-                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
-                .into_int_value();
+            // obj_val is a struct value
+            let result_struct = obj_val.into_struct_value();
+            // Extract is_ok field and negate
+            let is_ok_val = state.builder
+                .build_extract_value(result_struct, 0, "is_ok")
+                .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
+            let is_ok = is_ok_val.into_int_value();
             // is_err = !is_ok
             let is_err = state.builder.build_int_compare(
                 inkwell::IntPredicate::EQ,
@@ -766,81 +771,54 @@ pub fn generate_method_call<'ctx>(
             if !args.is_empty() {
                 return Err(format!("unwrap() takes no arguments, got {}", args.len()));
             }
-            // Load value field from Result struct (second field, offset 1)
-            let result_ptr = obj_val.into_pointer_value();
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            let value_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            // obj_val is a struct value
+            let result_struct = obj_val.into_struct_value();
+            // Extract value field (second field)
             let value = state.builder
-                .build_load(state.context.i64_type(), value_ptr, "value")
-                .map_err(|e| format!("Failed to load value: {:?}", e))?;
+                .build_extract_value(result_struct, 1, "value")
+                .map_err(|e| format!("Failed to extract value: {:?}", e))?;
             Ok(value)
         }
         "unwrap_err" => {
             if !args.is_empty() {
                 return Err(format!("unwrap_err() takes no arguments, got {}", args.len()));
             }
-            // For now, same as unwrap - error value is stored in the same field
-            let result_ptr = obj_val.into_pointer_value();
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            let value_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            // obj_val is a struct value
+            let result_struct = obj_val.into_struct_value();
+            // Extract value field (error is stored in same field)
             let value = state.builder
-                .build_load(state.context.i64_type(), value_ptr, "error_value")
-                .map_err(|e| format!("Failed to load error value: {:?}", e))?;
+                .build_extract_value(result_struct, 1, "error_value")
+                .map_err(|e| format!("Failed to extract error value: {:?}", e))?;
             Ok(value)
         }
         "expect" => {
             if args.len() != 1 {
                 return Err(format!("expect() takes exactly 1 argument, got {}", args.len()));
             }
-            // For now, same as unwrap - ignore the message argument
-            let result_ptr = obj_val.into_pointer_value();
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            let value_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            // obj_val is a struct value
+            let result_struct = obj_val.into_struct_value();
+            // Extract value field (ignore message for now)
             let value = state.builder
-                .build_load(state.context.i64_type(), value_ptr, "value")
-                .map_err(|e| format!("Failed to load value: {:?}", e))?;
+                .build_extract_value(result_struct, 1, "value")
+                .map_err(|e| format!("Failed to extract value: {:?}", e))?;
             Ok(value)
         }
         "unwrap_or" => {
             if args.len() != 1 {
                 return Err(format!("unwrap_or() takes exactly 1 argument, got {}", args.len()));
             }
-            // Load is_ok field
-            let result_ptr = obj_val.into_pointer_value();
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            let is_ok_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
-                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-            let is_ok = state.builder
-                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
-                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
-                .into_int_value();
+            // obj_val is a struct value
+            let result_struct = obj_val.into_struct_value();
+            // Extract is_ok field
+            let is_ok_val = state.builder
+                .build_extract_value(result_struct, 0, "is_ok")
+                .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
+            let is_ok = is_ok_val.into_int_value();
             
-            // Load value from Result
-            let value_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            // Extract value from Result
             let result_value = state.builder
-                .build_load(state.context.i64_type(), value_ptr, "result_value")
-                .map_err(|e| format!("Failed to load value: {:?}", e))?
+                .build_extract_value(result_struct, 1, "result_value")
+                .map_err(|e| format!("Failed to extract value: {:?}", e))?
                 .into_int_value();
             
             // Generate default value
@@ -865,27 +843,18 @@ pub fn generate_method_call<'ctx>(
             if !args.is_empty() {
                 return Err(format!("unwrap_or_default() takes no arguments, got {}", args.len()));
             }
-            // Load is_ok field
-            let result_ptr = obj_val.into_pointer_value();
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            let is_ok_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
-                .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-            let is_ok = state.builder
-                .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
-                .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
-                .into_int_value();
+            // obj_val is a struct value
+            let result_struct = obj_val.into_struct_value();
+            // Extract is_ok field
+            let is_ok_val = state.builder
+                .build_extract_value(result_struct, 0, "is_ok")
+                .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
+            let is_ok = is_ok_val.into_int_value();
             
-            // Load value from Result
-            let value_ptr = state.builder
-                .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-                .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+            // Extract value from Result
             let result_value = state.builder
-                .build_load(state.context.i64_type(), value_ptr, "result_value")
-                .map_err(|e| format!("Failed to load value: {:?}", e))?
+                .build_extract_value(result_struct, 1, "result_value")
+                .map_err(|e| format!("Failed to extract value: {:?}", e))?
                 .into_int_value();
             
             // Default is 0
@@ -1337,7 +1306,7 @@ pub fn generate_bigint_bit_length<'ctx>(
 }
 
 /// Generate Ok constructor call
-/// Creates a Result struct with is_ok=1 and the value
+/// Creates a Result struct with is_ok=1 and the value, returned by value
 pub fn generate_ok_constructor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
@@ -1350,48 +1319,29 @@ pub fn generate_ok_constructor<'ctx>(
     let value = generate_expr(state, &args[0])?;
     
     // Create Result struct type: { is_ok: i8, value: i64 }
-    // For now, we use a simple representation
     let result_struct_type = state.context.struct_type(&[
         state.context.i8_type().into(),
         state.context.i64_type().into(),
     ], false);
     
-    // Allocate space for the Result on the stack
-    let result_ptr = state.builder
-        .build_alloca(result_struct_type, "result_ptr")
-        .map_err(|e| format!("Failed to allocate Result: {:?}", e))?;
-    
-    // Set is_ok field to 1 (true)
-    let is_ok_ptr = state.builder
-        .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
-        .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-    state.builder
-        .build_store(is_ok_ptr, state.context.i8_type().const_int(1, false))
-        .map_err(|e| format!("Failed to store is_ok: {:?}", e))?;
-    
-    // Set value field
-    let value_ptr = state.builder
-        .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-        .map_err(|e| format!("Failed to get value field: {:?}", e))?;
-    
-    // Convert value to i64 if needed
-    let value_i64 = if value.is_int_value() {
+    // Create the struct value directly (by value, not pointer)
+    let value_field = if value.is_int_value() {
         value.into_int_value()
     } else {
-        // For non-i64 values, we need to handle conversion
-        // For now, just use 0 as a placeholder
+        // For non-i64 values, use 0 as placeholder
         state.context.i64_type().const_zero()
     };
     
-    state.builder
-        .build_store(value_ptr, value_i64)
-        .map_err(|e| format!("Failed to store value: {:?}", e))?;
+    let result_val = result_struct_type.const_named_struct(&[
+        state.context.i8_type().const_int(1, false).into(), // is_ok = true
+        value_field.into(),
+    ]);
     
-    Ok(result_ptr.into())
+    Ok(result_val.into())
 }
 
 /// Generate Err constructor call
-/// Creates a Result struct with is_ok=0 and the error value
+/// Creates a Result struct with is_ok=0 and the error value, returned by value
 pub fn generate_err_constructor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
@@ -1409,36 +1359,18 @@ pub fn generate_err_constructor<'ctx>(
         state.context.i64_type().into(),
     ], false);
     
-    // Allocate space for the Result on the stack
-    let result_ptr = state.builder
-        .build_alloca(result_struct_type, "result_ptr")
-        .map_err(|e| format!("Failed to allocate Result: {:?}", e))?;
-    
-    // Set is_ok field to 0 (false)
-    let is_ok_ptr = state.builder
-        .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
-        .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-    state.builder
-        .build_store(is_ok_ptr, state.context.i8_type().const_int(0, false))
-        .map_err(|e| format!("Failed to store is_ok: {:?}", e))?;
-    
-    // Set value field (error value)
-    let value_ptr = state.builder
-        .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
-        .map_err(|e| format!("Failed to get value field: {:?}", e))?;
-    
-    // Convert error to i64 if needed
-    let error_i64 = if error.is_int_value() {
+    // Create the struct value directly (by value, not pointer)
+    let error_field = if error.is_int_value() {
         error.into_int_value()
     } else {
-        // For non-i64 values, we need to handle conversion
-        // For now, just use 0 as a placeholder
+        // For non-i64 values, use 0 as placeholder
         state.context.i64_type().const_zero()
     };
     
-    state.builder
-        .build_store(value_ptr, error_i64)
-        .map_err(|e| format!("Failed to store error: {:?}", e))?;
+    let result_val = result_struct_type.const_named_struct(&[
+        state.context.i8_type().const_int(0, false).into(), // is_ok = false
+        error_field.into(),
+    ]);
     
-    Ok(result_ptr.into())
+    Ok(result_val.into())
 }

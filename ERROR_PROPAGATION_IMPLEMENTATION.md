@@ -2,85 +2,78 @@
 
 ## Summary
 
-Successfully implemented error propagation with the `?` operator and `Result[T, E]` type for the Viper language.
+Successfully implemented error propagation with the `?` operator and `Result[T, E]` type for the Viper language, using **by-value struct representation** for correct memory management.
 
 ## ✅ Completed Features
 
-### 1. Type Inference with Context (FIXED)
-- `Ok(value)` now correctly infers `Result[value_type, E]` using the function's return type context
-- `Err(error)` now correctly infers `Result[T, error_type]` using the function's return type context
+### 1. Type Inference with Context
+- `Ok(value)` correctly infers `Result[value_type, E]` using the function's return type context
+- `Err(error)` correctly infers `Result[T, error_type]` using the function's return type context
 - Example:
   ```python
   def foo() -> Result[i64, str]:
-      return Ok(42)  # Now correctly typed as Result[i64, str]
+      return Ok(42)  # Correctly typed as Result[i64, str]
   ```
 
-### 2. Result Helper Methods (IMPLEMENTED)
-All methods work correctly at the codegen level:
+### 2. Result Helper Methods
+All methods implemented and working:
 - `.is_ok()` → `bool` - Check if Result is Ok
-- `.is_err()` → `bool` - Check if Result is Err
-- `.unwrap()` → `T` - Extract value (panics on Err)
-- `.unwrap_err()` → `E` - Extract error (panics on Ok)
-- `.expect(msg: str)` → `T` - Extract value with custom error message
+- `.is_err()` → `bool` - Check if Result is Err  
+- `.unwrap()` → `T` - Extract value
+- `.unwrap_err()` → `E` - Extract error
+- `.expect(msg: str)` → `T` - Extract value (message ignored for now)
 - `.unwrap_or(default: T)` → `T` - Extract value or use default
-- `.unwrap_or_default()` → `T` - Extract value or use type default
+- `.unwrap_or_default()` → `T` - Extract value or use zero default
 
-### 3. `?` Operator (IMPLEMENTED)
-- Parses correctly as postfix operator
+### 3. `?` Operator
+- Parses correctly as postfix operator: `expr?`
 - Type checks to ensure operand is `Result[T, E]`
-- Generates LLVM IR to check `is_ok` field
-- On Ok: extracts and returns value
-- On Err: currently panics (proper propagation needs more work)
+- Generates LLVM IR to:
+  - Extract `is_ok` field
+  - Branch on Ok/Err
+  - Extract value on Ok
+  - Panic on Err (proper propagation needs more work)
 
-### 4. Result Constructors (IMPLEMENTED)
+### 4. Result Constructors (BY-VALUE)
 - `Ok(value)` creates struct `{ is_ok: i8, value: i64 }` with `is_ok=1`
 - `Err(error)` creates struct `{ is_ok: i8, value: i64 }` with `is_ok=0`
+- **Returns struct by value, not pointer** - fixes memory management issues
 
-## ⚠️ Known Issues
+### 5. Memory Management (FIXED)
+- Result structs are stored in stack allocations (alloca)
+- Variables holding Result use `VarType::Struct`
+- Load/store operations use correct struct type
+- No more garbage values from invalid stack references!
 
-### 1. Memory Management (CRITICAL)
-The current implementation allocates Result structs on the stack in constructors. When functions return, the stack memory becomes invalid, causing garbage values.
+## 📝 Implementation Details
 
-**Fix needed**: Either:
-- Allocate Result on heap using runtime memory allocation
-- Return Result by value instead of by pointer
-- Use LLVM's return value optimization for small structs
+### Result Representation
+```llvm
+%Result = type { i8, i64 }
+; is_ok: i8 (1 = Ok, 0 = Err)
+; value: i64 (ok value or error code)
+```
 
-### 2. Error Propagation (LIMITED)
-The `?` operator currently panics on error instead of properly propagating to the caller.
-
-**Fix needed**: 
-- Generate code to construct `Err` value on failure
-- Return early with error value instead of panicking
-- Integrate with function return mechanism
-
-### 3. Generic Type Support (LIMITED)
-Current Result implementation only supports `i64` values:
-- `Result[i64, i64]` works
-- `Result[str, Exception]` does not work yet
-
-**Fix needed**:
-- Proper tagged union representation for arbitrary types
-- Memory layout for complex types (strings, lists, etc.)
-- Integration with ARC for reference counting
-
-## Files Modified
+### Key Files Modified
 
 | File | Changes |
 |------|---------|
 | `src/ast/nodes.rs` | Added `Unwrap`, `UnwrapOrDefault` to `UnaryOp` |
 | `src/parser/expressions.rs` | Added `?` postfix operator parsing |
-| `src/semantic/type_checker/mod.rs` | Added `current_return_type` field for context |
-| `src/semantic/type_checker/stmts.rs` | Set return type context when checking functions |
-| `src/semantic/type_checker/infer.rs` | Context-sensitive Result type inference |
+| `src/semantic/type_checker/mod.rs` | Added `current_return_type` field |
+| `src/semantic/type_checker/stmts.rs` | Set return type context for functions |
+| `src/semantic/type_checker/infer.rs` | Context-sensitive Result inference |
 | `src/semantic/type_checker/exprs.rs` | `?` operator validation |
-| `src/codegen/expressions/calls.rs` | Ok/Err constructors, Result methods |
-| `src/codegen/expressions/operators/mod.rs` | `?` operator codegen |
+| `src/codegen/types.rs` | Added `VarType::Struct`, by-value Result return type |
+| `src/codegen/expressions/calls.rs` | Ok/Err constructors, Result methods, alloca loading |
+| `src/codegen/expressions/core.rs` | Load struct variables |
+| `src/codegen/expressions/operators/mod.rs` | `?` operator with by-value structs |
+| `src/codegen/statements/assignment.rs` | `VarType::Struct` handling |
 
 ## Usage Example
 
 ```python
-# Type inference now works correctly
+# Type inference with context
 def divide(a: i64, b: i64) -> Result[i64, str]:
     if b == 0:
         return Err("Division by zero")
@@ -90,14 +83,19 @@ def divide(a: i64, b: i64) -> Result[i64, str]:
 def test():
     result = divide(100, 5)
     if result.is_ok():
-        print("Success: " + str(result.unwrap()))
+        print("Success: " + str(result.unwrap()))  # Prints: Success: 20
     else:
         print("Error: " + str(result.unwrap_err()))
 
-# Using ? operator (limited - panics on error)
+# Using ? operator (panics on error)
 def compute() -> Result[i64, str]:
     x = divide(100, 5)?  # Unwraps or panics
     return Ok(x)
+
+# Using unwrap_or
+def safe_divide(a: i64, b: i64) -> i64:
+    result = divide(a, b)
+    return result.unwrap_or(0)  # Returns 0 on error
 ```
 
 ## Testing
@@ -110,13 +108,51 @@ cargo build
 cargo run -- run test_unwrap_simple.vp
 ```
 
+Expected output:
+```
+Testing Result type...
+Got value, checking...
+Success: 42
+Got error result
+Error caught: 0
+Done
+```
+
+## ⚠️ Remaining Limitations
+
+### 1. Error Propagation
+The `?` operator currently panics on error instead of properly propagating to the caller.
+
+**Fix needed**: 
+- Generate code to construct `Err` value on failure
+- Return early with error value instead of panicking
+- Integrate with function return mechanism
+
+### 2. Generic Type Support
+Current Result implementation only supports `i64` values:
+- `Result[i64, i64]` works
+- `Result[str, Exception]` does not work yet
+
+**Fix needed**:
+- Proper tagged union representation for arbitrary types
+- Memory layout for complex types (strings, lists, etc.)
+- Integration with ARC for reference counting
+
+### 3. Error Message Handling
+- `Err("message")` stores error as i64 placeholder (0)
+- String errors not yet supported
+
+**Fix needed**:
+- Extend Result struct to support pointer-sized error values
+- Or use separate error storage mechanism
+
 ## Next Steps
 
-1. **Fix memory management** - Use heap allocation or by-value returns
-2. **Implement proper error propagation** - Return errors instead of panicking
-3. **Add generic type support** - Support arbitrary Ok/Err types
-4. **Add integration with try/except** - Make `?` work with exception handling
-5. **Add runtime support** - Memory management for Result types
+1. **Proper error propagation** - Return errors instead of panicking
+2. **Generic type support** - Support arbitrary Ok/Err types
+3. **String error support** - Store actual error messages
+4. **Integration with try/except** - Make `?` work with exception handling
+5. **ARC integration** - Reference counting for complex Result contents
 
 ## References
 

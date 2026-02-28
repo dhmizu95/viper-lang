@@ -239,6 +239,14 @@ pub fn generate_expr<'ctx>(
                                 let i64_type = state.context.i64_type();
                                 Ok(state.builder.build_load(i64_type, *alloca, name).expect("load"))
                             }
+                            VarType::Struct => {
+                                // Load struct value (e.g., Result)
+                                let result_struct_type = state.context.struct_type(&[
+                                    state.context.i8_type().into(),
+                                    state.context.i64_type().into(),
+                                ], false);
+                                Ok(state.builder.build_load(result_struct_type, *alloca, name).expect("load"))
+                            }
                         }
                     }
                 }
