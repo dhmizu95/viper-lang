@@ -5,6 +5,7 @@ pub mod expressions;
 pub mod functions;
 pub mod generator;
 pub mod inline_lists;
+pub mod oop;
 pub mod runtime;
 pub mod state;
 pub mod statements;
