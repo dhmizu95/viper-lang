@@ -85,6 +85,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bigint_not as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_bigint_neg") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_bigint_neg as *const () as usize);
+    }
     if let Some(func) = module.get_function("vp_bigint_shl") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_bigint_shl as *const () as usize);

@@ -1,7 +1,7 @@
 //! Expression code generation for Viper - Operators
 
 use crate::ast::{BinOp, Expr, Type, UnaryOp};
-use crate::codegen::expressions::bigint::generate_bigint_binop;
+use crate::codegen::expressions::bigint::{generate_bigint_binop, generate_bigint_unary};
 use crate::codegen::expressions::core::{generate_expr, get_expr_type_with_state};
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
@@ -124,9 +124,8 @@ pub fn generate_binop<'ctx>(
 
     // Handle BigInt arithmetic and comparison operations FIRST
     // (BigInt values are pointers, so this must come before pointer checks)
-    let is_bigint_expr = |expr: &Expr| -> bool {
-        get_expr_type_with_state(expr, state) == Type::BigInt
-    };
+    let is_bigint_expr =
+        |expr: &Expr| -> bool { get_expr_type_with_state(expr, state) == Type::BigInt };
 
     if is_bigint_expr(left) || is_bigint_expr(right) {
         return generate_bigint_binop(state, left, op, right);
@@ -264,6 +263,14 @@ pub fn generate_unary<'ctx>(
             | UnaryOp::PostDecrement
     ) {
         return incdec::generate_incdec(state, op, operand);
+    }
+
+    // Check if operand is BigInt
+    let is_bigint = crate::codegen::expressions::core::get_expr_type_with_state(operand, state)
+        == crate::ast::Type::BigInt;
+
+    if is_bigint {
+        return generate_bigint_unary(state, op, operand);
     }
 
     let val = generate_expr(state, operand)?;

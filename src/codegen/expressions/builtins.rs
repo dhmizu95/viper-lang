@@ -55,6 +55,11 @@ pub fn generate_print_call<'ctx>(
                 Expr::BigInt(_, _) => true,
                 // Variable - check bigint_vars set
                 Expr::Ident(name, _) => state.is_bigint(name),
+                // UnaryOp (e.g., -x) - check operand
+                Expr::UnaryOp { operand, .. } => {
+                    super::core::get_expr_type_with_state(operand, state)
+                        == crate::ast::Type::BigInt
+                }
                 // Binary op or other expression - check with state awareness
                 _ => super::core::get_expr_type_with_state(arg, state) == crate::ast::Type::BigInt,
             };

@@ -53,6 +53,9 @@ pub fn declare_bigint_functions<'ctx>(
     let unop_type = ptr_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_bigint_not", unop_type, None);
 
+    // Unary negation
+    module.add_function("vp_bigint_neg", unop_type, None);
+
     // Shift operations - shift amount is u64
     let shift_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_bigint_shl", shift_type, None);

@@ -284,6 +284,22 @@ pub unsafe extern "C" fn vp_bigint_xor(
     result
 }
 
+// Unary negation: -a
+#[no_mangle]
+pub unsafe extern "C" fn vp_bigint_neg(a: *mut ViperBigInt) -> *mut ViperBigInt {
+    if a.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let result = allocate_bigint();
+    if result.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    (*result).bigint = -(&(*a).bigint);
+    result
+}
+
 // Bitwise NOT: ~a
 #[no_mangle]
 pub unsafe extern "C" fn vp_bigint_not(a: *mut ViperBigInt) -> *mut ViperBigInt {
