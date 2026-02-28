@@ -204,11 +204,7 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
     let token = parser.current();
     let ty = match &token.kind {
         TokenKind::Ident(name) => match name.as_str() {
-            // Python-style aliases
-            "int" => Type::Int,   // Python int -> auto-promoting tagged integer
-            "i64" => Type::I64,   // Explicit 64-bit integer
-            "float" => Type::F64, // Python float -> Viper f64
-            "BigInt" => Type::BigInt,  // BigInt type
+            // Generic types with parameters
             "list" => {
                 // list[T] syntax
                 parser.advance();
@@ -247,15 +243,6 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
                 parser.expect(&TokenKind::RBracket)?;
                 return Ok(Type::Tuple(types));
             }
-            // Viper native types
-            "i8" => Type::I8,
-            "i16" => Type::I16,
-            "i32" => Type::I32,
-            "i64" => Type::I64,
-            "f32" => Type::F32,
-            "f64" => Type::F64,
-            "bool" => Type::Bool,
-            "str" => Type::Str,
             "Chan" | "chan" => {
                 // Handle Chan[T] syntax
                 parser.advance();
@@ -266,6 +253,18 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, Strin
                 parser.expect(&TokenKind::RBracket)?;
                 return Ok(Type::Chan(Box::new(elem_type)));
             }
+            // Python-style aliases
+            "int" => Type::Int,   // Python int -> auto-promoting tagged integer
+            "float" => Type::F64, // Python float -> Viper f64
+            "BigInt" => Type::BigInt,  // BigInt type
+            // Viper native types
+            "i8" => Type::I8,
+            "i16" => Type::I16,
+            "i32" | "i64" => Type::I64,
+            "f32" => Type::F32,
+            "f64" => Type::F64,
+            "bool" => Type::Bool,
+            "str" => Type::Str,
             "WaitGroup" => {
                 parser.advance();
                 return Ok(Type::WaitGroup);
