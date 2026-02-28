@@ -154,7 +154,7 @@ all: dirs $(LIBRARY)
 dirs:
 	@mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/bitvec.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bytes.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o $(OBJ_DIR)/sys.o $(OBJ_DIR)/os.o $(OBJ_DIR)/time_mod.o $(OBJ_DIR)/gc.o $(OBJ_DIR)/math_mod.o $(OBJ_DIR)/json.o $(OBJ_DIR)/collections.o $(OBJ_DIR)/re_mod.o $(OBJ_DIR)/random_mod.o $(OBJ_DIR)/socket_mod.o $(OBJ_DIR)/asyncio_mod.o $(OBJ_DIR)/http_mod.o $(OBJ_DIR)/select_mod.o $(OBJ_DIR)/hashlib.o $(OBJ_DIR)/decimal_mod.o $(OBJ_DIR)/logging.o $(OBJ_DIR)/gmp_bridge.o
+$(OBJ_DIR)/libviper.a: $(OBJ_DIR)/runtime.o $(OBJ_DIR)/arc.o $(OBJ_DIR)/pool.o $(OBJ_DIR)/allocator.o $(OBJ_DIR)/list.o $(OBJ_DIR)/list_bool.o $(OBJ_DIR)/bitvec.o $(OBJ_DIR)/dict.o $(OBJ_DIR)/bytes.o $(OBJ_DIR)/concurrency.o $(OBJ_DIR)/channel.o $(OBJ_DIR)/wait_group.o $(OBJ_DIR)/task_queue.o $(OBJ_DIR)/thread_pool.o $(OBJ_DIR)/semaphore.o $(OBJ_DIR)/rwlock.o $(OBJ_DIR)/barrier.o $(OBJ_DIR)/atomic.o $(OBJ_DIR)/async.o $(OBJ_DIR)/fiber.o $(OBJ_DIR)/scheduler.o $(OBJ_DIR)/event_loop_epoll.o $(OBJ_DIR)/sys.o $(OBJ_DIR)/os.o $(OBJ_DIR)/time_mod.o $(OBJ_DIR)/gc.o $(OBJ_DIR)/math_mod.o $(OBJ_DIR)/json.o $(OBJ_DIR)/collections.o $(OBJ_DIR)/re_mod.o $(OBJ_DIR)/random_mod.o $(OBJ_DIR)/socket_mod.o $(OBJ_DIR)/asyncio_mod.o $(OBJ_DIR)/http_mod.o $(OBJ_DIR)/select_mod.o $(OBJ_DIR)/hashlib.o $(OBJ_DIR)/decimal_mod.o $(OBJ_DIR)/logging.o $(GMP_TARGET)
 	ar rcs $@ $^
 	@echo "Built static library: $(OBJ_DIR)/libviper.a"
 
@@ -289,11 +289,27 @@ $(OBJ_DIR)/logging.o: $(LOGGING_SRC)
 	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -pthread -c $< -o $@
 
 # ============================================
-# GMP Bridge (BigInt support)
+# GMP Bridge (BigInt support) - Optional
 # ============================================
 
+# Check if GMP is available
+GMP_FOUND := $(shell pkg-config --exists gmp 2>/dev/null && echo yes || echo no)
+
+ifeq ($(GMP_FOUND),yes)
+    GMP_CFLAGS := $(shell pkg-config --cflags gmp)
+    GMP_LIBS := $(shell pkg-config --libs gmp)
+    GMP_TARGET = $(OBJ_DIR)/gmp_bridge.o
+    $(info Building with GMP support (BigInt enabled))
+else
+    GMP_CFLAGS :=
+    GMP_LIBS := -lgmp
+    GMP_TARGET =
+    $(info WARNING: GMP not found - building without BigInt support)
+    $(info Install libgmp-dev to enable BigInt support)
+endif
+
 $(OBJ_DIR)/gmp_bridge.o: $(GMP_BRIDGE_SRC)
-	$(CC) $(CFLAGS) $(COMMON_INCLUDES) -lgmp -c $< -o $@
+	$(CC) $(CFLAGS) $(COMMON_INCLUDES) $(GMP_CFLAGS) -c $< -o $@
 
 # Generic compilation rule with automatic dependency generation
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)

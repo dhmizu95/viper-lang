@@ -1,0 +1,51 @@
+# Fibonacci with BigInt - Test large number computation
+
+# Iterative Fibonacci using BigInt
+def fib(n: i64) -> BigInt:
+    if n <= 0:
+        return BigInt("0")
+    elif n == 1:
+        return BigInt("1")
+    
+    a = BigInt("0")
+    b = BigInt("1")
+    
+    i = 2
+    while i <= n:
+        c = a + b
+        a = b
+        b = c
+        i = i + 1
+    
+    return b
+
+# Test with various sizes
+def main():
+    print("=== Fibonacci with BigInt ===")
+    print("")
+    
+    # Small test
+    print("fib(10) = ")
+    result = fib(10)
+    print(str_bigint(result))
+    print("")
+    
+    # Medium test
+    print("fib(100) = ")
+    result = fib(100)
+    print(str_bigint(result))
+    print("")
+    
+    # Large test
+    print("fib(1000) = ")
+    result = fib(1000)
+    print(str_bigint(result))
+    print("")
+    
+    # Very large test
+    print("fib(10000) = ")
+    result = fib(10000)
+    print(str_bigint(result))
+    print("")
+    
+    print("=== Test complete ===")
