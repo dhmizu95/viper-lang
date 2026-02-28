@@ -132,6 +132,15 @@ impl<'a> PrattParser<'a> {
                     operand: Box::new(left),
                     span: dec_span,
                 };
+            } else if self.match_token(&TokenKind::Question) {
+                // Error propagation operator: expr?
+                // Unwraps Result<T, E>, returns early on error
+                let unwrap_span = left.span().merge(self.previous().span);
+                left = Expr::UnaryOp {
+                    op: UnaryOp::Unwrap,
+                    operand: Box::new(left),
+                    span: unwrap_span,
+                };
             } else {
                 break;
             }

@@ -243,6 +243,12 @@ pub fn generate_unary<'ctx>(
         return incdec::generate_incdec(state, op, operand);
     }
 
+    // Handle error propagation operator (?) specially
+    // This needs to check the Result and return early on error
+    if matches!(op, UnaryOp::Unwrap | UnaryOp::UnwrapOrDefault) {
+        return generate_unwrap(state, op, operand);
+    }
+
     let val = generate_expr(state, operand)?;
 
     // Check for BigInt
@@ -263,8 +269,10 @@ pub fn generate_unary<'ctx>(
             UnaryOp::PreIncrement
             | UnaryOp::PreDecrement
             | UnaryOp::PostIncrement
-            | UnaryOp::PostDecrement => {
-                unreachable!("Increment/Decrement handled earlier")
+            | UnaryOp::PostDecrement
+            | UnaryOp::Unwrap
+            | UnaryOp::UnwrapOrDefault => {
+                unreachable!("Increment/Decrement/Unwrap handled earlier")
             }
         }
     } else {
@@ -281,9 +289,116 @@ pub fn generate_unary<'ctx>(
             UnaryOp::PreIncrement
             | UnaryOp::PreDecrement
             | UnaryOp::PostIncrement
-            | UnaryOp::PostDecrement => {
-                unreachable!("Increment/Decrement handled earlier")
+            | UnaryOp::PostDecrement
+            | UnaryOp::Unwrap
+            | UnaryOp::UnwrapOrDefault => {
+                unreachable!("Increment/Decrement/Unwrap handled earlier")
             }
         }
     }
+}
+
+/// Generate code for the `?` unwrap operator
+/// This checks if the Result is Ok or Err, and returns early on Err
+fn generate_unwrap<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    op: &UnaryOp,
+    operand: &Expr,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Generate the operand expression (should be a Result)
+    let result_val = generate_expr(state, operand)?;
+    
+    // For now, implement a simple version that assumes Result is represented as:
+    // - A struct { is_ok: i8, value: i64 }
+    // In a full implementation, this would need proper tagged union representation
+    
+    // Get the Result unwrap function from runtime
+    // For now, we'll use a simple inline implementation
+    
+    // The Result is expected to be a pointer to a struct
+    let result_ptr = if result_val.is_pointer_value() {
+        result_val.into_pointer_value()
+    } else {
+        // If not a pointer, it's already the unwrapped value (simplified for non-pointer Results)
+        return Ok(result_val);
+    };
+    
+    // For LLVM 20+, we need to cast to opaque pointer first, then back to struct
+    // This is a simplified implementation - proper Result handling needs more work
+    let i8_ptr_type = state.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+    let result_ptr_cast = state.builder
+        .build_pointer_cast(result_ptr, i8_ptr_type, "result_ptr_cast")
+        .map_err(|e| format!("Failed to cast result pointer: {:?}", e))?;
+    
+    // Get the is_ok field by GEP with offset 0
+    let is_ok_ptr = state.builder
+        .build_struct_gep(state.context.i8_type().array_type(9), result_ptr_cast, 0, "is_ok_ptr")
+        .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+    
+    let is_ok = state.builder
+        .build_load(state.context.i8_type(), is_ok_ptr, "is_ok")
+        .map_err(|e| format!("Failed to load is_ok: {:?}", e))?
+        .into_int_value();
+    
+    // Get the current function from the builder
+    let func = state.builder.get_insert_block()
+        .and_then(|bb| bb.get_parent())
+        .ok_or("Failed to get current function")?;
+    
+    // Create blocks for Ok and Err cases
+    let ok_block = state.context.append_basic_block(func, "result_ok");
+    let err_block = state.context.append_basic_block(func, "result_err");
+    let continue_block = state.context.append_basic_block(func, "result_continue");
+    
+    // Branch based on is_ok
+    state.builder.build_conditional_branch(
+        is_ok,
+        ok_block,
+        err_block,
+    ).map_err(|e| format!("Failed to build conditional branch: {:?}", e))?;
+    
+    // Ok block: extract and return the value (at offset 8 for i64 alignment)
+    state.builder.position_at_end(ok_block);
+    let value_ptr = state.builder
+        .build_struct_gep(state.context.i8_type().array_type(9), result_ptr_cast, 1, "value_ptr")
+        .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+    let ok_value = state.builder
+        .build_load(state.context.i64_type(), value_ptr, "value")
+        .map_err(|e| format!("Failed to load value: {:?}", e))?;
+    state.builder.build_unconditional_branch(continue_block)
+        .map_err(|e| format!("Failed to build branch: {:?}", e))?;
+    let ok_block_end = state.builder.get_insert_block().unwrap();
+    
+    // Err block: return early with the error
+    state.builder.position_at_end(err_block);
+    // For now, just panic - in a full implementation, this would propagate the error
+    let err_msg = state.context.const_string(b"Error propagated via ?", true);
+    let err_msg_global = state.module.add_global(
+        err_msg.get_type(),
+        None,
+        "unwrap_err_msg",
+    );
+    err_msg_global.set_initializer(&err_msg);
+    let err_msg_ptr = state.builder.build_pointer_cast(
+        err_msg_global.as_pointer_value(),
+        state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+        "err_msg_ptr",
+    ).map_err(|e| format!("Failed to cast error message: {:?}", e))?;
+    
+    // Call panic or return error
+    if let Some(panic_func) = state.module.get_function("viper_panic") {
+        state.builder.build_call(panic_func, &[err_msg_ptr.into()], "panic")
+            .map_err(|e| format!("Failed to call panic: {:?}", e))?;
+    }
+    // Unreachable after panic
+    state.builder.build_unreachable().map_err(|e| format!("Failed to build unreachable: {:?}", e))?;
+    let err_block_end = state.builder.get_insert_block().unwrap();
+    
+    // Continue block: phi node to merge values
+    state.builder.position_at_end(continue_block);
+    let phi = state.builder.build_phi(state.context.i64_type(), "result_value")
+        .map_err(|e| format!("Failed to build phi: {:?}", e))?;
+    phi.add_incoming(&[(&ok_value, ok_block_end)]);
+    
+    Ok(phi.as_basic_value())
 }

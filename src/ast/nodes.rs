@@ -171,6 +171,10 @@ pub enum UnaryOp {
     PreDecrement,
     PostIncrement,
     PostDecrement,
+    /// Unwrap operator: `?` - propagates errors from Result types
+    Unwrap,
+    /// Unwrap with message: `unwrap_or_default()` helper
+    UnwrapOrDefault,
 }
 
 /// Abstract Syntax Tree node for statements

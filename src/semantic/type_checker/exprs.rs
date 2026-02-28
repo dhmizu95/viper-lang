@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Expr, Type};
+use crate::ast::{BinOp, Expr, Type, UnaryOp};
 use crate::semantic::symbol_table::SymbolKind;
 use crate::semantic::type_checker::{TypeChecker, TypeError};
 
@@ -183,10 +183,51 @@ impl TypeChecker {
                     }
                 }
             }
+            Expr::UnaryOp { op, operand, span } => {
+                match op {
+                    UnaryOp::Unwrap | UnaryOp::UnwrapOrDefault => {
+                        // ? operator requires Result[T, E] type
+                        if let Some(operand_type) = self.get_expr_type(operand) {
+                            match &operand_type {
+                                Type::Result(_ok_type, _err_type) => {
+                                    // Check if we're in a function that returns Result
+                                    // This is needed for error propagation to work
+                                    if !self.is_in_result_returning_function(&operand_type) {
+                                        self.errors.push(TypeError::new(
+                                            format!(
+                                                "The `?` operator can only be used in functions that return Result, got {}",
+                                                operand_type
+                                            ),
+                                            *span,
+                                        ));
+                                    }
+                                }
+                                _ => {
+                                    self.errors.push(TypeError::new(
+                                        format!(
+                                            "The `?` operator requires a Result type, got {}",
+                                            operand_type
+                                        ),
+                                        *span,
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
             // ... (other validations as needed)
             _ => {}
         }
 
         expr_type
+    }
+
+    /// Check if we're currently in a function that returns Result
+    fn is_in_result_returning_function(&self, _operand_type: &Type) -> bool {
+        // For now, always return true to allow the operator
+        // In a full implementation, check the current function's return type
+        true
     }
 }

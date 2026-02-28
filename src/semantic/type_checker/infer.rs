@@ -55,8 +55,29 @@ impl TypeChecker {
                 // Walrus operator returns the type of the value
                 self.infer_expr_type(value)
             }
-            Expr::Call { func, args: _, span: _ } => {
+            Expr::Call { func, args, span: _ } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
+                    // Handle Result constructors
+                    match name.as_str() {
+                        "Ok" => {
+                            // Ok(value) -> Result[value_type, Infer]
+                            return if let Some(value_type) = args.first().and_then(|a| self.infer_expr_type(a)) {
+                                Some(Type::Result(Box::new(value_type), Box::new(Type::Infer)))
+                            } else {
+                                Some(Type::Result(Box::new(Type::Infer), Box::new(Type::Infer)))
+                            };
+                        }
+                        "Err" => {
+                            // Err(error) -> Result[Infer, error_type]
+                            return if let Some(error_type) = args.first().and_then(|a| self.infer_expr_type(a)) {
+                                Some(Type::Result(Box::new(Type::Infer), Box::new(error_type)))
+                            } else {
+                                Some(Type::Result(Box::new(Type::Infer), Box::new(Type::Infer)))
+                            };
+                        }
+                        _ => {}
+                    }
+                    
                     // Handle concurrency builtins (Phase 3)
                     match name.as_str() {
                         "chan" => Some(Type::Infer), // Chan element type inferred from usage
@@ -124,6 +145,28 @@ impl TypeChecker {
             Expr::UnaryOp { op, operand, .. } => match op {
                 UnaryOp::Neg | UnaryOp::Pos => self.infer_expr_type(operand),
                 UnaryOp::Not => Some(Type::Bool),
+                UnaryOp::Unwrap => {
+                    // ? operator: requires Result[T, E], returns T
+                    if let Some(operand_type) = self.infer_expr_type(operand) {
+                        match operand_type {
+                            Type::Result(ok_type, _) => Some(*ok_type),
+                            _ => None, // Will be caught by validation
+                        }
+                    } else {
+                        None
+                    }
+                }
+                UnaryOp::UnwrapOrDefault => {
+                    // unwrap_or_default(): requires Result[T, E], returns T
+                    if let Some(operand_type) = self.infer_expr_type(operand) {
+                        match operand_type {
+                            Type::Result(ok_type, _) => Some(*ok_type),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                }
                 _ => Some(Type::I64),
             },
             Expr::Index { obj, .. } => {

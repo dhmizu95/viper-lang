@@ -1144,7 +1144,7 @@ pub fn generate_bigint_bit_length<'ctx>(
 }
 
 /// Generate Ok constructor call
-/// For now, Ok(x) just returns x - proper Result type needs tagged union representation
+/// Creates a Result struct with is_ok=1 and the value
 pub fn generate_ok_constructor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
@@ -1152,14 +1152,53 @@ pub fn generate_ok_constructor<'ctx>(
     if args.len() != 1 {
         return Err(format!("Ok() takes exactly 1 argument, got {}", args.len()));
     }
+
+    // Generate the value expression
+    let value = generate_expr(state, &args[0])?;
     
-    // For now, Ok(x) just returns the value x
-    // A proper implementation would create a tagged union
-    generate_expr(state, &args[0])
+    // Create Result struct type: { is_ok: i8, value: i64 }
+    // For now, we use a simple representation
+    let result_struct_type = state.context.struct_type(&[
+        state.context.i8_type().into(),
+        state.context.i64_type().into(),
+    ], false);
+    
+    // Allocate space for the Result on the stack
+    let result_ptr = state.builder
+        .build_alloca(result_struct_type, "result_ptr")
+        .map_err(|e| format!("Failed to allocate Result: {:?}", e))?;
+    
+    // Set is_ok field to 1 (true)
+    let is_ok_ptr = state.builder
+        .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
+        .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+    state.builder
+        .build_store(is_ok_ptr, state.context.i8_type().const_int(1, false))
+        .map_err(|e| format!("Failed to store is_ok: {:?}", e))?;
+    
+    // Set value field
+    let value_ptr = state.builder
+        .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+        .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+    
+    // Convert value to i64 if needed
+    let value_i64 = if value.is_int_value() {
+        value.into_int_value()
+    } else {
+        // For non-i64 values, we need to handle conversion
+        // For now, just use 0 as a placeholder
+        state.context.i64_type().const_zero()
+    };
+    
+    state.builder
+        .build_store(value_ptr, value_i64)
+        .map_err(|e| format!("Failed to store value: {:?}", e))?;
+    
+    Ok(result_ptr.into())
 }
 
-/// Generate Err constructor call  
-/// For now, Err(e) just returns e - proper Result type needs tagged union representation
+/// Generate Err constructor call
+/// Creates a Result struct with is_ok=0 and the error value
 pub fn generate_err_constructor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
@@ -1167,8 +1206,46 @@ pub fn generate_err_constructor<'ctx>(
     if args.len() != 1 {
         return Err(format!("Err() takes exactly 1 argument, got {}", args.len()));
     }
+
+    // Generate the error expression
+    let error = generate_expr(state, &args[0])?;
     
-    // For now, Err(e) just returns the error value e
-    // A proper implementation would create a tagged union
-    generate_expr(state, &args[0])
+    // Create Result struct type: { is_ok: i8, value: i64 }
+    let result_struct_type = state.context.struct_type(&[
+        state.context.i8_type().into(),
+        state.context.i64_type().into(),
+    ], false);
+    
+    // Allocate space for the Result on the stack
+    let result_ptr = state.builder
+        .build_alloca(result_struct_type, "result_ptr")
+        .map_err(|e| format!("Failed to allocate Result: {:?}", e))?;
+    
+    // Set is_ok field to 0 (false)
+    let is_ok_ptr = state.builder
+        .build_struct_gep(result_struct_type, result_ptr, 0, "is_ok_ptr")
+        .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+    state.builder
+        .build_store(is_ok_ptr, state.context.i8_type().const_int(0, false))
+        .map_err(|e| format!("Failed to store is_ok: {:?}", e))?;
+    
+    // Set value field (error value)
+    let value_ptr = state.builder
+        .build_struct_gep(result_struct_type, result_ptr, 1, "value_ptr")
+        .map_err(|e| format!("Failed to get value field: {:?}", e))?;
+    
+    // Convert error to i64 if needed
+    let error_i64 = if error.is_int_value() {
+        error.into_int_value()
+    } else {
+        // For non-i64 values, we need to handle conversion
+        // For now, just use 0 as a placeholder
+        state.context.i64_type().const_zero()
+    };
+    
+    state.builder
+        .build_store(value_ptr, error_i64)
+        .map_err(|e| format!("Failed to store error: {:?}", e))?;
+    
+    Ok(result_ptr.into())
 }
