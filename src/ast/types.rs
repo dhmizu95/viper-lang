@@ -52,6 +52,8 @@ pub enum Type {
     Infer,
     /// Error type
     Error,
+    /// Union type (e.g., int | str)
+    Union(Vec<Type>),
 }
 
 impl Type {
@@ -128,6 +130,27 @@ impl Type {
             _ => false,
         }
     }
+
+    /// Check if this is a union type
+    pub fn is_union(&self) -> bool {
+        matches!(self, Type::Union(_))
+    }
+
+    /// Get the variants of a union type, or empty vec if not a union
+    pub fn union_variants(&self) -> Option<&Vec<Type>> {
+        match self {
+            Type::Union(variants) => Some(variants),
+            _ => None,
+        }
+    }
+
+    /// Check if this type is compatible with a union (i.e., is one of its variants)
+    pub fn is_in_union(&self, union: &Type) -> bool {
+        match union {
+            Type::Union(variants) => variants.contains(self),
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Display for Type {
@@ -185,6 +208,15 @@ impl std::fmt::Display for Type {
             Type::Var(name) => write!(f, "{}", name),
             Type::Infer => write!(f, "_"),
             Type::Error => write!(f, "<error>"),
+            Type::Union(variants) => {
+                for (i, variant) in variants.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " | ")?;
+                    }
+                    write!(f, "{}", variant)?;
+                }
+                Ok(())
+            }
         }
     }
 }

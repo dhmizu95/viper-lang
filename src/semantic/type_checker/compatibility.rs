@@ -76,6 +76,10 @@ impl TypeChecker {
             // Reverse: BigInt can be implicitly used where int expected (may truncate, but allow)
             (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::BigInt) => true,
 
+            // int (tagged integer) is compatible with i64 and vice versa
+            (Type::Int, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::Int) => true,
+
             // Tuples are compatible if their elements are compatible
             (Type::Tuple(t1), Type::Tuple(t2)) => {
                 if t1.len() != t2.len() {
@@ -83,10 +87,21 @@ impl TypeChecker {
                 }
                 t1.iter().zip(t2.iter()).all(|(e1, e2)| self.is_compatible(e1, e2))
             }
-            
+
             // Allow string to byte implicitly to give user standard behavior
             // TODO: this is an oversimplification, ideally would require explicit cast
             (Type::Bytes, Type::Str) => true,
+
+            // Union type compatibility
+            // A value of type T is compatible with union T | U
+            (Type::Union(variants), _) => {
+                variants.iter().any(|variant| self.is_compatible(variant, actual))
+            }
+            // A union T | U is compatible with another union if all variants are compatible
+            (_, Type::Union(variants)) => {
+                // For now, be conservative: actual must match at least one variant
+                variants.iter().any(|variant| self.is_compatible(expected, variant))
+            }
 
             // TODO: handle user-defined types and interfaces
             _ => false,

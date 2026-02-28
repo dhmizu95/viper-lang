@@ -153,6 +153,28 @@ pub fn parse_param(parser: &mut StatementParser) -> Result<Param, String> {
     Ok(Param { name, type_ann, default, span })
 }
 pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, String> {
+    // Parse the base type first
+    let base_type = parse_base_type(parser)?;
+
+    // Check for union type: T | U | V ...
+    if parser.match_token(&TokenKind::Pipe) {
+        let mut variants = vec![base_type];
+        loop {
+            let variant = parse_base_type(parser)?;
+            variants.push(variant);
+            
+            if !parser.match_token(&TokenKind::Pipe) {
+                break;
+            }
+        }
+        return Ok(Type::Union(variants));
+    }
+
+    Ok(base_type)
+}
+
+/// Parse a single type (without union handling)
+fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
     // Handle array type: [type; size]
     if parser.match_token(&TokenKind::LBracket) {
         let elem_type = parse_type_annotation(parser)?;

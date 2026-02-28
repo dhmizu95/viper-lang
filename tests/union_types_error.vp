@@ -1,0 +1,8 @@
+# Test union type errors - should fail type checking
+
+# This should fail: f64 is not in int | str
+def test_error() -> None:
+    x: int | str = 3.14  # Error: f64 not compatible with int | str
+    print(x)
+
+print("This should not print")

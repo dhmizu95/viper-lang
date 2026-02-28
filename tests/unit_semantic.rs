@@ -611,3 +611,59 @@ fn test_symbol_kind_parameter() {
         _ => panic!("Expected Parameter"),
     }
 }
+
+// ============================================================================
+// Union Type Tests
+// ============================================================================
+
+#[test]
+fn test_union_type_display() {
+    let union = Type::Union(vec![Type::Int, Type::Str]);
+    assert_eq!(format!("{}", union), "int | str");
+}
+
+#[test]
+fn test_union_type_multiple_variants() {
+    let union = Type::Union(vec![Type::I64, Type::Str, Type::Bool]);
+    assert_eq!(format!("{}", union), "i64 | str | bool");
+}
+
+#[test]
+fn test_union_type_is_union() {
+    let union = Type::Union(vec![Type::Int, Type::Str]);
+    assert!(union.is_union());
+    
+    let non_union = Type::I64;
+    assert!(!non_union.is_union());
+}
+
+#[test]
+fn test_union_type_variants() {
+    let union = Type::Union(vec![Type::Int, Type::Str, Type::Bool]);
+    let variants = union.union_variants().unwrap();
+    assert_eq!(variants.len(), 3);
+    assert_eq!(variants[0], Type::Int);
+    assert_eq!(variants[1], Type::Str);
+    assert_eq!(variants[2], Type::Bool);
+}
+
+#[test]
+fn test_union_type_is_in_union() {
+    let union = Type::Union(vec![Type::Int, Type::Str, Type::Bool]);
+    
+    assert!(Type::Int.is_in_union(&union));
+    assert!(Type::Str.is_in_union(&union));
+    assert!(Type::Bool.is_in_union(&union));
+    assert!(!Type::I64.is_in_union(&union));
+}
+
+#[test]
+fn test_nested_union_type() {
+    let nested = Type::Union(vec![
+        Type::Int,
+        Type::List(Box::new(Type::Union(vec![Type::I64, Type::Str])))
+    ]);
+    assert!(nested.is_union());
+    // Nested union displays as: int | [i64 | str]
+    assert_eq!(format!("{}", nested), "int | [i64 | str]");
+}
