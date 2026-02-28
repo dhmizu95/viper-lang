@@ -278,11 +278,18 @@ pub fn link_with_gcc(
     args.extend_from_slice(&[
         format!("-L{}", runtime_path),
         "-lviper".to_string(),
-        "-lm".to_string(),
     ]);
 
-    // Add GMP library for BigInt support
-    args.push("-lgmp".to_string());
+    // Static linking for full portability (no external dependencies)
+    // -static: link everything statically
+    // -lgmp: GMP for BigInt (statically linked)
+    args.push("-static".to_string());
+    args.extend_from_slice(&[
+        "-lgmp".to_string(),
+        "-lm".to_string(),
+        "-lpthread".to_string(),
+        "-lc".to_string(),
+    ]);
 
     println!("   Linking with GCC...");
     let output = std::process::Command::new("gcc")
