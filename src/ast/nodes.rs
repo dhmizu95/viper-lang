@@ -269,6 +269,16 @@ pub enum Stmt {
     Match { subject: Box<Expr>, cases: Vec<MatchCase>, span: Span },
     /// Select statement for channels: select { case recv(c1): ... case send(c2, v): ... }
     Select { cases: Vec<SelectCase>, span: Span },
+    /// Assert statement: assert condition, message
+    Assert { condition: Box<Expr>, message: Option<Box<Expr>>, span: Span },
+    /// Delete statement: del target1, target2, ...
+    Delete { targets: Vec<Expr>, span: Span },
+    /// Raise statement: raise Exception() or raise Exception() from cause
+    Raise { exception: Option<Box<Expr>>, cause: Option<Box<Expr>>, span: Span },
+    /// With statement: with expr as var: body
+    With { items: Vec<WithItem>, body: Vec<Stmt>, span: Span },
+    /// Yield statement: yield expr or yield
+    Yield { value: Option<Box<Expr>>, span: Span },
 }
 
 /// A single case in a match statement
@@ -318,6 +328,14 @@ pub enum SelectCaseKind {
     Default,
 }
 
+/// A single item in a with statement: expr as var
+#[derive(Debug, Clone)]
+pub struct WithItem {
+    pub context_expr: Expr,
+    pub optional_vars: Option<String>,
+    pub span: Span,
+}
+
 impl Stmt {
     pub fn span(&self) -> Span {
         match self {
@@ -354,6 +372,11 @@ impl Stmt {
             Stmt::Match { span, .. } => *span,
             Stmt::Select { span, .. } => *span,
             Stmt::TypeAlias { span, .. } => *span,
+            Stmt::Assert { span, .. } => *span,
+            Stmt::Delete { span, .. } => *span,
+            Stmt::Raise { span, .. } => *span,
+            Stmt::With { span, .. } => *span,
+            Stmt::Yield { span, .. } => *span,
         }
     }
 }

@@ -424,6 +424,64 @@ impl TypeChecker {
                     ));
                 }
             }
+            // New Python keyword statements
+            Stmt::Assert { condition, message, span: _ } => {
+                let cond_type = self.check_expr(condition);
+                // Condition should ideally be boolean
+                if let Some(t) = cond_type {
+                    if !matches!(t, Type::Bool) {
+                        // Assertion condition should ideally be bool, but we allow flexibility
+                    }
+                }
+                if let Some(msg) = message {
+                    self.check_expr(msg);
+                }
+            }
+            Stmt::Delete { targets, span: _ } => {
+                for target in targets {
+                    self.check_expr(target);
+                }
+            }
+            Stmt::Raise { exception, cause, span: _ } => {
+                if let Some(exc) = exception {
+                    self.check_expr(exc);
+                }
+                if let Some(c) = cause {
+                    self.check_expr(c);
+                }
+            }
+            Stmt::With { items, body, span: _ } => {
+                self.symbol_table.enter_scope();
+                for item in items {
+                    self.check_expr(&item.context_expr);
+                    // The optional_vars is bound to the result of __enter__
+                    if let Some(var_name) = &item.optional_vars {
+                        // Add the variable to the symbol table
+                        // Type will be inferred from usage
+                        let kind = crate::semantic::symbol_table::SymbolKind::Variable {
+                            mutable: true,
+                            type_ann: None,
+                        };
+                        let symbol = crate::semantic::symbol_table::Symbol::new(
+                            var_name.clone(),
+                            kind,
+                            item.span,
+                            self.symbol_table.current_scope_id(),
+                        );
+                        let _ = self.symbol_table.insert(symbol);
+                    }
+                }
+                for stmt in body {
+                    self.check_stmt(stmt);
+                }
+                self.symbol_table.exit_scope();
+            }
+            Stmt::Yield { value, span: _ } => {
+                if let Some(val) = value {
+                    self.check_expr(val);
+                }
+                // TODO: Track that we're in a generator function
+            }
             _ => {
                 // TODO: Handle other statement types
             }

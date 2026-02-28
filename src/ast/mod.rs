@@ -3,6 +3,6 @@ pub mod types;
 
 pub use nodes::{
     BinOp, ExceptHandler, Expr, MatchCase, MatchPattern, Module, Param, SelectCase, SelectCaseKind,
-    Stmt, UnaryOp,
+    Stmt, UnaryOp, WithItem,
 };
 pub use types::Type;

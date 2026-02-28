@@ -226,6 +226,63 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                 state.builder.position_at_end(else_bb);
             }
         }
+        // New Python keyword statements - stub implementations for now
+        Stmt::Assert { condition, message, span: _ } => {
+            // For now, just evaluate the condition and message (no actual assertion)
+            let _cond_val = crate::codegen::expressions::generate_expr(state, condition)?;
+            if let Some(msg) = message {
+                let _msg_val = crate::codegen::expressions::generate_expr(state, msg)?;
+            }
+            // TODO: Implement actual assertion with runtime panic
+        }
+        Stmt::Delete { targets, span: _ } => {
+            // For now, just evaluate the targets (no actual deletion)
+            for target in targets {
+                let _ = crate::codegen::expressions::generate_expr(state, target)?;
+            }
+            // TODO: Implement actual deletion (decrement ref counts, etc.)
+        }
+        Stmt::Raise { exception, cause, span: _ } => {
+            // For now, just evaluate the exception and cause
+            if let Some(exc) = exception {
+                let _ = crate::codegen::expressions::generate_expr(state, exc)?;
+            }
+            if let Some(c) = cause {
+                let _ = crate::codegen::expressions::generate_expr(state, c)?;
+            }
+            // TODO: Implement actual exception raising
+        }
+        Stmt::With { items, body, span: _ } => {
+            // For now, just evaluate context expressions and generate body
+            // TODO: Implement proper context manager protocol (__enter__, __exit__)
+            for item in items {
+                let _ = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
+            }
+            for stmt in body {
+                crate::codegen::statements::generate_stmt(
+                    state.context,
+                    state.module,
+                    state.builder,
+                    state.ir_builder,
+                    state.variables,
+                    state.functions,
+                    state.global_constants,
+                    state.loop_stack,
+                    state.list_vars,
+                    state.dict_vars,
+                    state.bool_list_vars,
+                    state.bigint_vars,
+                    stmt,
+                )?;
+            }
+        }
+        Stmt::Yield { value, span: _ } => {
+            // For now, just evaluate the value
+            if let Some(val) = value {
+                let _ = crate::codegen::expressions::generate_expr(state, val)?;
+            }
+            // TODO: Implement generator yield
+        }
         _ => {}
     }
     Ok(())

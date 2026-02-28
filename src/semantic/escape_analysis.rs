@@ -320,8 +320,13 @@ impl EscapeAnalyzer {
             | Stmt::WgWait { .. }
             | Stmt::Match { .. }
             | Stmt::Select { .. }
-            | Stmt::TypeAlias { .. } => {
-                // Type aliases don't affect escape analysis
+            | Stmt::TypeAlias { .. }
+            | Stmt::Assert { .. }
+            | Stmt::Delete { .. }
+            | Stmt::Raise { .. }
+            | Stmt::With { .. }
+            | Stmt::Yield { .. } => {
+                // These statements don't affect escape analysis
             }
         }
     }

@@ -143,6 +143,11 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         TokenKind::Select => parse_select_stmt(parser),
         TokenKind::Unless => parse_unless_stmt(parser),
         TokenKind::Type => parse_type_alias(parser),
+        TokenKind::Assert => parse_assert_stmt(parser),
+        TokenKind::Del => parse_delete_stmt(parser),
+        TokenKind::Raise => parse_raise_stmt(parser),
+        TokenKind::With => parse_with_stmt(parser),
+        TokenKind::Yield => parse_yield_stmt(parser),
         TokenKind::Await => {
             // Await expression as statement
             let expr = parse_expression(parser)?;
@@ -266,4 +271,103 @@ pub fn parse_block(parser: &mut StatementParser) -> Result<Vec<Stmt>, String> {
     }
 
     Ok(stmts)
+}
+
+/// Parse assert statement: assert condition or assert condition, message
+pub fn parse_assert_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Assert)?;
+
+    let condition = parse_expression(parser)?;
+
+    let message = if parser.match_token(&TokenKind::Comma) {
+        Some(Box::new(parse_expression(parser)?))
+    } else {
+        None
+    };
+
+    Ok(Stmt::Assert { condition: Box::new(condition), message, span })
+}
+
+/// Parse delete statement: del target1, target2, ...
+pub fn parse_delete_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Del)?;
+
+    let mut targets = vec![parse_expression(parser)?];
+    while parser.match_token(&TokenKind::Comma) {
+        targets.push(parse_expression(parser)?);
+    }
+
+    Ok(Stmt::Delete { targets, span })
+}
+
+/// Parse raise statement: raise or raise Exception() or raise Exception() from cause
+pub fn parse_raise_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Raise)?;
+
+    // Check if there's an exception to raise
+    if parser.match_token(&TokenKind::Newline)
+        || parser.match_token(&TokenKind::Dedent)
+        || parser.is_at_end()
+    {
+        return Ok(Stmt::Raise { exception: None, cause: None, span });
+    }
+
+    let exception = Some(Box::new(parse_expression(parser)?));
+
+    // Check for "from" clause
+    let cause = if parser.match_token(&TokenKind::From) {
+        Some(Box::new(parse_expression(parser)?))
+    } else {
+        None
+    };
+
+    Ok(Stmt::Raise { exception, cause, span })
+}
+
+/// Parse with statement: with expr as var: body or with expr1 as v1, expr2 as v2: body
+pub fn parse_with_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::With)?;
+
+    let mut items = vec![];
+    loop {
+        let context_expr = parse_expression(parser)?;
+
+        let optional_vars = if parser.match_token(&TokenKind::As) {
+            Some(parser.expect_ident()?)
+        } else {
+            None
+        };
+
+        items.push(crate::ast::WithItem { context_expr, optional_vars, span });
+
+        if !parser.match_token(&TokenKind::Comma) {
+            break;
+        }
+    }
+
+    parser.expect(&TokenKind::Colon)?;
+    let body = parse_block(parser)?;
+
+    Ok(Stmt::With { items, body, span })
+}
+
+/// Parse yield statement: yield or yield expr
+pub fn parse_yield_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+    let span = parser.current().span;
+    parser.expect(&TokenKind::Yield)?;
+
+    // Check if there's a value to yield
+    if parser.match_token(&TokenKind::Newline)
+        || parser.match_token(&TokenKind::Dedent)
+        || parser.is_at_end()
+    {
+        return Ok(Stmt::Yield { value: None, span });
+    }
+
+    let value = Some(Box::new(parse_expression(parser)?));
+    Ok(Stmt::Yield { value, span })
 }
