@@ -651,15 +651,15 @@ fn generate_field_access<'ctx>(
             &format!("field_{}_ptr", field.name),
         )
     }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
-    
+
     // Cast to i64* and load
-    let field_i64_ptr = state.builder.build_bit_cast(field_ptr, i64_type.ptr_type(AddressSpace::default()), "field_i64_ptr")
+    let field_i64_ptr = state.builder.build_bit_cast(field_ptr, state.context.ptr_type(AddressSpace::default()), "field_i64_ptr")
         .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
         .into_pointer_value();
-    
+
     let value = state.builder.build_load(i64_type, field_i64_ptr, &format!("field_{}", field.name))
         .map_err(|e| format!("Failed to load field: {:?}", e))?;
-    
+
     Ok(value)
 }
 
@@ -908,14 +908,14 @@ fn store_field<'ctx>(
             &format!("field_{}_ptr", field.name),
         )
     }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
-    
+
     // Cast to i64* and store
-    let field_i64_ptr = state.builder.build_bit_cast(field_ptr, i64_type.ptr_type(AddressSpace::default()), "field_i64_ptr")
+    let field_i64_ptr = state.builder.build_bit_cast(field_ptr, state.context.ptr_type(AddressSpace::default()), "field_i64_ptr")
         .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
         .into_pointer_value();
-    
+
     state.builder.build_store(field_i64_ptr, value)
         .map_err(|e| format!("Failed to store field: {:?}", e))?;
-    
+
     Ok(())
 }

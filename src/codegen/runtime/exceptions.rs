@@ -13,7 +13,7 @@ pub fn declare_exception_functions<'ctx>(
     module: &Module<'ctx>,
 ) -> Result<(), String> {
     // __cxa_allocate_exception - allocate memory for an exception object
-    let allocate_type = context.i8_type().ptr_type(AddressSpace::default()).fn_type(
+    let allocate_type = context.ptr_type(AddressSpace::default()).fn_type(
         &[context.i64_type().into()],
         false,
     );
@@ -25,7 +25,7 @@ pub fn declare_exception_functions<'ctx>(
 
     // __cxa_free_exception - free exception object memory
     let free_type = context.void_type().fn_type(
-        &[context.i8_type().ptr_type(AddressSpace::default()).into()],
+        &[context.ptr_type(AddressSpace::default()).into()],
         false,
     );
     module.add_function(
@@ -37,9 +37,9 @@ pub fn declare_exception_functions<'ctx>(
     // __cxa_throw - throw an exception
     let throw_type = context.void_type().fn_type(
         &[
-            context.i8_type().ptr_type(AddressSpace::default()).into(), // exception object
-            context.i8_type().ptr_type(AddressSpace::default()).into(), // typeinfo
-            context.i8_type().ptr_type(AddressSpace::default()).into(), // destructor
+            context.ptr_type(AddressSpace::default()).into(), // exception object
+            context.ptr_type(AddressSpace::default()).into(), // typeinfo
+            context.ptr_type(AddressSpace::default()).into(), // destructor
         ],
         false,
     );
@@ -50,8 +50,8 @@ pub fn declare_exception_functions<'ctx>(
     );
 
     // __cxa_begin_catch - begin catching an exception
-    let begin_catch_type = context.i8_type().ptr_type(AddressSpace::default()).fn_type(
-        &[context.i8_type().ptr_type(AddressSpace::default()).into()],
+    let begin_catch_type = context.ptr_type(AddressSpace::default()).fn_type(
+        &[context.ptr_type(AddressSpace::default()).into()],
         false,
     );
     module.add_function(
@@ -69,8 +69,8 @@ pub fn declare_exception_functions<'ctx>(
     );
 
     // __cxa_get_exception_ptr - get pointer to thrown exception
-    let get_exception_ptr_type = context.i8_type().ptr_type(AddressSpace::default()).fn_type(
-        &[context.i8_type().ptr_type(AddressSpace::default()).into()],
+    let get_exception_ptr_type = context.ptr_type(AddressSpace::default()).fn_type(
+        &[context.ptr_type(AddressSpace::default()).into()],
         false,
     );
     module.add_function(
@@ -85,8 +85,8 @@ pub fn declare_exception_functions<'ctx>(
             context.i32_type().into(),
             context.i32_type().into(),
             context.i64_type().into(),
-            context.i8_type().ptr_type(AddressSpace::default()).into(),
-            context.i8_type().ptr_type(AddressSpace::default()).into(),
+            context.ptr_type(AddressSpace::default()).into(),
+            context.ptr_type(AddressSpace::default()).into(),
         ],
         false,
     );
@@ -107,7 +107,7 @@ fn declare_viper_exception_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
 ) -> Result<(), String> {
-    let ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+    let ptr_type = context.ptr_type(AddressSpace::default());
 
     // viper_raise_exception - raise a Viper exception with type and message
     let raise_type = context.void_type().fn_type(
@@ -139,7 +139,7 @@ fn declare_viper_exception_functions<'ctx>(
     );
 
     // viper_catch_exception - check if current exception matches type
-    let catch_type = context.i8_type().fn_type(
+    let catch_type = context.ptr_type(AddressSpace::default()).fn_type(
         &[ptr_type.into()], // exception type name to match
         false,
     );
@@ -213,7 +213,7 @@ fn declare_viper_exception_functions<'ctx>(
     );
 
     // viper_exception_matches - check if exception type matches (supports inheritance)
-    let matches_type = context.i8_type().fn_type(
+    let matches_type = context.ptr_type(AddressSpace::default()).fn_type(
         &[
             ptr_type.into(), // actual type
             ptr_type.into(), // expected type

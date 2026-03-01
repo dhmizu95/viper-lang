@@ -302,7 +302,7 @@ fn generate_raise<'ctx>(
                 type_global.set_initializer(&exc_type);
                 let type_ptr = state.builder.build_pointer_cast(
                     type_global.as_pointer_value(),
-                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
                     "exc_type_ptr"
                 ).map_err(|e| format!("Failed to cast exception type: {:?}", e))?;
 
@@ -323,7 +323,7 @@ fn generate_raise<'ctx>(
                         empty_global.set_initializer(&empty);
                         state.builder.build_pointer_cast(
                             empty_global.as_pointer_value(),
-                            state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                            state.context.ptr_type(inkwell::AddressSpace::default()),
                             "empty_msg"
                         ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?
                     }
@@ -338,7 +338,7 @@ fn generate_raise<'ctx>(
                     empty_global.set_initializer(&empty);
                     state.builder.build_pointer_cast(
                         empty_global.as_pointer_value(),
-                        state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                        state.context.ptr_type(inkwell::AddressSpace::default()),
                         "empty_msg"
                     ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?
                 };
@@ -356,7 +356,7 @@ fn generate_raise<'ctx>(
                 type_global.set_initializer(&exc_type);
                 let type_ptr = state.builder.build_pointer_cast(
                     type_global.as_pointer_value(),
-                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
                     "exc_type_ptr"
                 ).map_err(|e| format!("Failed to cast exception type: {:?}", e))?;
 
@@ -370,7 +370,7 @@ fn generate_raise<'ctx>(
                 empty_global.set_initializer(&empty);
                 let msg_ptr = state.builder.build_pointer_cast(
                     empty_global.as_pointer_value(),
-                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
                     "empty_msg"
                 ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?;
 
@@ -387,7 +387,7 @@ fn generate_raise<'ctx>(
                 type_global.set_initializer(&exc_type);
                 let type_ptr = state.builder.build_pointer_cast(
                     type_global.as_pointer_value(),
-                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
                     "exc_type_ptr"
                 ).map_err(|e| format!("Failed to cast exception type: {:?}", e))?;
 
@@ -400,7 +400,7 @@ fn generate_raise<'ctx>(
                 empty_global.set_initializer(&empty);
                 let msg_ptr = state.builder.build_pointer_cast(
                     empty_global.as_pointer_value(),
-                    state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
                     "empty_msg"
                 ).map_err(|e| format!("Failed to cast empty string: {:?}", e))?;
 

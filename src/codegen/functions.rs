@@ -651,7 +651,7 @@ pub fn declare_function_simple<'ctx>(
         .map(|(i, p)| {
             // First parameter named 'self' should be a pointer (instance reference)
             if i == 0 && p.name == "self" {
-                context.i8_type().ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum().into()
+                context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum().into()
             } else {
                 let ty = p.type_ann.clone().unwrap_or(Type::I64);
                 type_mapper.llvm_type(&ty).as_basic_type_enum().into()

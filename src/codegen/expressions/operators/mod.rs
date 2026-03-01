@@ -347,7 +347,7 @@ fn generate_unwrap<'ctx>(
         err_msg_global.set_initializer(&err_msg);
         let err_msg_ptr = state.builder.build_pointer_cast(
             err_msg_global.as_pointer_value(),
-            state.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+            state.context.ptr_type(inkwell::AddressSpace::default()),
             "err_msg_ptr",
         ).map_err(|e| format!("Failed to cast error message: {:?}", e))?;
 

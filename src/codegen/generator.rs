@@ -756,32 +756,32 @@ impl<'ctx> CodeGen<'ctx> {
         // - init: function pointer (void*)
         // - dealloc: function pointer (void*)
         let class_struct_type = context.struct_type(&[
-            context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),  // name
-            context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),  // bases
+            context.ptr_type(inkwell::AddressSpace::default()).into(),  // name
+            context.ptr_type(inkwell::AddressSpace::default()).into(),  // bases
             context.i64_type().into(),  // base_count
-            context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),  // methods
+            context.ptr_type(inkwell::AddressSpace::default()).into(),  // methods
             context.i64_type().into(),  // method_count
             context.i64_type().into(),  // instance_size
-            context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),  // init
-            context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),  // dealloc
+            context.ptr_type(inkwell::AddressSpace::default()).into(),  // init
+            context.ptr_type(inkwell::AddressSpace::default()).into(),  // dealloc
         ], false);
-        
+
         // Create class metadata global
         let class_global_name = format!("__viper_class_{}", name);
         let class_global = self.module.add_global(class_struct_type, None, &class_global_name);
         class_global.set_constant(false);
         class_global.set_unnamed_addr(true);
-        
+
         // Create class name string
         let name_str = self.create_global_string(name);
-        
+
         // Create initializer values
-        let null_ptr = context.i8_type().ptr_type(inkwell::AddressSpace::default()).const_null();
+        let null_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
         let base_count_val = context.i64_type().const_int(0, false);  // Will be updated with inheritance
         let method_count_val = context.i64_type().const_int(metadata.methods.len() as u64, false);
         let instance_size_val = context.i64_type().const_int(metadata.instance_size as u64, false);
-        let init_ptr = context.i8_type().ptr_type(inkwell::AddressSpace::default()).const_null();
-        let dealloc_ptr = context.i8_type().ptr_type(inkwell::AddressSpace::default()).const_null();
+        let init_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
+        let dealloc_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
         
         // Create initializer for class struct
         let class_init = class_struct_type.const_named_struct(&[
