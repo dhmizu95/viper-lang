@@ -243,13 +243,29 @@ pub fn generate_call<'ctx>(
                     k == &name || k.starts_with(&format!("{}_", name))
                 })
                 .collect();
-            
-            if overloads.len() <= 1 {
+
+            if overloads.is_empty() {
                 return None;
             }
-            
+
+            // If there's only one overload, use it directly
+            if overloads.len() == 1 {
+                return Some(*overloads[0].1);
+            }
+
             // Find the best matching overload
             find_best_overload(&arg_types, &overloads)
+                .or_else(|| {
+                    // If no match found, try to find a function with matching arity
+                    // This handles cases where argument types are Infer
+                    // Mangled format: name_type1_type2_... so underscore count = param count
+                    overloads.iter()
+                        .find(|(mangled, _)| {
+                            let param_count = mangled.chars().filter(|c| *c == '_').count();
+                            param_count == arg_types.len()
+                        })
+                        .map(|(mangled, _)| *mangled)
+                })
                 .and_then(|mangled| state.functions.get(mangled).copied())
         });
 

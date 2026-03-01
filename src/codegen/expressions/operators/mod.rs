@@ -366,9 +366,17 @@ fn generate_unwrap<'ctx>(
     let err_block = state.context.append_basic_block(func, "result_err");
     let continue_block = state.context.append_basic_block(func, "result_continue");
 
+    // Convert is_ok from i8 to i1 for branch condition
+    let is_ok_bool = state.builder.build_int_compare(
+        inkwell::IntPredicate::NE,
+        is_ok,
+        state.context.i8_type().const_zero(),
+        "is_ok_bool",
+    ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+
     // Branch based on is_ok
     state.builder.build_conditional_branch(
-        is_ok,
+        is_ok_bool,
         ok_block,
         err_block,
     ).map_err(|e| format!("Failed to build conditional branch: {:?}", e))?;

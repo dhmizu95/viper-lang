@@ -103,6 +103,18 @@ impl TypeChecker {
                                 ));
                             }
                         }
+                    } else {
+                        // Variable doesn't exist - create it with inferred type (implicit declaration)
+                        let kind = SymbolKind::Variable { mutable: true, type_ann: value_type.clone() };
+                        let symbol = Symbol::new(
+                            name.clone(),
+                            kind,
+                            *span,
+                            self.symbol_table.current_scope_id(),
+                        );
+                        if let Err(e) = self.symbol_table.insert(symbol) {
+                            self.errors.push(TypeError::new(e, *span));
+                        }
                     }
                 }
 
