@@ -10,6 +10,16 @@
 #include "allocator.h"
 
 /* ============================================ */
+/* Simple malloc/free wrappers for JIT          */
+/* ============================================ */
+
+void* vp_malloc(size_t size) {
+    return malloc(size);
+}
+
+/* Note: vp_free is defined in arc.c to work with ARC */
+
+/* ============================================ */
 /* Global Allocator State                       */
 /* ============================================ */
 

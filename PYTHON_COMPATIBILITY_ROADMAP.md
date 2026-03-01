@@ -36,7 +36,7 @@
 
 | Module | C Runtime | Viper Wrapper | JIT Stubs | Effort |
 |--------|-----------|---------------|-----------|--------|
-| `math` | ✅ | ✅ | ⏳ | 1 day |
+| `math` | ✅ | ✅ | ✅ | 1 day |
 | `json` | ✅ | ✅ | ⏳ | 1 day |
 | `collections` | ✅ | ✅ | ⏳ | 2 days |
 | `re` | ✅ | ✅ | ⏳ | 2 days |
@@ -49,7 +49,7 @@
 | `decimal` | ✅ | ⏳ | ⏳ | 3 days |
 | `logging` | ✅ | ⏳ | ⏳ | 2 days |
 
-**Total: 28 days for stdlib completion**
+**Total: 27 days for stdlib completion**
 
 ### 1.3 Testing Infrastructure
 
