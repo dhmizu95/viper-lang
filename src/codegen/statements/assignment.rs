@@ -232,12 +232,14 @@ pub(crate) fn generate_assign<'ctx>(
             let old_is_ref;
             let old_needs_arc;
             let storage;
+            let closure_value_ptr;
 
             {
                 let var_info = state.variables.get(name).unwrap();
                 old_is_ref = var_info.var_type == VarType::Pointer;
                 old_needs_arc = state.needs_arc(name);
                 storage = var_info.storage.clone();
+                closure_value_ptr = var_info.closure_value_ptr;
             }
 
             // Update var_type if this is a Bytes assignment
@@ -268,6 +270,23 @@ pub(crate) fn generate_assign<'ctx>(
                 VarStorage::Register(_) => {
                     // For scalar types, just keep register allocation -
                     // we replace the register value
+                }
+                VarStorage::ClosureCell(_) => {
+                    // For closure cells, store through the value pointer
+                    if let Some(value_ptr) = closure_value_ptr {
+                        if old_is_ref && old_needs_arc {
+                            let old_val = state
+                                .builder
+                                .build_load(
+                                    state.context.ptr_type(inkwell::AddressSpace::default()),
+                                    value_ptr,
+                                    &format!("{}_old", name),
+                                )
+                                .expect("load old value");
+                            state.build_release(old_val, &format!("{}_old", name));
+                        }
+                        state.builder.build_store(value_ptr, val).expect("store to cell");
+                    }
                 }
             }
 
@@ -622,6 +641,14 @@ pub(crate) fn generate_aug_assign<'ctx>(
                         state
                             .variables
                             .insert(name.clone(), VarInfo::new_register(result, var_type));
+                    }
+                    VarStorage::ClosureCell(_) => {
+                        // For closure cells, store through the value pointer
+                        if let Some(value_ptr) = var_info.closure_value_ptr {
+                            state.builder.build_store(value_ptr, result).expect("store to cell");
+                        } else {
+                            return Err(format!("Closure cell for '{}' missing value pointer", name));
+                        }
                     }
                 }
             }

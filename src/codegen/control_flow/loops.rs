@@ -306,6 +306,7 @@ pub fn generate_for<'ctx>(
                             storage: crate::codegen::variables::VarStorage::Stack(counter),
                             var_type: VarType::Int,
                             class_name: None,
+                            closure_value_ptr: None,
                         },
                     )
                 } else {
@@ -466,6 +467,7 @@ pub fn generate_for<'ctx>(
                 storage: crate::codegen::variables::VarStorage::Stack(val_alloca),
                 var_type: VarType::Int,
                 class_name: None,
+                closure_value_ptr: None,
             },
         )
     } else {
@@ -710,6 +712,7 @@ pub fn generate_async_for<'ctx>(
                 storage: crate::codegen::variables::VarStorage::Stack(*alloca),
                 var_type: VarType::Int,
                 class_name: None,
+                closure_value_ptr: None,
             },
         )
     } else {

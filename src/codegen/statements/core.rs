@@ -554,6 +554,7 @@ fn generate_sync_with<'ctx>(
                     storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
                     var_type: VarType::Pointer, // Context managers are heap-allocated objects
                     class_name: None,
+                    closure_value_ptr: None,
                 },
             );
         }
@@ -634,6 +635,7 @@ fn generate_async_with<'ctx>(
                     storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
                     var_type: VarType::Pointer,
                     class_name: None,
+                    closure_value_ptr: None,
                 },
             );
         }

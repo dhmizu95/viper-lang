@@ -10,6 +10,7 @@ use crate::codegen::builder::IRBuilder;
 use crate::codegen::types::TypeMapper;
 use crate::codegen::variables::{LoopContext, VarInfo, VarType};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
+use crate::semantic::closure_analysis::ClosureAnalyzer;
 
 /// Main code generator that translates AST to LLVM IR
 pub struct CodeGen<'ctx> {
@@ -30,6 +31,7 @@ pub struct CodeGen<'ctx> {
     /// Functions that contain BigInt variables (need special optimization handling)
     bigint_functions: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
+    closure_analyzer: ClosureAnalyzer,
     current_function: Option<String>,
     current_class: Option<String>,  // Current class context for super() and methods
     in_classmethod: bool,  // True when generating code for a @classmethod
@@ -59,6 +61,7 @@ impl<'ctx> CodeGen<'ctx> {
             var_types: HashMap::new(),
             bigint_functions: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
+            closure_analyzer: ClosureAnalyzer::new(),
             current_function: None,
             current_class: None,
             in_classmethod: false,
@@ -70,11 +73,17 @@ impl<'ctx> CodeGen<'ctx> {
         // Run escape analysis first
         self.escape_analyzer.analyze_module(module);
 
+        // Run closure analysis to identify captured variables
+        self.closure_analyzer.analyze_module(module);
+
         // Initialize class registry for OOP
         crate::codegen::oop::init_class_registry();
 
         // Declare runtime functions first
         crate::codegen::runtime::declare_runtime_functions(self.context, &self.module)?;
+
+        // Generate closure cell runtime implementation
+        crate::codegen::runtime::closure_cells::declare_closure_cell_functions(self.context, &self.module)?;
 
         // First pass: declare all functions (including class methods and nested functions)
         self.declare_all_functions(&module.statements)?;

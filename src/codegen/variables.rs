@@ -10,6 +10,9 @@ pub enum VarStorage<'ctx> {
     Stack(PointerValue<'ctx>),
     /// Register allocation using SSA value (for non-escaping variables)
     Register(BasicValueEnum<'ctx>),
+    /// Closure cell - heap-allocated box for variables shared with nested functions
+    /// The cell contains a pointer to the actual value
+    ClosureCell(PointerValue<'ctx>),  // Pointer to the cell structure
 }
 
 /// Variable info: stores the storage strategy and LLVM type
@@ -19,27 +22,35 @@ pub struct VarInfo<'ctx> {
     pub var_type: VarType,
     /// Optional class name for instance variables (OOP support)
     pub class_name: Option<String>,
+    /// If this variable is captured by a nested function, stores the cell pointer
+    /// This is the actual value storage for closure cells
+    pub closure_value_ptr: Option<PointerValue<'ctx>>,
 }
 
 impl<'ctx> VarInfo<'ctx> {
     /// Create a new variable with stack allocation
     pub fn new_stack(alloca: PointerValue<'ctx>, var_type: VarType) -> Self {
-        Self { storage: VarStorage::Stack(alloca), var_type, class_name: None }
+        Self { storage: VarStorage::Stack(alloca), var_type, class_name: None, closure_value_ptr: None }
     }
 
     /// Create a new variable with register allocation
     pub fn new_register(value: BasicValueEnum<'ctx>, var_type: VarType) -> Self {
-        Self { storage: VarStorage::Register(value), var_type, class_name: None }
+        Self { storage: VarStorage::Register(value), var_type, class_name: None, closure_value_ptr: None }
     }
 
     /// Create a new variable with stack allocation and class name
     pub fn new_stack_with_class(alloca: PointerValue<'ctx>, var_type: VarType, class_name: String) -> Self {
-        Self { storage: VarStorage::Stack(alloca), var_type, class_name: Some(class_name) }
+        Self { storage: VarStorage::Stack(alloca), var_type, class_name: Some(class_name), closure_value_ptr: None }
     }
 
     /// Create a new variable with register allocation and class name
     pub fn new_register_with_class(value: BasicValueEnum<'ctx>, var_type: VarType, class_name: String) -> Self {
-        Self { storage: VarStorage::Register(value), var_type, class_name: Some(class_name) }
+        Self { storage: VarStorage::Register(value), var_type, class_name: Some(class_name), closure_value_ptr: None }
+    }
+
+    /// Create a new variable with closure cell storage
+    pub fn new_closure_cell(cell_ptr: PointerValue<'ctx>, var_type: VarType, value_ptr: PointerValue<'ctx>) -> Self {
+        Self { storage: VarStorage::ClosureCell(cell_ptr), var_type, class_name: None, closure_value_ptr: Some(value_ptr) }
     }
 
     /// Get the alloca pointer if this variable uses stack allocation
@@ -47,6 +58,7 @@ impl<'ctx> VarInfo<'ctx> {
         match &self.storage {
             VarStorage::Stack(alloca) => Some(*alloca),
             VarStorage::Register(_) => None,
+            VarStorage::ClosureCell(_) => None,
         }
     }
 
@@ -55,7 +67,21 @@ impl<'ctx> VarInfo<'ctx> {
         match &self.storage {
             VarStorage::Stack(_) => None,
             VarStorage::Register(value) => Some(*value),
+            VarStorage::ClosureCell(_) => None,
         }
+    }
+
+    /// Get the closure cell pointer if this variable uses closure cell storage
+    pub fn get_closure_cell(&self) -> Option<PointerValue<'ctx>> {
+        match &self.storage {
+            VarStorage::ClosureCell(cell_ptr) => Some(*cell_ptr),
+            _ => None,
+        }
+    }
+
+    /// Get the value pointer for closure cells (the actual storage inside the cell)
+    pub fn get_closure_value_ptr(&self) -> Option<PointerValue<'ctx>> {
+        self.closure_value_ptr
     }
 
     /// Check if this variable uses register allocation
@@ -66,6 +92,11 @@ impl<'ctx> VarInfo<'ctx> {
     /// Check if this variable uses stack allocation
     pub fn is_stack(&self) -> bool {
         matches!(self.storage, VarStorage::Stack(_))
+    }
+
+    /// Check if this variable uses closure cell storage
+    pub fn is_closure_cell(&self) -> bool {
+        matches!(self.storage, VarStorage::ClosureCell(_))
     }
 }
 

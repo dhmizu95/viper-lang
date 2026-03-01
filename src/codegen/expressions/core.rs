@@ -249,6 +249,43 @@ pub fn generate_expr<'ctx>(
                             }
                         }
                     }
+                    VarStorage::ClosureCell(_) => {
+                        // Closure cell: load through the cell's value pointer
+                        if let Some(value_ptr) = &var_info.closure_value_ptr {
+                            match var_info.var_type {
+                                VarType::Float => {
+                                    let f64_type = state.context.f64_type();
+                                    Ok(state.builder.build_load(f64_type, *value_ptr, name).expect("load from cell"))
+                                }
+                                VarType::Pointer | VarType::Bytes => {
+                                    let ptr_type =
+                                        state.context.ptr_type(inkwell::AddressSpace::default());
+                                    Ok(state.builder.build_load(ptr_type, *value_ptr, name).expect("load from cell"))
+                                }
+                                VarType::Bool => {
+                                    let bool_type = state.context.bool_type();
+                                    Ok(state
+                                        .builder
+                                        .build_load(bool_type, *value_ptr, name)
+                                        .expect("load from cell"))
+                                }
+                                VarType::Int => {
+                                    let i64_type = state.context.i64_type();
+                                    Ok(state.builder.build_load(i64_type, *value_ptr, name).expect("load from cell"))
+                                }
+                                VarType::Struct => {
+                                    // Load struct value (e.g., Result)
+                                    let result_struct_type = state.context.struct_type(&[
+                                        state.context.i8_type().into(),
+                                        state.context.i64_type().into(),
+                                    ], false);
+                                    Ok(state.builder.build_load(result_struct_type, *value_ptr, name).expect("load from cell"))
+                                }
+                            }
+                        } else {
+                            Err(format!("Closure cell for '{}' missing value pointer", name))
+                        }
+                    }
                 }
             } else {
                 Err(format!("Undefined variable: {}", name))

@@ -26,6 +26,14 @@ pub fn generate_incdec<'ctx>(
                         state.builder.build_store(alloca, *value).expect("store");
                         (name, alloca, var_info.var_type)
                     }
+                    VarStorage::ClosureCell(_) => {
+                        // For closure cell variables, use the value pointer
+                        if let Some(value_ptr) = &var_info.closure_value_ptr {
+                            (name, *value_ptr, var_info.var_type)
+                        } else {
+                            return Err(format!("Closure cell for '{}' missing value pointer", name));
+                        }
+                    }
                 }
             } else {
                 return Err(format!("Undefined variable: {}", name));

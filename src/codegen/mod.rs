@@ -1,4 +1,5 @@
 pub mod builder;
+pub mod closure_cells;
 pub mod control_flow;
 pub mod dce;
 pub mod expressions;

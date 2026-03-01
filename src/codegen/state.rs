@@ -9,6 +9,17 @@ use crate::codegen::builder::IRBuilder;
 use crate::codegen::variables::{LoopContext, VarInfo};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
 
+/// Information about a closure cell
+#[derive(Debug, Clone)]
+pub struct ClosureCellInfo<'ctx> {
+    /// The cell structure pointer (heap-allocated box containing the value pointer)
+    pub cell_ptr: inkwell::values::PointerValue<'ctx>,
+    /// The value pointer inside the cell (what we actually load/store through)
+    pub value_ptr: inkwell::values::PointerValue<'ctx>,
+    /// The type of value stored in the cell
+    pub var_type: crate::codegen::types::VarType,
+}
+
 /// State needed for code generation (shared across modules)
 pub struct CodeGenState<'a, 'ctx> {
     pub context: &'ctx Context,
@@ -28,6 +39,10 @@ pub struct CodeGenState<'a, 'ctx> {
     pub current_function: Option<&'a str>,
     pub current_class: Option<String>,  // Current class context for super() and methods
     pub in_classmethod: bool,  // True when generating code for a @classmethod
+    /// Variables that are captured by nested functions (need closure cells)
+    pub captured_vars: HashSet<String>,
+    /// Closure cells passed from enclosing function (for nested functions)
+    pub closure_cells: HashMap<String, ClosureCellInfo<'ctx>>,
 }
 
 impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
@@ -65,6 +80,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_function: None,
             current_class: None,
             in_classmethod: false,
+            captured_vars: HashSet::new(),
+            closure_cells: HashMap::new(),
         }
     }
 
@@ -105,6 +122,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_function: Some(current_function),
             current_class: None,
             in_classmethod: false,
+            captured_vars: HashSet::new(),
+            closure_cells: HashMap::new(),
         }
     }
 

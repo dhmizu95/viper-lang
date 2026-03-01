@@ -1103,6 +1103,8 @@ class Rectangle(Shape):
 | Pattern matching | ✅ | ✅ | ✅ |
 | Async/await | ⚠️ | ✅ | ✅ |
 | Walrus operator | ❌ | ✅ | ✅ |
+| `global` keyword | ❌ | ✅ | ✅ |
+| `nonlocal` keyword | ❌ | ⚠️ | ✅ |
 | `@dataclass` | ❌ | ✅ | ✅ |
 | `__slots__` | ❌ | ❌ | ✅ |
 | Metaclasses | ❌ | ❌ | ✅ |

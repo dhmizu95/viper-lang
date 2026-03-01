@@ -666,6 +666,15 @@ pub fn generate_assignment_expr<'ctx>(
                     state.builder.build_store(*alloca, value_val)
                         .map_err(|e| format!("Failed to store value: {:?}", e))?;
                 }
+                VarStorage::ClosureCell(_cell_ptr) => {
+                    // Closure cell: store through the cell's value pointer
+                    if let Some(value_ptr) = &var_info.closure_value_ptr {
+                        state.builder.build_store(*value_ptr, value_val)
+                            .map_err(|e| format!("Failed to store to closure cell: {:?}", e))?;
+                    } else {
+                        return Err("Closure cell missing value pointer".to_string());
+                    }
+                }
             }
         } else {
             // Variable doesn't exist - create it (implicit declaration)
