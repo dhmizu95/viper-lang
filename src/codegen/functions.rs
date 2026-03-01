@@ -320,7 +320,7 @@ fn expr_contains_bigint_usage(param_name: &str, expr: &Expr) -> bool {
         Expr::Call { func, args, .. } => {
             // Check if calling BigInt constructor or related functions
             if let Expr::Ident(name, _) = func.as_ref() {
-                if name == "BigInt" || name == "int" {
+                if name == "bigint" || name == "int" {
                     return args.iter().any(|arg| {
                         matches!(arg, Expr::Ident(n, _) if n == param_name)
                     });

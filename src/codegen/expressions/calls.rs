@@ -126,7 +126,7 @@ pub fn generate_call<'ctx>(
         }
 
         // BigInt functions
-        if name == "BigInt" {
+        if name == "bigint" {
             return generate_bigint_constructor(state, args);
         }
         if name == "str_bigint" {
