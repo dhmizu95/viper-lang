@@ -140,7 +140,7 @@ pub fn calculate_mro(
 
     // Add each parent's MRO
     for base in &class.base_classes {
-        if let Some(base_class) = registry.classes.get(base) {
+        if registry.classes.get(base).is_some() {
             let base_mro = calculate_mro(base, registry)?;
             sequences.push(base_mro);
         } else {
@@ -687,16 +687,22 @@ fn generate_class_method_call<'ctx>(
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
-        // Build argument list: class pointer + user args
+        // Build argument list: class metadata pointer + user args
         let mut arg_values: Vec<_> = args.iter()
             .map(|a| generate_expr(state, a)
                 .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
             .collect::<Result<_, _>>()?;
 
-        // For classmethods, we need to pass a pointer to the class metadata
-        // For now, we'll use a null pointer as a placeholder
-        // In a full implementation, this would be a pointer to the class object
-        let class_ptr = state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+        // For classmethods, pass a pointer to the class metadata global
+        // This allows the method to access class-level information
+        let class_global_name = format!("__viper_class_{}", class_name);
+        let class_ptr = if let Some(global) = state.module.get_global(&class_global_name) {
+            global.as_pointer_value()
+        } else {
+            // Fallback to null pointer if class global not found
+            state.context.ptr_type(inkwell::AddressSpace::default()).const_null()
+        };
+        
         arg_values.insert(0, class_ptr.into());
 
         let result = state.ir_builder.build_call(

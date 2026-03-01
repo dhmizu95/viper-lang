@@ -31,6 +31,7 @@ pub struct CodeGen<'ctx> {
     bigint_functions: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
     current_function: Option<String>,
+    current_class: Option<String>,  // Current class context for super() and methods
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -58,6 +59,7 @@ impl<'ctx> CodeGen<'ctx> {
             bigint_functions: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
+            current_class: None,
         }
     }
 
@@ -317,6 +319,7 @@ impl<'ctx> CodeGen<'ctx> {
                 stmt,
                 &mut self.escape_analyzer,
                 original_name,
+                self.current_class.as_deref(),
             )?;
         }
 
@@ -416,6 +419,7 @@ impl<'ctx> CodeGen<'ctx> {
                 stmt,
                 &mut self.escape_analyzer,
                 "__module_level__",
+                None,  // No class context for module-level code
             )?;
         }
 
@@ -785,14 +789,18 @@ impl<'ctx> CodeGen<'ctx> {
         class_global.set_initializer(&class_init);
         
         // Generate method functions
+        // Save current class context
+        let saved_class = self.current_class.clone();
+        self.current_class = Some(name.to_string());
+        
         for stmt in body {
             if let Stmt::Function { name: method_name, params, return_type, body: method_body, decorators, .. } = stmt {
                 // Check for staticmethod decorator
                 let is_static = decorators.iter().any(|d| d.name == "staticmethod");
-                
+
                 // Generate mangled method name
                 let mangled_name = format!("__method_{}_{}", name, method_name);
-                
+
                 // For static methods, generate as regular function
                 // For instance methods, the first param is 'self'
                 if is_static {
@@ -804,6 +812,9 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
         }
+        
+        // Restore previous class context
+        self.current_class = saved_class;
         
         Ok(())
     }

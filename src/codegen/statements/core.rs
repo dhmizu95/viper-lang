@@ -62,6 +62,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
+    current_class: Option<&str>,
 ) -> Result<(), String> {
     let mut var_types = HashMap::new();
     let mut state = CodeGenState::with_escape_analysis(
@@ -81,6 +82,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         escape_analyzer,
         current_function,
     );
+    state.current_class = current_class.map(|s| s.to_string());
 
     generate_stmt_internal(&mut state, stmt)
 }

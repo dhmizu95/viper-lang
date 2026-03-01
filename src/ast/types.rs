@@ -72,6 +72,9 @@ pub enum Type {
         return_type: Box<Type>,
         is_bound: bool,  // true if 'self' is already bound
     },
+    /// Base object type - root of class hierarchy
+    /// Used for super() and as the common base for all class instances
+    Object,
 }
 
 impl Type {
@@ -420,6 +423,7 @@ impl std::fmt::Display for Type {
                 }
                 write!(f, ") -> {}", return_type)
             }
+            Type::Object => write!(f, "object"),
         }
     }
 }

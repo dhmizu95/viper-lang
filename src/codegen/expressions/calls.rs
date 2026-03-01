@@ -1526,28 +1526,9 @@ fn generate_super_method_call<'ctx>(
     method_name: &str,
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Find the current class context from the function name
-    // We're inside a method, so the function name should be __method_ClassName_method
-    let current_function = state.builder.get_insert_block()
-        .and_then(|bb| bb.get_parent())
-        .ok_or_else(|| "Not inside a function".to_string())?;
-    
-    let func_name = current_function.get_name()
-        .to_str()
-        .map_err(|_| "Invalid function name".to_string())?
-        .to_string();
-    
-    // Extract class name from function name (format: __method_ClassName_method)
-    let class_name = if func_name.starts_with("__method_") {
-        let parts: Vec<&str> = func_name.split('_').collect();
-        if parts.len() >= 3 {
-            parts[2].to_string()
-        } else {
-            return Err("Could not extract class name from function".to_string());
-        }
-    } else {
-        return Err("super() can only be used inside a class method".to_string());
-    };
+    // Get the current class from state (set when generating class methods)
+    let class_name = state.current_class.clone()
+        .ok_or_else(|| "super() can only be used inside a class method".to_string())?;
     
     // Get the current class metadata
     let metadata = crate::codegen::oop::with_class_registry(|reg| {
@@ -1569,8 +1550,11 @@ fn generate_super_method_call<'ctx>(
     let method = found_method
         .ok_or_else(|| format!("Method '{}' not found in parent classes", method_name))?;
     
-    // Generate the method call with self as first argument
     // Get self from the function's first parameter
+    let current_function = state.builder.get_insert_block()
+        .and_then(|bb| bb.get_parent())
+        .ok_or_else(|| "Not inside a function".to_string())?;
+    
     let self_ptr = current_function.get_nth_param(0)
         .ok_or_else(|| "Method should have self parameter".to_string())?
         .into_pointer_value();

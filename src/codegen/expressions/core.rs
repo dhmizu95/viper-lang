@@ -123,7 +123,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Conditional { .. } => Type::Infer,
         Expr::ListComprehension { .. } => Type::List(Box::new(Type::Infer)),
         Expr::AssignmentExpr { value, .. } => infer_expr_type(value),
-        Expr::Super(_) => Type::Infer,  // super() type is context-dependent
+        Expr::Super(_) => Type::Object,  // super() returns base object type
     }
 }
 
@@ -284,7 +284,7 @@ pub fn generate_expr<'ctx>(
         Expr::AssignmentExpr { target, value, span } => {
             generate_assignment_expr(state, target, value, *span)
         }
-        Expr::Super(span) => {
+        Expr::Super(_span) => {
             // super() - returns a special super object for method resolution
             // For now, we'll handle this specially in method call generation
             // Return a null pointer as a placeholder - the actual resolution happens

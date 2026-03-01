@@ -26,6 +26,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub var_types: &'a mut HashMap<String, Type>,  // Type information for variables
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
+    pub current_class: Option<String>,  // Current class context for super() and methods
 }
 
 impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
@@ -61,6 +62,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             var_types,
             escape_analyzer: None,
             current_function: None,
+            current_class: None,
         }
     }
 
@@ -99,6 +101,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             var_types,
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
+            current_class: None,
         }
     }
 

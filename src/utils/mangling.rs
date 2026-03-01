@@ -76,6 +76,7 @@ fn mangle_type(ty: &Type) -> String {
         Type::Method { class_name, method_name, .. } => {
             format!("method_{}_{}", class_name, method_name)
         }
+        Type::Object => "object".to_string(),
     }
 }
 

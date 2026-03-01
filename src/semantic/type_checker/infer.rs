@@ -56,9 +56,9 @@ impl TypeChecker {
                 self.infer_expr_type(value)
             }
             Expr::Super(_) => {
-                // super() returns a special super type - treat as Infer for now
-                // The actual type is determined by the context
-                Some(Type::Infer)
+                // super() returns the base object type
+                // The actual method resolution happens at compile time
+                Some(Type::Object)
             }
             Expr::Call { func, args, span: _ } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
