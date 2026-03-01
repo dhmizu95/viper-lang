@@ -36,8 +36,6 @@ def floor(x: float) -> float:
     """Return the floor of x as an Integral."""
     return vp_math_floor(x)
 
-# Note: abs() is a built-in function, not part of the math module
-
 def ceil(x: float) -> float:
     """Return the ceiling of x as an Integral."""
     # Implemented in runtime
