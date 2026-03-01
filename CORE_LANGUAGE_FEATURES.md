@@ -74,7 +74,7 @@
 | Pass | No-op placeholder | Phase 1 |
 | Match/Case | Pattern matching | Phase 3 |
 | Guard clauses | `unless condition:` | Phase 4 |
-| Loop else | `for...else`, `while...else` | Phase 3 |
+| Loop else | `for...else`, `while...else` | Implemented |
 
 ## Functions
 
