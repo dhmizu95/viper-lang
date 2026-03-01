@@ -32,6 +32,8 @@ pub struct MethodInfo {
     pub is_static: bool,
     pub is_class_method: bool,
     pub is_property: bool,
+    pub is_property_setter: bool,  // @name.setter
+    pub property_name: Option<String>,  // For setters, the property name
     pub params: Vec<(String, Type)>,
     pub return_type: Type,
 }
@@ -45,6 +47,7 @@ pub struct ClassMetadata {
     pub methods: Vec<MethodInfo>,
     pub instance_size: usize,
     pub vtable: HashMap<String, String>, // method_name -> mangled_name
+    pub mro: Vec<String>, // Method Resolution Order
 }
 
 impl ClassMetadata {
@@ -56,6 +59,7 @@ impl ClassMetadata {
             methods: Vec::new(),
             instance_size: 0,
             vtable: HashMap::new(),
+            mro: Vec::new(),
         }
     }
 
@@ -68,6 +72,19 @@ impl ClassMetadata {
     /// Get method info by name
     pub fn get_method(&self, method_name: &str) -> Option<&MethodInfo> {
         self.methods.iter().find(|m| m.name == method_name)
+    }
+
+    /// Get method following MRO (includes inherited methods)
+    pub fn get_method_mro<'a>(&'a self, method_name: &str, registry: &'a ClassRegistry) -> Option<&'a MethodInfo> {
+        // Search through MRO
+        for class_name in &self.mro {
+            if let Some(class_meta) = registry.classes.get(class_name) {
+                if let Some(method) = class_meta.get_method(method_name) {
+                    return Some(method);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -95,6 +112,110 @@ impl ClassRegistry {
     pub fn contains(&self, name: &str) -> bool {
         self.classes.contains_key(name)
     }
+
+    /// Get a mutable reference to a class
+    pub fn get_class_mut(&mut self, name: &str) -> Option<&mut ClassMetadata> {
+        self.classes.get_mut(name)
+    }
+}
+
+/// Calculate MRO using C3 linearization algorithm
+/// This implements the same algorithm as Python's MRO
+pub fn calculate_mro(
+    class_name: &str,
+    registry: &ClassRegistry,
+) -> Result<Vec<String>, String> {
+    let class = registry
+        .classes
+        .get(class_name)
+        .ok_or_else(|| format!("Class '{}' not found", class_name))?;
+
+    if class.base_classes.is_empty() {
+        return Ok(vec![class_name.to_string()]);
+    }
+
+    // C3 linearization: merge of parent MROs + parents
+    let mut result = Vec::new();
+    let mut sequences: Vec<Vec<String>> = Vec::new();
+
+    // Add each parent's MRO
+    for base in &class.base_classes {
+        if let Some(base_class) = registry.classes.get(base) {
+            let base_mro = calculate_mro(base, registry)?;
+            sequences.push(base_mro);
+        } else {
+            // Base class not found (might be built-in like 'object')
+            sequences.push(vec![base.clone()]);
+        }
+    }
+
+    // Add the list of parents itself
+    sequences.push(class.base_classes.clone());
+
+    // Merge sequences using C3 algorithm
+    result.push(class_name.to_string());
+    merge_sequences(&mut result, &mut sequences)?;
+
+    Ok(result)
+}
+
+/// Merge sequences for C3 linearization
+fn merge_sequences(
+    result: &mut Vec<String>,
+    sequences: &mut [Vec<String>],
+) -> Result<(), String> {
+    loop {
+        // Check if all sequences are empty
+        if sequences.iter().all(|s| s.is_empty()) {
+            break;
+        }
+
+        // Find a good head (not in any tail)
+        let mut found = false;
+        for i in 0..sequences.len() {
+            if sequences[i].is_empty() {
+                continue;
+            }
+
+            let head = sequences[i][0].clone();
+
+            // Check if head appears in any tail
+            let in_tail = sequences.iter().any(|seq| {
+                seq.len() > 1 && seq[1..].iter().any(|x| x == &head)
+            });
+
+            if !in_tail {
+                // Good head found
+                if !result.contains(&head) {
+                    result.push(head);
+                }
+                sequences[i].remove(0);
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            // No good head found - inconsistent hierarchy
+            return Err("Inconsistent class hierarchy for MRO".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+/// Calculate and set MRO for all classes in the registry
+pub fn calculate_all_mros(registry: &mut ClassRegistry) -> Result<(), String> {
+    let class_names: Vec<String> = registry.classes.keys().cloned().collect();
+
+    for name in class_names {
+        let mro = calculate_mro(&name, registry)?;
+        if let Some(class) = registry.classes.get_mut(&name) {
+            class.mro = mro;
+        }
+    }
+
+    Ok(())
 }
 
 // Thread-local storage for class registry during code generation
@@ -191,34 +312,60 @@ pub fn generate_class_metadata(
 
     // Process methods
     for stmt in body {
-        if let Stmt::Function { 
-            name: method_name, 
-            params, 
-            return_type, 
+        if let Stmt::Function {
+            name: method_name,
+            params,
+            return_type,
             decorators,
-            .. 
+            ..
         } = stmt {
             let is_static = decorators.iter().any(|d| d.name == "staticmethod");
             let is_class_method = decorators.iter().any(|d| d.name == "classmethod");
-            let is_property = decorators.iter().any(|d| d.name == "property");
             
+            // Check for property getter (@property) or setter (@name.setter)
+            let is_property = decorators.iter().any(|d| d.name == "property");
+            let mut is_property_setter = false;
+            let mut property_name: Option<String> = None;
+            
+            // Check for @name.setter pattern
+            for dec in decorators {
+                if dec.name.contains('.') {
+                    let parts: Vec<&str> = dec.name.split('.').collect();
+                    if parts.len() == 2 && parts[1] == "setter" {
+                        is_property_setter = true;
+                        property_name = Some(parts[0].to_string());
+                        break;
+                    }
+                }
+            }
+
             let param_types: Vec<(String, Type)> = params.iter()
                 .map(|p| (p.name.clone(), p.type_ann.clone().unwrap_or(Type::Infer)))
                 .collect();
-            
+
             let mangled_name = format!("__method_{}_{}", name, method_name);
-            
+
             metadata.methods.push(MethodInfo {
                 name: method_name.clone(),
                 mangled_name: mangled_name.clone(),
                 is_static,
                 is_class_method,
                 is_property,
+                is_property_setter,
+                property_name: property_name.clone(),
                 params: param_types,
                 return_type: return_type.clone().unwrap_or(Type::None),
             });
-            
-            metadata.vtable.insert(method_name.clone(), mangled_name);
+
+            // For property setters, also add to vtable under the property name
+            if is_property_setter {
+                if let Some(prop_name) = property_name {
+                    // Store setter with a special key
+                    metadata.vtable.insert(format!("{}.setter", prop_name), mangled_name.clone());
+                }
+            } else {
+                metadata.vtable.insert(method_name.clone(), mangled_name);
+            }
         }
     }
 
@@ -466,6 +613,9 @@ pub fn generate_user_method_call<'ctx>(
                 if method.is_static {
                     return generate_static_method_call(state, method, args);
                 }
+                if method.is_class_method {
+                    return generate_class_method_call(state, &class_name, method, args);
+                }
                 return generate_instance_method_call(state, obj_ptr, method, args);
             }
         }
@@ -529,6 +679,39 @@ fn generate_instance_method_call<'ctx>(
     }
 }
 
+/// Generate classmethod call - passes class pointer instead of self
+fn generate_class_method_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    class_name: &str,
+    method: &MethodInfo,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
+        // Build argument list: class pointer + user args
+        let mut arg_values: Vec<_> = args.iter()
+            .map(|a| generate_expr(state, a)
+                .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+            .collect::<Result<_, _>>()?;
+
+        // For classmethods, we need to pass a pointer to the class metadata
+        // For now, we'll use a null pointer as a placeholder
+        // In a full implementation, this would be a pointer to the class object
+        let class_ptr = state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+        arg_values.insert(0, class_ptr.into());
+
+        let result = state.ir_builder.build_call(
+            state.builder,
+            func_val,
+            &arg_values,
+            &format!("classmethod_{}", method.name),
+        );
+
+        Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
+    } else {
+        Err(format!("Class method '{}' not found", method.name))
+    }
+}
+
 /// Infer the class type from an expression
 fn infer_class_type<'ctx>(
     state: &CodeGenState<'_, 'ctx>,
@@ -572,6 +755,22 @@ pub fn generate_field_assignment<'ctx>(
 
     if let Some(class_name) = class_name {
         if let Some(metadata) = with_class_registry(|r| r.get_class(&class_name).cloned()) {
+            // First check for property setter
+            let setter_key = format!("{}.setter", field_name);
+            if let Some(setter_mangled) = metadata.vtable.get(&setter_key) {
+                // Call the property setter method
+                if let Some(func_val) = state.functions.get(setter_mangled).copied() {
+                    state.ir_builder.build_call(
+                        state.builder,
+                        func_val,
+                        &[obj_ptr.into(), value_val.into()],
+                        "property_set",
+                    );
+                    return Ok(());
+                }
+            }
+            
+            // Fall back to direct field assignment
             if let Some(field) = metadata.get_instance_field(field_name) {
                 return store_field(state, obj_ptr, field, value_val);
             }

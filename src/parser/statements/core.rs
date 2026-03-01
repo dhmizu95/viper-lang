@@ -99,6 +99,11 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
     let token = parser.current().clone();
 
     match &token.kind {
+        TokenKind::At => {
+            // Decorator - must be followed by a function definition
+            // The decorator parsing is handled inside parse_function_def
+            parse_function_def(parser)
+        }
         TokenKind::Def => parse_function_def(parser),
         TokenKind::Extern => parse_extern_decl(parser),
         TokenKind::If => parse_if_stmt(parser),

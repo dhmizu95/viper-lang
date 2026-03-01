@@ -10,6 +10,7 @@ pub use classes::{
     generate_field_assignment,
     generate_class_metadata,
     init_class_registry,
+    calculate_all_mros,
     class_exists,
     with_class_registry,
     with_class_registry_mut,

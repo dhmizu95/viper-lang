@@ -5,17 +5,24 @@ use crate::lexer::TokenKind;
 /// Parse decorators before a function or class definition
 pub fn parse_decorators(parser: &mut StatementParser) -> Result<Vec<Decorator>, String> {
     let mut decorators = Vec::new();
-    
+
     while parser.match_token(&TokenKind::At) {
         let start_span = parser.previous().span;
+
+        // Parse decorator name (may include dots like @property.setter)
+        let mut name = parser.expect_ident()?;
         
-        // Parse decorator name
-        let name = parser.expect_ident()?;
-        
+        // Check for dotted name (e.g., property.setter)
+        while parser.match_token(&TokenKind::Dot) {
+            let suffix = parser.expect_ident()?;
+            name.push('.');
+            name.push_str(&suffix);
+        }
+
         // Parse optional arguments
         let mut args = Vec::new();
         let mut keywords = Vec::new();
-        
+
         if parser.match_token(&TokenKind::LParen) {
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
@@ -28,7 +35,7 @@ pub fn parse_decorators(parser: &mut StatementParser) -> Result<Vec<Decorator>, 
                     } else {
                         args.push(parse_expression(parser)?);
                     }
-                    
+
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -36,14 +43,16 @@ pub fn parse_decorators(parser: &mut StatementParser) -> Result<Vec<Decorator>, 
             }
             parser.expect(&TokenKind::RParen)?;
         }
-        
+
         let span = start_span.merge(parser.previous().span);
         decorators.push(Decorator { name, args, keywords, span });
-        
-        // Skip newline after decorator
-        parser.match_token(&TokenKind::Newline);
+
+        // Skip newlines after decorator until we hit non-newline token
+        while parser.match_token(&TokenKind::Newline) {
+            parser.advance();  // Actually consume the newline
+        }
     }
-    
+
     Ok(decorators)
 }
 

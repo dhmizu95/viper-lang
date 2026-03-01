@@ -391,6 +391,18 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
             parser.advance();
             Expr::None(span)
         }
+        TokenKind::Super => {
+            parser.advance();
+            // Parse super() call - must be followed by ()
+            if parser.match_token(&TokenKind::LParen) {
+                // Consume the parentheses, super() takes no arguments for now
+                parser.expect(&TokenKind::RParen)?;
+                Expr::Super(span)
+            } else {
+                // Just `super` without call - treat as identifier for now
+                Expr::Ident("super".to_string(), span)
+            }
+        }
         TokenKind::Await => {
             parser.advance();
             let future = parse_primary_expr(parser)?;

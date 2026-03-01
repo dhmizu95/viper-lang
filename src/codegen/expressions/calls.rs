@@ -87,6 +87,10 @@ pub fn generate_call<'ctx>(
     _span: crate::utils::Span,
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if let Expr::Attribute { obj, attr, .. } = func {
+        // Check for super().method() call
+        if let Expr::Super(_) = obj.as_ref() {
+            return generate_super_method_call(state, attr, args);
+        }
         // First try user-defined class method call
         if let Ok(result) = crate::codegen::oop::generate_user_method_call(state, obj, attr, args) {
             return Ok(result);
@@ -1511,7 +1515,86 @@ fn type_match_score(param_type: &Type, arg_type: &Type) -> usize {
         (Type::Optional(inner), arg_type) if arg_type != &Type::None => {
             type_match_score(inner, arg_type)
         }
-        
+
         _ => usize::MAX,  // Not compatible
+    }
+}
+
+/// Generate super().method() call - resolves method through MRO
+fn generate_super_method_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    method_name: &str,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Find the current class context from the function name
+    // We're inside a method, so the function name should be __method_ClassName_method
+    let current_function = state.builder.get_insert_block()
+        .and_then(|bb| bb.get_parent())
+        .ok_or_else(|| "Not inside a function".to_string())?;
+    
+    let func_name = current_function.get_name()
+        .to_str()
+        .map_err(|_| "Invalid function name".to_string())?
+        .to_string();
+    
+    // Extract class name from function name (format: __method_ClassName_method)
+    let class_name = if func_name.starts_with("__method_") {
+        let parts: Vec<&str> = func_name.split('_').collect();
+        if parts.len() >= 3 {
+            parts[2].to_string()
+        } else {
+            return Err("Could not extract class name from function".to_string());
+        }
+    } else {
+        return Err("super() can only be used inside a class method".to_string());
+    };
+    
+    // Get the current class metadata
+    let metadata = crate::codegen::oop::with_class_registry(|reg| {
+        reg.get_class(&class_name).cloned()
+    }).ok_or_else(|| format!("Class '{}' not found", class_name))?;
+    
+    // Find the method in parent classes via MRO
+    // Skip the first entry in MRO (which is the current class itself)
+    let mut found_method = None;
+    for mro_class_name in metadata.mro.iter().skip(1) {
+        if let Some(method) = crate::codegen::oop::with_class_registry(|reg| {
+            reg.get_class(mro_class_name).and_then(|c| c.get_method(method_name).cloned())
+        }) {
+            found_method = Some(method);
+            break;
+        }
+    }
+    
+    let method = found_method
+        .ok_or_else(|| format!("Method '{}' not found in parent classes", method_name))?;
+    
+    // Generate the method call with self as first argument
+    // Get self from the function's first parameter
+    let self_ptr = current_function.get_nth_param(0)
+        .ok_or_else(|| "Method should have self parameter".to_string())?
+        .into_pointer_value();
+    
+    // Build argument list: self + user args
+    let mut arg_values: Vec<_> = args.iter()
+        .map(|a| crate::codegen::expressions::generate_expr(state, a)
+            .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+        .collect::<Result<_, _>>()?;
+    
+    // Insert self as first argument
+    arg_values.insert(0, self_ptr.into());
+    
+    // Call the parent method
+    if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
+        let result = state.ir_builder.build_call(
+            state.builder,
+            func_val,
+            &arg_values,
+            &format!("super_call_{}", method_name),
+        );
+        
+        Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
+    } else {
+        Err(format!("Parent method '{}' not found", method_name))
     }
 }

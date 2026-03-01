@@ -424,8 +424,9 @@ impl EscapeAnalyzer {
             | Expr::Bytes(_, _)
             | Expr::BigInt(_, _)
             | Expr::Bool(_, _)
-            | Expr::None(_) => {
-                // Literals don't escape
+            | Expr::None(_)
+            | Expr::Super(_) => {
+                // Literals and super() don't escape
             }
             Expr::Ident(name, _) => {
                 // Variable reference

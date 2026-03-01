@@ -690,7 +690,6 @@ impl<'ctx> CodeGen<'ctx> {
     /// Generate code for all class definitions in a module
     fn generate_classes(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         // First pass: collect all class metadata
-        // First pass: collect class metadata
         for stmt in stmts {
             if let Stmt::Class { name, bases, body, span: _, decorators: _, fields, methods } = stmt {
                 let metadata = crate::codegen::oop::generate_class_metadata(
@@ -701,7 +700,14 @@ impl<'ctx> CodeGen<'ctx> {
                 });
             }
         }
-        
+
+        // Calculate MRO for all classes
+        crate::codegen::oop::with_class_registry_mut(|reg| {
+            if let Err(e) = crate::codegen::oop::calculate_all_mros(reg) {
+                eprintln!("Warning: Failed to calculate MRO: {}", e);
+            }
+        });
+
         // Second pass: generate class code and methods
         for stmt in stmts {
             if let Stmt::Class { name, bases: _, body, span: _, decorators: _, fields, methods } = stmt {

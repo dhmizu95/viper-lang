@@ -68,6 +68,7 @@ pub enum TokenKind {
     Raise,    // raise keyword for exceptions
     With,     // with keyword for context managers
     Yield,    // yield keyword for generators
+    Super,    // super() builtin
 
     // Operators
     Plus,
@@ -260,6 +261,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Raise => write!(f, "raise"),
             TokenKind::With => write!(f, "with"),
             TokenKind::Yield => write!(f, "yield"),
+            TokenKind::Super => write!(f, "super"),
             TokenKind::LParen => write!(f, "("),
             TokenKind::RParen => write!(f, ")"),
             TokenKind::LBracket => write!(f, "["),

@@ -58,6 +58,8 @@ pub enum Expr {
     Await { future: Box<Expr>, span: Span },
     /// Assignment expression (walrus operator: :=)
     AssignmentExpr { target: Box<Expr>, value: Box<Expr>, span: Span },
+    /// Super call for inheritance: super()
+    Super(Span),
 }
 
 impl Expr {
@@ -87,6 +89,7 @@ impl Expr {
             Expr::Conditional { span, .. } => *span,
             Expr::Await { span, .. } => *span,
             Expr::AssignmentExpr { span, .. } => *span,
+            Expr::Super(s) => *s,
         }
     }
 

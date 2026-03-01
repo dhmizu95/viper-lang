@@ -905,6 +905,7 @@ impl<'a> Lexer<'a> {
             "del" => TokenKind::Del,
             "raise" => TokenKind::Raise,
             "with" => TokenKind::With,
+            "super" => TokenKind::Super,
             "type" => TokenKind::Type,
             "tuple" => TokenKind::Tuple,
             "Optional" => TokenKind::Optional,

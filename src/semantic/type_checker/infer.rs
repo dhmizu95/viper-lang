@@ -55,6 +55,11 @@ impl TypeChecker {
                 // Walrus operator returns the type of the value
                 self.infer_expr_type(value)
             }
+            Expr::Super(_) => {
+                // super() returns a special super type - treat as Infer for now
+                // The actual type is determined by the context
+                Some(Type::Infer)
+            }
             Expr::Call { func, args, span: _ } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
                     // Handle Result constructors with context from function return type
