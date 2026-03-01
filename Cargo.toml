@@ -12,6 +12,12 @@ opt-level = 3
 debug-assertions = false
 # Overflow checks can be disabled for maximum performance (optional)
 # overflow-checks = false
+# Strip debug symbols to reduce binary size
+strip = "symbols"
+# Panic abort for smaller binaries (no unwinding)
+panic = "abort"
+# Optimize for size
+codegen-units = 1
 
 # PGO-instrumented build profile
 # Build with: cargo build --profile pgo-instrument
@@ -22,6 +28,10 @@ inherits = "release"
 lto = false
 # Disable overflow checks for profiling accuracy
 overflow-checks = false
+# Don't strip for PGO instrumentation
+strip = "none"
+panic = "unwind"
+codegen-units = 16
 
 # PGO-optimized build profile (use after generating profiles)
 # Build with: RUSTFLAGS="-Cprofile-use=target/pgo-data/merged.profdata" cargo build --profile pgo
@@ -30,11 +40,23 @@ inherits = "release"
 # Re-enable LTO for final optimized build
 lto = "fat"
 overflow-checks = false
+strip = "symbols"
+panic = "abort"
+codegen-units = 1
 
 # Thin LTO profile (faster builds, slightly less optimization)
 [profile.release-thin]
 inherits = "release"
 lto = "thin"
+
+# Minimal size profile for smallest binaries
+[profile.release-minimal]
+inherits = "release"
+opt-level = "z"  # Optimize for size
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+panic = "abort"
 
 [dependencies]
 # LLVM Bindings (Using master branch for LLVM 20 support)
@@ -57,6 +79,10 @@ lazy_static = "1.4"
 # Regex support for re module
 regex = "1.10"
 
+# TOML parsing for vpm (package manager)
+toml = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+
 [build-dependencies]
 cc = "1.0"
 pkg-config = "0.3"
@@ -64,4 +90,8 @@ pkg-config = "0.3"
 [[bin]]
 name = "viper"
 path = "src/main.rs"
+
+[[bin]]
+name = "vpm"
+path = "src/vpm/main.rs"
 

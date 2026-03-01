@@ -1,0 +1,89 @@
+# Viper Language Package Manifest
+# Root project configuration
+
+[package]
+name = "viper-lang"
+version = "0.4.5"
+edition = "2021"
+authors = ["Viper Language Team"]
+description = "A fast, Python-like programming language with static typing"
+license = "MIT"
+repository = "https://github.com/viper-lang/viper-lang"
+documentation = "https://docs.viper-lang.org"
+homepage = "https://viper-lang.org"
+keywords = ["compiler", "language", "llvm", "static-typing", "python-like"]
+
+# Build configuration
+[build]
+cargo_toml = "Cargo.toml"
+runtime_dir = "runtime"
+std_dir = "std"
+binary_name = "viper"
+build_backend = "rust"
+
+# Dependencies on external Viper packages
+[dependencies]
+# Example external packages (future)
+# requests = { version = ">=1.0" }
+# numpy = { git = "https://github.com/numpy/numpy-viper", branch = "main" }
+
+# Development dependencies
+[dev-dependencies]
+# Test framework (future Viper test lib)
+
+# Build dependencies
+[build-dependencies]
+
+# Features
+[features]
+default = ["lto"]
+lto = []
+pgo = []
+jit = []
+debug = []
+full = ["pgo", "lto", "jit", "debug"]
+
+# Platform support
+[platform]
+[platform.linux]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+[platform.macos]
+targets = ["x86_64-apple-darwin", "aarch64-apple-darwin"]
+
+[platform.windows]
+targets = ["x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu"]
+
+# CI/CD configuration
+[ci]
+github_actions = true
+platforms = ["linux", "macos", "windows"]
+jobs = ["build", "test", "lint", "docs"]
+
+# Compatibility
+[compatibility]
+msrv = "1.75.0"
+llvm_version = ">=20.0"
+
+# Changelog
+[changelog]
+version = "0.4.5"
+date = "2026-03-02"
+changes = [
+    "Added vpm.toml package manifest",
+    "Improved std lib organization",
+    "Enhanced BigInt support",
+    "Better error messages",
+]
+
+# Publishing configuration
+[publish]
+disabled = true
+categories = ["development-tools", "compilers", "programming-languages"]
+
+# Version control
+[vcs]
+type = "git"
+repository = "https://github.com/viper-lang/viper-lang"
+tag_format = "v{version}"
+release_branch = "main"
