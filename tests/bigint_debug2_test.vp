@@ -1,0 +1,26 @@
+# Debug BigInt Test 2
+
+def main():
+    print("=== Debug BigInt Test 2 ===")
+    
+    # Test with n suffix (this works)
+    x = 100n
+    print("x (100n) =")
+    print(x)
+    
+    # Test with BigInt() constructor
+    y = BigInt("100")
+    print("y (BigInt) =")
+    print(y)
+    
+    # Test str_bigint with n-suffix
+    print("str_bigint(x):")
+    sx = str_bigint(x)
+    print(sx)
+    
+    # Test str_bigint with BigInt()
+    print("str_bigint(y):")
+    sy = str_bigint(y)
+    print(sy)
+    
+    print("=== Test complete ===")

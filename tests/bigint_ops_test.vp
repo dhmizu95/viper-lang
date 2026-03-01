@@ -1,0 +1,35 @@
+# Test BigInt operations
+
+def main():
+    print("=== BigInt Operations Test ===")
+    
+    a = BigInt("100")
+    b = BigInt("50")
+    
+    # Test arithmetic
+    print("a + b =")
+    print(a + b)
+    
+    print("a - b =")
+    print(a - b)
+    
+    print("a * b =")
+    print(a * b)
+    
+    print("a / b =")
+    print(a / b)
+    
+    print("a % b =")
+    print(a % b)
+    
+    # Test comparison
+    print("a > b:")
+    print(a > b)
+    
+    print("a < b:")
+    print(a < b)
+    
+    print("a == b:")
+    print(a == b)
+    
+    print("=== Test complete ===")

@@ -66,9 +66,9 @@ def BigInt(value) -> BigInt:
     pass
 
 # Convert BigInt to string
-def str_bigint(x: BigInt) -> str:
-    # Implemented as builtin
-    return ""
+# def str_bigint(x: BigInt) -> str:
+#     # Implemented as builtin
+#     return ""
 
 # Convert BigInt to i64 (may overflow)
 def int_bigint(x: BigInt) -> i64:

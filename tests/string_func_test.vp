@@ -1,0 +1,18 @@
+# Test string functions
+
+def main():
+    print("=== String Function Test ===")
+    
+    # Test str() with int
+    n = 12345
+    s = str(n)
+    print("str(12345) =")
+    print(s)
+    
+    # Test str() with BigInt
+    a = BigInt("99999")
+    s2 = str(a)
+    print("str(BigInt) =")
+    print(s2)
+    
+    print("=== Test complete ===")

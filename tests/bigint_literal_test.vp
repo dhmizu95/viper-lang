@@ -1,0 +1,14 @@
+# Test BigInt literal print
+
+def main():
+    print("=== BigInt Literal Test ===")
+    
+    a = BigInt("12345")
+    print("a =")
+    print(a)
+    
+    print("str_bigint(a) =")
+    s = str_bigint(a)
+    print(s)
+    
+    print("=== Test complete ===")

@@ -194,7 +194,23 @@ impl TypeChecker {
                 | BinOp::Div
                 | BinOp::Mod
                 | BinOp::FloorDiv
-                | BinOp::Pow => self.infer_expr_type(left).or_else(|| self.infer_expr_type(right)),
+                | BinOp::Pow => {
+                    // Get types of both operands for promotion rules
+                    let left_type = self.infer_expr_type(left);
+                    let right_type = self.infer_expr_type(right);
+                    
+                    // Automatic promotion rules for mixed BigInt/i64 operations
+                    // If either operand is BigInt, result is BigInt
+                    // If either operand is F64, result is F64
+                    // Otherwise, result is I64
+                    match (&left_type, &right_type) {
+                        (Some(Type::BigInt), _) | (_, Some(Type::BigInt)) => Some(Type::BigInt),
+                        (Some(Type::F64), _) | (_, Some(Type::F64)) => Some(Type::F64),
+                        (Some(lt), _) => Some(lt.clone()),
+                        (_, Some(rt)) => Some(rt.clone()),
+                        _ => None,
+                    }
+                }
                 BinOp::Eq
                 | BinOp::NotEq
                 | BinOp::Lt

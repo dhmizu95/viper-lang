@@ -1,0 +1,47 @@
+# Simple BigInt Demo for Viper
+# Demonstrates basic BigInt operations
+
+def main():
+    print("=== Viper BigInt Demo ===")
+    print("")
+    
+    # Create BigInts using 'n' suffix
+    a = 123456789012345678901234567890n
+    b = 987654321098765432109876543210n
+    
+    print("a = " + str(a))
+    print("b = " + str(b))
+    print("")
+    
+    # Addition
+    c = a + b
+    print("a + b = " + str(c))
+    print("")
+    
+    # Multiplication  
+    d = a * b
+    print("a * b = " + str(d))
+    print("")
+    
+    # Division
+    e = b / a
+    f = b % a
+    print("b / a = " + str(e))
+    print("b % a = " + str(f))
+    print("")
+    
+    # Power
+    two = 2n
+    result = pow_bigint(two, 1000n)
+    print("2^1000 = " + str(result))
+    print("")
+    
+    # Bitwise
+    x = 0xFF00FF00n
+    y = 0x00FF00FFn
+    print("x & y = " + str(x & y))
+    print("x | y = " + str(x | y))
+    print("x ^ y = " + str(x ^ y))
+    print("")
+    
+    print("=== Demo completed ===")

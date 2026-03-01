@@ -1,0 +1,16 @@
+# Test str() vs str_bigint()
+
+def main():
+    print("=== str() vs str_bigint() ===")
+    
+    a = BigInt("12345")
+    
+    # Test str()
+    print("str(a):")
+    print(str(a))
+    
+    # Test str_bigint()
+    print("str_bigint(a):")
+    print(str_bigint(a))
+    
+    print("=== Done ===")

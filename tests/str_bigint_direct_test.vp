@@ -1,0 +1,17 @@
+# Test str_bigint without assignment
+
+def main():
+    print("=== str_bigint Test ===")
+    
+    a = BigInt("12345")
+    
+    # Test direct print (no assignment)
+    print("Direct str_bigint(a):")
+    print(str_bigint(a))
+    
+    # Test with assignment
+    print("With assignment:")
+    s = str_bigint(a)
+    print(s)
+    
+    print("=== Test complete ===")

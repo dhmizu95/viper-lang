@@ -1,0 +1,23 @@
+# Test string assignment
+
+def main():
+    print("=== String Assignment Test ===")
+    
+    # Test str() from int - should work
+    n = 12345
+    s1 = str(n)
+    print("s1 = str(12345):")
+    print(s1)
+    
+    # Test str() from BigInt - should work
+    a = BigInt("99999")
+    s2 = str(a)
+    print("s2 = str(BigInt):")
+    print(s2)
+    
+    # Test str_bigint() from BigInt - crashes?
+    s3 = str_bigint(a)
+    print("s3 = str_bigint(BigInt):")
+    print(s3)
+    
+    print("=== Done ===")

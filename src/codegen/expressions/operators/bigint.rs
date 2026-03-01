@@ -207,13 +207,14 @@ pub fn generate_bigint_binop<'ctx>(
             
             Ok(result_ptr.into())
         }
-        BinOp::Div => {
+        BinOp::Div | BinOp::FloorDiv => {
+            // FloorDiv (//) and regular Div (/) are the same for BigInt
             let result_ptr = initialize_bigint_result(state)?;
             let div_func = state
                 .module
                 .get_function("vp_bigint_div")
                 .ok_or_else(|| "vp_bigint_div not declared".to_string())?;
-            
+
             state
                 .ir_builder
                 .build_call(
@@ -222,7 +223,7 @@ pub fn generate_bigint_binop<'ctx>(
                     &[result_ptr.into(), lhs_ptr.into(), rhs_ptr.into()],
                     "bigint_div_call",
                 );
-            
+
             Ok(result_ptr.into())
         }
         BinOp::Mod => {

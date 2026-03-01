@@ -1,0 +1,20 @@
+# Test BigInt conversion functions
+
+def main():
+    print("=== BigInt Conversion Test ===")
+    
+    a = BigInt("12345")
+    print("a =")
+    print(a)
+    
+    # Test int_bigint
+    print("int_bigint(a) =")
+    n = int_bigint(a)
+    print(n)
+    
+    # Test str_bigint
+    print("str_bigint(a) =")
+    s = str_bigint(a)
+    print(s)
+    
+    print("=== Test complete ===")

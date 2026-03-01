@@ -1,0 +1,21 @@
+# Debug BigInt value passing
+
+def main():
+    print("=== Debug BigInt passing ===")
+    
+    a = BigInt("12345")
+    
+    # Test 1: Pass directly
+    print("Test 1 - Direct:")
+    print(str_bigint(a))
+    
+    # Test 2: Pass through variable
+    print("Test 2 - Through var:")
+    b = a
+    print(str_bigint(b))
+    
+    # Test 3: str() for comparison
+    print("Test 3 - str():")
+    print(str(a))
+    
+    print("=== Done ===")

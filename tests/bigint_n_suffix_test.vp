@@ -1,0 +1,20 @@
+# Simple BigInt Test with n suffix
+
+def main():
+    print("=== BigInt n-suffix Test ===")
+    
+    # Test with n suffix
+    a = 100n
+    b = 50n
+    
+    print("a = ")
+    print(a)
+    print("b = ")
+    print(b)
+    
+    # Test addition
+    c = a + b
+    print("a + b = ")
+    print(c)
+    
+    print("=== Test complete ===")

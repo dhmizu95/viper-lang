@@ -1,0 +1,12 @@
+# Test nested call
+
+def main():
+    print("Start")
+    a = BigInt("100")
+    print("Created a")
+    
+    # Test direct call in print
+    print("Direct str_bigint(a):")
+    print(str_bigint(a))
+    
+    print("Done")

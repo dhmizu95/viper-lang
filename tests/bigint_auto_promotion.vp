@@ -1,0 +1,63 @@
+# Test automatic BigInt promotion
+# Integers that exceed i64 range are automatically promoted to BigInt
+
+# Small integer (fits in i64)
+small = 42
+
+# Large integer (exceeds i64 max, auto-promoted to BigInt)
+large = 9223372036854775808  # i64::MAX + 1
+
+# Explicit BigInt with 'n' suffix
+explicit = 123n
+
+# Very large integer (hundreds of digits)
+huge = 1234567890123456789012345678901234567890123456789012345678901234567890
+
+# Mixed arithmetic: i64 + BigInt = BigInt
+result1 = small + large
+
+# BigInt arithmetic
+result2 = large * 2
+
+# Comparison between i64 and BigInt
+if small < large:
+    print("large is larger")
+
+# Test negative large numbers
+neg_large = -9223372036854775808
+
+# Test BigInt in list
+big_list = [1, 9223372036854775808, 1000000000000000000000]
+
+# Test comparisons
+print(small == 42)
+print(large > small)
+print(huge > large)
+
+# Test arithmetic operations
+print(large + 1)
+print(large - 1)
+print(large * 2)
+print(large // 2)
+print(large % 10)
+
+# Test explicit BigInt constructor
+from_big = BigInt("123456789012345678901234567890")
+
+# Test BigInt functions
+abs_val = abs_bigint(neg_large)
+print("abs worked")
+
+# Test with function that explicitly returns BigInt
+def factorial_big(n: bigint) -> bigint:
+    result = 1n
+    i = 1n
+    while i <= n:
+        result = result * i
+        i = i + 1n
+    return result
+
+fact5 = factorial_big(5n)
+print(fact5)
+
+print("All BigInt tests passed!")

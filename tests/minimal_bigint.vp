@@ -1,0 +1,10 @@
+# Minimal BigInt test
+
+def main():
+    print("Start")
+    a = BigInt("100")
+    print("Created a")
+    s = str_bigint(a)
+    print("Called str_bigint")
+    print(s)
+    print("Done")
