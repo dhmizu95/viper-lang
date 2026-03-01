@@ -1,6 +1,6 @@
-# BigInt math functions test
+# bigint math functions test
 def main():
-    print("=== BigInt math functions test ===")
+    print("=== bigint math functions test ===")
     
     # Test pow_bigint
     a = 2n

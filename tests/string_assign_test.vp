@@ -9,15 +9,15 @@ def main():
     print("s1 = str(12345):")
     print(s1)
     
-    # Test str() from BigInt - should work
-    a = BigInt("99999")
+    # Test str() from bigint - should work
+    a = bigint("99999")
     s2 = str(a)
-    print("s2 = str(BigInt):")
+    print("s2 = str(bigint):")
     print(s2)
     
-    # Test str_bigint() from BigInt - crashes?
+    # Test str_bigint() from bigint - crashes?
     s3 = str_bigint(a)
-    print("s3 = str_bigint(BigInt):")
+    print("s3 = str_bigint(bigint):")
     print(s3)
     
     print("=== Done ===")

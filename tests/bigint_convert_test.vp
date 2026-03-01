@@ -1,9 +1,9 @@
-# Test BigInt conversion functions
+# Test bigint conversion functions
 
 def main():
-    print("=== BigInt Conversion Test ===")
+    print("=== bigint Conversion Test ===")
     
-    a = BigInt("12345")
+    a = bigint("12345")
     print("a =")
     print(a)
     

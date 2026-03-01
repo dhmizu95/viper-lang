@@ -3,7 +3,7 @@
 def main():
     print("=== Debug str_bigint ===")
     
-    a = BigInt("12345")
+    a = bigint("12345")
     
     # Test 1: Direct call in print
     print("Test 1 - Direct:")

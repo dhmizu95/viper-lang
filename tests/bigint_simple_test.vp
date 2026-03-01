@@ -1,11 +1,11 @@
-# Simple BigInt Test
+# Simple bigint Test
 
 def main():
-    print("=== Simple BigInt Test ===")
+    print("=== Simple bigint Test ===")
     
-    # Test 1: Create BigInt from string
-    a = BigInt("100")
-    b = BigInt("50")
+    # Test 1: Create bigint from string
+    a = bigint("100")
+    b = bigint("50")
     
     print("a = ")
     print(str_bigint(a))

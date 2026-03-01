@@ -1,6 +1,6 @@
 # Benchmark 16: Factorial
 # Big Integer Benchmark - Tests arithmetic and iteration
-# Note: Uses n=20 due to int limits (Viper needs BigInt support for larger)
+# Note: Uses n=20 due to int limits (Viper needs bigint support for larger)
 
 def factorial(n):
     result = 1
@@ -11,11 +11,11 @@ def factorial(n):
     return result
 
 def main():
-    N = 20  # Limited by int max (would need BigInt for 1,000,000)
+    N = 20  # Limited by int max (would need bigint for 1,000,000)
     
     print("Computing factorial(" + str(N) + ")...")
     
     result = factorial(N)
     
     print("Factorial(" + str(N) + ") = " + str(result))
-    print("Note: Viper needs BigInt support for factorial(1000000)")
+    print("Note: Viper needs bigint support for factorial(1000000)")

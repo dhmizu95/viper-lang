@@ -1,64 +1,64 @@
-# BigInt Comparison Benchmark - Viper Version
-# Focused comparison of core BigInt operations using GMP
+# bigint Comparison Benchmark - Viper Version
+# Focused comparison of core bigint operations using GMP
 # Note: Uses inline code to avoid function parameter type annotation issues
 
 def main():
     print("============================================================")
-    print("Viper BigInt Benchmark (using GMP)")
+    print("Viper bigint Benchmark (using GMP)")
     print("============================================================")
     print()
     
     # Test 1: Factorial(5000)
     print("1. Factorial(5000)")
-    result = BigInt("1")
-    i = BigInt("1")
-    n = BigInt("5000")
+    result = bigint("1")
+    i = bigint("1")
+    n = bigint("5000")
     while i <= n:
         result = result * i
-        i = i + BigInt("1")
+        i = i + bigint("1")
     print("   Result: " + str(len(str_bigint(result))) + " digits")
     print()
     
     # Test 2: Fibonacci(50000)
     print("2. Fibonacci(50000)")
-    a = BigInt("0")
-    b = BigInt("1")
-    i = BigInt("0")
-    n = BigInt("50000")
+    a = bigint("0")
+    b = bigint("1")
+    i = bigint("0")
+    n = bigint("50000")
     while i < n:
         temp = a + b
         a = b
         b = temp
-        i = i + BigInt("1")
+        i = i + bigint("1")
     print("   Result: " + str(len(str_bigint(a))) + " digits")
     print()
     
     # Test 3: Power 2^50000
     print("3. 2^50000")
-    result = BigInt("1")
-    base = BigInt("2")
-    exp = BigInt("50000")
-    i = BigInt("0")
+    result = bigint("1")
+    base = bigint("2")
+    exp = bigint("50000")
+    i = bigint("0")
     while i < exp:
         result = result * base
-        i = i + BigInt("1")
+        i = i + bigint("1")
     print("   Result: " + str(len(str_bigint(result))) + " digits")
     print()
     
     # Test 4: Large Multiplication (1000! * 999!)
     print("4. Large Multiplication (1000! * 999!)")
     # Calculate 1000!
-    fact1000 = BigInt("1")
-    i = BigInt("1")
-    while i <= BigInt("1000"):
+    fact1000 = bigint("1")
+    i = bigint("1")
+    while i <= bigint("1000"):
         fact1000 = fact1000 * i
-        i = i + BigInt("1")
+        i = i + bigint("1")
     # Calculate 999!
-    fact999 = BigInt("1")
-    i = BigInt("1")
-    while i <= BigInt("999"):
+    fact999 = bigint("1")
+    i = bigint("1")
+    while i <= bigint("999"):
         fact999 = fact999 * i
-        i = i + BigInt("1")
+        i = i + bigint("1")
     product = fact1000 * fact999
     print("   Result: " + str(len(str_bigint(product))) + " digits")
     print()
@@ -72,23 +72,23 @@ def main():
     
     # Test 6: Modular Exponentiation
     print("6. Modular Exponentiation")
-    base = BigInt("123456789012345678901234567890")
-    exp = BigInt("123456789")
-    mod = BigInt("1000000007")
-    result = BigInt("1")
+    base = bigint("123456789012345678901234567890")
+    exp = bigint("123456789")
+    mod = bigint("1000000007")
+    result = bigint("1")
     base = base % mod
-    while exp > BigInt("0"):
-        if exp % BigInt("2") == BigInt("1"):
+    while exp > bigint("0"):
+        if exp % bigint("2") == bigint("1"):
             result = (result * base) % mod
-        exp = exp >> BigInt("1")
+        exp = exp >> bigint("1")
         base = (base * base) % mod
     print("   Result: " + str_bigint(result))
     print()
     
     # Test 7: Bitwise Operations
     print("7. Bitwise Operations")
-    x = (BigInt("1") << BigInt("2048")) - BigInt("1")
-    y = (BigInt("1") << BigInt("1024")) - BigInt("1")
+    x = (bigint("1") << bigint("2048")) - bigint("1")
+    y = (bigint("1") << bigint("1024")) - bigint("1")
     and_r = x & y
     or_r = x | y
     xor_r = x ^ y
@@ -99,8 +99,8 @@ def main():
     
     # Test 8: Shift Operations
     print("8. Shift Operations")
-    val = BigInt("1") << BigInt("10000")
-    val = val >> BigInt("5000")
+    val = bigint("1") << bigint("10000")
+    val = val >> bigint("5000")
     print("   (1 << 10000) >> 5000")
     print("   Result: " + str(len(str_bigint(val))) + " digits")
     print()

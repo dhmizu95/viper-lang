@@ -1,43 +1,43 @@
-# BigInt Benchmark Suite for Viper
+# bigint Benchmark Suite for Viper
 # Comprehensive arbitrary precision integer operations
 
 # ============= Factorial =============
 def factorial(n):
-    """Calculate n! using BigInt"""
-    result = BigInt("1")
-    i = BigInt("1")
+    """Calculate n! using bigint"""
+    result = bigint("1")
+    i = bigint("1")
     while i <= n:
         result = result * i
-        i = i + BigInt("1")
+        i = i + bigint("1")
     return result
 
 # ============= Fibonacci =============
 def fibonacci(n):
-    """Calculate nth Fibonacci number using BigInt"""
-    a = BigInt("0")
-    b = BigInt("1")
-    i = BigInt("0")
+    """Calculate nth Fibonacci number using bigint"""
+    a = bigint("0")
+    b = bigint("1")
+    i = bigint("0")
     while i < n:
         temp = a + b
         a = b
         b = temp
-        i = i + BigInt("1")
+        i = i + bigint("1")
     return a
 
 # ============= Power =============
 def power(base, exp):
-    """Calculate base^exp using BigInt"""
-    result = BigInt("1")
-    i = BigInt("0")
+    """Calculate base^exp using bigint"""
+    result = bigint("1")
+    i = bigint("0")
     while i < exp:
         result = result * base
-        i = i + BigInt("1")
+        i = i + bigint("1")
     return result
 
 # ============= GCD =============
 def gcd(a, b):
     """Calculate GCD using Euclidean algorithm"""
-    while b != BigInt("0"):
+    while b != bigint("0"):
         temp = b
         b = a % b
         a = temp
@@ -46,54 +46,54 @@ def gcd(a, b):
 # ============= Prime Check =============
 def is_prime(n):
     """Simple primality test"""
-    if n < BigInt("2"):
+    if n < bigint("2"):
         return False
-    if n == BigInt("2"):
+    if n == bigint("2"):
         return True
-    if n % BigInt("2") == BigInt("0"):
+    if n % bigint("2") == bigint("0"):
         return False
     
-    i = BigInt("3")
+    i = bigint("3")
     while i * i <= n:
-        if n % i == BigInt("0"):
+        if n % i == bigint("0"):
             return False
-        i = i + BigInt("2")
+        i = i + bigint("2")
     return True
 
 # ============= Modular Exponentiation =============
 def mod_pow(base, exp, mod):
     """Calculate (base^exp) % mod efficiently"""
-    result = BigInt("1")
+    result = bigint("1")
     base = base % mod
-    while exp > BigInt("0"):
-        if exp % BigInt("2") == BigInt("1"):
+    while exp > bigint("0"):
+        if exp % bigint("2") == bigint("1"):
             result = (result * base) % mod
-        exp = exp >> BigInt("1")
+        exp = exp >> bigint("1")
         base = (base * base) % mod
     return result
 
 # ============= Sum of Digits =============
 def sum_of_digits(n):
-    """Sum all digits of a BigInt"""
+    """Sum all digits of a bigint"""
     s = str_bigint(n)
-    total = BigInt("0")
+    total = bigint("0")
     i = 0
     while i < len(s):
         c = s[i]
         if c >= "0" and c <= "9":
-            digit = BigInt(c)
+            digit = bigint(c)
             total = total + digit
         i = i + 1
     return total
 
 # ============= Main Benchmark =============
 def main():
-    print("=== Viper BigInt Benchmark Suite ===")
+    print("=== Viper bigint Benchmark Suite ===")
     print("")
     
     # Benchmark 1: Factorial
     print("Benchmark 1: Factorial(1000)")
-    fact_1000 = factorial(BigInt("1000"))
+    fact_1000 = factorial(bigint("1000"))
     fact_str = str_bigint(fact_1000)
     print("  Result has " + str(len(fact_str)) + " digits")
     print("  First 50 digits: " + fact_str[0:50])
@@ -101,7 +101,7 @@ def main():
     
     # Benchmark 2: Fibonacci
     print("Benchmark 2: Fibonacci(10000)")
-    fib_10000 = fibonacci(BigInt("10000"))
+    fib_10000 = fibonacci(bigint("10000"))
     fib_str = str_bigint(fib_10000)
     print("  Result has " + str(len(fib_str)) + " digits")
     print("  First 50 digits: " + fib_str[0:50])
@@ -109,7 +109,7 @@ def main():
     
     # Benchmark 3: Large Power
     print("Benchmark 3: 2^10000")
-    pow_result = power(BigInt("2"), BigInt("10000"))
+    pow_result = power(bigint("2"), bigint("10000"))
     pow_str = str_bigint(pow_result)
     print("  Result has " + str(len(pow_str)) + " digits")
     print("  First 50 digits: " + pow_str[0:50])
@@ -117,17 +117,17 @@ def main():
     
     # Benchmark 4: GCD
     print("Benchmark 4: GCD of two large numbers")
-    a = factorial(BigInt("500"))
-    b = factorial(BigInt("499"))
+    a = factorial(bigint("500"))
+    b = factorial(bigint("499"))
     g = gcd(a, b)
     print("  GCD(500!, 499!) has " + str(len(str_bigint(g))) + " digits")
     print("")
     
     # Benchmark 5: Modular Exponentiation
     print("Benchmark 5: Modular Exponentiation")
-    base = BigInt("12345678901234567890")
-    exp = BigInt("987654321")
-    mod = BigInt("1000000007")
+    base = bigint("12345678901234567890")
+    exp = bigint("987654321")
+    mod = bigint("1000000007")
     mod_result = mod_pow(base, exp, mod)
     print("  (12345678901234567890 ^ 987654321) % 1000000007")
     print("  Result: " + str_bigint(mod_result))
@@ -135,7 +135,7 @@ def main():
     
     # Benchmark 6: Prime Check
     print("Benchmark 6: Prime Check")
-    large_prime = BigInt("1234567890123456789012345678901234567891")
+    large_prime = bigint("1234567890123456789012345678901234567891")
     if is_prime(large_prime):
         print("  " + str_bigint(large_prime) + " is prime")
     else:
@@ -150,8 +150,8 @@ def main():
     
     # Benchmark 8: Bitwise Operations
     print("Benchmark 8: Bitwise Operations")
-    x = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
-    y = BigInt("0x0000000000000000FFFFFFFFFFFFFFFF")
+    x = bigint("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
+    y = bigint("0x0000000000000000FFFFFFFFFFFFFFFF")
     and_result = x & y
     or_result = x | y
     xor_result = x ^ y
@@ -162,17 +162,17 @@ def main():
     
     # Benchmark 9: Shift Operations
     print("Benchmark 9: Shift Operations")
-    one = BigInt("1")
-    shifted_left = one << BigInt("1000")
+    one = bigint("1")
+    shifted_left = one << bigint("1000")
     print("  1 << 1000 has " + str(len(str_bigint(shifted_left))) + " digits")
-    shifted_right = shifted_left >> BigInt("500")
+    shifted_right = shifted_left >> bigint("500")
     print("  (1 << 1000) >> 500 has " + str(len(str_bigint(shifted_right))) + " digits")
     print("")
     
     # Benchmark 10: Large Multiplication
     print("Benchmark 10: Large Multiplication")
-    num1 = factorial(BigInt("300"))
-    num2 = factorial(BigInt("200"))
+    num1 = factorial(bigint("300"))
+    num2 = factorial(bigint("200"))
     product = num1 * num2
     print("  300! * 200! has " + str(len(str_bigint(product))) + " digits")
     print("")

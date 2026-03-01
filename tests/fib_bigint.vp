@@ -1,14 +1,14 @@
-# Fibonacci with BigInt - Test large number computation
+# Fibonacci with bigint - Test large number computation
 
-# Iterative Fibonacci using BigInt
-def fib(n: int) -> BigInt:
+# Iterative Fibonacci using bigint
+def fib(n: int) -> bigint:
     if n <= 0:
-        return BigInt("0")
+        return bigint("0")
     elif n == 1:
-        return BigInt("1")
+        return bigint("1")
     
-    a = BigInt("0")
-    b = BigInt("1")
+    a = bigint("0")
+    b = bigint("1")
     
     i = 2
     while i <= n:
@@ -21,7 +21,7 @@ def fib(n: int) -> BigInt:
 
 # Test with various sizes
 def main():
-    print("=== Fibonacci with BigInt ===")
+    print("=== Fibonacci with bigint ===")
     print("")
     
     # Small test

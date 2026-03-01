@@ -1,10 +1,10 @@
-# Debug BigInt Test
+# Debug bigint Test
 
 def main():
-    print("=== Debug BigInt Test ===")
+    print("=== Debug bigint Test ===")
     
-    # Test 1: Create BigInt from string
-    a = BigInt("100")
+    # Test 1: Create bigint from string
+    a = bigint("100")
     
     # Test 2: Print directly (should work)
     print("Direct print of a:")

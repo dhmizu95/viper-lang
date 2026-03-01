@@ -1,8 +1,8 @@
-# Simple BigInt Demo for Viper
-# Demonstrates basic BigInt operations
+# Simple bigint Demo for Viper
+# Demonstrates basic bigint operations
 
 def main():
-    print("=== Viper BigInt Demo ===")
+    print("=== Viper bigint Demo ===")
     print("")
     
     # Create BigInts using 'n' suffix

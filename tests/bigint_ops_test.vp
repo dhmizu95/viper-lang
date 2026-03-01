@@ -1,10 +1,10 @@
-# Test BigInt operations
+# Test bigint operations
 
 def main():
-    print("=== BigInt Operations Test ===")
+    print("=== bigint Operations Test ===")
     
-    a = BigInt("100")
-    b = BigInt("50")
+    a = bigint("100")
+    b = bigint("50")
     
     # Test arithmetic
     print("a + b =")

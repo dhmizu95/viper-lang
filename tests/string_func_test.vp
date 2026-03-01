@@ -9,10 +9,10 @@ def main():
     print("str(12345) =")
     print(s)
     
-    # Test str() with BigInt
-    a = BigInt("99999")
+    # Test str() with bigint
+    a = bigint("99999")
     s2 = str(a)
-    print("str(BigInt) =")
+    print("str(bigint) =")
     print(s2)
     
     print("=== Test complete ===")

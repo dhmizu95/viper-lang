@@ -1,30 +1,30 @@
-# Simple BigInt benchmark
+# Simple bigint benchmark
 
 def main():
-    print("=== Simple BigInt Benchmark ===")
+    print("=== Simple bigint Benchmark ===")
     
     # Test 1: Factorial(100)
     print("1. Factorial(100)")
-    result = BigInt("1")
-    i = BigInt("1")
-    n = BigInt("100")
+    result = bigint("1")
+    i = bigint("1")
+    n = bigint("100")
     while i <= n:
         result = result * i
-        i = i + BigInt("1")
+        i = i + bigint("1")
     print("   Result: " + str(len(str_bigint(result))) + " digits")
     print()
     
     # Test 2: Fibonacci(1000)
     print("2. Fibonacci(1000)")
-    a = BigInt("0")
-    b = BigInt("1")
-    i = BigInt("0")
-    n = BigInt("1000")
+    a = bigint("0")
+    b = bigint("1")
+    i = bigint("0")
+    n = bigint("1000")
     while i < n:
         temp = a + b
         a = b
         b = temp
-        i = i + BigInt("1")
+        i = i + bigint("1")
     print("   Result: " + str(len(str_bigint(a))) + " digits")
     print()
     

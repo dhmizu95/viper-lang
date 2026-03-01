@@ -1,4 +1,4 @@
-# Fibonacci with BigInt - Python-like syntax
+# Fibonacci with bigint - Python-like syntax
 
 def fib(n):
     """
@@ -23,7 +23,7 @@ def fib(n):
     return b
 
 def main():
-    print("=== Fibonacci with BigInt (Native Python) ===")
+    print("=== Fibonacci with bigint (Native Python) ===")
     print()
     
     # Test cases

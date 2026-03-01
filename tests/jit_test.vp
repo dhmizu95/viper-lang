@@ -1,9 +1,9 @@
-# Test simple BigInt with JIT
+# Test simple bigint with JIT
 
 def main():
     print("Start")
-    a = BigInt("100")
-    b = BigInt("50")
+    a = bigint("100")
+    b = bigint("50")
     
     c = a + b
     print("a + b =")

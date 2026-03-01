@@ -1,32 +1,32 @@
-# Test automatic BigInt promotion
-# Integers that exceed int range are automatically promoted to BigInt
+# Test automatic bigint promotion
+# Integers that exceed int range are automatically promoted to bigint
 
 # Small integer (fits in int)
 small = 42
 
-# Large integer (exceeds int max, auto-promoted to BigInt)
+# Large integer (exceeds int max, auto-promoted to bigint)
 large = 9223372036854775808  # int::MAX + 1
 
-# Explicit BigInt with 'n' suffix
+# Explicit bigint with 'n' suffix
 explicit = 123n
 
 # Very large integer (hundreds of digits)
 huge = 1234567890123456789012345678901234567890123456789012345678901234567890
 
-# Mixed arithmetic: int + BigInt = BigInt
+# Mixed arithmetic: int + bigint = bigint
 result1 = small + large
 
-# BigInt arithmetic
+# bigint arithmetic
 result2 = large * 2
 
-# Comparison between int and BigInt
+# Comparison between int and bigint
 if small < large:
     print("large is larger")
 
 # Test negative large numbers
 neg_large = -9223372036854775808
 
-# Test BigInt in list
+# Test bigint in list
 big_list = [1, 9223372036854775808, 1000000000000000000000]
 
 # Test comparisons
@@ -41,14 +41,14 @@ print(large * 2)
 print(large // 2)
 print(large % 10)
 
-# Test explicit BigInt constructor
-from_big = BigInt("123456789012345678901234567890")
+# Test explicit bigint constructor
+from_big = bigint("123456789012345678901234567890")
 
-# Test BigInt functions
+# Test bigint functions
 abs_val = abs_bigint(neg_large)
 print("abs worked")
 
-# Test with function that explicitly returns BigInt
+# Test with function that explicitly returns bigint
 def factorial_big(n: bigint) -> bigint:
     result = 1n
     i = 1n
@@ -60,4 +60,4 @@ def factorial_big(n: bigint) -> bigint:
 fact5 = factorial_big(5n)
 print(fact5)
 
-print("All BigInt tests passed!")
+print("All bigint tests passed!")

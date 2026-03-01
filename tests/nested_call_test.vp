@@ -2,7 +2,7 @@
 
 def main():
     print("Start")
-    a = BigInt("100")
+    a = bigint("100")
     print("Created a")
     
     # Test direct call in print

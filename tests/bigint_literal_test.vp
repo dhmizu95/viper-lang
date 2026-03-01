@@ -1,9 +1,9 @@
-# Test BigInt literal print
+# Test bigint literal print
 
 def main():
-    print("=== BigInt Literal Test ===")
+    print("=== bigint Literal Test ===")
     
-    a = BigInt("12345")
+    a = bigint("12345")
     print("a =")
     print(a)
     

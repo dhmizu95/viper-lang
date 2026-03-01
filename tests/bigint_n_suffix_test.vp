@@ -1,7 +1,7 @@
-# Simple BigInt Test with n suffix
+# Simple bigint Test with n suffix
 
 def main():
-    print("=== BigInt n-suffix Test ===")
+    print("=== bigint n-suffix Test ===")
     
     # Test with n suffix
     a = 100n

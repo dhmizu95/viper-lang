@@ -2,8 +2,8 @@
 # Big Integer Benchmark - Tests arbitrary precision arithmetic and iteration
 
 def fibonacci(n):
-    a = 0  # BigInt
-    b = 1  # BigInt
+    a = 0  # bigint
+    b = 1  # bigint
     i = 0
     while i < n:
         temp = a + b
@@ -13,7 +13,7 @@ def fibonacci(n):
     return a
 
 def main():
-    N = 100000  # Using BigInt, can handle large N
+    N = 100000  # Using bigint, can handle large N
 
     print("Computing Fibonacci(" + str(N) + ")...")
 

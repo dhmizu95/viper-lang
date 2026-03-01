@@ -3,7 +3,7 @@
 def main():
     print("=== str() vs str_bigint() ===")
     
-    a = BigInt("12345")
+    a = bigint("12345")
     
     # Test str()
     print("str(a):")
