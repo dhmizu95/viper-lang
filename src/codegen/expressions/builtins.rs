@@ -10,6 +10,27 @@ use inkwell::values::BasicValueEnum;
 use crate::codegen::state::CodeGenState;
 use crate::codegen::expressions::calls::generate_bigint_to_str;
 
+/// Helper function to check if an expression is a BigInt for print handling
+fn is_bigint_expr_for_print(expr: &Expr, state: &CodeGenState) -> bool {
+    match expr {
+        Expr::BigInt(..) => true,
+        Expr::Ident(name, _) => state.is_bigint(name),
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" 
+                    || func_name == "pow_bigint" || func_name == "sqrt_bigint" 
+                    || func_name == "min_bigint" || func_name == "max_bigint"
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { left, right, .. } => {
+            is_bigint_expr_for_print(left, state) || is_bigint_expr_for_print(right, state)
+        }
+        _ => false,
+    }
+}
+
 /// Generate print call - handles multiple arguments
 pub fn generate_print_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -80,11 +101,26 @@ pub fn generate_print_call<'ctx>(
                 Expr::Call { func, .. } => {
                     // Check if calling a known BigInt function or if result is a pointer
                     if let Expr::Ident(func_name, _) = func.as_ref() {
-                        func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" || func_name == "pow_bigint"
-                            || func_name == "sqrt_bigint" || func_name == "min_bigint" || func_name == "max_bigint"
-                            || val.is_pointer_value()  // User-defined BigInt function
+                        // str_bigint() and int_bigint() return non-BigInt types
+                        if func_name == "str_bigint" || func_name == "int_bigint" {
+                            false
+                        } else {
+                            func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" || func_name == "pow_bigint"
+                                || func_name == "sqrt_bigint" || func_name == "min_bigint" || func_name == "max_bigint"
+                                || val.is_pointer_value()  // User-defined BigInt function
+                        }
                     } else {
                         val.is_pointer_value()
+                    }
+                }
+                // BinOp with BigInt operands returns a BigInt pointer
+                Expr::BinOp { left, right, op, .. } => {
+                    if matches!(op, crate::ast::BinOp::Add | crate::ast::BinOp::Sub | crate::ast::BinOp::Mul 
+                        | crate::ast::BinOp::Div | crate::ast::BinOp::Mod | crate::ast::BinOp::Pow) {
+                        // Check if either operand is BigInt
+                        is_bigint_expr_for_print(left, state) || is_bigint_expr_for_print(right, state)
+                    } else {
+                        val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt
                     }
                 }
                 _ => {
