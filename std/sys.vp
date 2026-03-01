@@ -3,11 +3,11 @@
 
 # Module metadata
 __name__ = "sys"
-__version__ = "0.4.1"
+__version__ = "0.4.5"
 
 # Constants - populated at runtime
 argv: [str] = []  # Command-line arguments
-version: str = "0.4.1"
+version: str = "0.4.5"
 platform: str = "linux"
 
 # Exit codes

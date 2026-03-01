@@ -11,7 +11,7 @@ pub extern "C" fn vp_sys_getpid() -> i64 {
 }
 
 pub extern "C" fn vp_sys_get_version() -> *const i8 {
-    b"0.4.1\0" as *const u8 as *const i8
+    b"0.4.5\0" as *const u8 as *const i8
 }
 
 pub extern "C" fn vp_sys_get_platform() -> *const i8 {

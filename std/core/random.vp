@@ -3,7 +3,7 @@
 
 # Module metadata
 __name__ = "random"
-__version__ = "0.4.1"
+__version__ = "0.4.5"
 
 # ============================================
 # Basic Functions
@@ -197,7 +197,7 @@ def is_initialized() -> bool:
 # ============================================
 
 # Version of the module
-VERSION: str = "0.4.1"
+VERSION: str = "0.4.5"
 
 # Default random instance
 _default_random = None

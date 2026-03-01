@@ -3,7 +3,7 @@
 
 # Module metadata
 __name__ = "pathlib"
-__version__ = "0.4.1"
+__version__ = "0.4.5"
 
 from os import sep, getcwd, chdir, listdir, mkdir, makedirs, remove
 from os import path_exists, path_isfile, path_isdir, path_getsize

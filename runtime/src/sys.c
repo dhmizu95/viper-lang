@@ -66,7 +66,7 @@ int64_t vp_sys_getpid(void) {
  * Returns: Version string (statically allocated)
  */
 const char* vp_sys_get_version(void) {
-    return "0.4.1";
+    return "0.4.5";
 }
 
 /**

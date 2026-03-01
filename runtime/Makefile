@@ -12,7 +12,7 @@ AR = ar
 PROFILE ?= release
 
 # Version information
-VERSION := $(shell git describe --tags 2>/dev/null || echo "0.4.1")
+VERSION := $(shell git describe --tags 2>/dev/null || echo "0.4.5")
 
 # Directories
 SRC_DIR = src

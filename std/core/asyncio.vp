@@ -2,7 +2,7 @@
 # Asynchronous I/O and coroutines
 
 __name__ = "asyncio"
-__version__ = "0.4.1"
+__version__ = "0.4.5"
 
 # ============================================
 # Event Loop

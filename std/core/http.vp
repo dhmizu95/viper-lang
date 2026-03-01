@@ -2,7 +2,7 @@
 # HTTP client and server
 
 __name__ = "http"
-__version__ = "0.4.1"
+__version__ = "0.4.5"
 
 # ============================================
 # HTTP Status Codes
