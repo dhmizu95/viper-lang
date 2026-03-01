@@ -130,7 +130,8 @@ pub fn generate_call<'ctx>(
             return generate_bigint_constructor(state, args);
         }
         if name == "str_bigint" {
-            return generate_bigint_to_str(state, args);
+            // Use generate_str_call which properly handles BigInt to string conversion
+            return generate_str_call(state, args);
         }
         if name == "int_bigint" {
             return generate_bigint_to_i64(state, args);
@@ -1042,20 +1043,22 @@ pub fn generate_bigint_to_str<'ctx>(
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
-    
+
     let to_str_func = state
         .module
         .get_function("vp_bigint_to_str")
         .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
-    
+
     // Call vp_bigint_to_str(bigint, 10) - base 10
     let base = state.context.i32_type().const_int(10, false);
-    let result = state
+    
+    // Use custom build_call wrapper which returns Option<BasicValueEnum>
+    let str_val = state
         .ir_builder
         .build_call(state.builder, to_str_func, &[bigint_val.into(), base.into()], "bigint_to_str")
-        .expect("bigint_to_str call");
-    
-    Ok(result.into())
+        .ok_or_else(|| "vp_bigint_to_str did not return a value".to_string())?;
+
+    Ok(str_val)
 }
 
 /// Generate int_bigint() call - convert BigInt to i64
@@ -1068,18 +1071,19 @@ pub fn generate_bigint_to_i64<'ctx>(
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
-    
+
     let to_i64_func = state
         .module
         .get_function("vp_bigint_to_i64")
         .ok_or_else(|| "vp_bigint_to_i64 not declared".to_string())?;
-    
-    let result = state
+
+    // Use custom build_call wrapper which returns Option<BasicValueEnum>
+    let i64_val = state
         .ir_builder
         .build_call(state.builder, to_i64_func, &[bigint_val.into()], "bigint_to_i64")
-        .expect("bigint_to_i64 call");
-    
-    Ok(result.into())
+        .ok_or_else(|| "vp_bigint_to_i64 did not return a value".to_string())?;
+
+    Ok(i64_val)
 }
 
 /// Generate abs_bigint() call - absolute value of BigInt

@@ -2378,10 +2378,8 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_from_i64_temp as *const () as usize);
     }
-    if let Some(func) = module.get_function("vp_bigint_to_str") {
-        execution_engine
-            .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_to_str as *const () as usize);
-    }
+    // Note: vp_bigint_to_str is already registered with vp_bigint_to_str_stub above (line 465-469)
+    // The stub is required for JIT to properly handle the returned string pointer
     if let Some(func) = module.get_function("vp_bigint_to_i64") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_to_i64 as *const () as usize);
