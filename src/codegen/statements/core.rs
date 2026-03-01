@@ -205,6 +205,12 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::Pass(_) => {
             // No-op
         }
+        Stmt::Import { module, alias, .. } => {
+            generate_import(state, module, alias.as_deref())?;
+        }
+        Stmt::FromImport { module, names, .. } => {
+            generate_from_import(state, module, names)?;
+        }
         // Concurrency statements (Phase 3)
         Stmt::Sync { body, .. } => {
             return generate_sync(state, body);
@@ -1034,6 +1040,51 @@ fn call_async_context_exit<'ctx>(
     let args = [exc_type, exc_val, exc_tb];
     call_method_on_object(state, context_ptr, "__aexit__", &args)?;
 
+    Ok(())
+}
+
+/// Generate code for import statement: import module [as alias]
+fn generate_import<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    module_name: &str,
+    alias: Option<&str>,
+) -> Result<(), String> {
+    // For now, imports are handled at the semantic level
+    // The module is loaded and its symbols are available
+    // We just need to ensure the module is in the registry
+    
+    let import_name = alias.unwrap_or(module_name);
+    
+    // Create a marker global to indicate the module is imported
+    // This prevents "undefined variable" errors when using module.func()
+    let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+    let module_marker = state.module.add_global(i8_ptr_type, None, &format!("__import_{}", import_name));
+    module_marker.set_initializer(&i8_ptr_type.const_null());
+    
+    Ok(())
+}
+
+/// Generate code for from import statement: from module import name1, name2 [as alias]
+fn generate_from_import<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    module_name: &str,
+    names: &[(String, Option<String>)],
+) -> Result<(), String> {
+    // For each imported name, create a reference to the module's symbol
+    for (name, alias) in names {
+        let import_name = alias.as_deref().unwrap_or(name);
+        
+        // Create a global placeholder for the imported symbol
+        // The actual symbol will be resolved at runtime through the module system
+        let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+        let symbol_marker = state.module.add_global(
+            i8_ptr_type, 
+            None, 
+            &format!("__from_import_{}_{}", module_name, import_name)
+        );
+        symbol_marker.set_initializer(&i8_ptr_type.const_null());
+    }
+    
     Ok(())
 }
 

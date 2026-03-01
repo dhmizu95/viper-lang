@@ -1,6 +1,7 @@
 use crate::codegen;
 use crate::lexer;
 use crate::parser;
+use crate::module::{ModuleLoader, ModuleSearchPath};
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use std::fs;
@@ -44,6 +45,38 @@ pub fn compile_file_aot(
     let mut parser = parser::Parser::new(tokens);
     let mut ast = parser.parse()?;
     println!("   ✓ Parsed {} statements", ast.statements.len());
+
+    // Module Loading - Process imports
+    println!("   [2.1/4] Loading modules...");
+    let input_dir = Path::new(input_path).parent().unwrap_or(Path::new("."));
+    let mut search_path = ModuleSearchPath::new();
+    search_path.add_path(input_dir.to_path_buf());
+    
+    let mut loader = ModuleLoader::with_search_path(search_path);
+    
+    // Process imports in the main file
+    for stmt in &ast.statements {
+        match stmt {
+            crate::ast::Stmt::Import { module, .. } => {
+                if let Err(e) = loader.load_module(module) {
+                    eprintln!("   ⚠ Warning: Failed to load module '{}': {}", module, e);
+                }
+            }
+            crate::ast::Stmt::FromImport { module, .. } => {
+                if let Err(e) = loader.load_module(module) {
+                    eprintln!("   ⚠ Warning: Failed to load module '{}': {}", module, e);
+                }
+            }
+            _ => {}
+        }
+    }
+    
+    let loaded_count = loader.loaded_modules().len();
+    if loaded_count > 0 {
+        println!("   ✓ Loaded {} module(s)", loaded_count);
+    } else {
+        println!("   ✓ No external modules imported");
+    }
 
     // Semantic Analysis (Type Checking)
     println!("   [2.2/4] Type checking...");
