@@ -1104,7 +1104,7 @@ class Rectangle(Shape):
 | Async/await | ⚠️ | ✅ | ✅ |
 | Walrus operator | ❌ | ✅ | ✅ |
 | `global` keyword | ❌ | ✅ | ✅ |
-| `nonlocal` keyword | ❌ | ⚠️ | ✅ |
+| `nonlocal` keyword | ❌ | 🔄 | ✅ |
 | `@dataclass` | ❌ | ✅ | ✅ |
 | `__slots__` | ❌ | ❌ | ✅ |
 | Metaclasses | ❌ | ❌ | ✅ |

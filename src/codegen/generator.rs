@@ -276,8 +276,17 @@ impl<'ctx> CodeGen<'ctx> {
         let entry = self.context.append_basic_block(func, "entry");
         self.builder.position_at_end(entry);
 
+        // Get closure info for this function
+        let closure_info = self.closure_analyzer.get_closure_info(original_name);
+        let nonlocal_vars: Vec<String> = closure_info
+            .map(|info| info.nonlocal_vars.iter().cloned().collect())
+            .unwrap_or_default();
+        
+        // Get variables that need closure cells (captured by nested functions)
+        let captured_vars: Vec<String> = self.closure_analyzer.get_closure_cells_to_create(original_name);
+
         // Set up parameters with alloca
-        // Use escape analysis to determine if parameter needs stack allocation
+        let num_regular_params = params.len();
         for (i, param) in params.iter().enumerate() {
             let param_value = func.get_nth_param(i as u32).unwrap();
 
@@ -321,6 +330,52 @@ impl<'ctx> CodeGen<'ctx> {
                     self.bigint_vars.insert(param.name.clone());
                 } else {
                     self.list_vars.insert(param.name.clone());
+                }
+            }
+        }
+
+        // Set up closure cell parameters (hidden parameters after regular params)
+        // These are for nonlocal variables from enclosing scope
+        for (i, var_name) in nonlocal_vars.iter().enumerate() {
+            let cell_param = func.get_nth_param((num_regular_params + i) as u32).unwrap();
+            // Store the closure cell pointer
+            self.closure_cells.insert(var_name.clone(), crate::codegen::state::ClosureCellInfo {
+                cell_ptr: cell_param.into_pointer_value(),
+                value_ptr: cell_param.into_pointer_value(), // Will be updated when we get the actual value ptr
+                var_type: VarType::Int, // Default, will be updated
+            });
+            // Create a variable entry that points to the closure cell
+            let i64_ptr_type = self.context.i64_type().ptr_type(inkwell::AddressSpace::default());
+            let value_ptr = crate::codegen::closure_cells::get_closure_cell_value(
+                self.context, &self.module, &self.builder, 
+                cell_param.into_pointer_value(), i64_ptr_type
+            ).unwrap_or(cell_param.into_pointer_value());
+            self.variables.insert(var_name.clone(), VarInfo::new_closure_cell(
+                cell_param.into_pointer_value(), VarType::Int, value_ptr
+            ));
+        }
+
+        // Create closure cells for variables captured by nested functions
+        for var_name in &captured_vars {
+            if let Some(var_info) = self.variables.get(var_name) {
+                // Get the current value pointer (alloca or otherwise)
+                if let Some(value_ptr) = var_info.get_alloca() {
+                    // Create a closure cell for this variable
+                    let cell_ptr = crate::codegen::closure_cells::create_closure_cell(
+                        self.context, &self.module, &self.builder, value_ptr, var_name
+                    ).expect("create closure cell");
+                    
+                    // Get the value pointer from the cell for future access
+                    let i64_ptr_type = self.context.i64_type().ptr_type(inkwell::AddressSpace::default());
+                    let value_ptr_from_cell = crate::codegen::closure_cells::get_closure_cell_value(
+                        self.context, &self.module, &self.builder, cell_ptr, i64_ptr_type
+                    ).unwrap_or(value_ptr);
+                    
+                    // Update the variable to use closure cell storage
+                    self.variables.insert(var_name.clone(), VarInfo::new_closure_cell(
+                        cell_ptr, var_info.var_type, value_ptr_from_cell
+                    ));
+                    self.captured_vars.insert(var_name.clone());
                 }
             }
         }
