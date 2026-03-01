@@ -164,11 +164,6 @@ pub fn generate_call<'ctx>(
             return generate_bigint_bit_length(state, args);
         }
 
-        // Math builtins
-        if name == "sqrt" || name == "abs" || name == "ln" || name == "floor" {
-            return generate_math_builtin(state, name, args);
-        }
-
         // Concurrency builtins (Phase 3)
         if name == "chan" {
             return generate_chan_create(state, args);

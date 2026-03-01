@@ -201,11 +201,6 @@ impl TypeChecker {
                                 crate::semantic::symbol_table::BuiltinSignature::SqrtBigint => Some(Type::BigInt),
                                 crate::semantic::symbol_table::BuiltinSignature::MinBigint => Some(Type::BigInt),
                                 crate::semantic::symbol_table::BuiltinSignature::MaxBigint => Some(Type::BigInt),
-                                // Math builtins
-                                crate::semantic::symbol_table::BuiltinSignature::Sqrt => Some(Type::F64),
-                                crate::semantic::symbol_table::BuiltinSignature::Abs => Some(Type::F64),
-                                crate::semantic::symbol_table::BuiltinSignature::Ln => Some(Type::F64),
-                                crate::semantic::symbol_table::BuiltinSignature::Floor => Some(Type::F64),
                                 _ => None,
                             };
                             if let Some(ty) = builtin_ret {
