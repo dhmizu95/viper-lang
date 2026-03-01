@@ -18,7 +18,8 @@ class Right(Base):
 # Diamond inheritance - should work with C3 MRO
 class Diamond(Left, Right):
     def get_super_value(self) -> i64:
-        return super().get_value()
+        val = super().get_value()
+        return val
 
 # ============== Test 2: Complex MRO ==============
 class A:
@@ -38,7 +39,8 @@ class D(B, C):
         return 40
     
     def get_super_value(self) -> i64:
-        return super().get_value()
+        val = super().get_value()
+        return val
 
 # ============== Test 3: Multiple levels ==============
 class GrandParent:
@@ -54,7 +56,8 @@ class Child2(Parent2):
         return 3000
     
     def get_parent_value(self) -> i64:
-        return super().get_value()
+        val = super().get_value()
+        return val
 
 # ============== Test Runner ==============
 def test_diamond() -> None:

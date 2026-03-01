@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 pub mod compatibility;
 pub mod exprs;
+pub mod hindley_milner;
 pub mod infer;
 pub mod overload;
 pub mod stmts;

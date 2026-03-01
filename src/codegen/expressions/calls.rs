@@ -195,6 +195,11 @@ pub fn generate_call<'ctx>(
         if name == "Err" {
             return generate_err_constructor(state, args);
         }
+        
+        // Runtime type narrowing
+        if name == "isinstance" {
+            return generate_isinstance_check(state, args);
+        }
 
         // Struct module builtins
         if name == "struct_pack" || name == "pack" {
@@ -1631,25 +1636,25 @@ fn generate_super_method_call<'ctx>(
     
     let method = found_method
         .ok_or_else(|| format!("Method '{}' not found in parent classes", method_name))?;
-    
+
     // Get self from the function's first parameter
     let current_function = state.builder.get_insert_block()
         .and_then(|bb| bb.get_parent())
         .ok_or_else(|| "Not inside a function".to_string())?;
-    
+
     let self_ptr = current_function.get_nth_param(0)
         .ok_or_else(|| "Method should have self parameter".to_string())?
         .into_pointer_value();
-    
+
     // Build argument list: self + user args
     let mut arg_values: Vec<_> = args.iter()
         .map(|a| crate::codegen::expressions::generate_expr(state, a)
             .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
         .collect::<Result<_, _>>()?;
-    
+
     // Insert self as first argument
     arg_values.insert(0, self_ptr.into());
-    
+
     // Call the parent method
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
         let result = state.ir_builder.build_call(
@@ -1658,9 +1663,120 @@ fn generate_super_method_call<'ctx>(
             &arg_values,
             &format!("super_call_{}", method_name),
         );
-        
+
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
         Err(format!("Parent method '{}' not found", method_name))
     }
+}
+
+/// Generate isinstance() check for runtime type narrowing
+/// isinstance(obj, Type) returns bool indicating if obj is of Type
+pub fn generate_isinstance_check<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+    use inkwell::values::BasicValue;
+    
+    if args.len() != 2 {
+        return Err("isinstance() takes exactly 2 arguments".to_string());
+    }
+    
+    // Generate the object expression
+    let obj_val = crate::codegen::expressions::generate_expr(state, &args[0])?;
+    
+    // Get the type name from the second argument (should be a type identifier)
+    let type_name = match &args[1] {
+        Expr::Ident(name, _) => name.clone(),
+        _ => return Err("isinstance() second argument must be a type name".to_string()),
+    };
+    
+    // For now, implement basic type checks based on the expected type
+    // In a full implementation, this would use runtime type information
+    
+    // Check if we're checking against primitive types
+    let result = match type_name.as_str() {
+        "i64" | "i32" | "i16" | "i8" | "int" => {
+            // Check if value is an integer type
+            if obj_val.is_int_value() {
+                state.context.bool_type().const_int(1, false)
+            } else {
+                state.context.bool_type().const_int(0, false)
+            }
+        }
+        "f64" | "f32" | "float" => {
+            // Check if value is a float type
+            if obj_val.is_float_value() {
+                state.context.bool_type().const_int(1, false)
+            } else {
+                state.context.bool_type().const_int(0, false)
+            }
+        }
+        "bool" => {
+            // Check if value is a bool (i1)
+            if obj_val.is_int_value() && obj_val.get_type().into_int_type().get_bit_width() == 1 {
+                state.context.bool_type().const_int(1, false)
+            } else {
+                state.context.bool_type().const_int(0, false)
+            }
+        }
+        "str" => {
+            // Check if value is a string (pointer)
+            if obj_val.is_pointer_value() {
+                // For strings, we'd need to check the actual runtime type
+                // For now, assume pointers could be strings
+                // A full implementation would check the type tag
+                state.context.bool_type().const_int(1, false)  // Conservative: assume true for pointers
+            } else {
+                state.context.bool_type().const_int(0, false)
+            }
+        }
+        "list" => {
+            // Check if value is a list (pointer to list struct)
+            if obj_val.is_pointer_value() {
+                state.context.bool_type().const_int(1, false)
+            } else {
+                state.context.bool_type().const_int(0, false)
+            }
+        }
+        "dict" => {
+            if obj_val.is_pointer_value() {
+                state.context.bool_type().const_int(1, false)
+            } else {
+                state.context.bool_type().const_int(0, false)
+            }
+        }
+        "None" => {
+            // Check if value is null pointer or special None value
+            if obj_val.is_pointer_value() {
+                let ptr = obj_val.into_pointer_value();
+                let null_ptr = state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                // Convert pointers to integers for comparison
+                let intptr_type = state.context.i64_type();
+                let ptr_int = state.builder.build_ptr_to_int(ptr, intptr_type, "ptr_int")
+                    .map_err(|e| format!("Failed to convert ptr to int: {:?}", e))?;
+                let null_int = state.builder.build_ptr_to_int(null_ptr, intptr_type, "null_int")
+                    .map_err(|e| format!("Failed to convert null to int: {:?}", e))?;
+                let is_null = state.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    ptr_int,
+                    null_int,
+                    "is_none",
+                ).map_err(|e| format!("Failed to compare: {:?}", e))?;
+                is_null
+            } else {
+                state.context.bool_type().const_int(0, false)
+            }
+        }
+        // For class types, we'd need runtime type information
+        // This would check the type tag in the object header
+        _ => {
+            // For user-defined classes, we need to check the runtime type
+            // This requires RTTI (runtime type information)
+            // For now, return a conservative false
+            state.context.bool_type().const_int(0, false)
+        }
+    };
+    
+    Ok(result.into())
 }

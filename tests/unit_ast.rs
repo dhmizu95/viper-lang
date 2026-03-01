@@ -529,6 +529,7 @@ fn test_stmt_span_function() {
         body: vec![],
         span: test_span(),
         is_async: false,
+        decorators: vec![],
     };
     assert_eq!(stmt.span(), test_span());
 }
