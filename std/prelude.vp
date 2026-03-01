@@ -7,12 +7,12 @@ def print(value):
     pass
 
 # Range generator - yields numbers from 0 to n-1
-def range(n: i64):
+def range(n: int):
     # Implemented as builtin in compiler
     pass
 
 # Length of a collection
-def len(obj) -> i64:
+def len(obj) -> int:
     # Implemented as builtin
     return 0
 
@@ -31,24 +31,24 @@ def identity(x) -> x:
     return x
 
 # Min/Max
-def min(a: i64, b: i64) -> i64:
+def min(a: int, b: int) -> int:
     if a < b:
         return a
     return b
 
-def max(a: i64, b: i64) -> i64:
+def max(a: int, b: int) -> int:
     if a > b:
         return a
     return b
 
-# Absolute value for i64
-def abs(x: i64) -> i64:
+# Absolute value for int
+def abs(x: int) -> int:
     if x < 0:
         return -x
     return x
 
 # Sum of a list
-def sum(items: [i64]) -> i64:
+def sum(items: [int]) -> int:
     total = 0
     for item in items:
         total = total + item
@@ -58,7 +58,7 @@ def sum(items: [i64]) -> i64:
 # BigInt - Arbitrary Precision Integers
 # ============================================
 
-# BigInt constructor - creates a BigInt from string or i64
+# BigInt constructor - creates a BigInt from string or int
 def BigInt(value) -> BigInt:
     # Implemented as builtin in compiler
     # Usage: x = BigInt("123456789012345678901234567890")
@@ -70,8 +70,8 @@ def BigInt(value) -> BigInt:
 #     # Implemented as builtin
 #     return ""
 
-# Convert BigInt to i64 (may overflow)
-def int_bigint(x: BigInt) -> i64:
+# Convert BigInt to int (may overflow)
+def int_bigint(x: BigInt) -> int:
     # Implemented as builtin
     return 0
 

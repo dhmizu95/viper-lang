@@ -1,5 +1,5 @@
 # Prime Sieve Benchmark - Viper (100M)
-def sieve_of_eratosthenes(n: i64) -> i64:
+def sieve_of_eratosthenes(n: int) -> int:
     is_prime = [True] * (n + 1)
     is_prime[0] = False
     is_prime[1] = False

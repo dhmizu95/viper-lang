@@ -1,5 +1,5 @@
-extern "C" def llabs(n: i64) -> i64
+extern "C" def llabs(n: int) -> int
 
-def main() -> i64:
+def main() -> int:
     x = llabs(-42)
     return x

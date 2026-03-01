@@ -9,8 +9,8 @@ def swap[T, U](a: T, b: U) -> tuple[U, T]:
     return (b, a)
 
 # Generic function with constraint (T should be hashable for dict key)
-def count_occurrences[T](items: list[T]) -> dict[T, i64]:
-    counts: dict[T, i64] = {}
+def count_occurrences[T](items: list[T]) -> dict[T, int]:
+    counts: dict[T, int] = {}
     for item in items:
         if item in counts:
             counts[item] = counts[item] + 1

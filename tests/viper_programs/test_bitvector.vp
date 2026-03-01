@@ -1,7 +1,7 @@
 # Bit Vector Test - Prime Sieve
 # Tests the new bit vector implementation (1 bit per boolean, 8x memory savings)
 
-def sieve_of_eratosthenes(n: i64) -> i64:
+def sieve_of_eratosthenes(n: int) -> int:
     """Count primes up to n using Sieve of Eratosthenes with bit vector"""
     # Create bit vector initialized to all True (1 bit per element!)
     is_prime = [True] * (n + 1)

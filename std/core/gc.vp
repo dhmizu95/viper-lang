@@ -29,12 +29,12 @@ def collect():
     # Implemented in runtime
     pass
 
-def set_threshold(threshold: i64):
+def set_threshold(threshold: int):
     """Set the GC threshold (bytes)."""
     # Implemented in runtime
     pass
 
-def get_threshold() -> i64:
+def get_threshold() -> int:
     """Get the current GC threshold."""
     # Implemented in runtime
     return 0
@@ -43,7 +43,7 @@ def get_threshold() -> i64:
 # GC Statistics
 # ============================================
 
-def get_count() -> i64:
+def get_count() -> int:
     """Get the number of GC collections."""
     # Implemented in runtime
     return 0
@@ -58,22 +58,22 @@ def print_stats():
     # Implemented in runtime
     pass
 
-def get_memory_usage() -> i64:
+def get_memory_usage() -> int:
     """Get current memory usage in bytes."""
     # Implemented in runtime
     return 0
 
-def get_total_freed() -> i64:
+def get_total_freed() -> int:
     """Get total bytes freed by GC."""
     # Implemented in runtime
     return 0
 
-def get_object_count() -> i64:
+def get_object_count() -> int:
     """Get number of objects tracked."""
     # Implemented in runtime
     return 0
 
-def get_pending_count() -> i64:
+def get_pending_count() -> int:
     """Get number of objects pending finalization."""
     # Implemented in runtime
     return 0
@@ -82,12 +82,12 @@ def get_pending_count() -> i64:
 # Advanced GC Control
 # ============================================
 
-def run_finalizers() -> i64:
+def run_finalizers() -> int:
     """Run finalizers for objects pending finalization."""
     # Implemented in runtime
     return 0
 
-def break_cycles() -> i64:
+def break_cycles() -> int:
     """Force cleanup of cyclic references."""
     # Implemented in runtime
     return 0
@@ -107,16 +107,16 @@ def reset_stats():
 # ============================================
 
 # Callback types
-GC_CALLBACK_START: i64 = 0
-GC_CALLBACK_END: i64 = 1
-GC_CALLBACK_COLLECT: i64 = 2
+GC_CALLBACK_START: int = 0
+GC_CALLBACK_END: int = 1
+GC_CALLBACK_COLLECT: int = 2
 
-def set_callback(callback_type: i64, callback):
+def set_callback(callback_type: int, callback):
     """Set a GC callback function."""
     # Implemented in runtime
     pass
 
-def clear_callback(callback_type: i64):
+def clear_callback(callback_type: int):
     """Clear a GC callback."""
     # Implemented in runtime
     pass
@@ -126,9 +126,9 @@ def clear_callback(callback_type: i64):
 # ============================================
 
 # GC modes
-MODE_INCREMENTAL: i64 = 0
-MODE_GENERATIONAL: i64 = 1
-MODE_CONCURRENT: i64 = 2
+MODE_INCREMENTAL: int = 0
+MODE_GENERATIONAL: int = 1
+MODE_CONCURRENT: int = 2
 
 # Default threshold (bytes)
-DEFAULT_THRESHOLD: i64 = 1048576  # 1 MB
+DEFAULT_THRESHOLD: int = 1048576  # 1 MB

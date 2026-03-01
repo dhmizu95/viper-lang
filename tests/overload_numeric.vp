@@ -1,22 +1,22 @@
 # Test function overloading with numeric types only
 
-# Overload 1: Takes i64
-def process(x: i64) -> i64:
+# Overload 1: Takes int
+def process(x: int) -> int:
     print("Processing integer")
     return x * 2
 
-# Overload 2: Takes f64
-def process(x: f64) -> f64:
+# Overload 2: Takes float
+def process(x: float) -> float:
     print("Processing float")
     return x * 2.0
 
-# Overload 3: Takes two i64 arguments
-def add(a: i64, b: i64) -> i64:
+# Overload 3: Takes two int arguments
+def add(a: int, b: int) -> int:
     print("Adding integers")
     return a + b
 
-# Overload 4: Takes two f64 arguments
-def add(a: f64, b: f64) -> f64:
+# Overload 4: Takes two float arguments
+def add(a: float, b: float) -> float:
     print("Adding floats")
     return a + b
 

@@ -2,24 +2,6 @@ use super::*;
 use crate::ast::{BinOp, Expr, Stmt};
 use crate::lexer::TokenKind;
 
-pub fn parse_mutable_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
-    let span = parser.current().span;
-    parser.expect(&TokenKind::Mut)?;
-
-    let name = parser.expect_ident()?;
-
-    let type_ann = if parser.match_token(&TokenKind::Colon) {
-        Some(parse_type_annotation(parser)?)
-    } else {
-        None
-    };
-
-    let value =
-        if parser.match_token(&TokenKind::Eq) { Some(parse_expression(parser)?) } else { None };
-
-    Ok(Stmt::Declare { name, type_ann, value, mutable: true, span })
-}
-
 /// Parse global variable declaration: global x, y, z
 /// Python syntax: global x (inside function to refer to module-level x)
 pub fn parse_global_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
@@ -232,7 +214,6 @@ pub fn parse_value_expr(parser: &mut StatementParser) -> Result<Expr, String> {
             | TokenKind::Finally
             | TokenKind::Sync
             | TokenKind::Task
-            | TokenKind::Mut
     ) {
         return Ok(expr);
     }

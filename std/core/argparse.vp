@@ -27,13 +27,13 @@ class ArgumentTypeError(ArgumentError):
 # Action Types
 # ============================================
 
-ACTION_STORE: i64 = 0
-ACTION_STORE_TRUE: i64 = 1
-ACTION_STORE_FALSE: i64 = 2
-ACTION_APPEND: i64 = 3
-ACTION_COUNT: i64 = 4
-ACTION_HELP: i64 = 5
-ACTION_VERSION: i64 = 6
+ACTION_STORE: int = 0
+ACTION_STORE_TRUE: int = 1
+ACTION_STORE_FALSE: int = 2
+ACTION_APPEND: int = 3
+ACTION_COUNT: int = 4
+ACTION_HELP: int = 5
+ACTION_VERSION: int = 6
 
 # ============================================
 # Argument Definition
@@ -44,8 +44,8 @@ class Argument:
     
     def __init__(self, name: str, short: str = "", 
                  type_fn = str, default = None,
-                 action: i64 = ACTION_STORE,
-                 nargs: i64 = 1,
+                 action: int = ACTION_STORE,
+                 nargs: int = 1,
                  choices: [str] = None,
                  required: bool = False,
                  help: str = "",
@@ -276,7 +276,7 @@ class ArgumentParser:
         
         return None
     
-    def _parse_argument(self, arg: Argument, args: [str], i: i64, namespace: Namespace) -> i64:
+    def _parse_argument(self, arg: Argument, args: [str], i: int, namespace: Namespace) -> int:
         """Parse a single argument and update namespace."""
         if arg.action == ACTION_HELP:
             self.print_help()
@@ -463,14 +463,14 @@ def boolean(s: str) -> bool:
         return False
     raise ArgumentTypeError("Invalid boolean: " + s)
 
-def positive_int(s: str) -> i64:
+def positive_int(s: str) -> int:
     """Convert string to positive integer."""
     value = int(s)
     if value <= 0:
         raise ArgumentTypeError("Must be positive: " + s)
     return value
 
-def non_negative_int(s: str) -> i64:
+def non_negative_int(s: str) -> int:
     """Convert string to non-negative integer."""
     value = int(s)
     if value < 0:
@@ -481,10 +481,10 @@ def non_negative_int(s: str) -> i64:
 # Constants
 # ============================================
 
-REMAINDER: i64 = -1
-OPTIONAL: i64 = 0
-ZERO_OR_MORE: i64 = -2
-ONE_OR_MORE: i64 = -3
-PARSER: i64 = -4
+REMAINDER: int = -1
+OPTIONAL: int = 0
+ZERO_OR_MORE: int = -2
+ONE_OR_MORE: int = -3
+PARSER: int = -4
 SUPPRESS: str = "==SUPPRESS=="
 HELP: str = "==HELP=="

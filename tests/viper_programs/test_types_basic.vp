@@ -3,9 +3,9 @@ def test_types():
     i8_val: i8 = 1
     i16_val: i16 = 2
     i32_val: i32 = 3
-    i64_val: i64 = 4
+    i64_val: int = 4
     f32_val: f32 = 5.0
-    f64_val: f64 = 6.0
+    f64_val: float = 6.0
     b_val: bool = True
     print("types ok")
 

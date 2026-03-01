@@ -1,6 +1,6 @@
 # Fibonacci(1000) with BigInt - Performance Benchmark
 
-def fib(n: i64) -> BigInt:
+def fib(n: int) -> BigInt:
     if n <= 0:
         return 0
     elif n == 1:

@@ -53,7 +53,7 @@ class Path:
             return False
         return self._path == other._path
     
-    def __hash__(self) -> i64:
+    def __hash__(self) -> int:
         return hash(self._path)
     
     def __truediv__(self, other):
@@ -223,7 +223,7 @@ class Path:
     # Directory operations
     # ============================================
     
-    def mkdir(self, mode: i64 = 0o755, parents: bool = False, exist_ok: bool = False):
+    def mkdir(self, mode: int = 0o755, parents: bool = False, exist_ok: bool = False):
         """Create a directory."""
         if parents:
             makedirs(self._path, mode, exist_ok)
@@ -264,7 +264,7 @@ class Path:
     # File operations
     # ============================================
     
-    def read_bytes(self) -> [i64]:
+    def read_bytes(self) -> [int]:
         """Read file contents as bytes."""
         # Would need os.open/read
         return []
@@ -274,7 +274,7 @@ class Path:
         # Would need file I/O
         return ""
     
-    def write_bytes(self, data: [i64]):
+    def write_bytes(self, data: [int]):
         """Write bytes to file."""
         # Would need file I/O
         pass
@@ -284,7 +284,7 @@ class Path:
         # Would need file I/O
         pass
     
-    def touch(self, mode: i64 = 0o666, exist_ok: bool = True):
+    def touch(self, mode: int = 0o666, exist_ok: bool = True):
         """Create a file or update its timestamp."""
         # Would need os.utime
         if not self.exists():

@@ -11,19 +11,19 @@ def test_bigint_suffix():
     print("b = ")
     print(str_bigint(b))
 
-# Test 2: Automatic BigInt for large integers (exceeds i64)
+# Test 2: Automatic BigInt for large integers (exceeds int)
 def test_auto_bigint():
     print("Test 2: Automatic BigInt for large integers")
-    # This number is too large for i64, automatically becomes BigInt
+    # This number is too large for int, automatically becomes BigInt
     x = 123456789012345678901234567890
     print("x (auto BigInt) = ")
     print(str_bigint(x))
 
-# Test 3: Regular integers still work as i64
+# Test 3: Regular integers still work as int
 def test_regular_int():
-    print("Test 3: Regular integers (i64)")
+    print("Test 3: Regular integers (int)")
     small = 42
-    large_i64 = 9223372036854775807  # i64::MAX
+    large_i64 = 9223372036854775807  # int::MAX
     print("small = ")
     print(small)
     print("large_i64 = ")

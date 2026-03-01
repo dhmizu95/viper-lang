@@ -1,4 +1,4 @@
-def add_one(x: i64) -> i64:
+def add_one(x: int) -> int:
     return x + 1
 
 def main():

@@ -1,5 +1,5 @@
 # Simple Result test
-def test() -> Result[i64, str]:
+def test() -> Result[int, str]:
     return Ok(42)
 
 test()

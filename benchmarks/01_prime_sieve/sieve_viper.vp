@@ -1,5 +1,5 @@
 # Prime Sieve Benchmark - Viper (simple prints)
-def sieve(n: i64) -> i64:
+def sieve(n: int) -> int:
     is_prime = []
     i = 0
     while i <= n:

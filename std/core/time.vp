@@ -9,31 +9,31 @@ __version__ = "0.4.5"
 # Time Functions
 # ============================================
 
-def time() -> f64:
+def time() -> float:
     """Get current time as Unix timestamp (seconds since epoch)."""
     # Implemented in runtime
     return 0.0
 
-def monotonic() -> f64:
+def monotonic() -> float:
     """Get monotonic clock time (cannot go backwards)."""
     # Implemented in runtime
     return 0.0
 
-def perf_counter() -> f64:
+def perf_counter() -> float:
     """Get performance counter with highest available resolution."""
     # Implemented in runtime
     return 0.0
 
-def sleep(seconds: f64):
+def sleep(seconds: float):
     """Sleep for the specified number of seconds."""
     # Implemented in runtime
     pass
 
-def sleep_ms(milliseconds: i64):
+def sleep_ms(milliseconds: int):
     """Sleep for the specified number of milliseconds."""
     sleep(milliseconds / 1000.0)
 
-def sleep_us(microseconds: i64):
+def sleep_us(microseconds: int):
     """Sleep for the specified number of microseconds."""
     sleep(microseconds / 1000000.0)
 
@@ -41,21 +41,21 @@ def sleep_us(microseconds: i64):
 # Time Conversion
 # ============================================
 
-def localtime(timestamp: f64 = None) -> struct_time:
+def localtime(timestamp: float = None) -> struct_time:
     """Convert timestamp to local time struct."""
     if timestamp is None:
         timestamp = time()
     # Implemented in runtime
     return struct_time()
 
-def gmtime(timestamp: f64 = None) -> struct_time:
+def gmtime(timestamp: float = None) -> struct_time:
     """Convert timestamp to UTC time struct."""
     if timestamp is None:
         timestamp = time()
     # Implemented in runtime
     return struct_time()
 
-def mktime(t: struct_time) -> f64:
+def mktime(t: struct_time) -> float:
     """Convert struct_time to Unix timestamp."""
     # Implemented in runtime
     return 0.0
@@ -78,13 +78,13 @@ def asctime(t: struct_time = None) -> str:
         t = localtime()
     return strftime("%a %b %d %H:%M:%S %Y", t)
 
-def ctime(timestamp: f64 = None) -> str:
+def ctime(timestamp: float = None) -> str:
     """Convert timestamp to ASCII string."""
     if timestamp is None:
         timestamp = time()
     return asctime(localtime(timestamp))
 
-def isoformat(timestamp: f64 = None) -> str:
+def isoformat(timestamp: float = None) -> str:
     """Convert timestamp to ISO 8601 format."""
     if timestamp is None:
         timestamp = time()
@@ -98,17 +98,17 @@ class struct_time:
     """Time structure with named fields."""
     
     def __init__(self):
-        self.tm_year: i64 = 1970    # Year (e.g., 2024)
-        self.tm_mon: i64 = 1        # Month (1-12)
-        self.tm_mday: i64 = 1       # Day of month (1-31)
-        self.tm_hour: i64 = 0       # Hour (0-23)
-        self.tm_min: i64 = 0        # Minute (0-59)
-        self.tm_sec: i64 = 0        # Second (0-59)
-        self.tm_wday: i64 = 0       # Weekday (0=Monday, 6=Sunday)
-        self.tm_yday: i64 = 1       # Day of year (1-366)
-        self.tm_isdst: i64 = 0      # DST flag (-1/0/1)
+        self.tm_year: int = 1970    # Year (e.g., 2024)
+        self.tm_mon: int = 1        # Month (1-12)
+        self.tm_mday: int = 1       # Day of month (1-31)
+        self.tm_hour: int = 0       # Hour (0-23)
+        self.tm_min: int = 0        # Minute (0-59)
+        self.tm_sec: int = 0        # Second (0-59)
+        self.tm_wday: int = 0       # Weekday (0=Monday, 6=Sunday)
+        self.tm_yday: int = 1       # Day of year (1-366)
+        self.tm_isdst: int = 0      # DST flag (-1/0/1)
     
-    def __getitem__(self, index: i64):
+    def __getitem__(self, index: int):
         """Access fields by index (tuple-like behavior)."""
         if index == 0: return self.tm_year
         if index == 1: return self.tm_mon
@@ -121,7 +121,7 @@ class struct_time:
         if index == 8: return self.tm_isdst
         raise IndexError("struct_time index out of range")
     
-    def __len__(self) -> i64:
+    def __len__(self) -> int:
         return 9
     
     def __repr__(self) -> str:
@@ -131,7 +131,7 @@ class struct_time:
 # Timezone
 # ============================================
 
-def timezone() -> i64:
+def timezone() -> int:
     """Get timezone offset in seconds (positive = east of Greenwich)."""
     # Implemented in runtime
     return 0
@@ -154,16 +154,16 @@ def tzset():
 # ============================================
 
 # Epoch (Unix epoch start)
-EPOCH: f64 = 0.0
+EPOCH: float = 0.0
 
 # Seconds in various units
-SECONDS_PER_MINUTE: f64 = 60.0
-SECONDS_PER_HOUR: f64 = 3600.0
-SECONDS_PER_DAY: f64 = 86400.0
-SECONDS_PER_WEEK: f64 = 604800.0
+SECONDS_PER_MINUTE: float = 60.0
+SECONDS_PER_HOUR: float = 3600.0
+SECONDS_PER_DAY: float = 86400.0
+SECONDS_PER_WEEK: float = 604800.0
 
 # Days in months (non-leap year)
-DAYS_IN_MONTH: [i64] = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+DAYS_IN_MONTH: [int] = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 # Month names
 MONTH_NAMES: [str] = [
@@ -187,7 +187,7 @@ WEEKDAY_ABBRS: [str] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 # Utility Functions
 # ============================================
 
-def days_in_month(year: i64, month: i64) -> i64:
+def days_in_month(year: int, month: int) -> int:
     """Get number of days in a month."""
     # Implemented in runtime
     if month < 1 or month > 12:
@@ -199,11 +199,11 @@ def days_in_month(year: i64, month: i64) -> i64:
     
     return DAYS_IN_MONTH[month]
 
-def is_leap_year(year: i64) -> bool:
+def is_leap_year(year: int) -> bool:
     """Check if year is a leap year."""
     return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
 
-def day_of_week(year: i64, month: i64, day: i64) -> i64:
+def day_of_week(year: int, month: int, day: int) -> int:
     """Calculate day of week (0=Monday, 6=Sunday) using Zeller's formula."""
     if month < 3:
         month += 12
@@ -219,15 +219,15 @@ def day_of_week(year: i64, month: i64, day: i64) -> i64:
     # Convert from Zeller (0=Saturday) to our format (0=Monday)
     return (h + 5) % 7
 
-def day_of_year(year: i64, month: i64, day: i64) -> i64:
+def day_of_year(year: int, month: int, day: int) -> int:
     """Calculate day of year (1-366)."""
     total = day
     for m in range(1, month):
         total += days_in_month(year, m)
     return total
 
-def make_time(year: i64, month: i64, day: i64, 
-             hour: i64 = 0, minute: i64 = 0, second: i64 = 0) -> f64:
+def make_time(year: int, month: int, day: int, 
+             hour: int = 0, minute: int = 0, second: int = 0) -> float:
     """Create timestamp from components."""
     # Simplified - doesn't account for leap seconds
     days = 0

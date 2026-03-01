@@ -9,42 +9,42 @@ __version__ = "0.4.5"
 # Basic Functions
 # ============================================
 
-def random() -> f64:
+def random() -> float:
     """Return a random float in the range [0.0, 1.0)."""
     # Implemented in runtime
     return 0.0
 
-def randint(a: i64, b: i64) -> i64:
+def randint(a: int, b: int) -> int:
     """Return a random integer N such that a <= N <= b."""
     # Implemented in runtime
     return 0
 
-def randrange(start: i64, stop: i64 = None, step: i64 = 1) -> i64:
+def randrange(start: int, stop: int = None, step: int = 1) -> int:
     """Return a randomly selected element from range(start, stop, step)."""
     # Implemented in runtime
     return 0
 
-def uniform(a: f64, b: f64) -> f64:
+def uniform(a: float, b: float) -> float:
     """Return a random float N such that a <= N <= b."""
     # Implemented in runtime
     return 0.0
 
-def choice(seq: [i64]):
+def choice(seq: [int]):
     """Return a random element from the non-empty sequence."""
     # Implemented in runtime
     return 0
 
-def choices(population: [i64], weights: [f64] = None, cum_weights: [f64] = None, k: i64 = 1) -> [i64]:
+def choices(population: [int], weights: [float] = None, cum_weights: [float] = None, k: int = 1) -> [int]:
     """Return a list of k elements chosen from population with replacement."""
     # Implemented in runtime
     return []
 
-def shuffle(x: [i64]):
+def shuffle(x: [int]):
     """Shuffle the sequence x in place."""
     # Implemented in runtime
     pass
 
-def sample(population: [i64], k: i64) -> [i64]:
+def sample(population: [int], k: int) -> [int]:
     """Return a k length list of unique elements chosen from population."""
     # Implemented in runtime
     return []
@@ -53,7 +53,7 @@ def sample(population: [i64], k: i64) -> [i64]:
 # Seeding
 # ============================================
 
-def seed(a: i64 = None):
+def seed(a: int = None):
     """Initialize the random number generator."""
     # Implemented in runtime
     pass
@@ -72,51 +72,51 @@ def setstate(state):
 # Distributions
 # ============================================
 
-def gauss(mu: f64 = 0.0, sigma: f64 = 1.0) -> f64:
+def gauss(mu: float = 0.0, sigma: float = 1.0) -> float:
     """Gaussian distribution with mean mu and standard deviation sigma."""
     # Implemented in runtime
     return 0.0
 
-def normalvariate(mu: f64 = 0.0, sigma: f64 = 1.0) -> f64:
+def normalvariate(mu: float = 0.0, sigma: float = 1.0) -> float:
     """Normal distribution (alias for gauss)."""
     return gauss(mu, sigma)
 
-def lognormvariate(mu: f64 = 0.0, sigma: f64 = 1.0) -> f64:
+def lognormvariate(mu: float = 0.0, sigma: float = 1.0) -> float:
     """Log-normal distribution."""
     # Implemented in runtime
     return 0.0
 
-def expovariate(lambd: f64) -> f64:
+def expovariate(lambd: float) -> float:
     """Exponential distribution with rate lambd."""
     # Implemented in runtime
     return 0.0
 
-def triangular(low: f64 = 0.0, high: f64 = 1.0, mode: f64 = None) -> f64:
+def triangular(low: float = 0.0, high: float = 1.0, mode: float = None) -> float:
     """Triangular distribution."""
     # Implemented in runtime
     return 0.0
 
-def betavariate(alpha: f64, beta: f64) -> f64:
+def betavariate(alpha: float, beta: float) -> float:
     """Beta distribution."""
     # Implemented in runtime
     return 0.0
 
-def gammavariate(alpha: f64, beta: f64) -> f64:
+def gammavariate(alpha: float, beta: float) -> float:
     """Gamma distribution."""
     # Implemented in runtime
     return 0.0
 
-def weibullvariate(alpha: f64, beta: f64) -> f64:
+def weibullvariate(alpha: float, beta: float) -> float:
     """Weibull distribution."""
     # Implemented in runtime
     return 0.0
 
-def paretovariate(alpha: f64) -> f64:
+def paretovariate(alpha: float) -> float:
     """Pareto distribution."""
     # Implemented in runtime
     return 0.0
 
-def vonmisesvariate(mu: f64, kappa: f64) -> f64:
+def vonmisesvariate(mu: float, kappa: float) -> float:
     """Von Mises distribution."""
     # Implemented in runtime
     return 0.0
@@ -125,17 +125,17 @@ def vonmisesvariate(mu: f64, kappa: f64) -> f64:
 # Discrete Distributions
 # ============================================
 
-def binomialvariate(n: i64, p: f64) -> i64:
+def binomialvariate(n: int, p: float) -> int:
     """Binomial distribution."""
     # Implemented in runtime
     return 0
 
-def geometricvariate(p: f64) -> i64:
+def geometricvariate(p: float) -> int:
     """Geometric distribution."""
     # Implemented in runtime
     return 0
 
-def poissonvariate(lambd: f64) -> i64:
+def poissonvariate(lambd: float) -> int:
     """Poisson distribution."""
     # Implemented in runtime
     return 0
@@ -147,24 +147,24 @@ def poissonvariate(lambd: f64) -> i64:
 class SystemRandom:
     """Random number generator using os.urandom()."""
     
-    def random(self) -> f64:
+    def random(self) -> float:
         """Return a random float in [0.0, 1.0)."""
         # Implemented in runtime
         return 0.0
     
-    def randint(self, a: i64, b: i64) -> i64:
+    def randint(self, a: int, b: int) -> int:
         """Return a random integer in [a, b]."""
         return 0
     
-    def choice(self, seq: [i64]):
+    def choice(self, seq: [int]):
         """Return a random element from seq."""
         return 0
     
-    def shuffle(self, x: [i64]):
+    def shuffle(self, x: [int]):
         """Shuffle x in place."""
         pass
     
-    def sample(self, population: [i64], k: i64) -> [i64]:
+    def sample(self, population: [int], k: int) -> [int]:
         """Return k unique elements from population."""
         return []
 
@@ -172,12 +172,12 @@ class SystemRandom:
 # Utility Functions
 # ============================================
 
-def randbytes(n: i64) -> [i64]:
+def randbytes(n: int) -> [int]:
     """Generate n random bytes."""
     # Implemented in runtime
     return []
 
-def getrandbits(k: i64) -> i64:
+def getrandbits(k: int) -> int:
     """Return a random integer with k random bits."""
     # Implemented in runtime
     return 0
@@ -206,27 +206,27 @@ _default_random = None
 # Convenience Functions
 # ============================================
 
-def random_int(min_val: i64, max_val: i64) -> i64:
+def random_int(min_val: int, max_val: int) -> int:
     """Generate a random integer in range [min_val, max_val]."""
     return randint(min_val, max_val)
 
-def random_float(min_val: f64, max_val: f64) -> f64:
+def random_float(min_val: float, max_val: float) -> float:
     """Generate a random float in range [min_val, max_val]."""
     return uniform(min_val, max_val)
 
-def random_bool(probability: f64 = 0.5) -> bool:
+def random_bool(probability: float = 0.5) -> bool:
     """Generate a random boolean with given probability of True."""
     return random() < probability
 
-def random_element(items: [i64]):
+def random_element(items: [int]):
     """Pick a random element from a list."""
     return choice(items)
 
-def random_subset(items: [i64], size: i64) -> [i64]:
+def random_subset(items: [int], size: int) -> [int]:
     """Pick a random subset of given size."""
     return sample(items, size)
 
-def shuffle_copy(items: [i64]) -> [i64]:
+def shuffle_copy(items: [int]) -> [int]:
     """Return a shuffled copy of the list."""
     result = items.copy()
     shuffle(result)

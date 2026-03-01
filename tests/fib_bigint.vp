@@ -1,7 +1,7 @@
 # Fibonacci with BigInt - Test large number computation
 
 # Iterative Fibonacci using BigInt
-def fib(n: i64) -> BigInt:
+def fib(n: int) -> BigInt:
     if n <= 0:
         return BigInt("0")
     elif n == 1:

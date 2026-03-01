@@ -20,16 +20,16 @@
 | Feature | Description | Status |
 |---------|-------------|--------|
 | Static typing | Compile-time type checking | Phase 1 |
-| Type inference | `x = 5` → `i64` automatically | Phase 1 |
-| Explicit annotations | `x: i64`, `def f() -> str` | Phase 1 |
-| Basic types | `i8`, `i16`, `i32`, `i64`, `f32`, `f64`, `bool` | Phase 1 |
+| Type inference | `x = 5` → `int` automatically | Phase 1 |
+| Explicit annotations | `x: int`, `def f() -> str` | Phase 1 |
+| Basic types | `i8`, `i16`, `i32`, `int`, `f32`, `float`, `bool` | Phase 1 |
 | BigInt type | `BigInt` - arbitrary precision integers | Phase 1 |
 | String type | `str` (UTF-8, immutable) | Phase 1 |
 | Void type | `void` for functions | Phase 1 |
 | Optional types | `T?` or `Option[T]` | Phase 2 |
 | Union types | `int | str` | Phase 3 |
 | Generic types | `List[T]`, `Dict[K,V]` | Phase 3 |
-| Type aliases | `type MyInt = i64` | Phase 2 |
+| Type aliases | `type MyInt = int` | Phase 2 |
 | Named tuples | `tuple[int, str, float]` | Phase 2 |
 | Function types | `fn(int) -> str` | Phase 3 |
 
@@ -37,8 +37,7 @@
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| Immutable by default | `x = 5` cannot be reassigned | Phase 1 |
-| Mutable variables | `mut x = 5` allows reassignment | Phase 2 |
+| Immutable by default | All variables are mutable by default (Python-style) | Phase 1 |
 | Multiple assignment | `a, b = 1, 2` | Phase 2 |
 | Unpacking | `a, b = my_tuple` | Phase 2 |
 | Walrus operator | `if (n := len(x)) > 0:` | Phase 3 |

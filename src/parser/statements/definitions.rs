@@ -355,9 +355,8 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
             // Viper native types
             "i8" => Type::I8,
             "i16" => Type::I16,
-            "i32" | "i64" => Type::I64,
+            "i32" => Type::I32,
             "f32" => Type::F32,
-            "f64" => Type::F64,
             "bool" => Type::Bool,
             "str" => Type::Str,
             "WaitGroup" => {

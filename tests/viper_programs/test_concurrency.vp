@@ -1,7 +1,7 @@
 # Phase 3 Concurrency Test for Viper
 # Tests sync blocks, channels, and WaitGroup
 
-def worker(id: i64, result_chan: Chan[i64]):
+def worker(id: int, result_chan: Chan[int]):
     """Worker function that sends ID to channel"""
     send(result_chan, id)
 

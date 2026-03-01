@@ -1,7 +1,7 @@
 # Test union types - basic parsing and type checking
 
 # Union type with multiple variants
-def handle_mixed(value: i64 | str | bool) -> str:
+def handle_mixed(value: int | str | bool) -> str:
     return "handled"
 
 # Variable with union type annotation

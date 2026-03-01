@@ -11,7 +11,7 @@ __version__ = "0.4.5"
 
 class JSONDecodeError(Exception):
     """Exception raised when decoding JSON fails."""
-    def __init__(self, message: str = "", doc: str = "", pos: i64 = 0):
+    def __init__(self, message: str = "", doc: str = "", pos: int = 0):
         self.message = message
         self.doc = doc
         self.pos = pos
@@ -42,16 +42,16 @@ def load_file(path: str) -> {str: str}:
 # Encoding
 # ============================================
 
-def dumps(obj: {str: str}, indent: i64 = 0, sort_keys: bool = False) -> str:
+def dumps(obj: {str: str}, indent: int = 0, sort_keys: bool = False) -> str:
     """Serialize obj to a JSON formatted str."""
     # Implemented in runtime
     return "{}"
 
-def dump(obj: {str: str}, fp, indent: i64 = 0, sort_keys: bool = False):
+def dump(obj: {str: str}, fp, indent: int = 0, sort_keys: bool = False):
     """Serialize obj to a JSON formatted stream."""
     fp.write(dumps(obj, indent, sort_keys))
 
-def dump_file(obj: {str: str}, path: str, indent: i64 = 0):
+def dump_file(obj: {str: str}, path: str, indent: int = 0):
     """Write JSON to a file."""
     # Implemented in runtime
     pass
@@ -65,7 +65,7 @@ class JSONEncoder:
     
     def __init__(self, skipkeys: bool = False, ensure_ascii: bool = True,
                  check_circular: bool = True, allow_nan: bool = True,
-                 sort_keys: bool = False, indent: i64 = 0):
+                 sort_keys: bool = False, indent: int = 0):
         self.skipkeys = skipkeys
         self.ensure_ascii = ensure_ascii
         self.check_circular = check_circular
@@ -95,7 +95,7 @@ class JSONDecoder:
         """Return the Python representation of s (a str instance containing a JSON document)."""
         return loads(s)
     
-    def raw_decode(self, s: str, idx: i64 = 0) -> ({str: str}, i64):
+    def raw_decode(self, s: str, idx: int = 0) -> ({str: str}, int):
         """Decode a JSON document from s and return a 2-tuple with the decoded result and the index."""
         return (loads(s), len(s))
 
@@ -111,7 +111,7 @@ def is_valid_json(s: str) -> bool:
     except JSONDecodeError:
         return False
 
-def to_json(obj, indent: i64 = 0) -> str:
+def to_json(obj, indent: int = 0) -> str:
     """Convert object to JSON string."""
     return dumps(obj, indent, False)
 

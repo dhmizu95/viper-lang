@@ -9,37 +9,37 @@ __version__ = "0.4.5"
 # ============================================
 
 # 2xx Success
-OK: i64 = 200
-CREATED: i64 = 201
-ACCEPTED: i64 = 202
-NO_CONTENT: i64 = 204
+OK: int = 200
+CREATED: int = 201
+ACCEPTED: int = 202
+NO_CONTENT: int = 204
 
 # 3xx Redirection
-MOVED_PERMANENTLY: i64 = 301
-FOUND: i64 = 302
-SEE_OTHER: i64 = 303
-NOT_MODIFIED: i64 = 304
-TEMPORARY_REDIRECT: i64 = 307
-PERMANENT_REDIRECT: i64 = 308
+MOVED_PERMANENTLY: int = 301
+FOUND: int = 302
+SEE_OTHER: int = 303
+NOT_MODIFIED: int = 304
+TEMPORARY_REDIRECT: int = 307
+PERMANENT_REDIRECT: int = 308
 
 # 4xx Client Error
-BAD_REQUEST: i64 = 400
-UNAUTHORIZED: i64 = 401
-FORBIDDEN: i64 = 403
-NOT_FOUND: i64 = 404
-METHOD_NOT_ALLOWED: i64 = 405
-CONFLICT: i64 = 409
-GONE: i64 = 410
-PRECONDITION_FAILED: i64 = 412
-UNSUPPORTED_MEDIA_TYPE: i64 = 415
-TOO_MANY_REQUESTS: i64 = 429
+BAD_REQUEST: int = 400
+UNAUTHORIZED: int = 401
+FORBIDDEN: int = 403
+NOT_FOUND: int = 404
+METHOD_NOT_ALLOWED: int = 405
+CONFLICT: int = 409
+GONE: int = 410
+PRECONDITION_FAILED: int = 412
+UNSUPPORTED_MEDIA_TYPE: int = 415
+TOO_MANY_REQUESTS: int = 429
 
 # 5xx Server Error
-INTERNAL_SERVER_ERROR: i64 = 500
-NOT_IMPLEMENTED: i64 = 501
-BAD_GATEWAY: i64 = 502
-SERVICE_UNAVAILABLE: i64 = 503
-GATEWAY_TIMEOUT: i64 = 504
+INTERNAL_SERVER_ERROR: int = 500
+NOT_IMPLEMENTED: int = 501
+BAD_GATEWAY: int = 502
+SERVICE_UNAVAILABLE: int = 503
+GATEWAY_TIMEOUT: int = 504
 
 # ============================================
 # HTTP Methods
@@ -76,7 +76,7 @@ class Response:
             self._text = vp_http_response_text(ptr)
     
     @property
-    def status_code(self) -> i64:
+    def status_code(self) -> int:
         """Get HTTP status code."""
         return self._status_code
     
@@ -138,7 +138,7 @@ class Response:
 class HTTPError(Exception):
     """HTTP error exception."""
     
-    def __init__(self, status_code: i64, message: str = ""):
+    def __init__(self, status_code: int, message: str = ""):
         self.status_code = status_code
         self.message = message
         super().__init__(f"HTTP {status_code}: {message}")
@@ -147,7 +147,7 @@ class HTTPError(Exception):
 # Client Functions
 # ============================================
 
-def get(url: str, headers: dict = None, timeout: f64 = 30.0) -> Response:
+def get(url: str, headers: dict = None, timeout: float = 30.0) -> Response:
     """Send a GET request."""
     resp_ptr = vp_http_get(url)
     resp = Response()
@@ -155,7 +155,7 @@ def get(url: str, headers: dict = None, timeout: f64 = 30.0) -> Response:
     return resp
 
 def post(url: str, data: str = None, json_data: dict = None, 
-         headers: dict = None, timeout: f64 = 30.0) -> Response:
+         headers: dict = None, timeout: float = 30.0) -> Response:
     """Send a POST request."""
     body = data
     if json_data:
@@ -167,32 +167,32 @@ def post(url: str, data: str = None, json_data: dict = None,
     return resp
 
 def put(url: str, data: str = None, headers: dict = None, 
-        timeout: f64 = 30.0) -> Response:
+        timeout: float = 30.0) -> Response:
     """Send a PUT request."""
     return request(PUT, url, data, headers)
 
 def delete(url: str, headers: dict = None, 
-           timeout: f64 = 30.0) -> Response:
+           timeout: float = 30.0) -> Response:
     """Send a DELETE request."""
     return request(DELETE, url, None, headers)
 
 def patch(url: str, data: str = None, headers: dict = None,
-          timeout: f64 = 30.0) -> Response:
+          timeout: float = 30.0) -> Response:
     """Send a PATCH request."""
     return request(PATCH, url, data, headers)
 
 def head(url: str, headers: dict = None,
-         timeout: f64 = 30.0) -> Response:
+         timeout: float = 30.0) -> Response:
     """Send a HEAD request."""
     return request(HEAD, url, None, headers)
 
 def options(url: str, headers: dict = None,
-            timeout: f64 = 30.0) -> Response:
+            timeout: float = 30.0) -> Response:
     """Send an OPTIONS request."""
     return request(OPTIONS, url, None, headers)
 
 def request(method: str, url: str, data: str = None, 
-            headers: dict = None, timeout: f64 = 30.0) -> Response:
+            headers: dict = None, timeout: float = 30.0) -> Response:
     """Send a generic HTTP request."""
     body = data if data else ""
     resp_ptr = vp_http_request(method, url, body, headers)
@@ -207,7 +207,7 @@ def request(method: str, url: str, data: str = None,
 class Server:
     """HTTP server."""
     
-    def __init__(self, port: i64, handler=None):
+    def __init__(self, port: int, handler=None):
         """Create a new HTTP server."""
         self._port = port
         self._handler = handler
@@ -229,11 +229,11 @@ class Server:
         return vp_http_server_is_running(self._server) != 0
     
     @property
-    def port(self) -> i64:
+    def port(self) -> int:
         """Get server port."""
         return self._port
 
-def create_server(port: i64, handler=None) -> Server:
+def create_server(port: int, handler=None) -> Server:
     """Create a new HTTP server."""
     return Server(port, handler)
 
@@ -349,36 +349,36 @@ class Headers:
 extern def vp_http_get(url: str)
 extern def vp_http_post(url: str, body: str)
 extern def vp_http_request(method: str, url: str, body: str, headers: dict)
-extern def vp_http_response_status(resp) -> i64
+extern def vp_http_response_status(resp) -> int
 extern def vp_http_response_text(resp) -> str
 extern def vp_http_response_json(resp) -> dict
 extern def vp_http_response_header(resp, name: str) -> str
 extern def vp_http_response_free(resp)
-extern def vp_http_server_create(port: i64, handler) 
+extern def vp_http_server_create(port: int, handler) 
 extern def vp_http_server_free(server)
-extern def vp_http_server_serve(server) -> i64
+extern def vp_http_server_serve(server) -> int
 extern def vp_http_server_stop(server)
-extern def vp_http_server_is_running(server) -> i64
+extern def vp_http_server_is_running(server) -> int
 extern def vp_http_urlencode(s: str) -> str
 extern def vp_http_urldecode(s: str) -> str
 
 # Status code constants from runtime
-extern def vp_http_ok() -> i64
-extern def vp_http_created() -> i64
-extern def vp_http_no_content() -> i64
-extern def vp_http_moved_permanently() -> i64
-extern def vp_http_found() -> i64
-extern def vp_http_not_modified() -> i64
-extern def vp_http_bad_request() -> i64
-extern def vp_http_unauthorized() -> i64
-extern def vp_http_forbidden() -> i64
-extern def vp_http_not_found() -> i64
-extern def vp_http_method_not_allowed() -> i64
-extern def vp_http_conflict() -> i64
-extern def vp_http_internal_server_error() -> i64
-extern def vp_http_not_implemented() -> i64
-extern def vp_http_bad_gateway() -> i64
-extern def vp_http_service_unavailable() -> i64
+extern def vp_http_ok() -> int
+extern def vp_http_created() -> int
+extern def vp_http_no_content() -> int
+extern def vp_http_moved_permanently() -> int
+extern def vp_http_found() -> int
+extern def vp_http_not_modified() -> int
+extern def vp_http_bad_request() -> int
+extern def vp_http_unauthorized() -> int
+extern def vp_http_forbidden() -> int
+extern def vp_http_not_found() -> int
+extern def vp_http_method_not_allowed() -> int
+extern def vp_http_conflict() -> int
+extern def vp_http_internal_server_error() -> int
+extern def vp_http_not_implemented() -> int
+extern def vp_http_bad_gateway() -> int
+extern def vp_http_service_unavailable() -> int
 
 # Initialize constants from runtime
 OK = vp_http_ok()

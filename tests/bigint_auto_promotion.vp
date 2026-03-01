@@ -1,11 +1,11 @@
 # Test automatic BigInt promotion
-# Integers that exceed i64 range are automatically promoted to BigInt
+# Integers that exceed int range are automatically promoted to BigInt
 
-# Small integer (fits in i64)
+# Small integer (fits in int)
 small = 42
 
-# Large integer (exceeds i64 max, auto-promoted to BigInt)
-large = 9223372036854775808  # i64::MAX + 1
+# Large integer (exceeds int max, auto-promoted to BigInt)
+large = 9223372036854775808  # int::MAX + 1
 
 # Explicit BigInt with 'n' suffix
 explicit = 123n
@@ -13,13 +13,13 @@ explicit = 123n
 # Very large integer (hundreds of digits)
 huge = 1234567890123456789012345678901234567890123456789012345678901234567890
 
-# Mixed arithmetic: i64 + BigInt = BigInt
+# Mixed arithmetic: int + BigInt = BigInt
 result1 = small + large
 
 # BigInt arithmetic
 result2 = large * 2
 
-# Comparison between i64 and BigInt
+# Comparison between int and BigInt
 if small < large:
     print("large is larger")
 

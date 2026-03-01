@@ -16,7 +16,7 @@ def connect(database):
     # Returns: database connection handle
     return sqlite3_open_str(database)
 
-def sqlite3_open_str(filename: str) -> i64:
+def sqlite3_open_str(filename: str) -> int:
     # Internal: open database from string path
     return 0
 

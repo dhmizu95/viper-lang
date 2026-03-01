@@ -1,24 +1,24 @@
 # Viper Real World Benchmark
 
-def matrix_worker(row: i64, size: i64, done: Chan[i64]):
+def matrix_worker(row: int, size: int, done: Chan[int]):
     sum_val = 0
     for j in range(size):
         sum_val = sum_val + j * row
     send(done, sum_val)
 
-def hash_worker(seed: i64, iterations: i64, done: Chan[i64]):
+def hash_worker(seed: int, iterations: int, done: Chan[int]):
     result = seed
     for i in range(iterations):
         result = (result * 31 + i) & 0xFFFFFFFF
     send(done, result)
 
-def pipeline_worker(stage: i64, items: i64, done: Chan[i64]):
+def pipeline_worker(stage: int, items: int, done: Chan[int]):
     sum_val = 0
     for i in range(items):
         sum_val = sum_val + i * stage
     send(done, sum_val)
 
-def scraper_worker(url_id: i64, done: Chan[i64]):
+def scraper_worker(url_id: int, done: Chan[int]):
     sum_val = 0
     for i in range(1000):
         sum_val = sum_val + i * url_id

@@ -8,35 +8,35 @@ __version__ = "0.4.5"
 # Address Family Constants
 # ============================================
 
-AF_INET: i64 = 2       # IPv4
-AF_INET6: i64 = 10     # IPv6
-AF_UNIX: i64 = 1       # Unix domain sockets
-AF_UNSPEC: i64 = 0     # Unspecified
+AF_INET: int = 2       # IPv4
+AF_INET6: int = 10     # IPv6
+AF_UNIX: int = 1       # Unix domain sockets
+AF_UNSPEC: int = 0     # Unspecified
 
 # ============================================
 # Socket Type Constants
 # ============================================
 
-SOCK_STREAM: i64 = 1    # TCP
-SOCK_DGRAM: i64 = 2     # UDP
-SOCK_RAW: i64 = 3       # Raw socket
+SOCK_STREAM: int = 1    # TCP
+SOCK_DGRAM: int = 2     # UDP
+SOCK_RAW: int = 3       # Raw socket
 
 # ============================================
 # Protocol Constants
 # ============================================
 
-SOL_SOCKET: i64 = 1     # Socket level
-SO_REUSEADDR: i64 = 2   # Reuse address
-SO_BROADCAST: i64 = 4   # Broadcast
-TCP_NODELAY: i64 = 1    # Disable Nagle's algorithm
+SOL_SOCKET: int = 1     # Socket level
+SO_REUSEADDR: int = 2   # Reuse address
+SO_BROADCAST: int = 4   # Broadcast
+TCP_NODELAY: int = 1    # Disable Nagle's algorithm
 
 # ============================================
 # Shutdown Constants
 # ============================================
 
-SHUT_RD: i64 = 0    # Shutdown receive
-SHUT_WR: i64 = 1    # Shutdown send
-SHUT_RDWR: i64 = 2  # Shutdown both
+SHUT_RD: int = 0    # Shutdown receive
+SHUT_WR: int = 1    # Shutdown send
+SHUT_RDWR: int = 2  # Shutdown both
 
 # ============================================
 # Socket Class
@@ -45,7 +45,7 @@ SHUT_RDWR: i64 = 2  # Shutdown both
 class Socket:
     """Network socket for TCP/UDP communication."""
     
-    def __init__(self, family: i64 = AF_INET, type: i64 = SOCK_STREAM, protocol: i64 = 0):
+    def __init__(self, family: int = AF_INET, type: int = SOCK_STREAM, protocol: int = 0):
         """Create a new socket."""
         self._fd = vp_socket_create(family, type, protocol)
         self._family = family
@@ -53,18 +53,18 @@ class Socket:
         self._protocol = protocol
         self._connected = False
     
-    def connect(self, host: str, port: i64) -> i64:
+    def connect(self, host: str, port: int) -> int:
         """Connect to a remote address."""
         result = vp_socket_connect(self._fd, host, port)
         if result == 0:
             self._connected = True
         return result
     
-    def bind(self, host: str, port: i64) -> i64:
+    def bind(self, host: str, port: int) -> int:
         """Bind to a local address."""
         return vp_socket_bind(self._fd, host, port)
     
-    def listen(self, backlog: i64 = 128) -> i64:
+    def listen(self, backlog: int = 128) -> int:
         """Listen for incoming connections."""
         return vp_socket_listen(self._fd, backlog)
     
@@ -78,11 +78,11 @@ class Socket:
             return (client, None)
         return (None, "accept failed")
     
-    def send(self, data: str) -> i64:
+    def send(self, data: str) -> int:
         """Send data to the socket."""
         return vp_socket_send(self._fd, data, len(data))
     
-    def sendall(self, data: str) -> i64:
+    def sendall(self, data: str) -> int:
         """Send all data to the socket."""
         total = 0
         while total < len(data):
@@ -92,41 +92,41 @@ class Socket:
             total += sent
         return total
     
-    def recv(self, bufsize: i64) -> str:
+    def recv(self, bufsize: int) -> str:
         """Receive data from the socket."""
         # Simplified: returns empty string
         # Full implementation would use buffer
         return ""
     
-    def recvfrom(self, bufsize: i64) -> tuple:
+    def recvfrom(self, bufsize: int) -> tuple:
         """Receive data and address from UDP socket."""
         return ("", None)
     
-    def sendto(self, data: str, address: tuple) -> i64:
+    def sendto(self, data: str, address: tuple) -> int:
         """Send data to a specific address (UDP)."""
         return -1  # Not implemented
     
-    def close(self) -> i64:
+    def close(self) -> int:
         """Close the socket."""
         self._connected = False
         return vp_socket_close(self._fd)
     
-    def setblocking(self, blocking: bool) -> i64:
+    def setblocking(self, blocking: bool) -> int:
         """Set blocking mode."""
         return vp_socket_setblocking(self._fd, 1 if blocking else 0)
     
-    def setsockopt(self, level: i64, optname: i64, value: i64) -> i64:
+    def setsockopt(self, level: int, optname: int, value: int) -> int:
         """Set socket option."""
         return vp_socket_setsockopt(self._fd, level, optname, value, 8)
     
-    def getsockopt(self, level: i64, optname: i64) -> i64:
+    def getsockopt(self, level: int, optname: int) -> int:
         """Get socket option."""
         value = 0
         len_ptr = 0
         vp_socket_getsockopt(self._fd, level, optname, value, len_ptr)
         return value
     
-    def fileno(self) -> i64:
+    def fileno(self) -> int:
         """Get file descriptor."""
         return vp_socket_fileno(self._fd)
     
@@ -138,17 +138,17 @@ class Socket:
         """Get local address."""
         return (None, None)
     
-    def shutdown(self, how: i64 = SHUT_RDWR) -> i64:
+    def shutdown(self, how: int = SHUT_RDWR) -> int:
         """Shutdown socket."""
         return 0  # Simplified
     
     @property
-    def family(self) -> i64:
+    def family(self) -> int:
         """Get address family."""
         return self._family
     
     @property
-    def type(self) -> i64:
+    def type(self) -> int:
         """Get socket type."""
         return self._type
     
@@ -161,7 +161,7 @@ class Socket:
 # Convenience Functions
 # ============================================
 
-def create_connection(address: tuple, timeout: f64 = -1.0) -> Socket:
+def create_connection(address: tuple, timeout: float = -1.0) -> Socket:
     """Create a connection to a remote address."""
     host = address[0]
     port = address[1]
@@ -182,31 +182,31 @@ def gethostname() -> str:
 # Runtime Function Declarations
 # ============================================
 
-extern def vp_socket_create(family: i64, type: i64, protocol: i64) -> i64
-extern def vp_socket_connect(fd: i64, host: str, port: i64) -> i64
-extern def vp_socket_bind(fd: i64, host: str, port: i64) -> i64
-extern def vp_socket_listen(fd: i64, backlog: i64) -> i64
-extern def vp_socket_accept(fd: i64) -> i64
-extern def vp_socket_send(fd: i64, data: str, len: i64) -> i64
-extern def vp_socket_recv(fd: i64, buffer: str, maxlen: i64) -> i64
-extern def vp_socket_close(fd: i64) -> i64
-extern def vp_socket_setblocking(fd: i64, blocking: i64) -> i64
-extern def vp_socket_setsockopt(fd: i64, level: i64, optname: i64, value: i64, len: i64) -> i64
-extern def vp_socket_getsockopt(fd: i64, level: i64, optname: i64, value: i64, len: i64) -> i64
-extern def vp_socket_fileno(fd: i64) -> i64
-extern def vp_socket_getsockopt(fd: i64, level: i64, optname: i64, value: i64, len: i64) -> i64
+extern def vp_socket_create(family: int, type: int, protocol: int) -> int
+extern def vp_socket_connect(fd: int, host: str, port: int) -> int
+extern def vp_socket_bind(fd: int, host: str, port: int) -> int
+extern def vp_socket_listen(fd: int, backlog: int) -> int
+extern def vp_socket_accept(fd: int) -> int
+extern def vp_socket_send(fd: int, data: str, len: int) -> int
+extern def vp_socket_recv(fd: int, buffer: str, maxlen: int) -> int
+extern def vp_socket_close(fd: int) -> int
+extern def vp_socket_setblocking(fd: int, blocking: int) -> int
+extern def vp_socket_setsockopt(fd: int, level: int, optname: int, value: int, len: int) -> int
+extern def vp_socket_getsockopt(fd: int, level: int, optname: int, value: int, len: int) -> int
+extern def vp_socket_fileno(fd: int) -> int
+extern def vp_socket_getsockopt(fd: int, level: int, optname: int, value: int, len: int) -> int
 
 # Constants from runtime
-extern def vp_socket_af_inet() -> i64
-extern def vp_socket_af_inet6() -> i64
-extern def vp_socket_sock_stream() -> i64
-extern def vp_socket_sock_dgram() -> i64
-extern def vp_socket_sol_socket() -> i64
-extern def vp_socket_so_reuseaddr() -> i64
-extern def vp_socket_tcp_nodelay() -> i64
-extern def vp_socket_shut_rd() -> i64
-extern def vp_socket_shut_wr() -> i64
-extern def vp_socket_shut_rdwr() -> i64
+extern def vp_socket_af_inet() -> int
+extern def vp_socket_af_inet6() -> int
+extern def vp_socket_sock_stream() -> int
+extern def vp_socket_sock_dgram() -> int
+extern def vp_socket_sol_socket() -> int
+extern def vp_socket_so_reuseaddr() -> int
+extern def vp_socket_tcp_nodelay() -> int
+extern def vp_socket_shut_rd() -> int
+extern def vp_socket_shut_wr() -> int
+extern def vp_socket_shut_rdwr() -> int
 
 # Initialize constants from runtime
 AF_INET = vp_socket_af_inet()

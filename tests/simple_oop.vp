@@ -4,11 +4,11 @@ class Counter:
     def __init__(self):
         self.value = 0
 
-    def increment(self) -> i64:
+    def increment(self) -> int:
         self.value = self.value + 1
         return self.value
 
-    def get_value(self) -> i64:
+    def get_value(self) -> int:
         return self.value
 
 def test_counter() -> None:

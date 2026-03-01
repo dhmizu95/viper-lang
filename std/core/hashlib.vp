@@ -36,7 +36,7 @@ class Hash:
         if data:
             self.update(data)
     
-    def _get_digest_size(self, algo: str) -> i64:
+    def _get_digest_size(self, algo: str) -> int:
         """Get digest size for algorithm."""
         if algo == "md5":
             return vp_hashlib_digest_size_md5()
@@ -46,7 +46,7 @@ class Hash:
             return vp_hashlib_digest_size_sha512()
         return 32  # Default
     
-    def _get_block_size(self, algo: str) -> i64:
+    def _get_block_size(self, algo: str) -> int:
         """Get block size for algorithm."""
         if algo == "md5":
             return vp_hashlib_block_size_md5()
@@ -100,12 +100,12 @@ class Hash:
         return self._name
     
     @property
-    def digest_size(self) -> i64:
+    def digest_size(self) -> int:
         """Get digest size in bytes."""
         return self._digest_size
     
     @property
-    def block_size(self) -> i64:
+    def block_size(self) -> int:
         """Get block size in bytes."""
         return self._block_size
     
@@ -280,8 +280,8 @@ def hmac_new(key: str, msg: str = None, digestmod: str = "sha256") -> HMAC:
 # Utility Functions
 # ============================================
 
-def pbkdf2_hmac(password: str, salt: str, iterations: i64,
-                dklen: i64 = 32, hash_name: str = "sha256") -> str:
+def pbkdf2_hmac(password: str, salt: str, iterations: int,
+                dklen: int = 32, hash_name: str = "sha256") -> str:
     """
     PBKDF2 key derivation with HMAC.
     
@@ -326,19 +326,19 @@ def compare_digest(a: str, b: str) -> bool:
 # Runtime Function Declarations
 # ============================================
 
-extern def vp_hash_sha256(data: str, len: i64) -> str
-extern def vp_hash_md5(data: str, len: i64) -> str
-extern def vp_hash_sha512(data: str, len: i64) -> str
+extern def vp_hash_sha256(data: str, len: int) -> str
+extern def vp_hash_md5(data: str, len: int) -> str
+extern def vp_hash_sha512(data: str, len: int) -> str
 extern def vp_hashlib_new(algo: str)
 extern def vp_hashlib_free(hash)
-extern def vp_hashlib_update(hash, data: str, len: i64)
+extern def vp_hashlib_update(hash, data: str, len: int)
 extern def vp_hashlib_digest(hash) -> str
 extern def vp_hashlib_hexdigest(hash) -> str
 
 # Constants from runtime
-extern def vp_hashlib_block_size_md5() -> i64
-extern def vp_hashlib_block_size_sha256() -> i64
-extern def vp_hashlib_block_size_sha512() -> i64
-extern def vp_hashlib_digest_size_md5() -> i64
-extern def vp_hashlib_digest_size_sha256() -> i64
-extern def vp_hashlib_digest_size_sha512() -> i64
+extern def vp_hashlib_block_size_md5() -> int
+extern def vp_hashlib_block_size_sha256() -> int
+extern def vp_hashlib_block_size_sha512() -> int
+extern def vp_hashlib_digest_size_md5() -> int
+extern def vp_hashlib_digest_size_sha256() -> int
+extern def vp_hashlib_digest_size_sha512() -> int

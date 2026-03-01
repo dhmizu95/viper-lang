@@ -14,12 +14,12 @@ PI: str = "3.141592653589793"
 E: str = "2.718281828459045"
 
 # Rounding modes
-ROUND_DOWN: i64 = 0         # Round towards zero
-ROUND_UP: i64 = 1           # Round away from zero
-ROUND_HALF_UP: i64 = 2      # Round to nearest, ties away from zero
-ROUND_HALF_DOWN: i64 = 3    # Round to nearest, ties towards zero
-ROUND_CEILING: i64 = 4      # Round towards infinity
-ROUND_FLOOR: i64 = 5        # Round towards negative infinity
+ROUND_DOWN: int = 0         # Round towards zero
+ROUND_UP: int = 1           # Round away from zero
+ROUND_HALF_UP: int = 2      # Round to nearest, ties away from zero
+ROUND_HALF_DOWN: int = 3    # Round to nearest, ties towards zero
+ROUND_CEILING: int = 4      # Round towards infinity
+ROUND_FLOOR: int = 5        # Round towards negative infinity
 
 # Special values
 INF: str = "Infinity"
@@ -53,7 +53,7 @@ class Decimal:
         return cls(s)
     
     @classmethod
-    def from_int(cls, n: i64) -> Decimal:
+    def from_int(cls, n: int) -> Decimal:
         """Create Decimal from integer."""
         d = cls.__new__(cls)
         d._value = vp_decimal_from_i64(n)
@@ -61,7 +61,7 @@ class Decimal:
         return d
     
     @classmethod
-    def from_float(cls, f: f64) -> Decimal:
+    def from_float(cls, f: float) -> Decimal:
         """Create Decimal from float."""
         d = cls.__new__(cls)
         d._value = vp_decimal_from_f64(f)
@@ -76,11 +76,11 @@ class Decimal:
         """Convert to string."""
         return vp_decimal_to_str(self._value)
     
-    def to_int(self) -> i64:
+    def to_int(self) -> int:
         """Convert to integer (truncates)."""
         return vp_decimal_to_i64(self._value)
     
-    def to_float(self) -> f64:
+    def to_float(self) -> float:
         """Convert to float."""
         return vp_decimal_to_f64(self._value)
     
@@ -100,10 +100,10 @@ class Decimal:
         """Add two decimals."""
         if isinstance(other, Decimal):
             result = vp_decimal_add(self._value, other._value)
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             result = vp_decimal_add(self._value, other_dec._value)
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             result = vp_decimal_add(self._value, other_dec._value)
         else:
@@ -122,10 +122,10 @@ class Decimal:
         """Subtract two decimals."""
         if isinstance(other, Decimal):
             result = vp_decimal_sub(self._value, other._value)
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             result = vp_decimal_sub(self._value, other_dec._value)
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             result = vp_decimal_sub(self._value, other_dec._value)
         else:
@@ -138,10 +138,10 @@ class Decimal:
     
     def __rsub__(self, other) -> Decimal:
         """Reverse subtract."""
-        if isinstance(other, i64):
+        if isinstance(other, int):
             other_dec = Decimal.from_int(other)
             return other_dec.__sub__(self)
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             return other_dec.__sub__(self)
         raise TypeError(f"Cannot subtract Decimal from {type(other)}")
@@ -150,10 +150,10 @@ class Decimal:
         """Multiply two decimals."""
         if isinstance(other, Decimal):
             result = vp_decimal_mul(self._value, other._value)
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             result = vp_decimal_mul(self._value, other_dec._value)
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             result = vp_decimal_mul(self._value, other_dec._value)
         else:
@@ -172,10 +172,10 @@ class Decimal:
         """Divide two decimals."""
         if isinstance(other, Decimal):
             result = vp_decimal_div(self._value, other._value)
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             result = vp_decimal_div(self._value, other_dec._value)
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             result = vp_decimal_div(self._value, other_dec._value)
         else:
@@ -188,10 +188,10 @@ class Decimal:
     
     def __rtruediv__(self, other) -> Decimal:
         """Reverse divide."""
-        if isinstance(other, i64):
+        if isinstance(other, int):
             other_dec = Decimal.from_int(other)
             return other_dec.__truediv__(self)
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             return other_dec.__truediv__(self)
         raise TypeError(f"Cannot divide Decimal by {type(other)}")
@@ -222,10 +222,10 @@ class Decimal:
         """Equal comparison."""
         if isinstance(other, Decimal):
             return vp_decimal_eq(self._value, other._value) != 0
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             return vp_decimal_eq(self._value, other_dec._value) != 0
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             return vp_decimal_eq(self._value, other_dec._value) != 0
         return False
@@ -238,10 +238,10 @@ class Decimal:
         """Less than comparison."""
         if isinstance(other, Decimal):
             return vp_decimal_lt(self._value, other._value) != 0
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             return vp_decimal_lt(self._value, other_dec._value) != 0
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             return vp_decimal_lt(self._value, other_dec._value) != 0
         raise TypeError(f"Cannot compare Decimal and {type(other)}")
@@ -250,10 +250,10 @@ class Decimal:
         """Less than or equal comparison."""
         if isinstance(other, Decimal):
             return vp_decimal_le(self._value, other._value) != 0
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             return vp_decimal_le(self._value, other_dec._value) != 0
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             return vp_decimal_le(self._value, other_dec._value) != 0
         raise TypeError(f"Cannot compare Decimal and {type(other)}")
@@ -262,10 +262,10 @@ class Decimal:
         """Greater than comparison."""
         if isinstance(other, Decimal):
             return vp_decimal_gt(self._value, other._value) != 0
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             return vp_decimal_gt(self._value, other_dec._value) != 0
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             return vp_decimal_gt(self._value, other_dec._value) != 0
         raise TypeError(f"Cannot compare Decimal and {type(other)}")
@@ -274,15 +274,15 @@ class Decimal:
         """Greater than or equal comparison."""
         if isinstance(other, Decimal):
             return vp_decimal_ge(self._value, other._value) != 0
-        elif isinstance(other, i64):
+        elif isinstance(other, int):
             other_dec = Decimal.from_int(other)
             return vp_decimal_ge(self._value, other_dec._value) != 0
-        elif isinstance(other, f64):
+        elif isinstance(other, float):
             other_dec = Decimal.from_float(other)
             return vp_decimal_ge(self._value, other_dec._value) != 0
         raise TypeError(f"Cannot compare Decimal and {type(other)}")
     
-    def __hash__(self) -> i64:
+    def __hash__(self) -> int:
         """Hash value."""
         return hash(self.to_str())
     
@@ -290,14 +290,14 @@ class Decimal:
     # Rounding Methods
     # ============================================
     
-    def quantize(self, places: i64) -> Decimal:
+    def quantize(self, places: int) -> Decimal:
         """Round to specified decimal places."""
         d = Decimal.__new__(Decimal)
         d._value = vp_decimal_quantize(self._value, places)
         d._str_value = vp_decimal_to_str(d._value)
         return d
     
-    def round(self, places: i64 = 0) -> Decimal:
+    def round(self, places: int = 0) -> Decimal:
         """Round to nearest integer or specified places."""
         return self.quantize(places)
     
@@ -335,11 +335,11 @@ class Decimal:
         """Check if negative."""
         return vp_decimal_is_signed(self._value) != 0
     
-    def get_sign(self) -> i64:
+    def get_sign(self) -> int:
         """Get sign (0=positive, 1=negative)."""
         return vp_decimal_get_sign(self._value)
     
-    def get_scale(self) -> i64:
+    def get_scale(self) -> int:
         """Get number of decimal places."""
         return vp_decimal_get_scale(self._value)
     
@@ -359,7 +359,7 @@ class Decimal:
 class Context:
     """Decimal context for precision and rounding control."""
     
-    def __init__(self, prec: i64 = 28, rounding: i64 = ROUND_HALF_UP):
+    def __init__(self, prec: int = 28, rounding: int = ROUND_HALF_UP):
         """
         Create decimal context.
         
@@ -437,34 +437,34 @@ class Inexact(DecimalException):
 
 extern def vp_decimal_create() -> str
 extern def vp_decimal_from_str(s: str) -> str
-extern def vp_decimal_from_i64(n: i64) -> str
-extern def vp_decimal_from_f64(f: f64) -> str
+extern def vp_decimal_from_i64(n: int) -> str
+extern def vp_decimal_from_f64(f: float) -> str
 extern def vp_decimal_free(d: str)
 extern def vp_decimal_to_str(d: str) -> str
-extern def vp_decimal_to_i64(d: str) -> i64
-extern def vp_decimal_to_f64(d: str) -> f64
+extern def vp_decimal_to_i64(d: str) -> int
+extern def vp_decimal_to_f64(d: str) -> float
 extern def vp_decimal_add(a: str, b: str) -> str
 extern def vp_decimal_sub(a: str, b: str) -> str
 extern def vp_decimal_mul(a: str, b: str) -> str
 extern def vp_decimal_div(a: str, b: str) -> str
 extern def vp_decimal_neg(d: str) -> str
 extern def vp_decimal_abs(d: str) -> str
-extern def vp_decimal_cmp(a: str, b: str) -> i64
-extern def vp_decimal_eq(a: str, b: str) -> i64
-extern def vp_decimal_lt(a: str, b: str) -> i64
-extern def vp_decimal_le(a: str, b: str) -> i64
-extern def vp_decimal_gt(a: str, b: str) -> i64
-extern def vp_decimal_ge(a: str, b: str) -> i64
-extern def vp_decimal_quantize(d: str, places: i64) -> str
-extern def vp_decimal_round(d: str, places: i64) -> str
+extern def vp_decimal_cmp(a: str, b: str) -> int
+extern def vp_decimal_eq(a: str, b: str) -> int
+extern def vp_decimal_lt(a: str, b: str) -> int
+extern def vp_decimal_le(a: str, b: str) -> int
+extern def vp_decimal_gt(a: str, b: str) -> int
+extern def vp_decimal_ge(a: str, b: str) -> int
+extern def vp_decimal_quantize(d: str, places: int) -> str
+extern def vp_decimal_round(d: str, places: int) -> str
 extern def vp_decimal_floor(d: str) -> str
 extern def vp_decimal_ceil(d: str) -> str
-extern def vp_decimal_get_sign(d: str) -> i64
-extern def vp_decimal_get_scale(d: str) -> i64
-extern def vp_decimal_is_zero(d: str) -> i64
-extern def vp_decimal_is_nan(d: str) -> i64
-extern def vp_decimal_is_infinite(d: str) -> i64
-extern def vp_decimal_is_signed(d: str) -> i64
+extern def vp_decimal_get_sign(d: str) -> int
+extern def vp_decimal_get_scale(d: str) -> int
+extern def vp_decimal_is_zero(d: str) -> int
+extern def vp_decimal_is_nan(d: str) -> int
+extern def vp_decimal_is_infinite(d: str) -> int
+extern def vp_decimal_is_signed(d: str) -> int
 
 # Constants from runtime
 extern def vp_decimal_zero() -> str

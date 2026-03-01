@@ -11,15 +11,15 @@ version: str = "0.4.5"
 platform: str = "linux"
 
 # Exit codes
-EXIT_SUCCESS: i64 = 0
-EXIT_FAILURE: i64 = 1
+EXIT_SUCCESS: int = 0
+EXIT_FAILURE: int = 1
 
-def exit(code: i64 = 0):
+def exit(code: int = 0):
     """Exit the program with the given status code."""
     # Implemented in runtime
     pass
 
-def getpid() -> i64:
+def getpid() -> int:
     """Get the current process ID."""
     # Implemented in runtime
     return 0
@@ -52,29 +52,29 @@ def getenv(name: str) -> str:
     # Implemented in runtime
     return ""
 
-def setenv(name: str, value: str, overwrite: bool = True) -> i64:
+def setenv(name: str, value: str, overwrite: bool = True) -> int:
     """Set an environment variable."""
     # Implemented in runtime
     return 0
 
-def unsetenv(name: str) -> i64:
+def unsetenv(name: str) -> int:
     """Unset/remove an environment variable."""
     # Implemented in runtime
     return 0
 
-def getrecursionlimit() -> i64:
+def getrecursionlimit() -> int:
     """Get the maximum recursion depth."""
     return 1000
 
-def setrecursionlimit(limit: i64):
+def setrecursionlimit(limit: int):
     """Set the maximum recursion depth."""
     pass
 
-def getsizeof(obj) -> i64:
+def getsizeof(obj) -> int:
     """Get the size of an object in bytes."""
     return 0
 
-def getrefcount(obj) -> i64:
+def getrefcount(obj) -> int:
     """Get the reference count of an object."""
     return 1
 

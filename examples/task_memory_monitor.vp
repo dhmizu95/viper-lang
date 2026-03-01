@@ -1,14 +1,14 @@
 # Viper Task Memory Monitor
 # Demonstrates M:N fiber scheduling with memory monitoring
 
-def worker(id: i64, result_chan: Chan[i64]):
+def worker(id: int, result_chan: Chan[int]):
     # Worker that does some work and sends result
     x = 0
     for i in range(100):
         x = x + i
     send(result_chan, x)
 
-def memory_worker(id: i64, wg: WaitGroup):
+def memory_worker(id: int, wg: WaitGroup):
     # Worker that simulates memory allocation
     # Create a list to simulate memory usage
     data = [0]
@@ -16,7 +16,7 @@ def memory_worker(id: i64, wg: WaitGroup):
         data.append(i * id)
     done(wg)
 
-def monitor_task(count: i64):
+def monitor_task(count: int):
     # Monitor task that spawns workers and reports
     print("Starting monitor with ")
     print(count)
@@ -39,7 +39,7 @@ def monitor_task(count: i64):
     print("Total result: ")
     print(total)
 
-def stress_test(num_tasks: i64):
+def stress_test(num_tasks: int):
     # Stress test with many concurrent tasks
     print("Stress test: ")
     print(num_tasks)

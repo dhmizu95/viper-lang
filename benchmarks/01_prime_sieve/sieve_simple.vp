@@ -2,7 +2,7 @@
 # Counts primes up to N using Sieve of Eratosthenes
 # Matches C/Rust/Go implementations
 
-def sieve(n: i64) -> i64:
+def sieve(n: int) -> int:
     # Create sieve array using list comprehension pattern
     is_prime = []
     i = 0

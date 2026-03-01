@@ -12,7 +12,7 @@ __version__ = "0.4.5"
 class deque:
     """A doubly-linked list optimized for appends and pops from both ends."""
     
-    def __init__(self, iterable=None, maxlen: i64 = None):
+    def __init__(self, iterable=None, maxlen: int = None):
         self._data = []  # Internal storage
         self.maxlen = maxlen
         if iterable:
@@ -49,7 +49,7 @@ class deque:
         for item in iterable:
             self.appendleft(item)
     
-    def rotate(self, n: i64 = 1):
+    def rotate(self, n: int = 1):
         """Rotate the deque n steps to the right."""
         # Implemented in runtime
         pass
@@ -69,34 +69,34 @@ class deque:
         # Implemented in runtime
         pass
     
-    def count(self, x) -> i64:
+    def count(self, x) -> int:
         """Count the number of deque elements equal to x."""
         # Implemented in runtime
         return 0
     
-    def index(self, x, start: i64 = 0, stop: i64 = None) -> i64:
+    def index(self, x, start: int = 0, stop: int = None) -> int:
         """Return index of first occurrence of x."""
         # Implemented in runtime
         return 0
     
-    def insert(self, i: i64, x):
+    def insert(self, i: int, x):
         """Insert x at position i."""
         # Implemented in runtime
         pass
     
-    def __len__(self) -> i64:
+    def __len__(self) -> int:
         # Implemented in runtime
         return 0
     
-    def __getitem__(self, index: i64):
+    def __getitem__(self, index: int):
         # Implemented in runtime
         return 0
     
-    def __setitem__(self, index: i64, value):
+    def __setitem__(self, index: int, value):
         # Implemented in runtime
         pass
     
-    def __delitem__(self, index: i64):
+    def __delitem__(self, index: int):
         # Implemented in runtime
         pass
     
@@ -137,17 +137,17 @@ class Counter:
             for item in iterable:
                 self[item] = self.get(item, 0) + 1
     
-    def __getitem__(self, key) -> i64:
+    def __getitem__(self, key) -> int:
         return self._counts.get(key, 0)
     
-    def __setitem__(self, key, value: i64):
+    def __setitem__(self, key, value: int):
         self._counts[key] = value
     
     def __delitem__(self, key):
         if key in self._counts:
             del self._counts[key]
     
-    def __len__(self) -> i64:
+    def __len__(self) -> int:
         return len(self._counts)
     
     def __iter__(self):
@@ -156,7 +156,7 @@ class Counter:
     def __contains__(self, key) -> bool:
         return key in self._counts
     
-    def get(self, key, default: i64 = 0) -> i64:
+    def get(self, key, default: int = 0) -> int:
         return self._counts.get(key, default)
     
     def keys(self):
@@ -168,7 +168,7 @@ class Counter:
     def items(self):
         return self._counts.items()
     
-    def most_common(self, n: i64 = None) -> [(str, i64)]:
+    def most_common(self, n: int = None) -> [(str, int)]:
         """Return the n most common elements."""
         # Implemented in runtime
         return []
@@ -189,7 +189,7 @@ class Counter:
         for key, count in kwargs.items():
             self[key] = self.get(key, 0) - count
     
-    def total(self) -> i64:
+    def total(self) -> int:
         """Sum of the counts."""
         # Implemented in runtime
         return 0
@@ -262,7 +262,7 @@ class OrderedDict:
         del self._data[key]
         self._order.remove(key)
     
-    def __len__(self) -> i64:
+    def __len__(self) -> int:
         return len(self._data)
     
     def __iter__(self):
@@ -378,7 +378,7 @@ class defaultdict:
     def __delitem__(self, key):
         del self._data[key]
     
-    def __len__(self) -> i64:
+    def __len__(self) -> int:
         return len(self._data)
     
     def __iter__(self):
@@ -430,10 +430,10 @@ def namedtuple(typename: str, field_names: str):
             for i, field in enumerate(fields):
                 setattr(self, field, args[i] if i < len(args) else None)
         
-        def __getitem__(self, index: i64):
+        def __getitem__(self, index: int):
             return getattr(self, fields[index])
         
-        def __len__(self) -> i64:
+        def __len__(self) -> int:
             return len(fields)
         
         def __repr__(self) -> str:

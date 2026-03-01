@@ -2,19 +2,19 @@
 
 def test_list_generic():
     # list[T] syntax
-    nums: list[i64] = [1, 2, 3]
+    nums: list[int] = [1, 2, 3]
     names: list[str] = ["a", "b", "c"]
     print(len(nums))
     print(len(names))
 
 def test_dict_generic():
     # dict[K, V] syntax  
-    ages: dict[str, i64] = {"alice": 30, "bob": 25}
+    ages: dict[str, int] = {"alice": 30, "bob": 25}
     print(len(ages))
 
 def test_nested_generics():
     # Nested generic types
-    matrix: list[list[i64]] = [[1, 2], [3, 4]]
+    matrix: list[list[int]] = [[1, 2], [3, 4]]
     print(len(matrix))
 
 test_list_generic()

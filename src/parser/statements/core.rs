@@ -132,7 +132,6 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         TokenKind::Try => parse_try_stmt(parser),
         TokenKind::Sync => parse_sync_block(parser),
         TokenKind::Task => parse_task_spawn(parser),
-        TokenKind::Mut => parse_mutable_decl(parser),
         TokenKind::Global => parse_global_decl(parser),
         TokenKind::Nonlocal => parse_nonlocal_decl(parser),
         TokenKind::Const => parse_const_decl(parser),

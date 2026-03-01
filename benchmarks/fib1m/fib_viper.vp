@@ -1,6 +1,6 @@
 # Fibonacci(1,000,000) - Viper implementation with BigInt (GMP)
 
-def fib(n: i64) -> BigInt:
+def fib(n: int) -> BigInt:
     if n <= 0:
         return 0
     elif n == 1:

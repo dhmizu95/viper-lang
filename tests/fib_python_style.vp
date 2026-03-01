@@ -1,6 +1,6 @@
 # Fibonacci - Python-like syntax with automatic BigInt
 
-def fib(n: i64):
+def fib(n: int):
     if n <= 0:
         return 0
     elif n == 1:

@@ -808,7 +808,6 @@ impl<'a> Lexer<'a> {
             "False" => TokenKind::False,
             "None" => TokenKind::None,
             "void" => TokenKind::Void,
-            "mut" => TokenKind::Mut,
             "sync" => TokenKind::Sync,
             "task" => TokenKind::Task,
             "try" => TokenKind::Try,

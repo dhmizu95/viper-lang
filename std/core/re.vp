@@ -9,18 +9,18 @@ __version__ = "0.4.5"
 # Flags
 # ============================================
 
-I: i64 = 0x01        # IGNORECASE
-IGNORECASE: i64 = 0x01
-M: i64 = 0x02        # MULTILINE
-MULTILINE: i64 = 0x02
-S: i64 = 0x04        # DOTALL
-DOTALL: i64 = 0x04
-X: i64 = 0x08        # VERBOSE
-VERBOSE: i64 = 0x08
-A: i64 = 0x10        # ASCII
-ASCII: i64 = 0x10
-U: i64 = 0x20        # UNICODE
-UNICODE: i64 = 0x20
+I: int = 0x01        # IGNORECASE
+IGNORECASE: int = 0x01
+M: int = 0x02        # MULTILINE
+MULTILINE: int = 0x02
+S: int = 0x04        # DOTALL
+DOTALL: int = 0x04
+X: int = 0x08        # VERBOSE
+VERBOSE: int = 0x08
+A: int = 0x10        # ASCII
+ASCII: int = 0x10
+U: int = 0x20        # UNICODE
+UNICODE: int = 0x20
 
 # ============================================
 # Exceptions
@@ -43,11 +43,11 @@ class Match:
     
     def __init__(self):
         self.string = ""
-        self.start_pos: i64 = 0
-        self.end_pos: i64 = 0
+        self.start_pos: int = 0
+        self.end_pos: int = 0
         self.groups_data = {}
     
-    def group(self, n: i64 = 0) -> str:
+    def group(self, n: int = 0) -> str:
         """Return the string matched by a group."""
         # Implemented in runtime
         return ""
@@ -61,17 +61,17 @@ class Match:
         """Return a dictionary of all named groups."""
         return self.groups_data
     
-    def start(self, n: i64 = 0) -> i64:
+    def start(self, n: int = 0) -> int:
         """Return the start index of a group."""
         # Implemented in runtime
         return 0
     
-    def end(self, n: i64 = 0) -> i64:
+    def end(self, n: int = 0) -> int:
         """Return the end index of a group."""
         # Implemented in runtime
         return 0
     
-    def span(self, n: i64 = 0) -> (i64, i64):
+    def span(self, n: int = 0) -> (int, int):
         """Return (start, end) tuple for a group."""
         return (self.start(n), self.end(n))
     
@@ -80,7 +80,7 @@ class Match:
         # Implemented in runtime
         return ""
     
-    def lastindex(self) -> i64:
+    def lastindex(self) -> int:
         """Return the index of the last matched group."""
         # Implemented in runtime
         return 0
@@ -90,11 +90,11 @@ class Match:
         # Implemented in runtime
         return ""
     
-    def pos(self) -> i64:
+    def pos(self) -> int:
         """Return the position in the string where the search started."""
         return self.start_pos
     
-    def endpos(self) -> i64:
+    def endpos(self) -> int:
         """Return the position in the string where the search ended."""
         return self.end_pos
     
@@ -111,47 +111,47 @@ class Match:
 class Pattern:
     """Compiled regular expression pattern."""
     
-    def __init__(self, pattern: str = "", flags: i64 = 0):
+    def __init__(self, pattern: str = "", flags: int = 0):
         self.pattern = pattern
         self.flags = flags
         self._compiled = None  # Runtime-compiled pattern
     
-    def match(self, string: str, pos: i64 = 0, endpos: i64 = None) -> Match:
+    def match(self, string: str, pos: int = 0, endpos: int = None) -> Match:
         """Match at the beginning of the string."""
         # Implemented in runtime
         return None
     
-    def search(self, string: str, pos: i64 = 0, endpos: i64 = None) -> Match:
+    def search(self, string: str, pos: int = 0, endpos: int = None) -> Match:
         """Search for a match anywhere in the string."""
         # Implemented in runtime
         return None
     
-    def findall(self, string: str, pos: i64 = 0, endpos: i64 = None) -> [str]:
+    def findall(self, string: str, pos: int = 0, endpos: int = None) -> [str]:
         """Find all non-overlapping matches."""
         # Implemented in runtime
         return []
     
-    def finditer(self, string: str, pos: i64 = 0, endpos: i64 = None):
+    def finditer(self, string: str, pos: int = 0, endpos: int = None):
         """Find all matches as an iterator."""
         # Implemented in runtime
         return []
     
-    def split(self, string: str, maxsplit: i64 = 0) -> [str]:
+    def split(self, string: str, maxsplit: int = 0) -> [str]:
         """Split string by occurrences of pattern."""
         # Implemented in runtime
         return []
     
-    def sub(self, repl: str, string: str, count: i64 = 0) -> str:
+    def sub(self, repl: str, string: str, count: int = 0) -> str:
         """Replace occurrences of pattern with repl."""
         # Implemented in runtime
         return ""
     
-    def subn(self, repl: str, string: str, count: i64 = 0) -> (str, i64):
+    def subn(self, repl: str, string: str, count: int = 0) -> (str, int):
         """Like sub() but return (new_string, number_of_subs_made)."""
         result = self.sub(repl, string, count)
         return (result, 0)
     
-    def fullmatch(self, string: str, pos: i64 = 0, endpos: i64 = None) -> Match:
+    def fullmatch(self, string: str, pos: int = 0, endpos: int = None) -> Match:
         """Match the entire string."""
         # Implemented in runtime
         return None
@@ -168,47 +168,47 @@ class Pattern:
 # Module-level Functions
 # ============================================
 
-def compile(pattern: str, flags: i64 = 0) -> Pattern:
+def compile(pattern: str, flags: int = 0) -> Pattern:
     """Compile a regular expression pattern."""
     # Implemented in runtime
     return Pattern(pattern, flags)
 
-def match(pattern: str, string: str, flags: i64 = 0) -> Match:
+def match(pattern: str, string: str, flags: int = 0) -> Match:
     """Match at the beginning of the string."""
     # Implemented in runtime
     return None
 
-def search(pattern: str, string: str, flags: i64 = 0) -> Match:
+def search(pattern: str, string: str, flags: int = 0) -> Match:
     """Search for a match anywhere in the string."""
     # Implemented in runtime
     return None
 
-def findall(pattern: str, string: str, flags: i64 = 0) -> [str]:
+def findall(pattern: str, string: str, flags: int = 0) -> [str]:
     """Find all non-overlapping matches."""
     # Implemented in runtime
     return []
 
-def finditer(pattern: str, string: str, flags: i64 = 0):
+def finditer(pattern: str, string: str, flags: int = 0):
     """Find all matches as an iterator."""
     # Implemented in runtime
     return []
 
-def split(pattern: str, string: str, maxsplit: i64 = 0, flags: i64 = 0) -> [str]:
+def split(pattern: str, string: str, maxsplit: int = 0, flags: int = 0) -> [str]:
     """Split string by occurrences of pattern."""
     # Implemented in runtime
     return []
 
-def sub(pattern: str, repl: str, string: str, count: i64 = 0, flags: i64 = 0) -> str:
+def sub(pattern: str, repl: str, string: str, count: int = 0, flags: int = 0) -> str:
     """Replace occurrences of pattern with repl."""
     # Implemented in runtime
     return ""
 
-def subn(pattern: str, repl: str, string: str, count: i64 = 0, flags: i64 = 0) -> (str, i64):
+def subn(pattern: str, repl: str, string: str, count: int = 0, flags: int = 0) -> (str, int):
     """Like sub() but return (new_string, number_of_subs_made)."""
     result = sub(pattern, repl, string, count, flags)
     return (result, 0)
 
-def fullmatch(pattern: str, string: str, flags: i64 = 0) -> Match:
+def fullmatch(pattern: str, string: str, flags: int = 0) -> Match:
     """Match the entire string."""
     # Implemented in runtime
     return None

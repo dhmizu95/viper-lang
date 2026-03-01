@@ -9,107 +9,107 @@ __version__ = "0.4.5"
 # Mathematical Constants
 # ============================================
 
-pi: f64 = 3.141592653589793
-e: f64 = 2.718281828459045
-tau: f64 = 6.283185307179586
-inf: f64 = float('inf')
-nan: f64 = float('nan')
+pi: float = 3.141592653589793
+e: float = 2.718281828459045
+tau: float = 6.283185307179586
+inf: float = float('inf')
+nan: float = float('nan')
 
 # ============================================
 # Number-Theoretic and Representation Functions
 # ============================================
 
-def ceil(x: f64) -> f64:
+def ceil(x: float) -> float:
     """Return the ceiling of x as an Integral."""
     # Implemented in runtime
     return 0.0
 
-def floor(x: f64) -> f64:
+def floor(x: float) -> float:
     """Return the floor of x as an Integral."""
     # Implemented in runtime
     return 0.0
 
-def trunc(x: f64) -> f64:
+def trunc(x: float) -> float:
     """Truncates the Real x to the nearest Integral toward 0."""
     # Implemented in runtime
     return 0.0
 
-def fabs(x: f64) -> f64:
+def fabs(x: float) -> float:
     """Return the absolute value of x."""
     # Implemented in runtime
     return 0.0
 
-def fmod(x: f64, y: f64) -> f64:
+def fmod(x: float, y: float) -> float:
     """Return fmod(x, y) as per C library."""
     # Implemented in runtime
     return 0.0
 
-def remainder(x: f64, y: f64) -> f64:
+def remainder(x: float, y: float) -> float:
     """Difference between x and the nearest integer multiple of y."""
     # Implemented in runtime
     return 0.0
 
-def copysign(x: f64, y: f64) -> f64:
+def copysign(x: float, y: float) -> float:
     """Return x with the sign of y."""
     # Implemented in runtime
     return 0.0
 
-def frexp(x: f64) -> (f64, i64):
+def frexp(x: float) -> (float, int):
     """Return the mantissa and exponent of x."""
     # Implemented in runtime
     return (0.0, 0)
 
-def ldexp(x: f64, i: i64) -> f64:
+def ldexp(x: float, i: int) -> float:
     """Return x * (2**i)."""
     # Implemented in runtime
     return 0.0
 
-def modf(x: f64) -> (f64, f64):
+def modf(x: float) -> (float, float):
     """Return the fractional and integer parts of x."""
     # Implemented in runtime
     return (0.0, 0.0)
 
-def exp(x: f64) -> f64:
+def exp(x: float) -> float:
     """Return e raised to the power of x."""
     # Implemented in runtime
     return 0.0
 
-def expm1(x: f64) -> f64:
+def expm1(x: float) -> float:
     """Return exp(x) - 1."""
     # Implemented in runtime
     return 0.0
 
-def log(x: f64, base: f64 = None) -> f64:
+def log(x: float, base: float = None) -> float:
     """Return the logarithm of x to the given base."""
     # Implemented in runtime
     return 0.0
 
-def log1p(x: f64) -> f64:
+def log1p(x: float) -> float:
     """Return the natural logarithm of 1+x."""
     # Implemented in runtime
     return 0.0
 
-def log2(x: f64) -> f64:
+def log2(x: float) -> float:
     """Return the base 2 logarithm of x."""
     # Implemented in runtime
     return 0.0
 
-def log10(x: f64) -> f64:
+def log10(x: float) -> float:
     """Return the base 10 logarithm of x."""
     # Implemented in runtime
     return 0.0
 
-def pow(x: f64, y: f64) -> f64:
+def pow(x: float, y: float) -> float:
     """Return x raised to the power y."""
     # Implemented in runtime
     return 0.0
 
-def sqrt(x: f64) -> f64:
+def sqrt(x: float) -> float:
     """Return the square root of x."""
     # Implemented in runtime
     return 0.0
 
-def cbrt(x: f64) -> f64:
+def cbrt(x: float) -> float:
     """Return the cube root of x."""
     # Implemented in runtime
     return 0.0
@@ -118,42 +118,42 @@ def cbrt(x: f64) -> f64:
 # Trigonometric Functions
 # ============================================
 
-def sin(x: f64) -> f64:
+def sin(x: float) -> float:
     """Return the sine of x (measured in radians)."""
     # Implemented in runtime
     return 0.0
 
-def cos(x: f64) -> f64:
+def cos(x: float) -> float:
     """Return the cosine of x (measured in radians)."""
     # Implemented in runtime
     return 0.0
 
-def tan(x: f64) -> f64:
+def tan(x: float) -> float:
     """Return the tangent of x (measured in radians)."""
     # Implemented in runtime
     return 0.0
 
-def asin(x: f64) -> f64:
+def asin(x: float) -> float:
     """Return the arc sine of x (measured in radians)."""
     # Implemented in runtime
     return 0.0
 
-def acos(x: f64) -> f64:
+def acos(x: float) -> float:
     """Return the arc cosine of x (measured in radians)."""
     # Implemented in runtime
     return 0.0
 
-def atan(x: f64) -> f64:
+def atan(x: float) -> float:
     """Return the arc tangent of x (measured in radians)."""
     # Implemented in runtime
     return 0.0
 
-def atan2(y: f64, x: f64) -> f64:
+def atan2(y: float, x: float) -> float:
     """Return the arc tangent of y/x (measured in radians)."""
     # Implemented in runtime
     return 0.0
 
-def hypot(x: f64, y: f64) -> f64:
+def hypot(x: float, y: float) -> float:
     """Return the Euclidean distance, sqrt(x*x + y*y)."""
     # Implemented in runtime
     return 0.0
@@ -162,32 +162,32 @@ def hypot(x: f64, y: f64) -> f64:
 # Hyperbolic Functions
 # ============================================
 
-def sinh(x: f64) -> f64:
+def sinh(x: float) -> float:
     """Return the hyperbolic sine of x."""
     # Implemented in runtime
     return 0.0
 
-def cosh(x: f64) -> f64:
+def cosh(x: float) -> float:
     """Return the hyperbolic cosine of x."""
     # Implemented in runtime
     return 0.0
 
-def tanh(x: f64) -> f64:
+def tanh(x: float) -> float:
     """Return the hyperbolic tangent of x."""
     # Implemented in runtime
     return 0.0
 
-def asinh(x: f64) -> f64:
+def asinh(x: float) -> float:
     """Return the inverse hyperbolic sine of x."""
     # Implemented in runtime
     return 0.0
 
-def acosh(x: f64) -> f64:
+def acosh(x: float) -> float:
     """Return the inverse hyperbolic cosine of x."""
     # Implemented in runtime
     return 0.0
 
-def atanh(x: f64) -> f64:
+def atanh(x: float) -> float:
     """Return the inverse hyperbolic tangent of x."""
     # Implemented in runtime
     return 0.0
@@ -196,12 +196,12 @@ def atanh(x: f64) -> f64:
 # Angular Conversion
 # ============================================
 
-def degrees(x: f64) -> f64:
+def degrees(x: float) -> float:
     """Convert angle x from radians to degrees."""
     # Implemented in runtime
     return 0.0
 
-def radians(x: f64) -> f64:
+def radians(x: float) -> float:
     """Convert angle x from degrees to radians."""
     # Implemented in runtime
     return 0.0
@@ -210,22 +210,22 @@ def radians(x: f64) -> f64:
 # Special Functions
 # ============================================
 
-def erf(x: f64) -> f64:
+def erf(x: float) -> float:
     """Error function at x."""
     # Implemented in runtime
     return 0.0
 
-def erfc(x: f64) -> f64:
+def erfc(x: float) -> float:
     """Complementary error function at x."""
     # Implemented in runtime
     return 0.0
 
-def gamma(x: f64) -> f64:
+def gamma(x: float) -> float:
     """Gamma function at x."""
     # Implemented in runtime
     return 0.0
 
-def lgamma(x: f64) -> f64:
+def lgamma(x: float) -> float:
     """Natural logarithm of absolute value of Gamma function at x."""
     # Implemented in runtime
     return 0.0
@@ -234,27 +234,27 @@ def lgamma(x: f64) -> f64:
 # Integer Functions
 # ============================================
 
-def gcd(a: i64, b: i64) -> i64:
+def gcd(a: int, b: int) -> int:
     """Greatest common divisor of a and b."""
     # Implemented in runtime
     return 0
 
-def lcm(a: i64, b: i64) -> i64:
+def lcm(a: int, b: int) -> int:
     """Least common multiple of a and b."""
     # Implemented in runtime
     return 0
 
-def factorial(n: i64) -> i64:
+def factorial(n: int) -> int:
     """Return n! (n factorial)."""
     # Implemented in runtime
     return 0
 
-def comb(n: i64, k: i64) -> i64:
+def comb(n: int, k: int) -> int:
     """Number of ways to choose k items from n items."""
     # Implemented in runtime
     return 0
 
-def perm(n: i64, k: i64) -> i64:
+def perm(n: int, k: int) -> int:
     """Number of ways to choose k items from n items with order."""
     # Implemented in runtime
     return 0
@@ -263,62 +263,62 @@ def perm(n: i64, k: i64) -> i64:
 # Floating Point Utilities
 # ============================================
 
-def isfinite(x: f64) -> bool:
+def isfinite(x: float) -> bool:
     """Return True if x is neither an infinity nor a NaN."""
     # Implemented in runtime
     return False
 
-def isinf(x: f64) -> bool:
+def isinf(x: float) -> bool:
     """Return True if x is a positive or negative infinity."""
     # Implemented in runtime
     return False
 
-def isnan(x: f64) -> bool:
+def isnan(x: float) -> bool:
     """Return True if x is a NaN (not a number)."""
     # Implemented in runtime
     return False
 
-def isnormal(x: f64) -> bool:
+def isnormal(x: float) -> bool:
     """Return True if x is a normal floating point number."""
     # Implemented in runtime
     return False
 
-def signbit(x: f64) -> bool:
+def signbit(x: float) -> bool:
     """Return True if the sign bit of x is set."""
     # Implemented in runtime
     return False
 
-def fsum(values: [f64]) -> f64:
+def fsum(values: [float]) -> float:
     """Return an accurate floating point sum of values."""
     total = 0.0
     for v in values:
         total += v
     return total
 
-def prod(values: [f64]) -> f64:
+def prod(values: [float]) -> float:
     """Calculate the product of all elements in values."""
     result = 1.0
     for v in values:
         result *= v
     return result
 
-def mean(values: [f64]) -> f64:
+def mean(values: [float]) -> float:
     """Calculate the arithmetic mean of values."""
     if len(values) == 0:
         return 0.0
     return fsum(values) / len(values)
 
-def fmin(x: f64, y: f64) -> f64:
+def fmin(x: float, y: float) -> float:
     """Return the minimum of x and y."""
     # Implemented in runtime
     return 0.0
 
-def fmax(x: f64, y: f64) -> f64:
+def fmax(x: float, y: float) -> float:
     """Return the maximum of x and y."""
     # Implemented in runtime
     return 0.0
 
-def dist(p: [f64], q: [f64]) -> f64:
+def dist(p: [float], q: [float]) -> float:
     """Return the Euclidean distance between two points p and q."""
     if len(p) != len(q):
         return 0.0
@@ -330,17 +330,17 @@ def dist(p: [f64], q: [f64]) -> f64:
 # Constants (IEEE 754)
 # ============================================
 
-MAX_EXP: i64 = 1024
-MIN_EXP: i64 = -1021
-MAX: f64 = 1.7976931348623157e+308
-MIN: f64 = 2.2250738585072014e-308
-EPSILON: f64 = 2.220446049250313e-16
+MAX_EXP: int = 1024
+MIN_EXP: int = -1021
+MAX: float = 1.7976931348623157e+308
+MIN: float = 2.2250738585072014e-308
+EPSILON: float = 2.220446049250313e-16
 
 # ============================================
 # Utility Functions
 # ============================================
 
-def clamp(x: f64, min_val: f64, max_val: f64) -> f64:
+def clamp(x: float, min_val: float, max_val: float) -> float:
     """Clamp x between min_val and max_val."""
     if x < min_val:
         return min_val
@@ -348,11 +348,11 @@ def clamp(x: f64, min_val: f64, max_val: f64) -> f64:
         return max_val
     return x
 
-def lerp(a: f64, b: f64, t: f64) -> f64:
+def lerp(a: float, b: float, t: float) -> float:
     """Linear interpolation between a and b at t."""
     return a + (b - a) * t
 
-def smoothstep(edge0: f64, edge1: f64, x: f64) -> f64:
+def smoothstep(edge0: float, edge1: float, x: float) -> float:
     """Smooth Hermite interpolation between edge0 and edge1."""
     t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
     return t * t * (3.0 - 2.0 * t)

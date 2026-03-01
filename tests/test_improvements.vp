@@ -1,12 +1,12 @@
 # Viper Improvements Test
 # Tests all improvements from IMPROVEMENT_ROADMAP.md
 
-def channel_worker(id: i64, c: Chan[i64], wg: WaitGroup):
+def channel_worker(id: int, c: Chan[int], wg: WaitGroup):
     # Lock-free channel test
     send(c, id * 10)
     done(wg)
 
-def compute_worker(id: i64, c: Chan[i64], wg: WaitGroup):
+def compute_worker(id: int, c: Chan[int], wg: WaitGroup):
     # CPU-bound computation test
     sum_val = 0
     for i in range(1000):

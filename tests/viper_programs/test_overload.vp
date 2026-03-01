@@ -1,12 +1,12 @@
 # Test: Function overloading
 
-def sum(a: i64, b: i64) -> i64:
+def sum(a: int, b: int) -> int:
     return a + b
 
-def sum(a: f64, b: f64) -> f64:
+def sum(a: float, b: float) -> float:
     return a + b
 
-def sum(a: i64, b: i64, c: i64) -> i64:
+def sum(a: int, b: int, c: int) -> int:
     return a + b + c
 
 def main():
