@@ -53,6 +53,8 @@ runtime/obj/*.o
 vendor/other/
 # Benchmark Rust workspace target
 benchmark/target/
+benchmarks/target/
+benchmarks/**/target/
 
 # Test files (keep in repo but ignore compiled outputs)
 test_*.vp
