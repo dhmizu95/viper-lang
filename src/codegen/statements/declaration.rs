@@ -82,6 +82,17 @@ pub(crate) fn generate_declare<'ctx>(
             }
             _ => false,
         };
+
+        // Store the type annotation or inferred type in var_types for future lookups
+        if let Some(ref ty) = type_ann {
+            state.var_types.insert(name.to_string(), ty.clone());
+        } else {
+            let inferred_type = crate::codegen::expressions::core::infer_expr_type(expr);
+            if inferred_type != crate::ast::Type::Infer {
+                state.var_types.insert(name.to_string(), inferred_type);
+            }
+        }
+
         if is_list {
             state.mark_as_list(name.to_string());
         }

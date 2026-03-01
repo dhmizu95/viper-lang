@@ -258,6 +258,7 @@ impl<'ctx> CodeGen<'ctx> {
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
         let saved_list_vars = std::mem::take(&mut self.list_vars);
         let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
+        let saved_var_types = std::mem::take(&mut self.var_types);
         let saved_current_function = self.current_function.clone();
         // Use original (unmangled) name for escape analysis
         self.current_function = Some(original_name.to_string());
@@ -295,6 +296,11 @@ impl<'ctx> CodeGen<'ctx> {
                 VarType::Int
             };
             self.variables.insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
+
+            // Store the parameter's type annotation in var_types for type inference
+            if let Some(ref ty) = param.type_ann {
+                self.var_types.insert(param.name.clone(), ty.clone());
+            }
 
             // If parameter is a pointer type, mark it as a list for indexing purposes
             // This is needed because list parameters passed from callers are pointers
@@ -385,6 +391,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
         self.bigint_vars = saved_bigint_vars;
+        self.var_types = saved_var_types;
         self.current_function = saved_current_function;
 
         Ok(())

@@ -59,14 +59,24 @@ impl TypeChecker {
         // First pass: collect function declarations
         for stmt in &module.statements {
             if let crate::ast::Stmt::Function { name, params, return_type, span, type_params, .. } = stmt {
+                // Normalize parameter types
                 let param_types: Vec<Type> =
-                    params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Infer)).collect();
+                    params.iter()
+                        .map(|p| {
+                            p.type_ann.as_ref()
+                                .map(|t| self.normalize_type(t))
+                                .unwrap_or(Type::Infer)
+                        })
+                        .collect();
+
+                // Normalize return type (convert GenericApp Result to Type::Result)
+                let normalized_return_type = return_type.as_ref().map(|t| self.normalize_type(t));
 
                 // type_params is already Vec<String>
                 let symbol = Symbol::new_function(
                     name.clone(),
                     param_types,
-                    return_type.clone(),
+                    normalized_return_type,
                     *span,
                     self.symbol_table.current_scope_id(),
                     type_params.clone(),
@@ -87,6 +97,62 @@ impl TypeChecker {
             Ok(())
         } else {
             Err(self.errors.clone())
+        }
+    }
+
+    /// Normalize a type - convert GenericApp Result[T, E] to Type::Result(T, E)
+    fn normalize_type(&self, ty: &Type) -> Type {
+        match ty {
+            Type::GenericApp { name, type_args } => {
+                if name == "Result" && type_args.len() == 2 {
+                    Type::Result(
+                        Box::new(self.normalize_type(&type_args[0])),
+                        Box::new(self.normalize_type(&type_args[1])),
+                    )
+                } else if name == "List" && type_args.len() == 1 {
+                    Type::List(Box::new(self.normalize_type(&type_args[0])))
+                } else if name == "Dict" && type_args.len() == 2 {
+                    Type::Dict(
+                        Box::new(self.normalize_type(&type_args[0])),
+                        Box::new(self.normalize_type(&type_args[1])),
+                    )
+                } else if name == "Optional" && type_args.len() == 1 {
+                    Type::Optional(Box::new(self.normalize_type(&type_args[0])))
+                } else if name == "Future" && type_args.len() == 1 {
+                    Type::Future(Box::new(self.normalize_type(&type_args[0])))
+                } else if name == "Chan" && type_args.len() == 1 {
+                    Type::Chan(Box::new(self.normalize_type(&type_args[0])))
+                } else if name == "Array" && type_args.len() == 2 {
+                    // Array[T, N] - but N should be a constant, not a type
+                    // For now, just normalize the element type
+                    Type::Array(
+                        Box::new(self.normalize_type(&type_args[0])),
+                        0,  // Size would need special handling
+                    )
+                } else {
+                    ty.clone()
+                }
+            }
+            // Recursively normalize nested types
+            Type::List(inner) => Type::List(Box::new(self.normalize_type(inner))),
+            Type::Dict(k, v) => Type::Dict(
+                Box::new(self.normalize_type(k)),
+                Box::new(self.normalize_type(v)),
+            ),
+            Type::Tuple(types) => Type::Tuple(types.iter().map(|t| self.normalize_type(t)).collect()),
+            Type::Fn(params, ret) => Type::Fn(
+                params.iter().map(|p| self.normalize_type(p)).collect(),
+                Box::new(self.normalize_type(ret)),
+            ),
+            Type::Union(variants) => Type::Union(variants.iter().map(|t| self.normalize_type(t)).collect()),
+            Type::Optional(inner) => Type::Optional(Box::new(self.normalize_type(inner))),
+            Type::Future(inner) => Type::Future(Box::new(self.normalize_type(inner))),
+            Type::Chan(inner) => Type::Chan(Box::new(self.normalize_type(inner))),
+            Type::Array(elem, size) => Type::Array(
+                Box::new(self.normalize_type(elem)),
+                *size,
+            ),
+            _ => ty.clone(),
         }
     }
 

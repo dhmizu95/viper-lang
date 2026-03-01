@@ -489,6 +489,9 @@ pub fn declare_function<'ctx>(
     return_type: &Option<Type>,
     body: Option<&[Stmt]>,
 ) -> Result<(), String> {
+    // Normalize return type (convert GenericApp Result to Type::Result)
+    let normalized_return_type = return_type.as_ref().map(|t| normalize_type(t));
+    
     // Infer parameter types from body if not annotated
     let param_types = if let Some(body) = body {
         infer_param_types_from_body(params, body)
@@ -504,14 +507,14 @@ pub fn declare_function<'ctx>(
     // If no return type annotation, try to infer from body
     let param_type_pairs: Vec<(String, Type)> =
         params.iter().zip(param_types.iter()).map(|(p, t)| (p.name.clone(), t.clone())).collect();
-    let inferred_return_type = if return_type.is_none() {
+    let inferred_return_type = if normalized_return_type.is_none() {
         if let Some(body) = body {
             infer_return_type_from_body(body, &param_type_pairs)
         } else {
             None
         }
     } else {
-        return_type.clone()
+        normalized_return_type.clone()
     };
 
     // Special case: main() always returns i64 for proper exit code
@@ -566,4 +569,49 @@ pub fn declare_function_simple<'ctx>(
     functions.insert(name.to_string(), func);
 
     Ok(())
+}
+
+/// Normalize a type - convert GenericApp Result[T, E] to Type::Result(T, E)
+fn normalize_type(ty: &Type) -> Type {
+    match ty {
+        Type::GenericApp { name, type_args } => {
+            if name == "Result" && type_args.len() == 2 {
+                Type::Result(
+                    Box::new(normalize_type(&type_args[0])),
+                    Box::new(normalize_type(&type_args[1])),
+                )
+            } else if name == "List" && type_args.len() == 1 {
+                Type::List(Box::new(normalize_type(&type_args[0])))
+            } else if name == "Dict" && type_args.len() == 2 {
+                Type::Dict(
+                    Box::new(normalize_type(&type_args[0])),
+                    Box::new(normalize_type(&type_args[1])),
+                )
+            } else if name == "Optional" && type_args.len() == 1 {
+                Type::Optional(Box::new(normalize_type(&type_args[0])))
+            } else if name == "Future" && type_args.len() == 1 {
+                Type::Future(Box::new(normalize_type(&type_args[0])))
+            } else if name == "Chan" && type_args.len() == 1 {
+                Type::Chan(Box::new(normalize_type(&type_args[0])))
+            } else {
+                ty.clone()
+            }
+        }
+        // Recursively normalize nested types
+        Type::List(inner) => Type::List(Box::new(normalize_type(inner))),
+        Type::Dict(k, v) => Type::Dict(
+            Box::new(normalize_type(k)),
+            Box::new(normalize_type(v)),
+        ),
+        Type::Tuple(types) => Type::Tuple(types.iter().map(|t| normalize_type(t)).collect()),
+        Type::Fn(params, ret) => Type::Fn(
+            params.iter().map(|p| normalize_type(p)).collect(),
+            Box::new(normalize_type(ret)),
+        ),
+        Type::Union(variants) => Type::Union(variants.iter().map(|t| normalize_type(t)).collect()),
+        Type::Optional(inner) => Type::Optional(Box::new(normalize_type(inner))),
+        Type::Future(inner) => Type::Future(Box::new(normalize_type(inner))),
+        Type::Chan(inner) => Type::Chan(Box::new(normalize_type(inner))),
+        _ => ty.clone(),
+    }
 }

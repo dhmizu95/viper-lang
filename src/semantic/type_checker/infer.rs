@@ -125,7 +125,15 @@ impl TypeChecker {
                         "float" => Some(Type::F64),
                         "bool" => Some(Type::Bool),
                         _ => {
-                            if let Some(symbol) = self.symbol_table.lookup(name) {
+                            // For function calls, use get_function_overloads to find by name prefix
+                            let overloads = self.symbol_table.get_function_overloads(name);
+                            if let Some(symbol) = overloads.first() {
+                                if let SymbolKind::Function { return_type, .. } = &symbol.kind {
+                                    return_type.clone()
+                                } else {
+                                    None
+                                }
+                            } else if let Some(symbol) = self.symbol_table.lookup(name) {
                                 if let SymbolKind::Function { return_type, .. } = &symbol.kind {
                                     return_type.clone()
                                 } else if let SymbolKind::Builtin { signature } = &symbol.kind {

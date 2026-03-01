@@ -25,3 +25,9 @@ Type inference doesn’t fully unify error types yet
 Error propagation currently panics instead of returning error to caller
 Helper methods (.unwrap(), .is_ok(), etc.) not implemented
 Generic support limited to i64 values in Result struct
+
+Runtime assertion failures (panic function ready)
+Full variable deletion with reference counting
+Complete exception handling runtime
+Context manager protocol (__enter__, __exit__)
+Generator runtime support

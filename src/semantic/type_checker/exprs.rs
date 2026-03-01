@@ -109,7 +109,7 @@ impl TypeChecker {
                 for arg in args {
                     self.check_expr(arg);
                 }
-                
+
                 // Handle function call with overload resolution
                 if let Expr::Ident(name, _) = func.as_ref() {
                     // Check if this is a class instantiation
@@ -118,14 +118,14 @@ impl TypeChecker {
                     } else {
                         false
                     };
-                    
+
                     if is_class {
                         // This is a class instantiation - valid
                         // The __init__ method will be called by codegen
                     } else {
                     // Check if this function has overloads
                     let overloads = self.symbol_table.get_function_overloads(name);
-                    
+
                     if overloads.len() > 1 {
                         // Multiple overloads - resolve to the best match
                         match self.resolve_overload(name, args) {
@@ -167,6 +167,29 @@ impl TypeChecker {
                         }
                     }
                     } // End of else block for class check
+                    
+                    // Explicitly store the return type for the call expression
+                    if let Some(symbol) = self.symbol_table.lookup(name) {
+                        if let SymbolKind::Function { return_type, .. } = &symbol.kind {
+                            if let Some(ret_ty) = return_type {
+                                self.expr_types.insert(span.start as usize, ret_ty.clone());
+                            }
+                        } else if let SymbolKind::Builtin { signature } = &symbol.kind {
+                            let builtin_ret = match signature {
+                                crate::semantic::symbol_table::BuiltinSignature::Print => Some(Type::None),
+                                crate::semantic::symbol_table::BuiltinSignature::Range => Some(Type::List(Box::new(Type::I64))),
+                                crate::semantic::symbol_table::BuiltinSignature::Len => Some(Type::I64),
+                                crate::semantic::symbol_table::BuiltinSignature::Str => Some(Type::Str),
+                                crate::semantic::symbol_table::BuiltinSignature::Int => Some(Type::I64),
+                                crate::semantic::symbol_table::BuiltinSignature::Float => Some(Type::F64),
+                                crate::semantic::symbol_table::BuiltinSignature::Bool => Some(Type::Bool),
+                                _ => None,
+                            };
+                            if let Some(ty) = builtin_ret {
+                                self.expr_types.insert(span.start as usize, ty);
+                            }
+                        }
+                    }
                 }
             }
             Expr::Index { obj, index, span } => {
@@ -228,35 +251,47 @@ impl TypeChecker {
             Expr::UnaryOp { op, operand, span } => {
                 match op {
                     UnaryOp::Unwrap | UnaryOp::UnwrapOrDefault => {
-                        // ? operator requires Result[T, E] type
-                        if let Some(operand_type) = self.get_expr_type(operand) {
-                            match &operand_type {
-                                Type::Result(_ok_type, _err_type) => {
-                                    // Check if we're in a function that returns Result
-                                    // This is needed for error propagation to work
-                                    if !self.is_in_result_returning_function(&operand_type) {
-                                        self.errors.push(TypeError::new(
-                                            format!(
-                                                "The `?` operator can only be used in functions that return Result, got {}",
-                                                operand_type
-                                            ),
-                                            *span,
-                                        ));
-                                    }
-                                }
-                                _ => {
+                        // First, check the operand expression to store its type
+                        self.check_expr(operand);
+                        
+                        // Now get the stored type for the operand
+                        let operand_type = self.get_expr_type(operand);
+                        
+                        match &operand_type {
+                            Some(Type::Result(_ok_type, _err_type)) => {
+                                // Check if we're in a function that returns Result
+                                // This is needed for error propagation to work
+                                if !self.is_in_result_returning_function(operand_type.as_ref().unwrap()) {
                                     self.errors.push(TypeError::new(
                                         format!(
-                                            "The `?` operator requires a Result type, got {}",
-                                            operand_type
+                                            "The `?` operator can only be used in functions that return Result"
                                         ),
                                         *span,
                                     ));
                                 }
                             }
+                            Some(other) => {
+                                self.errors.push(TypeError::new(
+                                    format!(
+                                        "The `?` operator requires a Result type, got {}",
+                                        other
+                                    ),
+                                    *span,
+                                ));
+                            }
+                            None => {
+                                // Type couldn't be inferred - this is an error
+                                self.errors.push(TypeError::new(
+                                    "The `?` operator requires a Result type, but type could not be inferred".to_string(),
+                                    *span,
+                                ));
+                            }
                         }
                     }
-                    _ => {}
+                    _ => {
+                        // For other unary ops, just check the operand
+                        self.check_expr(operand);
+                    }
                 }
             }
             // ... (other validations as needed)

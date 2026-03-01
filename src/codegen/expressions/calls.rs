@@ -218,7 +218,16 @@ pub fn generate_call<'ctx>(
         }
 
         // Check for user-defined functions with overload resolution
-        let arg_types: Vec<Type> = args.iter().map(|a| infer_expr_type(a)).collect();
+        // Infer argument types, using var_types for identifiers when available
+        let arg_types: Vec<Type> = args.iter().map(|a| {
+            match a {
+                Expr::Ident(name, _) => {
+                    // Try to get type from var_types first
+                    state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a))
+                }
+                _ => infer_expr_type(a)
+            }
+        }).collect();
         
         // First try exact match with mangled name
         let mangled_name = mangle_function_name(name, &arg_types);

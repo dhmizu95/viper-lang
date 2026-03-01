@@ -98,21 +98,24 @@ pub(crate) fn generate_assign<'ctx>(
                     // str() conversion returns string, not list
                     {
                         false
-                    // User-defined functions - use type inference to determine return type
                     } else {
-                        matches!(inferred_type, crate::ast::Type::List(_))
+                        false
                     }
                 } else {
-                    // Indirect call (function variable) - use type inference
-                    matches!(inferred_type, crate::ast::Type::List(_))
+                    false
                 }
             }
             _ => false,
         };
+
         if is_list {
-            state.mark_as_list(name.clone());
-        } else {
-            state.list_vars.remove(name);
+            state.list_vars.insert(name.clone());
+        }
+
+        // Store the inferred type in var_types for future lookups
+        let value_type = crate::codegen::expressions::core::infer_expr_type(value);
+        if value_type != crate::ast::Type::Infer {
+            state.var_types.insert(name.clone(), value_type);
         }
 
         // Track bool list variables
