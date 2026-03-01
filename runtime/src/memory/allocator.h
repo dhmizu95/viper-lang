@@ -37,6 +37,9 @@ typedef struct VpAllocatorStats {
 /* Allocator Functions                           */
 /* ============================================ */
 
+/* Simple malloc wrapper for JIT (vp_free is in arc.c) */
+void* vp_malloc(size_t size);
+
 void vp_set_allocator(vp_alloc_fn alloc_fn, vp_free_fn free_fn);
 vp_alloc_fn vp_get_allocator(void);
 vp_free_fn vp_get_free_fn(void);
