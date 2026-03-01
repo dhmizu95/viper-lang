@@ -1707,8 +1707,6 @@ pub fn generate_isinstance_check<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
 ) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
-    use inkwell::values::BasicValue;
-
     if args.len() != 2 {
         return Err("isinstance() takes exactly 2 arguments".to_string());
     }

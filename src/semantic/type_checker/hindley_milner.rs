@@ -102,14 +102,14 @@ impl TypeChecker {
     /// Returns the inferred type and any generated constraints
     pub fn infer_expr_hm(&mut self, expr: &Expr) -> (Type, Vec<Constraint>) {
         match expr {
-            Expr::Int(_, span) => (Type::I64, vec![]),
-            Expr::Float(_, span) => (Type::F64, vec![]),
-            Expr::Bool(_, span) => (Type::Bool, vec![]),
-            Expr::Str(_, span) => (Type::Str, vec![]),
-            Expr::None(span) => (Type::None, vec![]),
-            Expr::BigInt(_, span) => (Type::BigInt, vec![]),
-            
-            Expr::Ident(name, span) => {
+            Expr::Int(_, _span) => (Type::I64, vec![]),
+            Expr::Float(_, _span) => (Type::F64, vec![]),
+            Expr::Bool(_, _span) => (Type::Bool, vec![]),
+            Expr::Str(_, _span) => (Type::Str, vec![]),
+            Expr::None(_span) => (Type::None, vec![]),
+            Expr::BigInt(_, _span) => (Type::BigInt, vec![]),
+
+            Expr::Ident(name, _span) => {
                 // Look up the identifier's type
                 if let Some(symbol) = self.symbol_table.lookup(name) {
                     if let Some(ty) = symbol.get_type() {
@@ -127,7 +127,7 @@ impl TypeChecker {
                 }
             }
             
-            Expr::List { elements, span } => {
+            Expr::List { elements, span: _ } => {
                 if elements.is_empty() {
                     // Empty list: [T] where T is fresh
                     let tvar = self.fresh_type_var();
@@ -147,7 +147,7 @@ impl TypeChecker {
                 }
             }
             
-            Expr::Tuple { elements, span } => {
+            Expr::Tuple { elements, span: _ } => {
                 let mut tuple_types = Vec::new();
                 let mut all_constraints = Vec::new();
                 
@@ -204,7 +204,7 @@ impl TypeChecker {
             }
             
             Expr::BinOp { left, op, right, span } => {
-                let (left_ty, mut left_constraints) = self.infer_expr_hm(left);
+                let (left_ty, left_constraints) = self.infer_expr_hm(left);
                 let (right_ty, right_constraints) = self.infer_expr_hm(right);
                 let mut constraints = left_constraints;
                 constraints.extend(right_constraints);
@@ -288,13 +288,13 @@ impl TypeChecker {
                 (elem_tvar, constraints)
             }
             
-            Expr::Attribute { obj, attr, span } => {
-                let (obj_ty, mut constraints) = self.infer_expr_hm(obj);
-                
+            Expr::Attribute { obj, attr: _, span: _ } => {
+                let (_obj_ty, constraints) = self.infer_expr_hm(obj);
+
                 // Attribute access result type depends on the object type
                 // For now, use a fresh type variable
                 let result_ty = Type::Var(self.fresh_type_var());
-                
+
                 // TODO: Add proper field/method lookup here
                 // For class instances, look up the field/method type
                 
@@ -535,7 +535,7 @@ impl TypeChecker {
         &self,
         name: &str,
         args: &[Expr],
-        span: crate::utils::Span,
+        _span: crate::utils::Span,
     ) -> Option<(Vec<Type>, Type)> {
         match name {
             // BigInt constructor: BigInt(str) -> BigInt

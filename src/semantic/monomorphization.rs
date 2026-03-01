@@ -226,7 +226,9 @@ impl TypeChecker {
     pub fn get_monomorphizer(&mut self) -> &mut Monomorphizer {
         // We'll store the monomorphizer in the type checker
         // For now, create a local one - in a real implementation, this would be stored
+        #[allow(static_mut_refs)]
         static mut MONOMORPHIZER: Option<Monomorphizer> = None;
+        #[allow(static_mut_refs)]
         unsafe {
             if MONOMORPHIZER.is_none() {
                 MONOMORPHIZER = Some(Monomorphizer::new());
