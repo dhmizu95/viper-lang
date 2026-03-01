@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Expr};
+use crate::ast::{BinOp, Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarStorage, VarType};
 use inkwell::values::BasicValueEnum;
@@ -15,6 +15,18 @@ fn values_are_same_pointer<'ctx>(a: BasicValueEnum<'ctx>, b: BasicValueEnum<'ctx
         a_ptr == b_ptr
     } else {
         false
+    }
+}
+
+/// Get the type of an expression for assignment type tracking.
+/// Unlike infer_expr_type, this looks up identifier types from var_types.
+fn get_expr_type_for_assignment(state: &CodeGenState, expr: &Expr) -> Type {
+    match expr {
+        Expr::Ident(name, _) => {
+            // Look up the type from var_types first
+            state.var_types.get(name).cloned().unwrap_or(Type::Infer)
+        }
+        _ => crate::codegen::expressions::core::infer_expr_type(expr),
     }
 }
 
@@ -113,7 +125,7 @@ pub(crate) fn generate_assign<'ctx>(
         }
 
         // Store the inferred type in var_types for future lookups
-        let value_type = crate::codegen::expressions::core::infer_expr_type(value);
+        let value_type = get_expr_type_for_assignment(state, value);
         if value_type != crate::ast::Type::Infer {
             state.var_types.insert(name.clone(), value_type);
         }
