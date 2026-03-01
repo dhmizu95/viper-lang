@@ -518,11 +518,15 @@ impl TypeChecker {
                     self.check_expr(c);
                 }
             }
-            Stmt::With { items, body, is_async: _, span: _ } => {
+            Stmt::With { items, body, is_async, span } => {
                 self.symbol_table.enter_scope();
                 for item in items {
-                    self.check_expr(&item.context_expr);
-                    // The optional_vars is bound to the result of __enter__
+                    let context_type = self.check_expr(&item.context_expr);
+                    
+                    // Check that context manager has required methods
+                    self.check_context_manager_protocol(&item.context_expr, context_type.as_ref(), *is_async, item.span);
+                    
+                    // The optional_vars is bound to the result of __enter__ (or __aenter__ for async)
                     if let Some(var_name) = &item.optional_vars {
                         // Add the variable to the symbol table
                         // Type will be inferred from usage
@@ -606,5 +610,55 @@ impl TypeChecker {
                 // TODO: Handle other statement types
             }
         }
+    }
+
+    /// Check that a context manager has the required protocol methods
+    fn check_context_manager_protocol(
+        &mut self,
+        context_expr: &crate::ast::Expr,
+        context_type: Option<&crate::ast::types::Type>,
+        is_async: bool,
+        span: crate::utils::Span,
+    ) {
+        // For object/class types, check for __enter__/__exit__ or __aenter__/__aexit__ methods
+        if let Some(Type::Class(class_name)) = context_type {
+            // Look up the class in the symbol table
+            if let Some(class_symbol) = self.symbol_table.lookup(class_name) {
+                if let crate::semantic::symbol_table::SymbolKind::Class { methods, .. } = &class_symbol.kind {
+                    let (enter_method, exit_method) = if is_async {
+                        ("__aenter__", "__aexit__")
+                    } else {
+                        ("__enter__", "__exit__")
+                    };
+
+                    // Check for __enter__ or __aenter__
+                    let has_enter = methods.iter().any(|m| m == enter_method);
+                    if !has_enter {
+                        self.errors.push(TypeError::new(
+                            format!(
+                                "Context manager '{}' must have a '{}' method",
+                                class_name, enter_method
+                            ),
+                            span,
+                        ));
+                    }
+
+                    // Check for __exit__ or __aexit__
+                    let has_exit = methods.iter().any(|m| m == exit_method);
+                    if !has_exit {
+                        self.errors.push(TypeError::new(
+                            format!(
+                                "Context manager '{}' must have a '{}' method",
+                                class_name, exit_method
+                            ),
+                            span,
+                        ));
+                    }
+                }
+            }
+        }
+        // For non-class types (like literals), we allow them but they won't have protocol methods
+        // This matches Python's behavior where any object can be used in a with statement
+        // if it has the appropriate methods at runtime
     }
 }

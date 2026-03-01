@@ -117,6 +117,21 @@ impl ClassRegistry {
     pub fn get_class_mut(&mut self, name: &str) -> Option<&mut ClassMetadata> {
         self.classes.get_mut(name)
     }
+
+    /// Find a method by name across all classes (for context manager protocol)
+    pub fn find_method(&self, method_name: &str) -> Option<(&ClassMetadata, &MethodInfo)> {
+        for (_name, class) in &self.classes {
+            if let Some(method) = class.get_method(method_name) {
+                return Some((class, method));
+            }
+        }
+        None
+    }
+
+    /// Iterate over all classes
+    pub fn iter_classes(&self) -> impl Iterator<Item = (&String, &ClassMetadata)> {
+        self.classes.iter()
+    }
 }
 
 /// Calculate MRO using C3 linearization algorithm

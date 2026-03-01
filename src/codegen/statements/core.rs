@@ -1,6 +1,6 @@
 use crate::ast::{Expr, Stmt};
 use inkwell::context::Context;
-use inkwell::values::{FunctionValue, GlobalValue};
+use inkwell::values::{FunctionValue, GlobalValue, BasicValueEnum, BasicMetadataValueEnum};
 use std::collections::{HashMap, HashSet};
 
 use super::*;
@@ -576,99 +576,37 @@ fn generate_sync_with<'ctx>(
     items: &[crate::ast::WithItem],
     body: &[Stmt],
 ) -> Result<(), String> {
-    // For each with item:
-    // 1. Evaluate context expression
-    // 2. Call __enter__ and bind to variable if present
-    // 3. Execute body
-    // 4. Call __exit__ (will be added in cleanup block)
-    
-    for item in items {
-        // Evaluate context expression
-        let context_val = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
-        
-        // Bind to variable if present
-        if let Some(var_name) = &item.optional_vars {
-            // Store in alloca for the variable
-            let var_type = context_val.get_type();
-            let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
-            state.builder.build_store(var_alloca, context_val).expect("store");
+    use inkwell::values::BasicValueEnum;
 
-            state.variables.insert(
-                var_name.clone(),
-                VarInfo {
-                    storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
-                    var_type: VarType::Pointer, // Context managers are heap-allocated objects
-                    class_name: None,
-                    closure_value_ptr: None,
-                },
-            );
-        }
-    }
-    
-    // Generate body
-    for stmt in body {
-        crate::codegen::statements::generate_stmt(
-            state.context,
-            state.module,
-            state.builder,
-            state.ir_builder,
-            state.variables,
-            state.functions,
-            state.global_constants,
-            state.loop_stack,
-            state.list_vars,
-            state.dict_vars,
-            state.bool_list_vars,
-            state.bigint_vars,
-            stmt,
-        )?;
-    }
-    
-    // TODO: Generate __exit__ calls in cleanup block
-    Ok(())
-}
-
-/// Generate code for an async with statement
-/// async with expr as var:
-///     body
-fn generate_async_with<'ctx>(
-    state: &mut CodeGenState<'_, 'ctx>,
-    items: &[crate::ast::WithItem],
-    body: &[Stmt],
-) -> Result<(), String> {
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let with_num = WITH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    
-    // Create blocks for each phase
-    let enter_block = state.context.append_basic_block(func_ctx, &format!("async_with_enter{}", with_num));
-    let body_block = state.context.append_basic_block(func_ctx, &format!("async_with_body{}", with_num));
-    let exit_block = state.context.append_basic_block(func_ctx, &format!("async_with_exit{}", with_num));
-    let continue_block = state.context.append_basic_block(func_ctx, &format!("async_with_continue{}", with_num));
-    
+
+    // Create blocks for control flow
+    let enter_block = state.context.append_basic_block(func_ctx, &format!("with_enter{}", with_num));
+    let body_block = state.context.append_basic_block(func_ctx, &format!("with_body{}", with_num));
+    let exit_block = state.context.append_basic_block(func_ctx, &format!("with_exit{}", with_num));
+    let continue_block = state.context.append_basic_block(func_ctx, &format!("with_continue{}", with_num));
+
     // Branch to enter block
     state.ir_builder.build_branch(state.builder, enter_block);
-    
-    // Enter block: call vp_async_context_enter for each item
+
+    // Enter block: evaluate context expressions and call __enter__
     state.builder.position_at_end(enter_block);
-    
-    // Get the vp_async_context_enter function
-    let enter_func = state.module.get_function("vp_async_context_enter")
-        .ok_or_else(|| "vp_async_context_enter not declared".to_string())?;
-    
-    // Process each with item
+
+    // Store context manager objects and enter results for each item
+    let mut context_managers: Vec<(BasicValueEnum<'ctx>, Option<String>)> = Vec::new();
+
     for (i, item) in items.iter().enumerate() {
         // Evaluate context expression
         let context_val = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
-        
-        // Call vp_async_context_enter(context)
-        let enter_result = state.ir_builder.build_call(
-            state.builder,
-            enter_func,
-            &[context_val.into()],
-            &format!("async_with_enter_result{}", i),
-        ).ok_or_else(|| "vp_async_context_enter call failed".to_string())?;
-        
-        // Bind to variable if present
+
+        // Call __enter__ method on the context manager
+        let enter_result = call_context_enter(state, &context_val)?;
+
+        // Store context manager and enter result
+        context_managers.push((context_val, item.optional_vars.clone()));
+
+        // Bind __enter__ result to variable if present
         if let Some(var_name) = &item.optional_vars {
             let var_type = enter_result.get_type();
             let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
@@ -685,12 +623,12 @@ fn generate_async_with<'ctx>(
             );
         }
     }
-    
+
     state.ir_builder.build_branch(state.builder, body_block);
-    
+
     // Body block: execute the with body
     state.builder.position_at_end(body_block);
-    
+
     for stmt in body {
         crate::codegen::statements::generate_stmt(
             state.context,
@@ -708,41 +646,282 @@ fn generate_async_with<'ctx>(
             stmt,
         )?;
     }
-    
+
+    // Branch to exit block (normal execution path)
     state.ir_builder.build_branch(state.builder, exit_block);
-    
-    // Exit block: call vp_async_context_exit for each item (in reverse order)
+
+    // Exit block: call __exit__ for each context manager (in reverse order)
     state.builder.position_at_end(exit_block);
-    
-    // Get the vp_async_context_exit function
-    let exit_func = state.module.get_function("vp_async_context_exit")
-        .ok_or_else(|| "vp_async_context_exit not declared".to_string())?;
-    
-    // Call exit for each item in reverse order
-    for (i, _item) in items.iter().rev().enumerate() {
-        // Re-evaluate or reload context (simplified: just use 0 for exception info)
-        let exc_type = state.ir_builder.i64_const(0);
-        let exc_val = state.ir_builder.i64_const(0);
-        let exc_tb = state.ir_builder.i64_const(0);
-        
-        // For simplicity, we're not passing the actual context here
-        // A full implementation would need to save contexts from enter phase
-        let _exit_result = state.ir_builder.build_call(
-            state.builder,
-            exit_func,
-            &[state.ir_builder.i64_const(0).into(), exc_type.into(), exc_val.into(), exc_tb.into()],
-            &format!("async_with_exit_result{}", i),
-        );
+
+    // Call __exit__ with no exception (exc_type=None, exc_val=None, exc_tb=None)
+    for (i, (context_val, _)) in context_managers.iter().rev().enumerate() {
+        call_context_exit(state, context_val, false)?;
     }
-    
+
     state.ir_builder.build_branch(state.builder, continue_block);
-    
+
     // Continue block: merge point
     state.builder.position_at_end(continue_block);
-    
+
+    Ok(())
+}
+
+/// Call __enter__ method on a context manager object
+fn call_context_enter<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    context_val: &BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Context manager must be a pointer (object)
+    if !context_val.is_pointer_value() {
+        // For non-object types (like literals), just return the value
+        return Ok(*context_val);
+    }
+
+    let context_ptr = context_val.into_pointer_value();
+
+    // Try to infer the class type from the context value
+    // For now, we'll call __enter__ directly using the method lookup
+    let enter_result = call_method_on_object(state, context_ptr, "__enter__", &[])?;
+
+    Ok(enter_result)
+}
+
+/// Call __exit__ method on a context manager object
+/// If has_exception is true, passes exception info; otherwise passes None values
+fn call_context_exit<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    context_val: &BasicValueEnum<'ctx>,
+    has_exception: bool,
+) -> Result<(), String> {
+    // Context manager must be a pointer (object)
+    if !context_val.is_pointer_value() {
+        // For non-object types, nothing to do
+        return Ok(());
+    }
+
+    let context_ptr = context_val.into_pointer_value();
+
+    // Build exception info arguments
+    let i64_type = state.context.i64_type();
+    let exc_type = if has_exception {
+        i64_type.const_int(1, false).into()
+    } else {
+        i64_type.const_int(0, false).into()
+    };
+    let exc_val = i64_type.const_int(0, false).into();
+    let exc_tb = i64_type.const_int(0, false).into();
+
+    // Call __exit__(exc_type, exc_val, exc_tb)
+    let args = [exc_type, exc_val, exc_tb];
+    call_method_on_object(state, context_ptr, "__exit__", &args)?;
+
+    Ok(())
+}
+
+/// Helper function to call a method on an object pointer
+fn call_method_on_object<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    obj_ptr: inkwell::values::PointerValue<'ctx>,
+    method_name: &str,
+    args: &[inkwell::values::BasicMetadataValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    use crate::codegen::oop::with_class_registry;
+    use crate::ast::Type;
+
+    // Try to find the method in the class registry
+    let mut method_info: Option<(String, Type)> = None;
+
+    with_class_registry(|reg| {
+        if let Some((_class, method)) = reg.find_method(method_name) {
+            method_info = Some((method.mangled_name.clone(), method.return_type.clone()));
+        }
+    });
+
+    let (mangled_name, return_type) = method_info
+        .ok_or_else(|| format!("Method '{}' not found on context manager", method_name))?;
+
+    // Get the function
+    let func_val = state.functions.get(&mangled_name).copied()
+        .ok_or_else(|| format!("Function '{}' not found", mangled_name))?;
+
+    // Build argument list: self + method args
+    let mut arg_values: Vec<BasicMetadataValueEnum<'ctx>> = Vec::with_capacity(1 + args.len());
+    arg_values.push(obj_ptr.into());
+    arg_values.extend_from_slice(args);
+
+    // Call the method
+    let result = state.ir_builder.build_call(
+        state.builder,
+        func_val,
+        &arg_values,
+        &format!("context_{}_call", method_name.trim_matches('_')),
+    );
+
+    // Return appropriate default value based on return type
+    if let Some(call_result) = result {
+        Ok(call_result.into())
+    } else {
+        // Return appropriate default based on method return type
+        match return_type {
+            Type::Class(_) | Type::Instance(_) | Type::Str | Type::List(_) | Type::Dict(_, _) => {
+                // Return null pointer for reference types
+                Ok(state.context.ptr_type(inkwell::AddressSpace::default()).const_null().into())
+            }
+            Type::Bool | Type::I8 => Ok(state.context.i8_type().const_int(0, false).into()),
+            Type::I16 => Ok(state.context.i16_type().const_int(0, false).into()),
+            Type::I32 => Ok(state.context.i32_type().const_int(0, false).into()),
+            Type::F32 => Ok(state.context.f32_type().const_float(0.0).into()),
+            Type::F64 => Ok(state.context.f64_type().const_float(0.0).into()),
+            _ => Ok(state.context.i64_type().const_int(0, false).into()),
+        }
+    }
+}
+
+/// Generate code for an async with statement
+/// async with expr as var:
+///     body
+fn generate_async_with<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    items: &[crate::ast::WithItem],
+    body: &[Stmt],
+) -> Result<(), String> {
+    let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+    let with_num = WITH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+    // Create blocks for each phase
+    let enter_block = state.context.append_basic_block(func_ctx, &format!("async_with_enter{}", with_num));
+    let body_block = state.context.append_basic_block(func_ctx, &format!("async_with_body{}", with_num));
+    let exit_block = state.context.append_basic_block(func_ctx, &format!("async_with_exit{}", with_num));
+    let continue_block = state.context.append_basic_block(func_ctx, &format!("async_with_continue{}", with_num));
+
+    // Branch to enter block
+    state.ir_builder.build_branch(state.builder, enter_block);
+
+    // Enter block: call __aenter__ for each item
+    state.builder.position_at_end(enter_block);
+
+    // Store context managers for exit phase
+    let mut context_managers: Vec<(inkwell::values::BasicValueEnum<'ctx>, Option<String>)> = Vec::new();
+
+    // Process each with item
+    for (i, item) in items.iter().enumerate() {
+        // Evaluate context expression
+        let context_val = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
+
+        // Call __aenter__ method on the context manager
+        let aenter_result = call_async_context_enter(state, &context_val)?;
+
+        // Store context manager
+        context_managers.push((context_val, item.optional_vars.clone()));
+
+        // Bind __aenter__ result to variable if present
+        if let Some(var_name) = &item.optional_vars {
+            let var_type = aenter_result.get_type();
+            let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
+            state.builder.build_store(var_alloca, aenter_result).expect("store");
+
+            state.variables.insert(
+                var_name.clone(),
+                VarInfo {
+                    storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
+                    var_type: VarType::Pointer,
+                    class_name: None,
+                    closure_value_ptr: None,
+                },
+            );
+        }
+    }
+
+    state.ir_builder.build_branch(state.builder, body_block);
+
+    // Body block: execute the with body
+    state.builder.position_at_end(body_block);
+
+    for stmt in body {
+        crate::codegen::statements::generate_stmt(
+            state.context,
+            state.module,
+            state.builder,
+            state.ir_builder,
+            state.variables,
+            state.functions,
+            state.global_constants,
+            state.loop_stack,
+            state.list_vars,
+            state.dict_vars,
+            state.bool_list_vars,
+            state.bigint_vars,
+            stmt,
+        )?;
+    }
+
+    state.ir_builder.build_branch(state.builder, exit_block);
+
+    // Exit block: call __aexit__ for each item (in reverse order)
+    state.builder.position_at_end(exit_block);
+
+    // Call __aexit__ with no exception for each context manager
+    for (i, (context_val, _)) in context_managers.iter().rev().enumerate() {
+        call_async_context_exit(state, context_val, false)?;
+    }
+
+    state.ir_builder.build_branch(state.builder, continue_block);
+
+    // Continue block: merge point
+    state.builder.position_at_end(continue_block);
+
+    Ok(())
+}
+
+/// Call __aenter__ method on an async context manager object
+fn call_async_context_enter<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    context_val: &inkwell::values::BasicValueEnum<'ctx>,
+) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+    // Context manager must be a pointer (object)
+    if !context_val.is_pointer_value() {
+        // For non-object types, just return the value
+        return Ok(*context_val);
+    }
+
+    let context_ptr = context_val.into_pointer_value();
+
+    // Call __aenter__ method (no arguments)
+    let aenter_result = call_method_on_object(state, context_ptr, "__aenter__", &[])?;
+
+    Ok(aenter_result)
+}
+
+/// Call __aexit__ method on an async context manager object
+fn call_async_context_exit<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    context_val: &inkwell::values::BasicValueEnum<'ctx>,
+    has_exception: bool,
+) -> Result<(), String> {
+    // Context manager must be a pointer (object)
+    if !context_val.is_pointer_value() {
+        // For non-object types, nothing to do
+        return Ok(());
+    }
+
+    let context_ptr = context_val.into_pointer_value();
+
+    // Build exception info arguments
+    let i64_type = state.context.i64_type();
+    let exc_type = if has_exception {
+        i64_type.const_int(1, false).into()
+    } else {
+        i64_type.const_int(0, false).into()
+    };
+    let exc_val = i64_type.const_int(0, false).into();
+    let exc_tb = i64_type.const_int(0, false).into();
+
+    // Call __aexit__(exc_type, exc_val, exc_tb)
+    let args = [exc_type, exc_val, exc_tb];
+    call_method_on_object(state, context_ptr, "__aexit__", &args)?;
+
     Ok(())
 }
 
 // Counter for async with blocks
 static WITH_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
