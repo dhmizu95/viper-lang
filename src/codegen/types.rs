@@ -127,13 +127,12 @@ impl<'ctx> TypeMapper<'ctx> {
                 }
             }
             Some(Type::None) | None => None,
-            // Result type is returned by value as a struct { is_ok: i8, value: ptr }
-            // The value is stored as a pointer (or pointer-sized int for small values)
+            // Result type is returned by value as a struct { is_ok: i8, value: i64 }
+            // The value is stored as i64 (or bitcast to i64 for pointers/floats)
             Some(Type::Result(_, _)) => {
-                let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 Some(self.context.struct_type(&[
                     self.context.i8_type().into(),
-                    i8_ptr_type.into(),
+                    self.context.i64_type().into(),
                 ], false).into())
             }
             // Generic types and type variables use pointer type

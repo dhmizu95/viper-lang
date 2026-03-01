@@ -867,13 +867,20 @@ pub fn generate_method_call<'ctx>(
                 .build_extract_value(result_struct, 0, "is_ok")
                 .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
             let is_ok = is_ok_val.into_int_value();
-            
+            // Convert i8 to bool (i1) for select instruction
+            let is_ok_bool = state.builder.build_int_compare(
+                inkwell::IntPredicate::NE,
+                is_ok,
+                state.context.i8_type().const_zero(),
+                "is_ok_bool",
+            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+
             // Extract value from Result
             let result_value = state.builder
                 .build_extract_value(result_struct, 1, "result_value")
                 .map_err(|e| format!("Failed to extract value: {:?}", e))?
                 .into_int_value();
-            
+
             // Generate default value
             let default_value = generate_expr(state, &args[0])?;
             let default_int = if default_value.is_int_value() {
@@ -881,15 +888,15 @@ pub fn generate_method_call<'ctx>(
             } else {
                 return Err("unwrap_or default value must be integer".to_string());
             };
-            
+
             // Select based on is_ok
             let selected = state.builder.build_select(
-                is_ok,
+                is_ok_bool,
                 result_value,
                 default_int,
                 "unwrap_or_select",
             ).map_err(|e| format!("Failed to build select: {:?}", e))?;
-            
+
             Ok(selected.into())
         }
         "unwrap_or_default" => {
@@ -903,24 +910,31 @@ pub fn generate_method_call<'ctx>(
                 .build_extract_value(result_struct, 0, "is_ok")
                 .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
             let is_ok = is_ok_val.into_int_value();
-            
+            // Convert i8 to bool (i1) for select instruction
+            let is_ok_bool = state.builder.build_int_compare(
+                inkwell::IntPredicate::NE,
+                is_ok,
+                state.context.i8_type().const_zero(),
+                "is_ok_bool_default",
+            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+
             // Extract value from Result
             let result_value = state.builder
                 .build_extract_value(result_struct, 1, "result_value")
                 .map_err(|e| format!("Failed to extract value: {:?}", e))?
                 .into_int_value();
-            
+
             // Default is 0
             let default_value = state.context.i64_type().const_zero();
-            
+
             // Select based on is_ok
             let selected = state.builder.build_select(
-                is_ok,
+                is_ok_bool,
                 result_value,
                 default_value,
                 "unwrap_or_default",
             ).map_err(|e| format!("Failed to build select: {:?}", e))?;
-            
+
             Ok(selected.into())
         }
         "len" => Err("len() is a builtin function, not a method".to_string()),
@@ -1371,17 +1385,16 @@ pub fn generate_ok_constructor<'ctx>(
     // Generate the value expression
     let value = generate_expr(state, &args[0])?;
 
-    // For Result types, we use a unified representation:
-    // { is_ok: i8, value: ptr } where value is always a pointer
-    let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+    // For Result types, we use representation:
+    // { is_ok: i8, value: i64 } where value is bitcast to i64 if needed
     let result_struct_type = state.context.struct_type(&[
         state.context.i8_type().into(),
-        i8_ptr_type.into(),
+        state.context.i64_type().into(),
     ], false);
 
     // Allocate space for the Result struct
     let result_alloca = state.builder.build_alloca(result_struct_type, "ok_result").expect("alloca");
-    
+
     // Store is_ok = 1
     let is_ok_ptr = unsafe {
         state.builder.build_in_bounds_gep(
@@ -1392,43 +1405,38 @@ pub fn generate_ok_constructor<'ctx>(
         )
     }.map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
     state.builder.build_store(is_ok_ptr, state.context.i8_type().const_int(1, false)).expect("store");
-    
-    // Convert value to pointer representation and store
-    let value_ptr_ptr = unsafe {
+
+    // Convert value to i64 representation and store
+    let value_i64_ptr = unsafe {
         state.builder.build_in_bounds_gep(
             result_struct_type,
             result_alloca,
             &[state.context.i32_type().const_zero(), state.context.i32_type().const_int(1, false)],
-            "value_ptr_ptr",
+            "value_i64_ptr",
         )
-    }.map_err(|e| format!("Failed to get value_ptr field: {:?}", e))?;
-    
-    // Convert value to pointer representation
-    let value_ptr = if value.is_pointer_value() {
-        value.into_pointer_value()
-    } else if value.is_int_value() {
-        state.builder.build_int_to_ptr(
-            value.into_int_value(),
-            i8_ptr_type,
-            "ok_int_to_ptr",
-        ).map_err(|e| format!("Failed to bitcast int to ptr: {:?}", e))?
+    }.map_err(|e| format!("Failed to get value field: {:?}", e))?;
+
+    // Convert value to i64 representation
+    let value_i64 = if value.is_int_value() {
+        value.into_int_value()
     } else if value.is_float_value() {
-        let f64_as_i64 = state.builder.build_float_to_unsigned_int(
+        state.builder.build_float_to_unsigned_int(
             value.into_float_value(),
             state.context.i64_type(),
-            "f64_to_i64",
-        ).map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?;
-        state.builder.build_int_to_ptr(
-            f64_as_i64,
-            i8_ptr_type,
-            "ok_f64_to_ptr",
-        ).map_err(|e| format!("Failed to bitcast f64 to ptr: {:?}", e))?
+            "ok_f64_to_i64",
+        ).map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
+    } else if value.is_pointer_value() {
+        state.builder.build_ptr_to_int(
+            value.into_pointer_value(),
+            state.context.i64_type(),
+            "ok_ptr_to_i64",
+        ).map_err(|e| format!("Failed to convert ptr to i64: {:?}", e))?
     } else {
         return Err(format!("Unsupported Ok value type: {:?}", value.get_type()));
     };
-    
-    state.builder.build_store(value_ptr_ptr, value_ptr).expect("store");
-    
+
+    state.builder.build_store(value_i64_ptr, value_i64).expect("store");
+
     // Load and return the struct value
     let result_val = state.builder.build_load(result_struct_type, result_alloca, "ok_result_val").expect("load");
     Ok(result_val.into())
@@ -1447,17 +1455,16 @@ pub fn generate_err_constructor<'ctx>(
     // Generate the error expression
     let error = generate_expr(state, &args[0])?;
 
-    // For Result types, we use a unified representation:
-    // { is_ok: i8, error: ptr } where error is always a pointer
-    let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+    // For Result types, we use representation:
+    // { is_ok: i8, error: i64 } where error is bitcast to i64 if needed
     let result_struct_type = state.context.struct_type(&[
         state.context.i8_type().into(),
-        i8_ptr_type.into(),
+        state.context.i64_type().into(),
     ], false);
 
     // Allocate space for the Result struct
     let result_alloca = state.builder.build_alloca(result_struct_type, "err_result").expect("alloca");
-    
+
     // Store is_ok = 0
     let is_ok_ptr = unsafe {
         state.builder.build_in_bounds_gep(
@@ -1468,43 +1475,38 @@ pub fn generate_err_constructor<'ctx>(
         )
     }.map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
     state.builder.build_store(is_ok_ptr, state.context.i8_type().const_int(0, false)).expect("store");
-    
-    // Convert error to pointer representation and store
-    let error_ptr_ptr = unsafe {
+
+    // Convert error to i64 representation and store
+    let error_i64_ptr = unsafe {
         state.builder.build_in_bounds_gep(
             result_struct_type,
             result_alloca,
             &[state.context.i32_type().const_zero(), state.context.i32_type().const_int(1, false)],
-            "error_ptr_ptr",
+            "error_i64_ptr",
         )
-    }.map_err(|e| format!("Failed to get error_ptr field: {:?}", e))?;
-    
-    // Convert error to pointer representation
-    let error_ptr = if error.is_pointer_value() {
-        error.into_pointer_value()
+    }.map_err(|e| format!("Failed to get error field: {:?}", e))?;
+
+    // Convert error to i64 representation
+    let error_i64 = if error.is_pointer_value() {
+        state.builder.build_ptr_to_int(
+            error.into_pointer_value(),
+            state.context.i64_type(),
+            "err_ptr_to_i64",
+        ).map_err(|e| format!("Failed to convert ptr to i64: {:?}", e))?
     } else if error.is_int_value() {
-        state.builder.build_int_to_ptr(
-            error.into_int_value(),
-            i8_ptr_type,
-            "err_int_to_ptr",
-        ).map_err(|e| format!("Failed to bitcast int to ptr: {:?}", e))?
+        error.into_int_value()
     } else if error.is_float_value() {
-        let f64_as_i64 = state.builder.build_float_to_unsigned_int(
+        state.builder.build_float_to_unsigned_int(
             error.into_float_value(),
             state.context.i64_type(),
-            "f64_to_i64",
-        ).map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?;
-        state.builder.build_int_to_ptr(
-            f64_as_i64,
-            i8_ptr_type,
-            "err_f64_to_ptr",
-        ).map_err(|e| format!("Failed to bitcast f64 to ptr: {:?}", e))?
+            "err_f64_to_i64",
+        ).map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
     } else {
         return Err(format!("Unsupported Err value type: {:?}", error.get_type()));
     };
-    
-    state.builder.build_store(error_ptr_ptr, error_ptr).expect("store");
-    
+
+    state.builder.build_store(error_i64_ptr, error_i64).expect("store");
+
     // Load and return the struct value
     let result_val = state.builder.build_load(result_struct_type, result_alloca, "err_result_val").expect("load");
     Ok(result_val.into())
@@ -1702,17 +1704,18 @@ pub fn generate_isinstance_check<'ctx>(
     args: &[Expr],
 ) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
     use inkwell::values::BasicValue;
-    
+
     if args.len() != 2 {
         return Err("isinstance() takes exactly 2 arguments".to_string());
     }
-    
+
     // Generate the object expression
     let obj_val = crate::codegen::expressions::generate_expr(state, &args[0])?;
-    
-    // Get the type name from the second argument (should be a type identifier)
+
+    // Get the type name from the second argument (should be a type identifier or None)
     let type_name = match &args[1] {
         Expr::Ident(name, _) => name.clone(),
+        Expr::None(_) => "None".to_string(),  // Handle None literal
         _ => return Err("isinstance() second argument must be a type name".to_string()),
     };
     
@@ -1772,7 +1775,7 @@ pub fn generate_isinstance_check<'ctx>(
             }
         }
         "None" => {
-            // Check if value is null pointer or special None value
+            // Check if value is null pointer or special None value (i64 0)
             if obj_val.is_pointer_value() {
                 let ptr = obj_val.into_pointer_value();
                 let null_ptr = state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
@@ -1789,6 +1792,16 @@ pub fn generate_isinstance_check<'ctx>(
                     "is_none",
                 ).map_err(|e| format!("Failed to compare: {:?}", e))?;
                 is_null
+            } else if obj_val.is_int_value() {
+                // None is represented as i64(0)
+                let zero = state.context.i64_type().const_zero();
+                let is_none = state.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    obj_val.into_int_value(),
+                    zero,
+                    "is_none_int",
+                ).map_err(|e| format!("Failed to compare: {:?}", e))?;
+                is_none
             } else {
                 state.context.bool_type().const_int(0, false)
             }

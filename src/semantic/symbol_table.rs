@@ -61,6 +61,8 @@ pub enum BuiltinSignature {
     Clear,
     Index,
     Hash,
+    // Type introspection
+    IsInstance,  // isinstance(obj, Type) -> bool
     // Result type constructors (generic)
     Ok,   // Ok(value) -> Result[T, E]
     Err,  // Err(error) -> Result[T, E]
@@ -127,6 +129,8 @@ impl Symbol {
                 BuiltinSignature::Clear => Some(Type::None),
                 BuiltinSignature::Index => Some(Type::Infer),
                 BuiltinSignature::Hash => Some(Type::I64),
+                // Type introspection
+                BuiltinSignature::IsInstance => Some(Type::Bool),  // isinstance(obj, Type) -> bool
                 // Result constructors - return type inferred from context
                 BuiltinSignature::Ok => Some(Type::Infer),  // Result[T, E] - both inferred from usage
                 BuiltinSignature::Err => Some(Type::Infer), // Result[T, E] - both inferred from usage
@@ -183,6 +187,8 @@ impl SymbolTable {
             ("bool", SymbolKind::Builtin { signature: BuiltinSignature::Bool }),
             ("list", SymbolKind::Builtin { signature: BuiltinSignature::List }),
             ("hash", SymbolKind::Builtin { signature: BuiltinSignature::Hash }),
+            // Type introspection
+            ("isinstance", SymbolKind::Builtin { signature: BuiltinSignature::IsInstance }),
             // Result constructors (generic - type inferred from usage)
             ("Ok", SymbolKind::Builtin { signature: BuiltinSignature::Ok }),
             ("Err", SymbolKind::Builtin { signature: BuiltinSignature::Err }),

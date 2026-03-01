@@ -454,12 +454,18 @@ pub fn parse_match_type_pattern(
 ) -> Result<MatchPattern, String> {
     parser.expect(&TokenKind::LParen)?;
 
-    let binding = if matches!(parser.current().kind, TokenKind::Ident(_))
-        && !matches!(
+    // Check if there's a binding identifier
+    // The binding is captured when followed by RParen (single pattern) or Comma (in tuple)
+    let binding = if matches!(parser.current().kind, TokenKind::Ident(_)) {
+        let next_is_end = matches!(
             parser.peek().map(|t| &t.kind),
-            Some(TokenKind::Comma) | Some(TokenKind::RParen)
-        ) {
-        Some(parser.expect_ident()?)
+            Some(TokenKind::RParen) | Some(TokenKind::Comma)
+        );
+        if next_is_end {
+            Some(parser.expect_ident()?)
+        } else {
+            None
+        }
     } else {
         None
     };

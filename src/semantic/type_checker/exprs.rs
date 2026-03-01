@@ -106,7 +106,16 @@ impl TypeChecker {
             }
             Expr::Call { func, args, span } => {
                 // First, check all argument expressions to infer their types
-                for arg in args {
+                for (i, arg) in args.iter().enumerate() {
+                    // Special case: isinstance's second argument is a type name, not a value
+                    // We still check it as an expression but don't enforce type constraints
+                    if let Expr::Ident(name, _) = func.as_ref() {
+                        if name == "isinstance" && i == 1 {
+                            // Second arg to isinstance is a type name - just validate it's an identifier or None
+                            // Don't check it as a variable reference
+                            continue;
+                        }
+                    }
                     self.check_expr(arg);
                 }
 

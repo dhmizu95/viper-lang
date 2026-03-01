@@ -191,20 +191,30 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         Stmt::Match { subject, cases, span: _ } => {
             let subject_val = crate::codegen::expressions::generate_expr(state, subject)?;
 
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+            let end_bb = state.context.append_basic_block(func, "match_end");
+            
             // Generate each case as a simple if statement
-            for case in cases {
+            for (i, case) in cases.iter().enumerate() {
                 let matches = generate_match_pattern(state, &case.pattern, subject_val)?;
 
-                // Create blocks for then and else
-                let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
-                let then_bb = state.context.append_basic_block(func, "match_then");
-                let else_bb = state.context.append_basic_block(func, "match_else");
+                // Create blocks for this case
+                let then_bb = state.context.append_basic_block(func, &format!("match_case_{}", i));
+                let next_else_bb = if i < cases.len() - 1 {
+                    state.context.append_basic_block(func, &format!("match_else_{}", i))
+                } else {
+                    end_bb  // Last case's else goes to end
+                };
 
                 // Generate the conditional branch
-                state.builder.build_conditional_branch(matches, then_bb, else_bb).unwrap();
+                state.builder.build_conditional_branch(matches, then_bb, next_else_bb).unwrap();
 
                 // Generate then block (case body)
                 state.builder.position_at_end(then_bb);
+                
+                // Save the current variable count to restore after case
+                let saved_var_count = state.variables.len();
+                
                 for stmt in &case.body {
                     crate::codegen::statements::generate_stmt(
                         state.context,
@@ -223,14 +233,27 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                     )?;
                 }
 
-                // If no terminator, add one to else
+                // Branch to end after case body
                 if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
-                    state.builder.build_unconditional_branch(else_bb).unwrap();
+                    state.builder.build_unconditional_branch(end_bb).unwrap();
+                }
+                
+                // Remove variables that were added in this case
+                // (restore to the count before the case)
+                let keys_to_remove: Vec<String> = state.variables.keys()
+                    .skip(saved_var_count)
+                    .cloned()
+                    .collect();
+                for key in keys_to_remove {
+                    state.variables.remove(&key);
                 }
 
                 // Position at else for next case
-                state.builder.position_at_end(else_bb);
+                state.builder.position_at_end(next_else_bb);
             }
+            
+            // Position at end
+            state.builder.position_at_end(end_bb);
         }
         // New Python keyword statements - stub implementations for now
         Stmt::Assert { condition, message, span: _ } => {
