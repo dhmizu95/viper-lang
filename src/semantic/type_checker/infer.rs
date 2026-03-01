@@ -210,7 +210,30 @@ impl TypeChecker {
                     None
                 }
             }
-            Expr::Attribute { .. } => Some(Type::Infer),
+            Expr::Attribute { obj, attr, .. } => {
+                // Try to infer type from class field definition
+                if let Expr::Ident(obj_name, _) = obj.as_ref() {
+                    if obj_name == "self" {
+                        // Look up the current class context from the symbol table
+                        // We need to find the class that contains this method
+                        for (_, symbol) in self.symbol_table.get_all_symbols() {
+                            if let SymbolKind::Class { fields, .. } = &symbol.kind {
+                                // Check if this field exists in the class
+                                for (field_name, field_type) in fields {
+                                    if field_name == attr {
+                                        if field_type != &Type::Infer {
+                                            return Some(field_type.clone());
+                                        }
+                                    }
+                                }
+                                // Also check if we can infer from field assignments
+                                // For now, return Infer if field type is not known
+                            }
+                        }
+                    }
+                }
+                Some(Type::Infer)
+            }
             Expr::Conditional { then_expr, .. } => self.infer_expr_type(then_expr),
             Expr::Lambda { .. } => Some(Type::Var("lambda".to_string())),
             Expr::ListComprehension { .. } => Some(Type::List(Box::new(Type::Infer))),

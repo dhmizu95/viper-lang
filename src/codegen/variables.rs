@@ -17,17 +17,29 @@ pub enum VarStorage<'ctx> {
 pub struct VarInfo<'ctx> {
     pub storage: VarStorage<'ctx>,
     pub var_type: VarType,
+    /// Optional class name for instance variables (OOP support)
+    pub class_name: Option<String>,
 }
 
 impl<'ctx> VarInfo<'ctx> {
     /// Create a new variable with stack allocation
     pub fn new_stack(alloca: PointerValue<'ctx>, var_type: VarType) -> Self {
-        Self { storage: VarStorage::Stack(alloca), var_type }
+        Self { storage: VarStorage::Stack(alloca), var_type, class_name: None }
     }
 
     /// Create a new variable with register allocation
     pub fn new_register(value: BasicValueEnum<'ctx>, var_type: VarType) -> Self {
-        Self { storage: VarStorage::Register(value), var_type }
+        Self { storage: VarStorage::Register(value), var_type, class_name: None }
+    }
+
+    /// Create a new variable with stack allocation and class name
+    pub fn new_stack_with_class(alloca: PointerValue<'ctx>, var_type: VarType, class_name: String) -> Self {
+        Self { storage: VarStorage::Stack(alloca), var_type, class_name: Some(class_name) }
+    }
+
+    /// Create a new variable with register allocation and class name
+    pub fn new_register_with_class(value: BasicValueEnum<'ctx>, var_type: VarType, class_name: String) -> Self {
+        Self { storage: VarStorage::Register(value), var_type, class_name: Some(class_name) }
     }
 
     /// Get the alloca pointer if this variable uses stack allocation

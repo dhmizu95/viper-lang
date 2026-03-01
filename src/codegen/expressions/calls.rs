@@ -87,10 +87,19 @@ pub fn generate_call<'ctx>(
     _span: crate::utils::Span,
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if let Expr::Attribute { obj, attr, .. } = func {
+        // First try user-defined class method call
+        if let Ok(result) = crate::codegen::oop::generate_user_method_call(state, obj, attr, args) {
+            return Ok(result);
+        }
+        // Fall back to built-in method calls
         return generate_method_call(state, obj, attr, args);
     }
 
     if let Expr::Ident(name, _) = func {
+        // Check if this is a class instantiation
+        if crate::codegen::oop::class_exists(name) {
+            return crate::codegen::oop::generate_class_instantiation(state, name, args);
+        }
         if name == "print" {
             return generate_print_call(state, args);
         }

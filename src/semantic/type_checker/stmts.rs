@@ -3,6 +3,54 @@ use crate::semantic::symbol_table::{Symbol, SymbolKind};
 use crate::semantic::type_checker::{TypeChecker, TypeError};
 
 impl TypeChecker {
+    /// Collect instance fields from __init__ method body
+    fn collect_instance_fields(body: &[Stmt], fields: &mut Vec<(String, Type)>) {
+        for stmt in body {
+            match stmt {
+                Stmt::Assign { target, value, .. } => {
+                    if let Expr::Attribute { obj, attr, .. } = target.as_ref() {
+                        if let Expr::Ident(obj_name, _) = obj.as_ref() {
+                            if obj_name == "self" {
+                                // Infer field type from the assigned value
+                                let field_type = match value.as_ref() {
+                                    Expr::Int(_, _) => Type::I64,
+                                    Expr::Float(_, _) => Type::F64,
+                                    Expr::Bool(_, _) => Type::Bool,
+                                    Expr::Str(_, _) | Expr::FString(_, _) => Type::Str,
+                                    Expr::BigInt(_, _) => Type::BigInt,
+                                    Expr::List { .. } => Type::List(Box::new(Type::Infer)),
+                                    Expr::None(_) => Type::None,
+                                    _ => Type::Infer,
+                                };
+                                
+                                // Add field if not already present
+                                if !fields.iter().any(|(name, _)| name == attr) {
+                                    fields.push((attr.clone(), field_type));
+                                }
+                            }
+                        }
+                    }
+                }
+                Stmt::If { body: if_body, elif_blocks, else_body, .. } => {
+                    Self::collect_instance_fields(if_body, fields);
+                    for (_, elif_body) in elif_blocks {
+                        Self::collect_instance_fields(elif_body, fields);
+                    }
+                    if let Some(else_body) = else_body {
+                        Self::collect_instance_fields(else_body, fields);
+                    }
+                }
+                Stmt::While { body: while_body, .. } => {
+                    Self::collect_instance_fields(while_body, fields);
+                }
+                Stmt::For { body: for_body, .. } => {
+                    Self::collect_instance_fields(for_body, fields);
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// Check a statement at module level (assignments create immutable constants)
     pub(crate) fn check_stmt_module(&mut self, stmt: &Stmt) {
         match stmt {
@@ -491,10 +539,7 @@ impl TypeChecker {
                 // TODO: Track that we're in a generator function
             }
             Stmt::Class { name, bases, body, span, decorators: _, fields, methods } => {
-                // Enter class scope
-                self.symbol_table.enter_scope();
-                
-                // Check base classes
+                // Check base classes first (in current scope)
                 let mut base_types = Vec::new();
                 for base in bases {
                     let base_type = self.check_expr(base);
@@ -502,14 +547,28 @@ impl TypeChecker {
                         base_types.push(t);
                     }
                 }
+
+                // Collect instance fields from __init__ assignments
+                let mut instance_fields = fields.iter()
+                    .map(|(n, t, _)| (n.clone(), t.clone().unwrap_or(Type::Infer)))
+                    .collect::<Vec<_>>();
                 
-                // Register the class in the parent scope
+                // Scan __init__ for self.field assignments to discover instance fields
+                for stmt in body {
+                    if let Stmt::Function { name: method_name, body: method_body, .. } = stmt {
+                        if method_name == "__init__" {
+                            Self::collect_instance_fields(method_body, &mut instance_fields);
+                        }
+                    }
+                }
+
+                // Register the class in the current (parent) scope BEFORE entering class scope
                 let class_symbol = crate::semantic::symbol_table::Symbol::new(
                     name.clone(),
                     SymbolKind::Class {
                         name: name.clone(),
                         bases: base_types.clone(),
-                        fields: fields.iter().map(|(n, t, _)| (n.clone(), t.clone().unwrap_or(Type::Infer))).collect(),
+                        fields: instance_fields,
                         methods: methods.clone(),
                         method_mangles: Vec::new(),
                     },
@@ -519,12 +578,15 @@ impl TypeChecker {
                 if let Err(e) = self.symbol_table.insert(class_symbol) {
                     self.errors.push(TypeError::new(e, *span));
                 }
-                
+
+                // Now enter class scope for methods and fields
+                self.symbol_table.enter_scope();
+
                 // Check methods and fields in class body
                 for stmt in body {
                     self.check_stmt(stmt);
                 }
-                
+
                 // Exit class scope
                 self.symbol_table.exit_scope();
             }

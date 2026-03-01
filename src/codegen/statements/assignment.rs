@@ -264,6 +264,22 @@ pub(crate) fn generate_assign<'ctx>(
                 VarType::Int
             };
 
+            // Check if this is a class instance - extract class name from value expression
+            let class_name = if let Expr::Call { func, .. } = value {
+                if let Expr::Ident(class_name, _) = func.as_ref() {
+                    // Check if this is a known class
+                    if crate::codegen::oop::class_exists(class_name) {
+                        Some(class_name.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             // Always use stack allocation (alloca) for new variables.
             // This is critical for correctness across loop basic blocks:
             // SSA register values are frozen in the block they are defined in,
@@ -283,7 +299,13 @@ pub(crate) fn generate_assign<'ctx>(
                 state.builder.position_at_end(pos);
             }
             state.builder.build_store(alloca, val).expect("store");
-            state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
+            
+            // Create VarInfo with class name if this is a class instance
+            if let Some(cn) = class_name {
+                state.variables.insert(name.clone(), VarInfo::new_stack_with_class(alloca, var_type, cn));
+            } else {
+                state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
+            }
 
             // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
             // Exception: BigInt values skip retain to avoid PHI node issues - cleanup at function exit
@@ -376,6 +398,14 @@ pub(crate) fn generate_assign<'ctx>(
                 &[obj_val.into(), index_val.into(), value_for_list.into()],
                 "list_set",
             );
+        }
+    } else if let Expr::Attribute { obj, attr, .. } = target {
+        // Handle attribute assignment: obj.attr = value
+        // First try user-defined class field assignment
+        if let Err(_) = crate::codegen::oop::generate_field_assignment(state, obj, attr, value) {
+            // Fall back to generating the value and ignoring the assignment
+            // (for cases where the object doesn't have this attribute)
+            let _ = crate::codegen::expressions::generate_expr(state, value)?;
         }
     }
     Ok(())

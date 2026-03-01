@@ -26,6 +26,7 @@ pub struct CodeGen<'ctx> {
     dict_vars: HashSet<String>,
     bool_list_vars: HashSet<String>,
     bigint_vars: HashSet<String>,
+    var_types: HashMap<String, Type>,
     /// Functions that contain BigInt variables (need special optimization handling)
     bigint_functions: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
@@ -53,6 +54,7 @@ impl<'ctx> CodeGen<'ctx> {
             dict_vars: HashSet::new(),
             bool_list_vars: HashSet::new(),
             bigint_vars: HashSet::new(),
+            var_types: HashMap::new(),
             bigint_functions: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
@@ -64,14 +66,17 @@ impl<'ctx> CodeGen<'ctx> {
         // Run escape analysis first
         self.escape_analyzer.analyze_module(module);
 
+        // Initialize class registry for OOP
+        crate::codegen::oop::init_class_registry();
+
         // Declare runtime functions first
         crate::codegen::runtime::declare_runtime_functions(self.context, &self.module)?;
 
-        // Generate class definitions first (before functions)
-        self.generate_classes(&module.statements)?;
-
-        // First pass: declare all functions (including nested functions)
+        // First pass: declare all functions (including class methods and nested functions)
         self.declare_all_functions(&module.statements)?;
+
+        // Generate class definitions (defines class methods)
+        self.generate_classes(&module.statements)?;
 
         // Second pass: Process module-level constants and variables
         // Module-level assignments create immutable constants by default (Python UPPER_CASE convention)
@@ -101,6 +106,7 @@ impl<'ctx> CodeGen<'ctx> {
                             &mut self.dict_vars,
                             &mut self.bool_list_vars,
                             &mut self.bigint_vars,
+                            &mut self.var_types,
                         ),
                         value,
                     )?;
@@ -135,6 +141,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.dict_vars,
                                 &mut self.bool_list_vars,
                                 &mut self.bigint_vars,
+                                &mut self.var_types,
                             ),
                             value,
                         )?;
@@ -487,6 +494,40 @@ impl<'ctx> CodeGen<'ctx> {
                         }
                     }
                 }
+                Stmt::Class { name: class_name, body, .. } => {
+                    // Declare class methods
+                    for stmt in body {
+                        if let Stmt::Function { name: method_name, params, return_type, .. } = stmt {
+                            // Use simple mangled name format for methods
+                            let mangled_name = format!("__method_{}_{}", class_name, method_name);
+                            
+                            // For instance methods, self should be a pointer type
+                            // We need to create modified params with self as pointer
+                            let mut method_params = params.clone();
+                            if !params.is_empty() && params[0].name == "self" {
+                                // First param is self - it should be a pointer to the class instance
+                                // For now, use a special marker that will be treated as pointer
+                                if method_params[0].type_ann.is_none() {
+                                    // self without type annotation should be treated as pointer
+                                    method_params[0].type_ann = Some(Type::Class(class_name.clone()));
+                                }
+                            }
+                            
+                            // Just create a forward declaration without body-based name mangling
+                            crate::codegen::functions::declare_function_simple(
+                                self.context,
+                                &mut self.module,
+                                &self.type_mapper,
+                                &mut self.functions,
+                                &mangled_name,
+                                &method_params,
+                                return_type,
+                            )?;
+                        }
+                    }
+                    // Also recursively declare any nested functions in the class body
+                    self.declare_all_functions(body)?;
+                }
                 _ => {}
             }
         }
@@ -648,6 +689,20 @@ impl<'ctx> CodeGen<'ctx> {
 
     /// Generate code for all class definitions in a module
     fn generate_classes(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+        // First pass: collect all class metadata
+        // First pass: collect class metadata
+        for stmt in stmts {
+            if let Stmt::Class { name, bases, body, span: _, decorators: _, fields, methods } = stmt {
+                let metadata = crate::codegen::oop::generate_class_metadata(
+                    name, bases, body, fields, methods
+                )?;
+                crate::codegen::oop::with_class_registry_mut(|reg| {
+                    reg.register_class(metadata);
+                });
+            }
+        }
+        
+        // Second pass: generate class code and methods
         for stmt in stmts {
             if let Stmt::Class { name, bases: _, body, span: _, decorators: _, fields, methods } = stmt {
                 self.generate_class_def(name, body, fields, methods)?;
@@ -661,12 +716,13 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         name: &str,
         body: &[Stmt],
-        fields: &[(String, Option<Type>, bool)],
-        methods: &[String],
+        _fields: &[(String, Option<Type>, bool)],
+        _methods: &[String],
     ) -> Result<(), String> {
-        // Calculate instance size and field offsets
-        // Each field is i64 (8 bytes) for now
-        let instance_size = fields.len() * 8;
+        // Get class metadata from registry
+        let metadata = crate::codegen::oop::with_class_registry(|reg| {
+            reg.get_class(name).cloned()
+        }).ok_or_else(|| format!("Class metadata not found for '{}'", name))?;
         
         let context = self.context;
         
@@ -703,8 +759,8 @@ impl<'ctx> CodeGen<'ctx> {
         // Create initializer values
         let null_ptr = context.i8_type().ptr_type(inkwell::AddressSpace::default()).const_null();
         let base_count_val = context.i64_type().const_int(0, false);  // Will be updated with inheritance
-        let method_count_val = context.i64_type().const_int(methods.len() as u64, false);
-        let instance_size_val = context.i64_type().const_int(instance_size as u64, false);
+        let method_count_val = context.i64_type().const_int(metadata.methods.len() as u64, false);
+        let instance_size_val = context.i64_type().const_int(metadata.instance_size as u64, false);
         let init_ptr = context.i8_type().ptr_type(inkwell::AddressSpace::default()).const_null();
         let dealloc_ptr = context.i8_type().ptr_type(inkwell::AddressSpace::default()).const_null();
         

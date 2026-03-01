@@ -179,7 +179,7 @@ y = 3.14
 name = "Viper"
 
 # Function with type annotations
-def factorial(n: i64) -> i64:
+def factorial(n):
     if n <= 1:
         return 1
     return n * factorial(n - 1)
@@ -214,6 +214,7 @@ match value:
 
 # Pipeline operator
 result = data |> transform |> filter |> process
+result = data >> transform >> filter >> process
 ```
 
 ### Built-in Functions

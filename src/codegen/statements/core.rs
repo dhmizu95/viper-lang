@@ -25,6 +25,7 @@ pub fn generate_stmt<'ctx>(
     bigint_vars: &mut HashSet<String>,
     stmt: &Stmt,
 ) -> Result<(), String> {
+    let mut var_types = HashMap::new();
     let mut state = CodeGenState::new(
         context,
         module,
@@ -38,6 +39,7 @@ pub fn generate_stmt<'ctx>(
         dict_vars,
         bool_list_vars,
         bigint_vars,
+        &mut var_types,
     );
 
     generate_stmt_internal(&mut state, stmt)
@@ -61,6 +63,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
 ) -> Result<(), String> {
+    let mut var_types = HashMap::new();
     let mut state = CodeGenState::with_escape_analysis(
         context,
         module,
@@ -74,6 +77,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         dict_vars,
         bool_list_vars,
         bigint_vars,
+        &mut var_types,
         escape_analyzer,
         current_function,
     );
@@ -518,12 +522,13 @@ fn generate_sync_with<'ctx>(
             let var_type = context_val.get_type();
             let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
             state.builder.build_store(var_alloca, context_val).expect("store");
-            
+
             state.variables.insert(
                 var_name.clone(),
                 VarInfo {
                     storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
                     var_type: VarType::Pointer, // Context managers are heap-allocated objects
+                    class_name: None,
                 },
             );
         }
@@ -597,12 +602,13 @@ fn generate_async_with<'ctx>(
             let var_type = enter_result.get_type();
             let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
             state.builder.build_store(var_alloca, enter_result).expect("store");
-            
+
             state.variables.insert(
                 var_name.clone(),
                 VarInfo {
                     storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
                     var_type: VarType::Pointer,
+                    class_name: None,
                 },
             );
         }

@@ -112,6 +112,17 @@ impl TypeChecker {
                 
                 // Handle function call with overload resolution
                 if let Expr::Ident(name, _) = func.as_ref() {
+                    // Check if this is a class instantiation
+                    let is_class = if let Some(symbol) = self.symbol_table.lookup(name) {
+                        matches!(&symbol.kind, SymbolKind::Class { .. })
+                    } else {
+                        false
+                    };
+                    
+                    if is_class {
+                        // This is a class instantiation - valid
+                        // The __init__ method will be called by codegen
+                    } else {
                     // Check if this function has overloads
                     let overloads = self.symbol_table.get_function_overloads(name);
                     
@@ -155,6 +166,7 @@ impl TypeChecker {
                             ));
                         }
                     }
+                    } // End of else block for class check
                 }
             }
             Expr::Index { obj, index, span } => {

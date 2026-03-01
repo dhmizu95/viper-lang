@@ -531,3 +531,39 @@ pub fn declare_function<'ctx>(
 
     Ok(())
 }
+
+/// Declare a function with a simple name (no mangling) - used for class methods
+pub fn declare_function_simple<'ctx>(
+    context: &'ctx Context,
+    module: &mut inkwell::module::Module<'ctx>,
+    type_mapper: &TypeMapper<'ctx>,
+    functions: &mut HashMap<String, FunctionValue<'ctx>>,
+    name: &str,
+    params: &[Param],
+    return_type: &Option<Type>,
+) -> Result<(), String> {
+    // Build LLVM parameter types directly
+    let param_llvm_types: Vec<_> = params
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            // First parameter named 'self' should be a pointer (instance reference)
+            if i == 0 && p.name == "self" {
+                context.i8_type().ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum().into()
+            } else {
+                let ty = p.type_ann.clone().unwrap_or(Type::I64);
+                type_mapper.llvm_type(&ty).as_basic_type_enum().into()
+            }
+        })
+        .collect();
+
+    let fn_type = match type_mapper.llvm_return_type(return_type) {
+        Some(return_ty) => return_ty.fn_type(&param_llvm_types, false),
+        None => context.void_type().fn_type(&param_llvm_types, false),
+    };
+
+    let func = module.add_function(name, fn_type, None);
+    functions.insert(name.to_string(), func);
+
+    Ok(())
+}

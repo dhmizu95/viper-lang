@@ -302,6 +302,17 @@ impl SymbolTable {
         self.scopes[self.current_scope].values().collect()
     }
 
+    /// Get all symbols across all scopes
+    pub fn get_all_symbols(&self) -> Vec<(&String, &Symbol)> {
+        let mut result = Vec::new();
+        for scope in &self.scopes {
+            for (name, symbol) in scope {
+                result.push((name, symbol));
+            }
+        }
+        result
+    }
+
     /// Resolve a type alias to its underlying type
     pub fn resolve_type_alias(&self, ty: &Type) -> Type {
         match ty {

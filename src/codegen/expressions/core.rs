@@ -267,7 +267,14 @@ pub fn generate_expr<'ctx>(
             generate_conditional(state, condition, then_expr, else_expr)
         }
         Expr::Call { func, args, span } => generate_call(state, func, args, *span),
-        Expr::Attribute { obj, attr: _, span: _ } => generate_expr(state, obj),
+        Expr::Attribute { obj, attr, span: _ } => {
+            // First try user-defined class attribute access
+            if let Ok(result) = crate::codegen::oop::generate_attribute_access(state, obj, attr) {
+                return Ok(result);
+            }
+            // Fall back to just evaluating the object
+            generate_expr(state, obj)
+        }
         Expr::Await { future, span: _ } => generate_await(state, future),
         Expr::Lambda { params, body, span } => generate_lambda(state, params, body, *span),
         Expr::ListComprehension { element, var, iter, span } => {

@@ -4,6 +4,7 @@ use inkwell::context::Context;
 use inkwell::values::{FunctionValue, GlobalValue};
 use std::collections::{HashMap, HashSet};
 
+use crate::ast::Type;
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::variables::{LoopContext, VarInfo};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
@@ -22,6 +23,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub dict_vars: &'a mut HashSet<String>,
     pub bool_list_vars: &'a mut HashSet<String>,  // Track bool-specific lists
     pub bigint_vars: &'a mut HashSet<String>,     // Track BigInt variables
+    pub var_types: &'a mut HashMap<String, Type>,  // Type information for variables
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
 }
@@ -41,6 +43,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
+        var_types: &'a mut HashMap<String, Type>,
     ) -> Self {
         Self {
             context,
@@ -55,6 +58,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             dict_vars,
             bool_list_vars,
             bigint_vars,
+            var_types,
             escape_analyzer: None,
             current_function: None,
         }
@@ -75,6 +79,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
+        var_types: &'a mut HashMap<String, Type>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
     ) -> Self {
@@ -91,6 +96,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             dict_vars,
             bool_list_vars,
             bigint_vars,
+            var_types,
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
         }
@@ -256,5 +262,15 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         // 2. Not be reassigned (we detect this at assignment time and upgrade to stack)
         // 3. Not be a pointer type (pointers need stack for proper memory management)
         self.can_stack_allocate(var_name)
+    }
+
+    /// Get the type of a variable
+    pub fn get_var_type(&self, var_name: &str) -> Option<&Type> {
+        self.var_types.get(var_name)
+    }
+
+    /// Set the type of a variable
+    pub fn set_var_type(&mut self, var_name: String, ty: Type) {
+        self.var_types.insert(var_name, ty);
     }
 }
