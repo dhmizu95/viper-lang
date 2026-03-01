@@ -1,6 +1,7 @@
 //! Tests for semantic::symbol_table module
 
-use viper_lang::semantic::{Symbol, SymbolKind, SymbolTable, BuiltinSignature};
+use viper_lang::semantic::{Symbol, SymbolKind, SymbolTable};
+use viper_lang::semantic::symbol_table::BuiltinSignature;
 use viper_lang::ast::Type;
 use viper_lang::utils::Span;
 
