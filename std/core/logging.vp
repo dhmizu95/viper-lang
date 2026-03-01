@@ -1,0 +1,458 @@
+# Viper Standard Library - logging module
+# Logging facility
+
+__name__ = "logging"
+__version__ = "0.4.1"
+
+# ============================================
+# Log Levels
+# ============================================
+
+DEBUG: i64 = 0
+INFO: i64 = 1
+WARNING: i64 = 2
+ERROR: i64 = 3
+CRITICAL: i64 = 4
+NOTSET: i64 = 5
+
+# Level names
+_level_names: dict = {
+    0: "DEBUG",
+    1: "INFO",
+    2: "WARNING",
+    3: "ERROR",
+    4: "CRITICAL",
+    5: "NOTSET"
+}
+
+# ============================================
+# Log Record
+# ============================================
+
+class LogRecord:
+    """Represents a log record."""
+    
+    def __init__(self, level: i64, name: str, message: str):
+        self.level = level
+        self.name = name
+        self.message = message
+        self.created = 0  # Timestamp
+        self.lineno = 0   # Line number
+        self.filename = ""  # Filename
+    
+    def get_level_name(self) -> str:
+        """Get level name."""
+        return _level_names.get(self.level, "UNKNOWN")
+    
+    def __str__(self) -> str:
+        """String representation."""
+        return f"{self.get_level_name()} - {self.name} - {self.message}"
+
+# ============================================
+# Formatter
+# ============================================
+
+class Formatter:
+    """Log message formatter."""
+    
+    def __init__(self, fmt: str = "%(levelname)s - %(name)s - %(message)s"):
+        """
+        Create formatter.
+        
+        Args:
+            fmt: Format string with placeholders
+        """
+        self._fmt = fmt
+    
+    def format(self, record: LogRecord) -> str:
+        """
+        Format a log record.
+        
+        Args:
+            record: Log record to format
+        
+        Returns:
+            Formatted message string
+        """
+        result = self._fmt
+        result = result.replace("%(levelname)s", record.get_level_name())
+        result = result.replace("%(name)s", record.name)
+        result = result.replace("%(message)s", record.message)
+        return result
+
+# ============================================
+# Handler
+# ============================================
+
+class Handler:
+    """Log handler base class."""
+    
+    def __init__(self):
+        self._level = NOTSET
+        self._formatter = None
+    
+    def set_level(self, level: i64):
+        """Set handler log level."""
+        self._level = level
+    
+    def set_formatter(self, formatter: Formatter):
+        """Set log formatter."""
+        self._formatter = formatter
+    
+    def emit(self, record: LogRecord):
+        """Emit a log record (override in subclass)."""
+        pass
+    
+    def handle(self, record: LogRecord):
+        """Handle a log record."""
+        if record.level >= self._level:
+            if self._formatter:
+                msg = self._formatter.format(record)
+            else:
+                msg = str(record)
+            self.emit(record)
+
+class StreamHandler(Handler):
+    """Handler that writes to a stream."""
+    
+    def __init__(self, stream=None):
+        """
+        Create stream handler.
+        
+        Args:
+            stream: Output stream (None for stderr)
+        """
+        super().__init__()
+        self._stream = stream
+    
+    def emit(self, record: LogRecord):
+        """Write record to stream."""
+        if self._formatter:
+            msg = self._formatter.format(record)
+        else:
+            msg = str(record)
+        # Write to stderr via runtime
+        print(msg)
+
+class FileHandler(Handler):
+    """Handler that writes to a file."""
+    
+    def __init__(self, filename: str, mode: str = "a"):
+        """
+        Create file handler.
+        
+        Args:
+            filename: Path to log file
+            mode: File mode ("a" for append, "w" for write)
+        """
+        super().__init__()
+        self._filename = filename
+        self._mode = mode
+        self._file = None
+    
+    def emit(self, record: LogRecord):
+        """Write record to file."""
+        if self._formatter:
+            msg = self._formatter.format(record)
+        else:
+            msg = str(record)
+        # Append to file
+        # Simplified: would use file I/O
+        print(msg)
+
+# ============================================
+# Logger
+# ============================================
+
+class Logger:
+    """Logger for emitting log records."""
+    
+    def __init__(self, name: str, level: i64 = WARNING):
+        """
+        Create logger.
+        
+        Args:
+            name: Logger name
+            level: Minimum log level
+        """
+        self._name = name
+        self._level = level
+        self._handlers = []
+        self._parent = None
+        self._children = []
+        self._enabled = True
+        
+        # Create runtime logger
+        self._logger = vp_logging_create_logger(name, level)
+    
+    def set_level(self, level: i64):
+        """Set logger level."""
+        self._level = level
+        vp_logging_set_level(self._logger, level)
+    
+    def get_level(self) -> i64:
+        """Get logger level."""
+        return vp_logging_get_level(self._logger)
+    
+    def add_handler(self, handler: Handler):
+        """Add a handler."""
+        self._handlers.append(handler)
+    
+    def remove_handler(self, handler: Handler):
+        """Remove a handler."""
+        if handler in self._handlers:
+            self._handlers.remove(handler)
+    
+    def enabled_for(self, level: i64) -> bool:
+        """Check if logger is enabled for level."""
+        return vp_logging_enabled_for(self._logger, level) != 0
+    
+    def log(self, level: i64, message: str):
+        """
+        Log a message at specified level.
+        
+        Args:
+            level: Log level
+            message: Log message
+        """
+        if self.enabled_for(level):
+            # Call runtime logging function
+            if level == DEBUG:
+                vp_logging_debug(self._logger, message)
+            elif level == INFO:
+                vp_logging_info(self._logger, message)
+            elif level == WARNING:
+                vp_logging_warning(self._logger, message)
+            elif level == ERROR:
+                vp_logging_error(self._logger, message)
+            elif level == CRITICAL:
+                vp_logging_critical(self._logger, message)
+    
+    def debug(self, message: str):
+        """Log debug message."""
+        self.log(DEBUG, message)
+    
+    def info(self, message: str):
+        """Log info message."""
+        self.log(INFO, message)
+    
+    def warning(self, message: str):
+        """Log warning message."""
+        self.log(WARNING, message)
+    
+    def error(self, message: str):
+        """Log error message."""
+        self.log(ERROR, message)
+    
+    def critical(self, message: str):
+        """Log critical message."""
+        self.log(CRITICAL, message)
+    
+    def exception(self, message: str):
+        """Log exception message."""
+        vp_logging_exception(self._logger, message)
+    
+    def __del__(self):
+        """Cleanup logger."""
+        if self._logger:
+            vp_logging_logger_free(self._logger)
+
+# ============================================
+# Root Logger
+# ============================================
+
+_root_logger: Logger = None
+
+def get_root_logger() -> Logger:
+    """Get the root logger."""
+    global _root_logger
+    if _root_logger is None:
+        _root_logger = Logger("root", WARNING)
+    return _root_logger
+
+def get_logger(name: str = None) -> Logger:
+    """
+    Get or create a logger.
+    
+    Args:
+        name: Logger name (None for root logger)
+    
+    Returns:
+        Logger instance
+    """
+    if name is None or name == "":
+        return get_root_logger()
+    
+    # Create named logger
+    logger = Logger(name)
+    return logger
+
+# ============================================
+# Configuration
+# ============================================
+
+def basic_config(level: i64 = WARNING, format: str = None, 
+                 filename: str = None, filemode: str = "a"):
+    """
+    Configure the root logger.
+    
+    Args:
+        level: Root logger level
+        format: Log format string
+        filename: Optional file to log to
+        filemode: File mode
+    """
+    root = get_root_logger()
+    root.set_level(level)
+    
+    # Create handler
+    if filename:
+        handler = FileHandler(filename, filemode)
+    else:
+        handler = StreamHandler()
+    
+    # Set formatter
+    if format:
+        formatter = Formatter(format)
+        handler.set_formatter(formatter)
+    
+    root.add_handler(handler)
+    
+    # Configure runtime
+    vp_logging_basic_config(level, format, None)
+
+def reset_logger():
+    """Reset the logging system."""
+    global _root_logger
+    if _root_logger:
+        _root_logger = None
+    vp_logging_cleanup()
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def debug(message: str):
+    """Log debug message to root logger."""
+    get_root_logger().debug(message)
+
+def info(message: str):
+    """Log info message to root logger."""
+    get_root_logger().info(message)
+
+def warning(message: str):
+    """Log warning message to root logger."""
+    get_root_logger().warning(message)
+
+def error(message: str):
+    """Log error message to root logger."""
+    get_root_logger().error(message)
+
+def critical(message: str):
+    """Log critical message to root logger."""
+    get_root_logger().critical(message)
+
+def exception(message: str):
+    """Log exception message to root logger."""
+    get_root_logger().exception(message)
+
+def log(level: i64, message: str):
+    """Log message at level to root logger."""
+    get_root_logger().log(level, message)
+
+# ============================================
+# Filter
+# ============================================
+
+class Filter:
+    """Log record filter."""
+    
+    def __init__(self, name: str = ""):
+        """
+        Create filter.
+        
+        Args:
+            name: Name to filter for
+        """
+        self._name = name
+        self._filter = vp_logging_create_filter(name)
+    
+    def filter(self, record: LogRecord) -> bool:
+        """
+        Check if record passes filter.
+        
+        Args:
+            record: Log record
+        
+        Returns:
+            True if record should be logged
+        """
+        return vp_logging_filter_call(self._filter, record.message) != 0
+    
+    def __del__(self):
+        """Cleanup filter."""
+        if self._filter:
+            vp_logging_filter_free(self._filter)
+
+# ============================================
+# Manager
+# ============================================
+
+class LoggerManager:
+    """Manages multiple loggers."""
+    
+    def __init__(self):
+        self._loggers = {}
+    
+    def get_logger(self, name: str) -> Logger:
+        """Get or create logger by name."""
+        if name not in self._loggers:
+            self._loggers[name] = Logger(name)
+        return self._loggers[name]
+    
+    def remove_logger(self, name: str):
+        """Remove logger by name."""
+        if name in self._loggers:
+            del self._loggers[name]
+    
+    def get_all_loggers(self) -> list:
+        """Get all managed loggers."""
+        return list(self._loggers.values())
+
+# ============================================
+# Runtime Function Declarations
+# ============================================
+
+extern def vp_logging_create_logger(name: str, level: i64)
+extern def vp_logging_logger_free(logger)
+extern def vp_logging_set_level(logger, level: i64)
+extern def vp_logging_get_level(logger) -> i64
+extern def vp_logging_enabled_for(logger, level: i64) -> i64
+extern def vp_logging_debug(logger, message: str)
+extern def vp_logging_info(logger, message: str)
+extern def vp_logging_warning(logger, message: str)
+extern def vp_logging_error(logger, message: str)
+extern def vp_logging_critical(logger, message: str)
+extern def vp_logging_exception(logger, message: str)
+extern def vp_logging_get_logger(name: str)
+extern def vp_logging_basic_config(level: i64, format: str, stream)
+extern def vp_logging_cleanup()
+extern def vp_logging_create_filter(name: str)
+extern def vp_logging_filter_free(filter)
+extern def vp_logging_filter_call(filter, message: str) -> i64
+
+# Level constants from runtime
+extern def vp_logging_debug_level() -> i64
+extern def vp_logging_info_level() -> i64
+extern def vp_logging_warning_level() -> i64
+extern def vp_logging_error_level() -> i64
+extern def vp_logging_critical_level() -> i64
+extern def vp_logging_notset_level() -> i64
+
+# Initialize constants from runtime
+DEBUG = vp_logging_debug_level()
+INFO = vp_logging_info_level()
+WARNING = vp_logging_warning_level()
+ERROR = vp_logging_error_level()
+CRITICAL = vp_logging_critical_level()
+NOTSET = vp_logging_notset_level()

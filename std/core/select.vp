@@ -1,0 +1,329 @@
+# Viper Standard Library - select module
+# I/O multiplexing (select/poll/epoll)
+
+__name__ = "select"
+__version__ = "0.4.1"
+
+# ============================================
+# Epoll Constants (Linux)
+# ============================================
+
+EPOLLIN: i64 = 0x001       # Readable
+EPOLLOUT: i64 = 0x004      # Writable
+EPOLLERR: i64 = 0x008      # Error
+EPOLLHUP: i64 = 0x010      # Hang up
+EPOLLET: i64 = 0x80000000  # Edge triggered
+
+EPOLL_CTL_ADD: i64 = 1  # Add fd
+EPOLL_CTL_MOD: i64 = 2  # Modify fd
+EPOLL_CTL_DEL: i64 = 3  # Remove fd
+
+# ============================================
+# Poll Constants
+# ============================================
+
+POLLIN: i64 = 0x001     # Readable
+POLLPRI: i64 = 0x002    # Priority readable
+POLLOUT: i64 = 0x004    # Writable
+POLLERR: i64 = 0x008    # Error
+POLLHUP: i64 = 0x010    # Hang up
+POLLNVAL: i64 = 0x020   # Invalid request
+
+# ============================================
+# FdSet (for select)
+# ============================================
+
+class FdSet:
+    """File descriptor set for select()."""
+    
+    def __init__(self):
+        """Create a new fd set."""
+        self._fdset = vp_select_fdset_create()
+        self._fds = []
+    
+    def add(self, fd: i64):
+        """Add a file descriptor."""
+        vp_select_fdset_add(self._fdset, fd)
+        if fd not in self._fds:
+            self._fds.append(fd)
+    
+    def remove(self, fd: i64):
+        """Remove a file descriptor."""
+        vp_select_fdset_remove(self._fdset, fd)
+        if fd in self._fds:
+            self._fds.remove(fd)
+    
+    def contains(self, fd: i64) -> bool:
+        """Check if fd is in set."""
+        return vp_select_fdset_contains(self._fdset, fd) != 0
+    
+    def clear(self):
+        """Clear all fds from set."""
+        vp_select_fdset_clear(self._fdset)
+        self._fds = []
+    
+    def get_fds(self) -> list:
+        """Get list of fds in set."""
+        return self._fds
+    
+    def __len__(self) -> i64:
+        """Get number of fds."""
+        return len(self._fds)
+    
+    def __iter__(self):
+        """Iterate over fds."""
+        return iter(self._fds)
+    
+    def __contains__(self, fd: i64) -> bool:
+        """Check if fd is in set."""
+        return self.contains(fd)
+    
+    def close(self):
+        """Close the fd set."""
+        vp_select_fdset_free(self._fdset)
+
+def select_select(rlist: list, wlist: list, xlist: list, 
+                  timeout: f64 = -1.0) -> tuple:
+    """
+    Wait for I/O completion.
+    
+    Args:
+        rlist: List of fds to wait for readability
+        wlist: List of fds to wait for writability
+        xlist: List of fds to wait for exceptions
+        timeout: Timeout in seconds (-1 for infinite)
+    
+    Returns:
+        Tuple of (readable, writable, exceptional) fd lists
+    """
+    # Create fd sets
+    read_fds = FdSet()
+    write_fds = FdSet()
+    error_fds = FdSet()
+    
+    for fd in rlist:
+        read_fds.add(fd)
+    for fd in wlist:
+        write_fds.add(fd)
+    for fd in xlist:
+        error_fds.add(fd)
+    
+    # Call select
+    result = vp_select_select(
+        read_fds._fdset,
+        write_fds._fdset,
+        error_fds._fdset,
+        timeout
+    )
+    
+    # Extract ready fds (simplified)
+    readable = []
+    writable = []
+    exceptional = []
+    
+    # In a full implementation, we would check which fds are ready
+    # For now, return empty lists
+    vp_select_result_free(result)
+    
+    return (readable, writable, exceptional)
+
+def can_read(fd: i64, timeout: f64 = 0.0) -> bool:
+    """Check if fd is ready for reading."""
+    return vp_select_can_read(fd, timeout) != 0
+
+def can_write(fd: i64, timeout: f64 = 0.0) -> bool:
+    """Check if fd is ready for writing."""
+    return vp_select_can_write(fd, timeout) != 0
+
+# ============================================
+# Poll
+# ============================================
+
+class Poll:
+    """Poll object for I/O multiplexing."""
+    
+    def __init__(self):
+        """Create a new poll object."""
+        self._fds = {}  # fd -> events
+    
+    def register(self, fd: i64, events: i64 = POLLIN | POLLOUT):
+        """Register a file descriptor."""
+        self._fds[fd] = events
+    
+    def unregister(self, fd: i64):
+        """Unregister a file descriptor."""
+        if fd in self._fds:
+            del self._fds[fd]
+    
+    def poll(self, timeout: f64 = -1.0) -> list:
+        """
+        Wait for events.
+        
+        Returns:
+            List of (fd, events) tuples
+        """
+        # Simplified: return empty list
+        # Full implementation would call vp_poll_poll
+        return []
+    
+    def close(self):
+        """Close the poll object."""
+        self._fds = {}
+
+def poll() -> Poll:
+    """Create a new poll object."""
+    return Poll()
+
+# ============================================
+# Epoll (Linux-specific)
+# ============================================
+
+class Epoll:
+    """Epoll object for Linux I/O multiplexing."""
+    
+    def __init__(self, flags: i64 = 0):
+        """Create a new epoll object."""
+        self._epfd = vp_epoll_create()
+        self._fds = {}  # fd -> events
+    
+    def fileno(self) -> i64:
+        """Get epoll file descriptor."""
+        return self._epfd
+    
+    def register(self, fd: i64, events: i64 = EPOLLIN):
+        """Register a file descriptor."""
+        vp_epoll_ctl(self._epfd, EPOLL_CTL_ADD, fd, events)
+        self._fds[fd] = events
+    
+    def unregister(self, fd: i64):
+        """Unregister a file descriptor."""
+        vp_epoll_ctl(self._epfd, EPOLL_CTL_DEL, fd, 0)
+        if fd in self._fds:
+            del self._fds[fd]
+    
+    def modify(self, fd: i64, events: i64):
+        """Modify a file descriptor's events."""
+        vp_epoll_ctl(self._epfd, EPOLL_CTL_MOD, fd, events)
+        self._fds[fd] = events
+    
+    def poll(self, timeout: i64 = -1) -> list:
+        """
+        Wait for events.
+        
+        Args:
+            timeout: Timeout in milliseconds (-1 for infinite)
+        
+        Returns:
+            List of (fd, events) tuples
+        """
+        result = vp_epoll_wait(self._epfd, timeout)
+        # Simplified: return empty list
+        return []
+    
+    def close(self):
+        """Close the epoll object."""
+        vp_epoll_free(self._epfd)
+        self._fds = {}
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+        return False
+
+def epoll(flags: i64 = 0) -> Epoll:
+    """Create a new epoll object."""
+    return Epoll(flags)
+
+# ============================================
+# Error Handling
+# ============================================
+
+class SelectError(Exception):
+    """Select operation error."""
+    
+    def __init__(self, message: str = ""):
+        self.message = message
+        super().__init__(message)
+
+def get_error() -> i64:
+    """Get last select error code."""
+    return vp_select_get_error()
+
+def strerror(errcode: i64) -> str:
+    """Get error message for error code."""
+    return vp_select_strerror(errcode)
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def wait_for_read(fd: i64, timeout: f64 = -1.0) -> bool:
+    """Wait for a file descriptor to become readable."""
+    return can_read(fd, timeout)
+
+def wait_for_write(fd: i64, timeout: f64 = -1.0) -> bool:
+    """Wait for a file descriptor to become writable."""
+    return can_write(fd, timeout)
+
+def wait_for_multiple(fds: list, timeout: f64 = -1.0) -> list:
+    """Wait for multiple fds to become readable."""
+    ready = []
+    for fd in fds:
+        if can_read(fd, 0):
+            ready.append(fd)
+    if not ready and timeout > 0:
+        # Sleep and check again
+        import time
+        time.sleep(timeout)
+        for fd in fds:
+            if can_read(fd, 0):
+                ready.append(fd)
+    return ready
+
+# ============================================
+# Runtime Function Declarations
+# ============================================
+
+extern def vp_select_fdset_create()
+extern def vp_select_fdset_free(fdset)
+extern def vp_select_fdset_add(fdset, fd: i64)
+extern def vp_select_fdset_remove(fdset, fd: i64)
+extern def vp_select_fdset_contains(fdset, fd: i64) -> i64
+extern def vp_select_fdset_clear(fdset)
+extern def vp_select_fdset_get_fds(fdset) -> list
+extern def vp_select_select(read_fds, write_fds, error_fds, timeout: f64)
+extern def vp_select_result_free(result)
+extern def vp_select_can_read(fd: i64, timeout: f64) -> i64
+extern def vp_select_can_write(fd: i64, timeout: f64) -> i64
+extern def vp_select_get_error() -> i64
+extern def vp_select_strerror(err: i64) -> str
+extern def vp_poll_poll(fds, timeout: f64)
+extern def vp_poll_result_free(result)
+extern def vp_epoll_create() -> i64
+extern def vp_epoll_free(epfd: i64)
+extern def vp_epoll_ctl(epfd: i64, op: i64, fd: i64, events: i64) -> i64
+extern def vp_epoll_wait(epfd: i64, timeout_ms: i64) -> list
+
+# Constants from runtime
+extern def vp_epollin() -> i64
+extern def vp_epollout() -> i64
+extern def vp_epollerr() -> i64
+extern def vp_epollhup() -> i64
+extern def vp_epollet() -> i64
+extern def vp_epoll_ctl_add() -> i64
+extern def vp_epoll_ctl_mod() -> i64
+extern def vp_epoll_ctl_del() -> i64
+
+# Initialize constants from runtime
+EPOLLIN = vp_epollin()
+EPOLLOUT = vp_epollout()
+EPOLLERR = vp_epollerr()
+EPOLLHUP = vp_epollhup()
+EPOLLET = vp_epollet()
+EPOLL_CTL_ADD = vp_epoll_ctl_add()
+EPOLL_CTL_MOD = vp_epoll_ctl_mod()
+EPOLL_CTL_DEL = vp_epoll_ctl_del()

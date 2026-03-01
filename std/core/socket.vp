@@ -1,58 +1,37 @@
 # Viper Standard Library - socket module
 # Network socket interface
 
-# Module metadata
 __name__ = "socket"
 __version__ = "0.4.1"
 
 # ============================================
-# Address Families
+# Address Family Constants
 # ============================================
 
-AF_UNSPEC: i64 = 0
 AF_INET: i64 = 2       # IPv4
 AF_INET6: i64 = 10     # IPv6
 AF_UNIX: i64 = 1       # Unix domain sockets
-AF_PACKET: i64 = 17    # Packet interface
+AF_UNSPEC: i64 = 0     # Unspecified
 
 # ============================================
-# Socket Types
+# Socket Type Constants
 # ============================================
 
-SOCK_STREAM: i64 = 1       # TCP
-SOCK_DGRAM: i64 = 2        # UDP
-SOCK_RAW: i64 = 3          # Raw socket
-SOCK_SEQPACKET: i64 = 5    # Sequenced packet
+SOCK_STREAM: i64 = 1    # TCP
+SOCK_DGRAM: i64 = 2     # UDP
+SOCK_RAW: i64 = 3       # Raw socket
 
 # ============================================
-# Protocol Numbers
+# Protocol Constants
 # ============================================
 
-IPPROTO_IP: i64 = 0
-IPPROTO_TCP: i64 = 6
-IPPROTO_UDP: i64 = 17
-IPPROTO_RAW: i64 = 255
+SOL_SOCKET: i64 = 1     # Socket level
+SO_REUSEADDR: i64 = 2   # Reuse address
+SO_BROADCAST: i64 = 4   # Broadcast
+TCP_NODELAY: i64 = 1    # Disable Nagle's algorithm
 
 # ============================================
-# Socket Options
-# ============================================
-
-SOL_SOCKET: i64 = 1
-SO_DEBUG: i64 = 1
-SO_REUSEADDR: i64 = 2
-SO_KEEPALIVE: i64 = 9
-SO_DONTROUTE: i64 = 5
-SO_BROADCAST: i64 = 6
-SO_LINGER: i64 = 13
-SO_RCVBUF: i64 = 8
-SO_SNDBUF: i64 = 7
-
-IPPROTO_TCP: i64 = 6
-TCP_NODELAY: i64 = 1
-TCP_MAXSEG: i64 = 2
-
-# ============================================
-# Shutdown Options
+# Shutdown Constants
 # ============================================
 
 SHUT_RD: i64 = 0    # Shutdown receive
@@ -63,273 +42,180 @@ SHUT_RDWR: i64 = 2  # Shutdown both
 # Socket Class
 # ============================================
 
-class socket:
-    """Socket class for network communication."""
+class Socket:
+    """Network socket for TCP/UDP communication."""
     
-    def __init__(self, family: i64 = AF_INET, type: i64 = SOCK_STREAM, 
-                 proto: i64 = 0):
+    def __init__(self, family: i64 = AF_INET, type: i64 = SOCK_STREAM, protocol: i64 = 0):
         """Create a new socket."""
+        self._fd = vp_socket_create(family, type, protocol)
         self._family = family
         self._type = type
-        self._proto = proto
-        self._sock_id: i64 = -1
-        
-        # Create the socket
-        self._sock_id = self._create(family, type, proto)
+        self._protocol = protocol
+        self._connected = False
     
-    def _create(self, family: i64, type: i64, proto: i64) -> i64:
-        """Create the underlying socket."""
-        # Implemented in runtime
-        return -1
+    def connect(self, host: str, port: i64) -> i64:
+        """Connect to a remote address."""
+        result = vp_socket_connect(self._fd, host, port)
+        if result == 0:
+            self._connected = True
+        return result
     
-    # ============================================
-    # Connection Methods
-    # ============================================
+    def bind(self, host: str, port: i64) -> i64:
+        """Bind to a local address."""
+        return vp_socket_bind(self._fd, host, port)
     
-    def connect(self, address: (str, i64)):
-        """Connect to a remote socket."""
-        host, port = address
-        # Implemented in runtime
-        pass
+    def listen(self, backlog: i64 = 128) -> i64:
+        """Listen for incoming connections."""
+        return vp_socket_listen(self._fd, backlog)
     
-    def bind(self, address: (str, i64)):
-        """Bind socket to a local address."""
-        host, port = address
-        # Implemented in runtime
-        pass
+    def accept(self) -> tuple:
+        """Accept an incoming connection."""
+        new_fd = vp_socket_accept(self._fd)
+        if new_fd >= 0:
+            client = Socket.__new__(Socket)
+            client._fd = new_fd
+            client._connected = True
+            return (client, None)
+        return (None, "accept failed")
     
-    def listen(self, backlog: i64 = 0):
-        """Enable a server to accept connections."""
-        # Implemented in runtime
-        pass
-    
-    def accept(self) -> (socket, (str, i64)):
-        """Accept a connection."""
-        # Implemented in runtime
-        return (None, ("", 0))
-    
-    # ============================================
-    # Data Transfer Methods
-    # ============================================
-    
-    def send(self, data: [i64], flags: i64 = 0) -> i64:
+    def send(self, data: str) -> i64:
         """Send data to the socket."""
-        # Implemented in runtime
-        return 0
+        return vp_socket_send(self._fd, data, len(data))
     
-    def sendall(self, data: [i64], flags: i64 = 0):
+    def sendall(self, data: str) -> i64:
         """Send all data to the socket."""
-        # Implemented in runtime
-        pass
+        total = 0
+        while total < len(data):
+            sent = vp_socket_send(self._fd, data, len(data) - total)
+            if sent < 0:
+                return sent
+            total += sent
+        return total
     
-    def recv(self, bufsize: i64, flags: i64 = 0) -> [i64]:
+    def recv(self, bufsize: i64) -> str:
         """Receive data from the socket."""
-        # Implemented in runtime
-        return []
+        # Simplified: returns empty string
+        # Full implementation would use buffer
+        return ""
     
-    def recv_into(self, buffer: [i64], nbytes: i64 = 0, flags: i64 = 0) -> i64:
-        """Receive data into a buffer."""
-        # Implemented in runtime
-        return 0
+    def recvfrom(self, bufsize: i64) -> tuple:
+        """Receive data and address from UDP socket."""
+        return ("", None)
     
-    def sendto(self, data: [i64], address: (str, i64), flags: i64 = 0) -> i64:
-        """Send data to a specific address."""
-        # Implemented in runtime
-        return 0
+    def sendto(self, data: str, address: tuple) -> i64:
+        """Send data to a specific address (UDP)."""
+        return -1  # Not implemented
     
-    def recvfrom(self, bufsize: i64, flags: i64 = 0) -> ([i64], (str, i64)):
-        """Receive data and address."""
-        # Implemented in runtime
-        return ([], ("", 0))
-    
-    # ============================================
-    # Socket Control Methods
-    # ============================================
-    
-    def close(self):
+    def close(self) -> i64:
         """Close the socket."""
-        # Implemented in runtime
-        pass
+        self._connected = False
+        return vp_socket_close(self._fd)
     
-    def shutdown(self, how: i64 = SHUT_RDWR):
-        """Shutdown one or both halves of the connection."""
-        # Implemented in runtime
-        pass
+    def setblocking(self, blocking: bool) -> i64:
+        """Set blocking mode."""
+        return vp_socket_setblocking(self._fd, 1 if blocking else 0)
     
-    def setblocking(self, flag: bool):
-        """Set blocking or non-blocking mode."""
-        # Implemented in runtime
-        pass
+    def setsockopt(self, level: i64, optname: i64, value: i64) -> i64:
+        """Set socket option."""
+        return vp_socket_setsockopt(self._fd, level, optname, value, 8)
     
-    def setsockopt(self, level: i64, optname: i64, value):
-        """Set socket options."""
-        # Implemented in runtime
-        pass
-    
-    def getsockopt(self, level: i64, optname: i64) -> int:
-        """Get socket options."""
-        # Implemented in runtime
-        return 0
-    
-    def settimeout(self, value: f64):
-        """Set timeout for socket operations."""
-        # Implemented in runtime
-        pass
-    
-    def gettimeout(self) -> f64:
-        """Get timeout value."""
-        # Implemented in runtime
-        return 0.0
-    
-    # ============================================
-    # Socket Info Methods
-    # ============================================
+    def getsockopt(self, level: i64, optname: i64) -> i64:
+        """Get socket option."""
+        value = 0
+        len_ptr = 0
+        vp_socket_getsockopt(self._fd, level, optname, value, len_ptr)
+        return value
     
     def fileno(self) -> i64:
-        """Return the file descriptor."""
-        # Implemented in runtime
-        return 0
+        """Get file descriptor."""
+        return vp_socket_fileno(self._fd)
     
-    def getpeername(self) -> (str, i64):
-        """Return the remote address."""
-        # Implemented in runtime
-        return ("", 0)
+    def getpeername(self) -> tuple:
+        """Get remote address."""
+        return (None, None)
     
-    def getsockname(self) -> (str, i64):
-        """Return the local address."""
-        # Implemented in runtime
-        return ("", 0)
+    def getsockname(self) -> tuple:
+        """Get local address."""
+        return (None, None)
     
-    def getsockopt(self, level: i64, optname: i64, buflen: i64 = 0):
-        """Return socket option value."""
-        # Implemented in runtime
-        return None
+    def shutdown(self, how: i64 = SHUT_RDWR) -> i64:
+        """Shutdown socket."""
+        return 0  # Simplified
     
-    # ============================================
-    # Properties
-    # ============================================
-    
+    @property
     def family(self) -> i64:
-        """Return the socket family."""
+        """Get address family."""
         return self._family
     
+    @property
     def type(self) -> i64:
-        """Return the socket type."""
+        """Get socket type."""
         return self._type
     
-    def proto(self) -> i64:
-        """Return the socket protocol."""
-        return self._proto
-    
-    # ============================================
-    # Context Manager
-    # ============================================
-    
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-        return False
-    
-    # ============================================
-    # String Representation
-    # ============================================
-    
-    def __repr__(self) -> str:
-        return "<socket fd=" + str(self.fileno()) + ", family=" + str(self._family) + ", type=" + str(self._type) + ">"
+    @property
+    def connected(self) -> bool:
+        """Check if connected."""
+        return self._connected
 
 # ============================================
 # Convenience Functions
 # ============================================
 
-def create_connection(address: (str, i64), timeout: f64 = None, 
-                    source_address: (str, i64) = None) -> socket:
-    """Connect to a TCP socket."""
-    sock = socket(AF_INET, SOCK_STREAM)
-    if timeout is not None:
-        sock.settimeout(timeout)
-    sock.connect(address)
+def create_connection(address: tuple, timeout: f64 = -1.0) -> Socket:
+    """Create a connection to a remote address."""
+    host = address[0]
+    port = address[1]
+    sock = Socket(AF_INET, SOCK_STREAM)
+    sock.connect(host, port)
     return sock
 
 def gethostbyname(hostname: str) -> str:
-    """Translate a hostname to IPv4 address."""
-    # Simplified: would need DNS resolution
-    return "127.0.0.1"
-
-def gethostbyaddr(ip_address: str) -> (str, [str], [str]):
-    """Return host name, alias list, IP address list."""
-    # Simplified
-    return (ip_address, [], [ip_address])
+    """Get IP address for hostname."""
+    # Simplified: return hostname as-is
+    return hostname
 
 def gethostname() -> str:
-    """Return the current hostname."""
+    """Get current hostname."""
     return "localhost"
 
-def getaddrinfo(host: str, port: i64, family: i64 = 0, 
-                type: i64 = 0, proto: i64 = 0, flags: i64 = 0):
-    """Translate host/port to list of 5-tuples."""
-    # Simplified
-    return []
-
-def inet_aton(ip_string: str) -> [i64]:
-    """Convert IPv4 address string to 32-bit packed binary format."""
-    # Simplified
-    return []
-
-def inet_ntoa(packed_ip: [i64]) -> str:
-    """Convert 32-bit packed IPv4 to string."""
-    # Simplified
-    return "0.0.0.0"
-
-def inet_pton(family: i64, ip_string: str) -> [i64]:
-    """Convert IP address string to packed binary format."""
-    # Simplified
-    return []
-
-def inet_ntop(family: i64, packed_ip: [i64]) -> str:
-    """Convert packed IP address to string."""
-    # Simplified
-    return ""
-
 # ============================================
-# Error Classes
+# Runtime Function Declarations
 # ============================================
 
-class error(Exception):
-    """Base exception for socket errors."""
-    pass
+extern def vp_socket_create(family: i64, type: i64, protocol: i64) -> i64
+extern def vp_socket_connect(fd: i64, host: str, port: i64) -> i64
+extern def vp_socket_bind(fd: i64, host: str, port: i64) -> i64
+extern def vp_socket_listen(fd: i64, backlog: i64) -> i64
+extern def vp_socket_accept(fd: i64) -> i64
+extern def vp_socket_send(fd: i64, data: str, len: i64) -> i64
+extern def vp_socket_recv(fd: i64, buffer: str, maxlen: i64) -> i64
+extern def vp_socket_close(fd: i64) -> i64
+extern def vp_socket_setblocking(fd: i64, blocking: i64) -> i64
+extern def vp_socket_setsockopt(fd: i64, level: i64, optname: i64, value: i64, len: i64) -> i64
+extern def vp_socket_getsockopt(fd: i64, level: i64, optname: i64, value: i64, len: i64) -> i64
+extern def vp_socket_fileno(fd: i64) -> i64
+extern def vp_socket_getsockopt(fd: i64, level: i64, optname: i64, value: i64, len: i64) -> i64
 
-class herror(error):
-    """Host/address related errors."""
-    pass
+# Constants from runtime
+extern def vp_socket_af_inet() -> i64
+extern def vp_socket_af_inet6() -> i64
+extern def vp_socket_sock_stream() -> i64
+extern def vp_socket_sock_dgram() -> i64
+extern def vp_socket_sol_socket() -> i64
+extern def vp_socket_so_reuseaddr() -> i64
+extern def vp_socket_tcp_nodelay() -> i64
+extern def vp_socket_shut_rd() -> i64
+extern def vp_socket_shut_wr() -> i64
+extern def vp_socket_shut_rdwr() -> i64
 
-class gaierror(error):
-    """Address info related errors."""
-    pass
-
-class timeout(error):
-    """Timeout error."""
-    pass
-
-# ============================================
-# Constants
-# ============================================
-
-# Default backlog for listen
-SOMAXCONN: i64 = 128
-
-# Message flags
-MSG_PEEK: i64 = 0x02
-MSG_WAITALL: i64 = 0x100
-MSG_OOB: i64 = 0x01
-MSG_DONTWAIT: i64 = 0x40
-
-# AI_* flags for getaddrinfo
-AI_PASSIVE: i64 = 0x0001
-AI_CANONNAME: i64 = 0x0002
-AI_NUMERICHOST: i64 = 0x0004
-AI_NUMERICSERV: i64 = 0x0400
-
-# Has IPv6 support
-HAS_IPV6: bool = True
+# Initialize constants from runtime
+AF_INET = vp_socket_af_inet()
+AF_INET6 = vp_socket_af_inet6()
+SOCK_STREAM = vp_socket_sock_stream()
+SOCK_DGRAM = vp_socket_sock_dgram()
+SOL_SOCKET = vp_socket_sol_socket()
+SO_REUSEADDR = vp_socket_so_reuseaddr()
+TCP_NODELAY = vp_socket_tcp_nodelay()
+SHUT_RD = vp_socket_shut_rd()
+SHUT_WR = vp_socket_shut_wr()
+SHUT_RDWR = vp_socket_shut_rdwr()
