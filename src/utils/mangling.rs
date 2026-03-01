@@ -19,6 +19,29 @@ pub fn mangle_function_name(name: &str, param_types: &[Type]) -> String {
     mangled
 }
 
+/// Mangle function name with closure cell parameters appended
+/// Format: name_type1_type2_..._closure_var1_var2_...
+pub fn mangle_function_name_with_closure(
+    name: &str,
+    param_types: &[Type],
+    nonlocal_vars: &[String],
+) -> String {
+    let base_mangled = mangle_function_name(name, param_types);
+    
+    if nonlocal_vars.is_empty() {
+        return base_mangled;
+    }
+    
+    let mut mangled = base_mangled;
+    mangled.push_str("_closure");
+    for var in nonlocal_vars {
+        mangled.push('_');
+        mangled.push_str(var);
+    }
+    
+    mangled
+}
+
 fn mangle_type(ty: &Type) -> String {
     match ty {
         Type::I8 => "i8".to_string(),

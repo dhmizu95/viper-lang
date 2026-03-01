@@ -11,6 +11,7 @@ use crate::codegen::types::TypeMapper;
 use crate::codegen::variables::{LoopContext, VarInfo, VarType};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
 use crate::semantic::closure_analysis::ClosureAnalyzer;
+use crate::utils::mangling::mangle_function_name_with_closure;
 
 /// Main code generator that translates AST to LLVM IR
 pub struct CodeGen<'ctx> {
@@ -32,6 +33,10 @@ pub struct CodeGen<'ctx> {
     bigint_functions: HashSet<String>,
     escape_analyzer: EscapeAnalyzer,
     closure_analyzer: ClosureAnalyzer,
+    /// Variables that are captured by nested functions
+    closure_cells: HashMap<String, crate::codegen::state::ClosureCellInfo<'ctx>>,
+    /// Variables captured by this function's nested functions
+    captured_vars: HashSet<String>,
     current_function: Option<String>,
     current_class: Option<String>,  // Current class context for super() and methods
     in_classmethod: bool,  // True when generating code for a @classmethod
@@ -62,6 +67,8 @@ impl<'ctx> CodeGen<'ctx> {
             bigint_functions: HashSet::new(),
             escape_analyzer: EscapeAnalyzer::new(),
             closure_analyzer: ClosureAnalyzer::new(),
+            closure_cells: HashMap::new(),
+            captured_vars: HashSet::new(),
             current_function: None,
             current_class: None,
             in_classmethod: false,
@@ -82,8 +89,9 @@ impl<'ctx> CodeGen<'ctx> {
         // Declare runtime functions first
         crate::codegen::runtime::declare_runtime_functions(self.context, &self.module)?;
 
-        // Generate closure cell runtime implementation
-        crate::codegen::runtime::closure_cells::declare_closure_cell_functions(self.context, &self.module)?;
+        // Note: Closure cell runtime is generated on-demand when nested functions with nonlocal are used
+        // For now, we skip generating it to avoid linking issues with simple programs
+        // crate::codegen::runtime::closure_cells::declare_closure_cell_functions(self.context, &self.module)?;
 
         // First pass: declare all functions (including class methods and nested functions)
         self.declare_all_functions(&module.statements)?;
@@ -220,13 +228,20 @@ impl<'ctx> CodeGen<'ctx> {
 
     /// Define all functions recursively (including nested functions)
     fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+        // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
             if let Stmt::Function { name, params, return_type, body, .. } = stmt {
-                // Compute mangled name using the same logic as declare_function
+                // Get closure info to determine nonlocal variables
+                let closure_info = self.closure_analyzer.get_closure_info(name);
+                let nonlocal_vars: Vec<String> = closure_info
+                    .map(|info| info.nonlocal_vars.iter().cloned().collect())
+                    .unwrap_or_default();
+                
+                // Compute mangled name including closure info
                 use crate::codegen::functions::infer_param_types_from_body;
                 let param_types = infer_param_types_from_body(params, body);
-                let mangled_name = mangle_function_name(name, &param_types);
-                self.define_function(&mangled_name, name, params, return_type, body)?;
+                let mangled_name = mangle_function_name_with_closure(name, &param_types, &nonlocal_vars);
+                self.define_function(&mangled_name, name, params, return_type, body, &nonlocal_vars)?;
             }
         }
         // Second pass: define nested functions in compound statements
@@ -261,6 +276,7 @@ impl<'ctx> CodeGen<'ctx> {
         params: &[crate::ast::Param],
         return_type: &Option<Type>,
         body: &[Stmt],
+        nonlocal_vars: &[String],
     ) -> Result<(), String> {
         // Save variables from previous function scope
         let saved_variables = std::mem::take(&mut self.variables);
@@ -336,53 +352,33 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Set up closure cell parameters (hidden parameters after regular params)
         // These are for nonlocal variables from enclosing scope
-        for (i, var_name) in nonlocal_vars.iter().enumerate() {
-            let cell_param = func.get_nth_param((num_regular_params + i) as u32).unwrap();
-            // Store the closure cell pointer
-            self.closure_cells.insert(var_name.clone(), crate::codegen::state::ClosureCellInfo {
-                cell_ptr: cell_param.into_pointer_value(),
-                value_ptr: cell_param.into_pointer_value(), // Will be updated when we get the actual value ptr
-                var_type: VarType::Int, // Default, will be updated
-            });
-            // Create a variable entry that points to the closure cell
-            let i64_ptr_type = self.context.i64_type().ptr_type(inkwell::AddressSpace::default());
-            let value_ptr = crate::codegen::closure_cells::get_closure_cell_value(
-                self.context, &self.module, &self.builder, 
-                cell_param.into_pointer_value(), i64_ptr_type
-            ).unwrap_or(cell_param.into_pointer_value());
-            self.variables.insert(var_name.clone(), VarInfo::new_closure_cell(
-                cell_param.into_pointer_value(), VarType::Int, value_ptr
-            ));
-        }
-
-        // Create closure cells for variables captured by nested functions
-        for var_name in &captured_vars {
-            if let Some(var_info) = self.variables.get(var_name) {
-                // Get the current value pointer (alloca or otherwise)
-                if let Some(value_ptr) = var_info.get_alloca() {
-                    // Create a closure cell for this variable
-                    let cell_ptr = crate::codegen::closure_cells::create_closure_cell(
-                        self.context, &self.module, &self.builder, value_ptr, var_name
-                    ).expect("create closure cell");
-                    
-                    // Get the value pointer from the cell for future access
-                    let i64_ptr_type = self.context.i64_type().ptr_type(inkwell::AddressSpace::default());
-                    let value_ptr_from_cell = crate::codegen::closure_cells::get_closure_cell_value(
-                        self.context, &self.module, &self.builder, cell_ptr, i64_ptr_type
-                    ).unwrap_or(value_ptr);
-                    
-                    // Update the variable to use closure cell storage
-                    self.variables.insert(var_name.clone(), VarInfo::new_closure_cell(
-                        cell_ptr, var_info.var_type, value_ptr_from_cell
-                    ));
-                    self.captured_vars.insert(var_name.clone());
-                }
+        if !nonlocal_vars.is_empty() {
+            for (i, var_name) in nonlocal_vars.iter().enumerate() {
+                let cell_param = func.get_nth_param((num_regular_params + i) as u32).unwrap();
+                // Store the closure cell pointer
+                self.closure_cells.insert(var_name.clone(), crate::codegen::state::ClosureCellInfo {
+                    cell_ptr: cell_param.into_pointer_value(),
+                    value_ptr: cell_param.into_pointer_value(),
+                    var_type: VarType::Int,
+                });
+                // Create a variable entry that points to the closure cell
+                let i64_ptr_type = self.context.i64_type().ptr_type(inkwell::AddressSpace::default());
+                let value_ptr = crate::codegen::closure_cells::get_closure_cell_value(
+                    self.context, &self.module, &self.builder,
+                    cell_param.into_pointer_value(), i64_ptr_type
+                ).unwrap_or(cell_param.into_pointer_value());
+                self.variables.insert(var_name.clone(), VarInfo::new_closure_cell(
+                    cell_param.into_pointer_value(), VarType::Int, value_ptr
+                ));
             }
         }
 
-        // Generate body using escape analysis
+        // Note: Closure cells for captured variables are created inline when the variable is assigned
+        // This is handled in the assignment codegen when it detects a variable is captured
+
+        // Generate body using escape analysis and closure analysis
         for stmt in body {
-            crate::codegen::statements::generate_stmt_with_escape(
+            crate::codegen::statements::generate_stmt_with_closure(
                 self.context,
                 &self.module,
                 &self.builder,
@@ -398,6 +394,7 @@ impl<'ctx> CodeGen<'ctx> {
                 stmt,
                 &mut self.escape_analyzer,
                 original_name,
+                &self.closure_analyzer,
                 self.current_class.as_deref(),
             )?;
         }
@@ -528,7 +525,14 @@ impl<'ctx> CodeGen<'ctx> {
         for stmt in stmts {
             match stmt {
                 Stmt::Function { name, params, return_type, body, .. } => {
-                    crate::codegen::functions::declare_function(
+                    // Get closure info for this function
+                    let closure_info = self.closure_analyzer.get_closure_info(name);
+                    let nonlocal_vars: Vec<String> = closure_info
+                        .map(|info| info.nonlocal_vars.iter().cloned().collect())
+                        .unwrap_or_default();
+                    
+                    // Declare with closure cell parameters
+                    crate::codegen::functions::declare_function_with_closure(
                         self.context,
                         &mut self.module,
                         &self.type_mapper,
@@ -537,6 +541,7 @@ impl<'ctx> CodeGen<'ctx> {
                         params,
                         return_type,
                         Some(body),
+                        &nonlocal_vars,
                     )?;
                     // Recursively declare nested functions in the body
                     self.declare_all_functions(body)?;
@@ -888,12 +893,13 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // For static methods, generate as regular function
                 // For instance methods, the first param is 'self'
+                let empty_nonlocal: Vec<String> = Vec::new();
                 if is_static {
                     // Static method - no self parameter
-                    self.define_function(&mangled_name, method_name, params, return_type, method_body)?;
+                    self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
                 } else {
                     // Instance method - already has self parameter in AST
-                    self.define_function(&mangled_name, method_name, params, return_type, method_body)?;
+                    self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
                 }
 
                 // Restore classmethod flag

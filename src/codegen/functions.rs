@@ -634,6 +634,72 @@ pub fn declare_function<'ctx>(
     Ok(())
 }
 
+/// Declare a function with closure cell parameters (for nested functions with nonlocal)
+pub fn declare_function_with_closure<'ctx>(
+    context: &'ctx Context,
+    module: &mut inkwell::module::Module<'ctx>,
+    type_mapper: &TypeMapper<'ctx>,
+    functions: &mut HashMap<String, FunctionValue<'ctx>>,
+    name: &str,
+    params: &[Param],
+    return_type: &Option<Type>,
+    body: Option<&[Stmt]>,
+    nonlocal_vars: &[String],
+) -> Result<(), String> {
+    // First declare with regular params
+    let normalized_return_type = return_type.as_ref().map(|t| normalize_type(t));
+
+    let param_types = if let Some(body) = body {
+        infer_param_types_from_body(params, body)
+    } else {
+        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect()
+    };
+
+    // Build LLVM parameter types for regular params
+    let mut param_llvm_types: Vec<_> = param_types
+        .iter()
+        .map(|ty| type_mapper.llvm_type(ty).as_basic_type_enum().into())
+        .collect();
+
+    // Add closure cell parameters (i8* for each nonlocal variable)
+    let i8_ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+    for _ in nonlocal_vars {
+        param_llvm_types.push(i8_ptr_type.as_basic_type_enum().into());
+    }
+
+    // Compute mangled name
+    let mangled_name = crate::utils::mangling::mangle_function_name_with_closure(name, &param_types, nonlocal_vars);
+
+    // If no return type annotation, try to infer from body
+    let param_type_pairs: Vec<(String, Type)> =
+        params.iter().zip(param_types.iter()).map(|(p, t)| (p.name.clone(), t.clone())).collect();
+    let inferred_return_type = if normalized_return_type.is_none() {
+        if let Some(body) = body {
+            infer_return_type_from_body(body, &param_type_pairs)
+        } else {
+            None
+        }
+    } else {
+        normalized_return_type.clone()
+    };
+
+    // Special case: main() always returns i64 for proper exit code
+    let fn_type = if name == "main" && return_type.is_none() && inferred_return_type.is_none() {
+        let i64_type = context.i64_type();
+        i64_type.fn_type(&param_llvm_types, false)
+    } else {
+        match type_mapper.llvm_return_type(&inferred_return_type) {
+            Some(return_ty) => return_ty.fn_type(&param_llvm_types, false),
+            None => context.void_type().fn_type(&param_llvm_types, false),
+        }
+    };
+
+    let func = module.add_function(&mangled_name, fn_type, None);
+    functions.insert(mangled_name, func);
+
+    Ok(())
+}
+
 /// Declare a function with a simple name (no mangling) - used for class methods
 pub fn declare_function_simple<'ctx>(
     context: &'ctx Context,

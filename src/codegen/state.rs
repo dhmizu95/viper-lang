@@ -8,6 +8,7 @@ use crate::ast::Type;
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::variables::{LoopContext, VarInfo};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
+use crate::semantic::closure_analysis::ClosureAnalyzer;
 
 /// Information about a closure cell
 #[derive(Debug, Clone)]
@@ -36,6 +37,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub bigint_vars: &'a mut HashSet<String>,     // Track BigInt variables
     pub var_types: &'a mut HashMap<String, Type>,  // Type information for variables
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
+    pub closure_analyzer: Option<&'a ClosureAnalyzer>,  // Reference to closure analyzer
     pub current_function: Option<&'a str>,
     pub current_class: Option<String>,  // Current class context for super() and methods
     pub in_classmethod: bool,  // True when generating code for a @classmethod
@@ -77,6 +79,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             bigint_vars,
             var_types,
             escape_analyzer: None,
+            closure_analyzer: None,
             current_function: None,
             current_class: None,
             in_classmethod: false,
@@ -119,6 +122,51 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             bigint_vars,
             var_types,
             escape_analyzer: Some(escape_analyzer),
+            closure_analyzer: None,
+            current_function: Some(current_function),
+            current_class: None,
+            in_classmethod: false,
+            captured_vars: HashSet::new(),
+            closure_cells: HashMap::new(),
+        }
+    }
+
+    /// Create a new state with escape analysis and closure analysis
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_closure_analysis(
+        context: &'ctx Context,
+        module: &'a inkwell::module::Module<'ctx>,
+        builder: &'a inkwell::builder::Builder<'ctx>,
+        ir_builder: &'a IRBuilder<'ctx>,
+        variables: &'a mut HashMap<String, VarInfo<'ctx>>,
+        functions: &'a HashMap<String, FunctionValue<'ctx>>,
+        global_constants: &'a mut HashMap<String, GlobalValue<'ctx>>,
+        loop_stack: &'a mut Vec<LoopContext<'ctx>>,
+        list_vars: &'a mut HashSet<String>,
+        dict_vars: &'a mut HashSet<String>,
+        bool_list_vars: &'a mut HashSet<String>,
+        bigint_vars: &'a mut HashSet<String>,
+        var_types: &'a mut HashMap<String, Type>,
+        escape_analyzer: &'a mut EscapeAnalyzer,
+        current_function: &'a str,
+        closure_analyzer: &'a ClosureAnalyzer,
+    ) -> Self {
+        Self {
+            context,
+            module,
+            builder,
+            ir_builder,
+            variables,
+            functions,
+            global_constants,
+            loop_stack,
+            list_vars,
+            dict_vars,
+            bool_list_vars,
+            bigint_vars,
+            var_types,
+            escape_analyzer: Some(escape_analyzer),
+            closure_analyzer: Some(closure_analyzer),
             current_function: Some(current_function),
             current_class: None,
             in_classmethod: false,

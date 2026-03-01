@@ -271,13 +271,29 @@ pub fn generate_call<'ctx>(
         });
 
         if let Some(func_val) = func_val {
-            let arg_values: Vec<_> = args
+            let mut arg_values: Vec<_> = args
                 .iter()
                 .map(|a| {
                     generate_expr(state, a)
                         .map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
                 })
                 .collect::<Result<_, _>>()?;
+
+            // Note: Closure cell parameter passing is disabled until runtime is properly linked
+            // Append closure cell parameters if this is a nested function call
+            // Check if current function has captured variables that need to be passed
+            // if let Some(current_func) = state.current_function {
+            //     if let Some(closure_analyzer) = state.closure_analyzer {
+            //         let captured = closure_analyzer.get_closure_cells_to_create(current_func);
+            //         for var_name in &captured {
+            //             if let Some(var_info) = state.variables.get(var_name) {
+            //                 if let Some(cell_ptr) = var_info.get_closure_cell() {
+            //                     arg_values.push(cell_ptr.into());
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
             let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "call");
             return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));

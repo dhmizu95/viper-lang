@@ -17,19 +17,16 @@ pub fn declare_closure_cell_functions<'ctx>(
     let i64_type = context.i64_type();
     let f64_type = context.f64_type();
 
-    // Get malloc function for allocation
-    let malloc_fn = module.get_function("vp_malloc").or_else(|| {
-        // If vp_malloc doesn't exist, declare it
+    // Declare vp_malloc and vp_free if they don't exist
+    let malloc_fn = module.get_function("vp_malloc").unwrap_or_else(|| {
         let malloc_type = i8_ptr_type.fn_type(&[i64_type.into()], false);
-        Some(module.add_function("vp_malloc", malloc_type, None))
-    }).ok_or("Failed to get malloc function")?;
+        module.add_function("vp_malloc", malloc_type, None)
+    });
 
-    // Get free function for deallocation
-    let free_fn = module.get_function("vp_free").or_else(|| {
-        // If vp_free doesn't exist, declare it
+    let free_fn = module.get_function("vp_free").unwrap_or_else(|| {
         let free_type = void_type.fn_type(&[i8_ptr_type.into()], false);
-        Some(module.add_function("vp_free", free_type, None))
-    }).ok_or("Failed to get free function")?;
+        module.add_function("vp_free", free_type, None)
+    });
 
     // Closure cell structure: { i8* } (just a pointer to the value)
     let cell_struct_type = context.struct_type(&[i8_ptr_type.into()], false);

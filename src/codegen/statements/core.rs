@@ -8,6 +8,7 @@ use crate::codegen::builder::IRBuilder;
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{LoopContext, VarInfo, VarType};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
+use crate::semantic::closure_analysis::ClosureAnalyzer;
 
 /// Generate code for a statement
 pub fn generate_stmt<'ctx>(
@@ -81,6 +82,50 @@ pub fn generate_stmt_with_escape<'ctx>(
         &mut var_types,
         escape_analyzer,
         current_function,
+    );
+    state.current_class = current_class.map(|s| s.to_string());
+
+    generate_stmt_internal(&mut state, stmt)
+}
+
+/// Generate code for a statement with escape analysis and closure analysis
+pub fn generate_stmt_with_closure<'ctx>(
+    context: &'ctx Context,
+    module: &inkwell::module::Module<'ctx>,
+    builder: &inkwell::builder::Builder<'ctx>,
+    ir_builder: &IRBuilder<'ctx>,
+    variables: &mut HashMap<String, VarInfo<'ctx>>,
+    functions: &HashMap<String, FunctionValue<'ctx>>,
+    global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
+    loop_stack: &mut Vec<LoopContext<'ctx>>,
+    list_vars: &mut HashSet<String>,
+    dict_vars: &mut HashSet<String>,
+    bool_list_vars: &mut HashSet<String>,
+    bigint_vars: &mut HashSet<String>,
+    stmt: &Stmt,
+    escape_analyzer: &mut EscapeAnalyzer,
+    current_function: &str,
+    closure_analyzer: &ClosureAnalyzer,
+    current_class: Option<&str>,
+) -> Result<(), String> {
+    let mut var_types = HashMap::new();
+    let mut state = CodeGenState::with_closure_analysis(
+        context,
+        module,
+        builder,
+        ir_builder,
+        variables,
+        functions,
+        global_constants,
+        loop_stack,
+        list_vars,
+        dict_vars,
+        bool_list_vars,
+        bigint_vars,
+        &mut var_types,
+        escape_analyzer,
+        current_function,
+        closure_analyzer,
     );
     state.current_class = current_class.map(|s| s.to_string());
 
