@@ -32,6 +32,7 @@ pub struct CodeGen<'ctx> {
     escape_analyzer: EscapeAnalyzer,
     current_function: Option<String>,
     current_class: Option<String>,  // Current class context for super() and methods
+    in_classmethod: bool,  // True when generating code for a @classmethod
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -60,6 +61,7 @@ impl<'ctx> CodeGen<'ctx> {
             escape_analyzer: EscapeAnalyzer::new(),
             current_function: None,
             current_class: None,
+            in_classmethod: false,
         }
     }
 
@@ -792,14 +794,19 @@ impl<'ctx> CodeGen<'ctx> {
         // Save current class context
         let saved_class = self.current_class.clone();
         self.current_class = Some(name.to_string());
-        
+
         for stmt in body {
             if let Stmt::Function { name: method_name, params, return_type, body: method_body, decorators, .. } = stmt {
-                // Check for staticmethod decorator
+                // Check for staticmethod and classmethod decorators
                 let is_static = decorators.iter().any(|d| d.name == "staticmethod");
+                let is_class_method = decorators.iter().any(|d| d.name == "classmethod");
 
                 // Generate mangled method name
                 let mangled_name = format!("__method_{}_{}", name, method_name);
+
+                // Set flag for classmethod
+                let saved_classmethod = self.in_classmethod;
+                self.in_classmethod = is_class_method;
 
                 // For static methods, generate as regular function
                 // For instance methods, the first param is 'self'
@@ -810,9 +817,12 @@ impl<'ctx> CodeGen<'ctx> {
                     // Instance method - already has self parameter in AST
                     self.define_function(&mangled_name, method_name, params, return_type, method_body)?;
                 }
+
+                // Restore classmethod flag
+                self.in_classmethod = saved_classmethod;
             }
         }
-        
+
         // Restore previous class context
         self.current_class = saved_class;
         

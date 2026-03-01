@@ -1340,26 +1340,67 @@ pub fn generate_ok_constructor<'ctx>(
 
     // Generate the value expression
     let value = generate_expr(state, &args[0])?;
-    
-    // Create Result struct type: { is_ok: i8, value: i64 }
+
+    // For Result types, we use a unified representation:
+    // { is_ok: i8, value: ptr } where value is always a pointer
+    let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
     let result_struct_type = state.context.struct_type(&[
         state.context.i8_type().into(),
-        state.context.i64_type().into(),
+        i8_ptr_type.into(),
     ], false);
+
+    // Allocate space for the Result struct
+    let result_alloca = state.builder.build_alloca(result_struct_type, "ok_result").expect("alloca");
     
-    // Create the struct value directly (by value, not pointer)
-    let value_field = if value.is_int_value() {
-        value.into_int_value()
+    // Store is_ok = 1
+    let is_ok_ptr = unsafe {
+        state.builder.build_in_bounds_gep(
+            result_struct_type,
+            result_alloca,
+            &[state.context.i32_type().const_zero(), state.context.i32_type().const_zero()],
+            "is_ok_ptr",
+        )
+    }.map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+    state.builder.build_store(is_ok_ptr, state.context.i8_type().const_int(1, false)).expect("store");
+    
+    // Convert value to pointer representation and store
+    let value_ptr_ptr = unsafe {
+        state.builder.build_in_bounds_gep(
+            result_struct_type,
+            result_alloca,
+            &[state.context.i32_type().const_zero(), state.context.i32_type().const_int(1, false)],
+            "value_ptr_ptr",
+        )
+    }.map_err(|e| format!("Failed to get value_ptr field: {:?}", e))?;
+    
+    // Convert value to pointer representation
+    let value_ptr = if value.is_pointer_value() {
+        value.into_pointer_value()
+    } else if value.is_int_value() {
+        state.builder.build_int_to_ptr(
+            value.into_int_value(),
+            i8_ptr_type,
+            "ok_int_to_ptr",
+        ).map_err(|e| format!("Failed to bitcast int to ptr: {:?}", e))?
+    } else if value.is_float_value() {
+        let f64_as_i64 = state.builder.build_float_to_unsigned_int(
+            value.into_float_value(),
+            state.context.i64_type(),
+            "f64_to_i64",
+        ).map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?;
+        state.builder.build_int_to_ptr(
+            f64_as_i64,
+            i8_ptr_type,
+            "ok_f64_to_ptr",
+        ).map_err(|e| format!("Failed to bitcast f64 to ptr: {:?}", e))?
     } else {
-        // For non-i64 values, use 0 as placeholder
-        state.context.i64_type().const_zero()
+        return Err(format!("Unsupported Ok value type: {:?}", value.get_type()));
     };
     
-    let result_val = result_struct_type.const_named_struct(&[
-        state.context.i8_type().const_int(1, false).into(), // is_ok = true
-        value_field.into(),
-    ]);
+    state.builder.build_store(value_ptr_ptr, value_ptr).expect("store");
     
+    // Load and return the struct value
+    let result_val = state.builder.build_load(result_struct_type, result_alloca, "ok_result_val").expect("load");
     Ok(result_val.into())
 }
 
@@ -1375,26 +1416,67 @@ pub fn generate_err_constructor<'ctx>(
 
     // Generate the error expression
     let error = generate_expr(state, &args[0])?;
-    
-    // Create Result struct type: { is_ok: i8, value: i64 }
+
+    // For Result types, we use a unified representation:
+    // { is_ok: i8, error: ptr } where error is always a pointer
+    let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
     let result_struct_type = state.context.struct_type(&[
         state.context.i8_type().into(),
-        state.context.i64_type().into(),
+        i8_ptr_type.into(),
     ], false);
+
+    // Allocate space for the Result struct
+    let result_alloca = state.builder.build_alloca(result_struct_type, "err_result").expect("alloca");
     
-    // Create the struct value directly (by value, not pointer)
-    let error_field = if error.is_int_value() {
-        error.into_int_value()
+    // Store is_ok = 0
+    let is_ok_ptr = unsafe {
+        state.builder.build_in_bounds_gep(
+            result_struct_type,
+            result_alloca,
+            &[state.context.i32_type().const_zero(), state.context.i32_type().const_zero()],
+            "is_ok_ptr",
+        )
+    }.map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+    state.builder.build_store(is_ok_ptr, state.context.i8_type().const_int(0, false)).expect("store");
+    
+    // Convert error to pointer representation and store
+    let error_ptr_ptr = unsafe {
+        state.builder.build_in_bounds_gep(
+            result_struct_type,
+            result_alloca,
+            &[state.context.i32_type().const_zero(), state.context.i32_type().const_int(1, false)],
+            "error_ptr_ptr",
+        )
+    }.map_err(|e| format!("Failed to get error_ptr field: {:?}", e))?;
+    
+    // Convert error to pointer representation
+    let error_ptr = if error.is_pointer_value() {
+        error.into_pointer_value()
+    } else if error.is_int_value() {
+        state.builder.build_int_to_ptr(
+            error.into_int_value(),
+            i8_ptr_type,
+            "err_int_to_ptr",
+        ).map_err(|e| format!("Failed to bitcast int to ptr: {:?}", e))?
+    } else if error.is_float_value() {
+        let f64_as_i64 = state.builder.build_float_to_unsigned_int(
+            error.into_float_value(),
+            state.context.i64_type(),
+            "f64_to_i64",
+        ).map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?;
+        state.builder.build_int_to_ptr(
+            f64_as_i64,
+            i8_ptr_type,
+            "err_f64_to_ptr",
+        ).map_err(|e| format!("Failed to bitcast f64 to ptr: {:?}", e))?
     } else {
-        // For non-i64 values, use 0 as placeholder
-        state.context.i64_type().const_zero()
+        return Err(format!("Unsupported Err value type: {:?}", error.get_type()));
     };
     
-    let result_val = result_struct_type.const_named_struct(&[
-        state.context.i8_type().const_int(0, false).into(), // is_ok = false
-        error_field.into(),
-    ]);
-
+    state.builder.build_store(error_ptr_ptr, error_ptr).expect("store");
+    
+    // Load and return the struct value
+    let result_val = state.builder.build_load(result_struct_type, result_alloca, "err_result_val").expect("load");
     Ok(result_val.into())
 }
 

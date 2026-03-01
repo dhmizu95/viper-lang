@@ -27,6 +27,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub current_function: Option<&'a str>,
     pub current_class: Option<String>,  // Current class context for super() and methods
+    pub in_classmethod: bool,  // True when generating code for a @classmethod
 }
 
 impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
@@ -63,6 +64,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             escape_analyzer: None,
             current_function: None,
             current_class: None,
+            in_classmethod: false,
         }
     }
 
@@ -102,6 +104,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             escape_analyzer: Some(escape_analyzer),
             current_function: Some(current_function),
             current_class: None,
+            in_classmethod: false,
         }
     }
 

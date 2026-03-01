@@ -121,6 +121,11 @@ impl ClassRegistry {
 
 /// Calculate MRO using C3 linearization algorithm
 /// This implements the same algorithm as Python's MRO
+/// 
+/// Handles:
+/// - Diamond inheritance (A -> B, C -> D where B,C -> A)
+/// - Inconsistent hierarchies (where C3 fails)
+/// - Provides detailed error messages for debugging
 pub fn calculate_mro(
     class_name: &str,
     registry: &ClassRegistry,
@@ -132,6 +137,22 @@ pub fn calculate_mro(
 
     if class.base_classes.is_empty() {
         return Ok(vec![class_name.to_string()]);
+    }
+
+    // Check for duplicate base classes
+    let mut seen_bases = std::collections::HashSet::new();
+    for base in &class.base_classes {
+        if !seen_bases.insert(base) {
+            return Err(format!(
+                "Duplicate base class '{}' in class '{}'. Multiple inheritance should not list the same class twice.",
+                base, class_name
+            ));
+        }
+    }
+
+    // Check for cycles in inheritance graph
+    if let Err(e) = check_inheritance_cycle(class_name, registry, &mut vec![class_name.to_string()]) {
+        return Err(e);
     }
 
     // C3 linearization: merge of parent MROs + parents
@@ -154,17 +175,63 @@ pub fn calculate_mro(
 
     // Merge sequences using C3 algorithm
     result.push(class_name.to_string());
-    merge_sequences(&mut result, &mut sequences)?;
+    merge_sequences(&mut result, &mut sequences, class_name)?;
 
     Ok(result)
 }
 
+/// Check for cycles in the inheritance graph using DFS
+fn check_inheritance_cycle(
+    class_name: &str,
+    registry: &ClassRegistry,
+    path: &mut Vec<String>,
+) -> Result<(), String> {
+    let class = match registry.classes.get(class_name) {
+        Some(c) => c,
+        None => return Ok(()), // External class, can't check
+    };
+
+    for base in &class.base_classes {
+        // Check if base is already in our path (cycle!)
+        if let Some(cycle_start) = path.iter().position(|x| x == base) {
+            let mut cycle_path: Vec<_> = path[cycle_start..].to_vec();
+            cycle_path.push(base.clone());
+            return Err(format!(
+                "Circular inheritance detected: {} -> {}",
+                class_name,
+                cycle_path.join(" -> ")
+            ));
+        }
+
+        // Recurse
+        path.push(base.clone());
+        check_inheritance_cycle(base, registry, path)?;
+        path.pop();
+    }
+
+    Ok(())
+}
+
 /// Merge sequences for C3 linearization
+/// Returns detailed error information when the hierarchy is inconsistent
 fn merge_sequences(
     result: &mut Vec<String>,
     sequences: &mut [Vec<String>],
+    class_name: &str,
 ) -> Result<(), String> {
+    let max_iterations = 1000; // Prevent infinite loops
+    let mut iterations = 0;
+
     loop {
+        iterations += 1;
+        if iterations > max_iterations {
+            return Err(format!(
+                "MRO calculation exceeded maximum iterations for class '{}'. \
+                 This may indicate a very complex or pathological inheritance hierarchy.",
+                class_name
+            ));
+        }
+
         // Check if all sequences are empty
         if sequences.iter().all(|s| s.is_empty()) {
             break;
@@ -197,7 +264,35 @@ fn merge_sequences(
 
         if !found {
             // No good head found - inconsistent hierarchy
-            return Err("Inconsistent class hierarchy for MRO".to_string());
+            // Provide detailed information about the conflict
+            let mut conflict_info = String::new();
+            for (i, seq) in sequences.iter().enumerate() {
+                if !seq.is_empty() {
+                    conflict_info.push_str(&format!(
+                        "\n  Sequence {}: [{}]",
+                        i,
+                        seq.iter().take(5).cloned().collect::<Vec<_>>().join(", ")
+                    ));
+                    if seq.len() > 5 {
+                        conflict_info.push_str("...");
+                    }
+                }
+            }
+
+            return Err(format!(
+                "Inconsistent class hierarchy for class '{}'. \
+                 C3 linearization failed due to conflicting inheritance order.{} \n\n\
+                 This typically happens when:\n\
+                 1. A class inherits from two classes that have incompatible MROs\n\
+                 2. Diamond inheritance creates an unresolvable ordering\n\
+                 3. A subclass appears before a superclass in the inheritance chain\n\n\
+                 Current MRO so far: [{}]\n\
+                 Conflicting sequences:{}",
+                class_name,
+                conflict_info,
+                result.join(", "),
+                conflict_info
+            ));
         }
     }
 
