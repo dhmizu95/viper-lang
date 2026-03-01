@@ -28,6 +28,8 @@ pub enum SymbolKind {
         /// Mangled names for methods (for virtual dispatch)
         method_mangles: Vec<String>,
     },
+    /// Module reference (for import system)
+    Module { name: String },
     /// Method within a class
     Method {
         class_name: String,
@@ -174,6 +176,7 @@ impl Symbol {
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
             SymbolKind::GenericTypeDef { .. } => None,
             SymbolKind::Class { name, .. } => Some(Type::Class(name.clone())),
+            SymbolKind::Module { .. } => None,  // Modules don't have a type
             SymbolKind::Method { class_name, method_name, params, return_type, is_bound, .. } => {
                 Some(Type::Method {
                     class_name: class_name.clone(),

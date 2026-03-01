@@ -80,7 +80,7 @@ pub fn compile_file_aot(
 
     // Semantic Analysis (Type Checking)
     println!("   [2.2/4] Type checking...");
-    let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
+    let mut type_checker = crate::semantic::type_checker::TypeChecker::with_input_path(Path::new(input_path));
     type_checker.check(&ast).map_err(|e| {
         format!(
             "Type errors found:\n{}",

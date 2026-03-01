@@ -1,6 +1,8 @@
 use crate::ast::{Module, Type};
 use crate::semantic::symbol_table::{Symbol, SymbolTable};
+use crate::module::{ModuleLoader, ModuleSearchPath, ModuleRegistry};
 use std::collections::HashMap;
+use std::path::Path;
 
 pub mod compatibility;
 pub mod exprs;
@@ -39,6 +41,10 @@ pub struct TypeChecker {
     pub channel_types: HashMap<String, Type>,
     /// Current function's return type (for context-sensitive inference)
     pub current_return_type: Option<Type>,
+    /// Module loader for handling imports
+    pub module_loader: ModuleLoader,
+    /// Module registry for tracking imports
+    pub module_registry: ModuleRegistry,
 }
 
 impl TypeChecker {
@@ -49,6 +55,26 @@ impl TypeChecker {
             expr_types: HashMap::new(),
             channel_types: HashMap::new(),
             current_return_type: None,
+            module_loader: ModuleLoader::new(),
+            module_registry: ModuleRegistry::new(),
+        }
+    }
+    
+    /// Create a new type checker with a specific input path for module resolution
+    pub fn with_input_path(input_path: &Path) -> Self {
+        let mut search_path = ModuleSearchPath::new();
+        if let Some(parent) = input_path.parent() {
+            search_path.add_path(parent.to_path_buf());
+        }
+        
+        Self {
+            symbol_table: SymbolTable::new(),
+            errors: Vec::new(),
+            expr_types: HashMap::new(),
+            channel_types: HashMap::new(),
+            current_return_type: None,
+            module_loader: ModuleLoader::with_search_path(search_path),
+            module_registry: ModuleRegistry::new(),
         }
     }
 
@@ -56,7 +82,10 @@ impl TypeChecker {
     pub fn check(&mut self, module: &Module) -> Result<(), Vec<TypeError>> {
         self.errors.clear();
 
-        // First pass: collect function declarations
+        // First pass: process imports
+        self.process_imports(module)?;
+
+        // Second pass: collect function declarations
         for stmt in &module.statements {
             if let crate::ast::Stmt::Function { name, params, return_type, span, type_params, .. } = stmt {
                 // Normalize parameter types
@@ -87,7 +116,7 @@ impl TypeChecker {
             }
         }
 
-        // Second pass: type check all statements
+        // Third pass: type check all statements
         // Module-level (scope 0) assignments create immutable constants
         for stmt in &module.statements {
             self.check_stmt_module(stmt);
@@ -164,6 +193,112 @@ impl TypeChecker {
     /// Get the symbol table
     pub fn symbol_table(&self) -> &SymbolTable {
         &self.symbol_table
+    }
+    
+    /// Process import statements and load modules
+    fn process_imports(&mut self, module: &Module) -> Result<(), Vec<TypeError>> {
+        for stmt in &module.statements {
+            match stmt {
+                crate::ast::Stmt::Import { module: mod_name, alias, span } => {
+                    // Load the module
+                    match self.module_loader.load_module(mod_name) {
+                        Ok(loaded_module) => {
+                            // Register the module
+                            self.module_registry.register_module(mod_name.clone(), alias.clone());
+                            
+                            // Analyze exports from the loaded module
+                            self.module_registry.analyze_exports(
+                                alias.as_deref().unwrap_or(mod_name),
+                                &loaded_module.ast.statements
+                            );
+                            
+                            // Add module as a symbol in the current scope
+                            let module_symbol = crate::semantic::symbol_table::Symbol::new(
+                                alias.as_deref().unwrap_or(mod_name).to_string(),
+                                crate::semantic::symbol_table::SymbolKind::Module { name: mod_name.clone() },
+                                *span,
+                                self.symbol_table.current_scope_id(),
+                            );
+                            if let Err(e) = self.symbol_table.insert(module_symbol) {
+                                self.errors.push(TypeError::new(e, *span));
+                            }
+                        }
+                        Err(e) => {
+                            self.errors.push(TypeError::new(
+                                format!("Failed to load module '{}': {}", mod_name, e),
+                                *span
+                            ));
+                        }
+                    }
+                }
+                crate::ast::Stmt::FromImport { module: mod_name, names, span } => {
+                    // Load the module
+                    match self.module_loader.load_module(mod_name) {
+                        Ok(loaded_module) => {
+                            // Register the module
+                            self.module_registry.register_module(mod_name.clone(), None);
+                            
+                            // Analyze exports
+                            self.module_registry.analyze_exports(mod_name, &loaded_module.ast.statements);
+                            
+                            // Add each imported name to the current scope
+                            for (name, alias) in names {
+                                let import_name = alias.as_deref().unwrap_or(name);
+                                
+                                // Check if the symbol exists in the module
+                                if let Some(export) = self.module_registry.get_export(mod_name, name) {
+                                    // Create a symbol for the imported item
+                                    let symbol_kind = if export.is_function {
+                                        crate::semantic::symbol_table::SymbolKind::Function {
+                                            params: vec![],
+                                            return_type: export.symbol_type.clone(),
+                                            mangled_name: format!("__import_{}_{}", mod_name, name),
+                                            type_params: vec![],
+                                        }
+                                    } else if export.is_class {
+                                        crate::semantic::symbol_table::SymbolKind::Class {
+                                            name: name.clone(),
+                                            bases: vec![],
+                                            fields: vec![],
+                                            methods: vec![],
+                                            method_mangles: vec![],
+                                        }
+                                    } else {
+                                        crate::semantic::symbol_table::SymbolKind::Variable {
+                                            mutable: false,
+                                            type_ann: export.symbol_type.clone(),
+                                        }
+                                    };
+                                    
+                                    let symbol = crate::semantic::symbol_table::Symbol::new(
+                                        import_name.to_string(),
+                                        symbol_kind,
+                                        *span,
+                                        self.symbol_table.current_scope_id(),
+                                    );
+                                    if let Err(e) = self.symbol_table.insert(symbol) {
+                                        self.errors.push(TypeError::new(e, *span));
+                                    }
+                                } else {
+                                    self.errors.push(TypeError::new(
+                                        format!("'{}' is not exported from module '{}'", name, mod_name),
+                                        *span
+                                    ));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            self.errors.push(TypeError::new(
+                                format!("Failed to load module '{}': {}", mod_name, e),
+                                *span
+                            ));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 }
 
