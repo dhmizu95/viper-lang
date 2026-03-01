@@ -80,7 +80,7 @@ pub fn generate_print_call<'ctx>(
                 Expr::Call { func, .. } => {
                     // Check if calling a known BigInt function or if result is a pointer
                     if let Expr::Ident(func_name, _) = func.as_ref() {
-                        func_name == "bigint" || func_name == "abs_bigint" || func_name == "pow_bigint" 
+                        func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" || func_name == "pow_bigint"
                             || func_name == "sqrt_bigint" || func_name == "min_bigint" || func_name == "max_bigint"
                             || val.is_pointer_value()  // User-defined BigInt function
                     } else {

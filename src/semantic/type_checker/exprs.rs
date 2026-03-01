@@ -192,6 +192,15 @@ impl TypeChecker {
                                 crate::semantic::symbol_table::BuiltinSignature::Int => Some(Type::I64),
                                 crate::semantic::symbol_table::BuiltinSignature::Float => Some(Type::F64),
                                 crate::semantic::symbol_table::BuiltinSignature::Bool => Some(Type::Bool),
+                                // BigInt functions
+                                crate::semantic::symbol_table::BuiltinSignature::BigInt => Some(Type::BigInt),
+                                crate::semantic::symbol_table::BuiltinSignature::StrBigint => Some(Type::Str),
+                                crate::semantic::symbol_table::BuiltinSignature::IntBigint => Some(Type::I64),
+                                crate::semantic::symbol_table::BuiltinSignature::AbsBigint => Some(Type::BigInt),
+                                crate::semantic::symbol_table::BuiltinSignature::PowBigint => Some(Type::BigInt),
+                                crate::semantic::symbol_table::BuiltinSignature::SqrtBigint => Some(Type::BigInt),
+                                crate::semantic::symbol_table::BuiltinSignature::MinBigint => Some(Type::BigInt),
+                                crate::semantic::symbol_table::BuiltinSignature::MaxBigint => Some(Type::BigInt),
                                 _ => None,
                             };
                             if let Some(ty) = builtin_ret {

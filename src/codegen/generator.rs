@@ -302,10 +302,17 @@ impl<'ctx> CodeGen<'ctx> {
                 self.var_types.insert(param.name.clone(), ty.clone());
             }
 
-            // If parameter is a pointer type, mark it as a list for indexing purposes
-            // This is needed because list parameters passed from callers are pointers
+            // If parameter is a pointer type, mark it as a list or BigInt for indexing purposes
+            // This is needed because list/BigInt parameters passed from callers are pointers
             if param_value.is_pointer_value() {
-                self.list_vars.insert(param.name.clone());
+                // Check if it's a BigInt parameter based on type annotation or inferred type
+                let is_bigint_param = matches!(param.type_ann, Some(Type::BigInt))
+                    || matches!(self.var_types.get(&param.name), Some(Type::BigInt));
+                if is_bigint_param {
+                    self.bigint_vars.insert(param.name.clone());
+                } else {
+                    self.list_vars.insert(param.name.clone());
+                }
             }
         }
 

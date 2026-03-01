@@ -67,8 +67,8 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
-                // Built-in BigInt functions
-                if name == "bigint" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
+                // Built-in BigInt functions (case insensitive for constructor)
+                if name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
                     return Type::BigInt;
                 }
                 // str() returns string, not BigInt

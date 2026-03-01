@@ -74,6 +74,15 @@ pub enum BuiltinSignature {
     WaitGroupAdd,    // add(wg, n) -> None
     WaitGroupDone,   // done(wg) -> None
     WaitGroupWait,   // wait(wg) -> None
+    // BigInt functions
+    BigInt,          // BigInt(str) -> BigInt
+    StrBigint,       // str_bigint(BigInt) -> Str
+    IntBigint,       // int_bigint(BigInt) -> I64
+    AbsBigint,       // abs_bigint(BigInt) -> BigInt
+    PowBigint,       // pow_bigint(BigInt, BigInt) -> BigInt
+    SqrtBigint,      // sqrt_bigint(BigInt) -> BigInt
+    MinBigint,       // min_bigint(BigInt, BigInt) -> BigInt
+    MaxBigint,       // max_bigint(BigInt, BigInt) -> BigInt
 }
 
 /// A symbol in the symbol table
@@ -142,6 +151,15 @@ impl Symbol {
                 BuiltinSignature::WaitGroupAdd => Some(Type::None),
                 BuiltinSignature::WaitGroupDone => Some(Type::None),
                 BuiltinSignature::WaitGroupWait => Some(Type::None),
+                // BigInt functions
+                BuiltinSignature::BigInt => Some(Type::BigInt),
+                BuiltinSignature::StrBigint => Some(Type::Str),
+                BuiltinSignature::IntBigint => Some(Type::I64),
+                BuiltinSignature::AbsBigint => Some(Type::BigInt),
+                BuiltinSignature::PowBigint => Some(Type::BigInt),
+                BuiltinSignature::SqrtBigint => Some(Type::BigInt),
+                BuiltinSignature::MinBigint => Some(Type::BigInt),
+                BuiltinSignature::MaxBigint => Some(Type::BigInt),
             },
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
             SymbolKind::GenericTypeDef { .. } => None,
@@ -200,6 +218,15 @@ impl SymbolTable {
             ("add", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupAdd }),
             ("done", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupDone }),
             ("wait", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupWait }),
+            // BigInt functions
+            ("BigInt", SymbolKind::Builtin { signature: BuiltinSignature::BigInt }),
+            ("str_bigint", SymbolKind::Builtin { signature: BuiltinSignature::StrBigint }),
+            ("int_bigint", SymbolKind::Builtin { signature: BuiltinSignature::IntBigint }),
+            ("abs_bigint", SymbolKind::Builtin { signature: BuiltinSignature::AbsBigint }),
+            ("pow_bigint", SymbolKind::Builtin { signature: BuiltinSignature::PowBigint }),
+            ("sqrt_bigint", SymbolKind::Builtin { signature: BuiltinSignature::SqrtBigint }),
+            ("min_bigint", SymbolKind::Builtin { signature: BuiltinSignature::MinBigint }),
+            ("max_bigint", SymbolKind::Builtin { signature: BuiltinSignature::MaxBigint }),
         ];
 
         let span = Span::empty(0, 0);

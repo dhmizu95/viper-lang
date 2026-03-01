@@ -72,10 +72,30 @@ pub(crate) fn generate_assign<'ctx>(
         // Track BigInt variables - check inferred type and LLVM value
         // Note: str() returns a char* pointer, not a BigInt
         let inferred_type = crate::codegen::expressions::core::infer_expr_type(value);
+        
+        // Helper to check if an expression involves BigInt
+        fn is_bigint_expr(expr: &Expr, state: &CodeGenState) -> bool {
+            match expr {
+                Expr::BigInt(..) => true,
+                Expr::Ident(name, _) => state.is_bigint(name),
+                Expr::BinOp { left, right, .. } => is_bigint_expr(left, state) || is_bigint_expr(right, state),
+                Expr::Call { func, .. } => {
+                    if let Expr::Ident(name, _) = func.as_ref() {
+                        name == "bigint" || name == "BigInt" || name.ends_with("_bigint")
+                    } else {
+                        false
+                    }
+                }
+                Expr::UnaryOp { operand, .. } => is_bigint_expr(operand, state),
+                _ => false,
+            }
+        }
+        
         let is_bigint = inferred_type == crate::ast::Type::BigInt
+            || is_bigint_expr(value, state)
             || (inferred_type == crate::ast::Type::Infer && val.is_pointer_value()
                 && !matches!(value, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "str")));
-        
+
         if is_bigint {
             state.mark_as_bigint(name.clone());
         } else {

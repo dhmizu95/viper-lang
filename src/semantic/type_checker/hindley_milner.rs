@@ -161,28 +161,45 @@ impl TypeChecker {
             }
             
             Expr::Call { func, args, span } => {
-                // Infer function type
-                let (func_ty, mut constraints) = self.infer_expr_hm(func);
+                // Check for builtin BigInt functions
+                if let Expr::Ident(name, _) = func.as_ref() {
+                    if let Some(builtin_sig) = self.get_bigint_builtin_signature(name, args, *span) {
+                        let (arg_tys, return_ty) = builtin_sig;
+                        let mut constraints = Vec::new();
+                        
+                        // Constrain arguments to expected types
+                        for (arg, expected_arg_ty) in args.iter().zip(arg_tys.iter()) {
+                            let (arg_ty, arg_constraints) = self.infer_expr_hm(arg);
+                            constraints.extend(arg_constraints);
+                            constraints.push(Constraint::new(arg_ty, expected_arg_ty.clone(), arg.span()));
+                        }
+                        
+                        return (return_ty, constraints);
+                    }
+                }
                 
+                // Infer function type (non-builtin case)
+                let (func_ty, mut constraints) = self.infer_expr_hm(func);
+
                 // Create fresh type variables for argument and return types
                 let arg_tys: Vec<Type> = args.iter()
                     .map(|_| Type::Var(self.fresh_type_var()))
                     .collect();
                 let return_ty = Type::Var(self.fresh_type_var());
-                
+
                 // Function type should be: arg1 -> arg2 -> ... -> return
                 let expected_func_ty = Type::Fn(arg_tys.clone(), Box::new(return_ty.clone()));
-                
+
                 // Constrain the function type
                 constraints.push(Constraint::new(func_ty, expected_func_ty, *span));
-                
+
                 // Infer argument types and constrain
                 for (arg, expected_arg_ty) in args.iter().zip(arg_tys.iter()) {
                     let (arg_ty, arg_constraints) = self.infer_expr_hm(arg);
                     constraints.extend(arg_constraints);
                     constraints.push(Constraint::new(arg_ty, expected_arg_ty.clone(), arg.span()));
                 }
-                
+
                 (return_ty, constraints)
             }
             
@@ -511,19 +528,97 @@ impl TypeChecker {
     fn apply_subst(&self, subst: &Substitution, ty: Type) -> Type {
         ty.substitute(subst)
     }
-    
+
+    /// Get the signature of a BigInt builtin function
+    /// Returns (argument_types, return_type) if it's a known builtin
+    fn get_bigint_builtin_signature(
+        &self,
+        name: &str,
+        args: &[Expr],
+        span: crate::utils::Span,
+    ) -> Option<(Vec<Type>, Type)> {
+        match name {
+            // BigInt constructor: BigInt(str) -> BigInt
+            "BigInt" => {
+                if args.len() == 1 {
+                    Some((vec![Type::Str], Type::BigInt))
+                } else {
+                    None
+                }
+            }
+            // str_bigint: str_bigint(BigInt) -> Str
+            "str_bigint" => {
+                if args.len() == 1 {
+                    Some((vec![Type::BigInt], Type::Str))
+                } else {
+                    None
+                }
+            }
+            // int_bigint: int_bigint(BigInt) -> I64
+            "int_bigint" => {
+                if args.len() == 1 {
+                    Some((vec![Type::BigInt], Type::I64))
+                } else {
+                    None
+                }
+            }
+            // abs_bigint: abs_bigint(BigInt) -> BigInt
+            "abs_bigint" => {
+                if args.len() == 1 {
+                    Some((vec![Type::BigInt], Type::BigInt))
+                } else {
+                    None
+                }
+            }
+            // pow_bigint: pow_bigint(BigInt, BigInt) -> BigInt
+            "pow_bigint" => {
+                if args.len() == 2 {
+                    Some((vec![Type::BigInt, Type::BigInt], Type::BigInt))
+                } else {
+                    None
+                }
+            }
+            // sqrt_bigint: sqrt_bigint(BigInt) -> BigInt
+            "sqrt_bigint" => {
+                if args.len() == 1 {
+                    Some((vec![Type::BigInt], Type::BigInt))
+                } else {
+                    None
+                }
+            }
+            // min_bigint: min_bigint(BigInt, BigInt) -> BigInt
+            "min_bigint" => {
+                if args.len() == 2 {
+                    Some((vec![Type::BigInt, Type::BigInt], Type::BigInt))
+                } else {
+                    None
+                }
+            }
+            // max_bigint: max_bigint(BigInt, BigInt) -> BigInt
+            "max_bigint" => {
+                if args.len() == 2 {
+                    Some((vec![Type::BigInt, Type::BigInt], Type::BigInt))
+                } else {
+                    None
+                }
+            }
+            // Not a recognized BigInt builtin
+            _ => None,
+        }
+    }
+
     /// Perform complete type inference on an expression
     /// Returns the fully inferred type (with all type variables substituted)
     pub fn infer_expr_complete(&mut self, expr: &Expr) -> Result<Type, Vec<TypeError>> {
         let (ty, constraints) = self.infer_expr_hm(expr);
-        
+
         // Unify constraints
         let subst = self.unify(constraints)
             .map_err(|e| vec![e])?;
-        
+
         // Apply substitution to get final type
         let final_ty = self.apply_subst(&subst, ty);
-        
+
         Ok(final_ty)
     }
 }
