@@ -21,17 +21,12 @@ nan: float = float('nan')
 
 # Core math functions (implemented in runtime)
 extern "C" def vp_math_sqrt(x: float) -> float
-extern "C" def vp_math_abs(x: float) -> float
 extern "C" def vp_math_ln(x: float) -> float
 extern "C" def vp_math_floor(x: float) -> float
 
 def sqrt(x: float) -> float:
     """Return the square root of x."""
     return vp_math_sqrt(x)
-
-def abs(x: float) -> float:
-    """Return the absolute value of x."""
-    return vp_math_abs(x)
 
 def ln(x: float) -> float:
     """Return the natural logarithm of x."""
@@ -40,6 +35,8 @@ def ln(x: float) -> float:
 def floor(x: float) -> float:
     """Return the floor of x as an Integral."""
     return vp_math_floor(x)
+
+# Note: abs() is a built-in function, not part of the math module
 
 def ceil(x: float) -> float:
     """Return the ceiling of x as an Integral."""

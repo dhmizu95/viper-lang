@@ -85,6 +85,8 @@ pub enum BuiltinSignature {
     SqrtBigint,      // sqrt_bigint(BigInt) -> BigInt
     MinBigint,       // min_bigint(BigInt, BigInt) -> BigInt
     MaxBigint,       // max_bigint(BigInt, BigInt) -> BigInt
+    // Math builtins (not requiring import)
+    Abs,             // abs(float) -> float
 }
 
 /// A symbol in the symbol table
@@ -162,6 +164,8 @@ impl Symbol {
                 BuiltinSignature::SqrtBigint => Some(Type::BigInt),
                 BuiltinSignature::MinBigint => Some(Type::BigInt),
                 BuiltinSignature::MaxBigint => Some(Type::BigInt),
+                // Math builtins (not requiring import)
+                BuiltinSignature::Abs => Some(Type::F64),
             },
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
             SymbolKind::GenericTypeDef { .. } => None,
@@ -230,6 +234,8 @@ impl SymbolTable {
             ("sqrt_bigint", SymbolKind::Builtin { signature: BuiltinSignature::SqrtBigint }),
             ("min_bigint", SymbolKind::Builtin { signature: BuiltinSignature::MinBigint }),
             ("max_bigint", SymbolKind::Builtin { signature: BuiltinSignature::MaxBigint }),
+            // Math builtins (not requiring import)
+            ("abs", SymbolKind::Builtin { signature: BuiltinSignature::Abs }),
         ];
 
         let span = Span::empty(0, 0);
