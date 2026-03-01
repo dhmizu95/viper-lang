@@ -510,12 +510,17 @@ impl TypeChecker {
                     self.check_expr(target);
                 }
             }
-            Stmt::Raise { exception, cause, span: _ } => {
+            Stmt::Raise { exception, cause, span } => {
                 if let Some(exc) = exception {
-                    self.check_expr(exc);
+                    // In a raise statement, the exception expression can be:
+                    // 1. An exception class call: ValueError("msg")
+                    // 2. An exception instance/variable
+                    // We allow both without requiring the exception class to be defined
+                    self.check_expr_allow_undefined_class(exc);
                 }
                 if let Some(c) = cause {
-                    self.check_expr(c);
+                    // Same for the cause expression
+                    self.check_expr_allow_undefined_class(c);
                 }
             }
             Stmt::With { items, body, is_async, span } => {

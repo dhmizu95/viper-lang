@@ -2486,6 +2486,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), super::exceptions::viper_raise_with_code as *const () as usize);
     }
+    if let Some(func) = module.get_function("viper_raise_with_cause") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), super::exceptions::viper_raise_with_cause as *const () as usize);
+    }
     if let Some(func) = module.get_function("viper_catch_exception") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), super::exceptions::viper_catch_exception as *const () as usize);

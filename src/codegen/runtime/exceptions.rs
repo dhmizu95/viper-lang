@@ -138,6 +138,23 @@ fn declare_viper_exception_functions<'ctx>(
         Some(inkwell::module::Linkage::External),
     );
 
+    // viper_raise_with_cause - raise exception with cause (raise X from Y)
+    let raise_cause_type = context.void_type().fn_type(
+        &[
+            ptr_type.into(), // exception type name
+            ptr_type.into(), // message
+            context.i64_type().into(), // error code
+            ptr_type.into(), // cause type name
+            ptr_type.into(), // cause message
+        ],
+        false,
+    );
+    module.add_function(
+        "viper_raise_with_cause",
+        raise_cause_type,
+        Some(inkwell::module::Linkage::External),
+    );
+
     // viper_catch_exception - check if current exception matches type
     let catch_type = context.ptr_type(AddressSpace::default()).fn_type(
         &[ptr_type.into()], // exception type name to match

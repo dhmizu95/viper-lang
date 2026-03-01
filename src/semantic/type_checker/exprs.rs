@@ -325,4 +325,22 @@ impl TypeChecker {
         // In a full implementation, check the current function's return type
         true
     }
+
+    /// Check an expression allowing undefined exception classes (for raise statements)
+    /// This is used for raise X from Y where X and Y may be exception classes not defined in the code
+    pub(crate) fn check_expr_allow_undefined_class(&mut self, expr: &Expr) {
+        match expr {
+            Expr::Call { func, args, .. } => {
+                // For exception class calls like ValueError("msg"), allow undefined classes
+                // Just check the arguments
+                for arg in args {
+                    self.check_expr(arg);
+                }
+            }
+            _ => {
+                // For other expressions, use normal type checking
+                self.check_expr(expr);
+            }
+        }
+    }
 }

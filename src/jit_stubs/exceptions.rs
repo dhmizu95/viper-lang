@@ -13,6 +13,8 @@ pub struct ExceptionInfo {
     pub exception_type: String,
     pub message: String,
     pub code: i64,
+    /// The cause exception for exception chaining (raise X from Y)
+    pub cause: Option<Box<ExceptionInfo>>,
 }
 
 impl ExceptionInfo {
@@ -21,6 +23,16 @@ impl ExceptionInfo {
             exception_type: exception_type.to_string(),
             message: message.to_string(),
             code,
+            cause: None,
+        }
+    }
+
+    pub fn with_cause(exception_type: &str, message: &str, code: i64, cause: ExceptionInfo) -> Self {
+        Self {
+            exception_type: exception_type.to_string(),
+            message: message.to_string(),
+            code,
+            cause: Some(Box::new(cause)),
         }
     }
 }
@@ -31,6 +43,7 @@ impl Default for ExceptionInfo {
             exception_type: String::new(),
             message: String::new(),
             code: 0,
+            cause: None,
         }
     }
 }
@@ -70,14 +83,44 @@ pub extern "C" fn viper_raise_exception(exc_type: *const i8, message: *const i8)
 pub extern "C" fn viper_raise_with_code(exc_type: *const i8, message: *const i8, code: i64) {
     let type_str = cstr_to_str(exc_type).unwrap_or("Exception");
     let msg_str = cstr_to_str(message).unwrap_or("");
-    
+
     let exc = ExceptionInfo::new(type_str, msg_str, code);
-    
+
     CURRENT_EXCEPTION.with(|e| {
         *e.borrow_mut() = Some(exc);
     });
-    
+
     eprintln!("{} [{}]: {}", type_str, code, msg_str);
+    std::process::exit(1);
+}
+
+/// Raise a Viper exception with a cause (exception chaining: raise X from Y)
+#[no_mangle]
+pub extern "C" fn viper_raise_with_cause(
+    exc_type: *const i8,
+    message: *const i8,
+    code: i64,
+    cause_type: *const i8,
+    cause_message: *const i8,
+) {
+    let type_str = cstr_to_str(exc_type).unwrap_or("Exception");
+    let msg_str = cstr_to_str(message).unwrap_or("");
+    let cause_type_str = cstr_to_str(cause_type).unwrap_or("Exception");
+    let cause_msg_str = cstr_to_str(cause_message).unwrap_or("");
+
+    // Create the cause exception
+    let cause_exc = ExceptionInfo::new(cause_type_str, cause_msg_str, 0);
+    // Create the main exception with the cause
+    let exc = ExceptionInfo::with_cause(type_str, msg_str, code, cause_exc);
+
+    CURRENT_EXCEPTION.with(|e| {
+        *e.borrow_mut() = Some(exc);
+    });
+
+    // Print exception chain
+    eprintln!("{}: {}", type_str, msg_str);
+    eprintln!("\nThe above exception was the direct cause of the following exception:");
+    eprintln!("{}: {}", cause_type_str, cause_msg_str);
     std::process::exit(1);
 }
 
@@ -167,17 +210,69 @@ pub extern "C" fn viper_set_exception(exc_type: *const i8, message: *const i8, c
     });
 }
 
-/// Format exception info as string (caller must free result)
+/// Format exception info as string with cause chain (caller must free result)
 #[no_mangle]
 pub extern "C" fn viper_format_exception() -> *mut i8 {
     CURRENT_EXCEPTION.with(|e| {
         match *e.borrow() {
             None => ptr::null_mut(),
             Some(ref exc) => {
-                let formatted = format!("{}: {}", exc.exception_type, exc.message);
+                let mut formatted = format!("{}: {}", exc.exception_type, exc.message);
+                
+                // Add cause chain if present
+                let mut current_cause = &exc.cause;
+                while let Some(cause) = current_cause {
+                    formatted.push_str(&format!(
+                        "\n\nThe above exception was the direct cause of the following exception:\n{}: {}",
+                        cause.exception_type,
+                        cause.message
+                    ));
+                    current_cause = &cause.cause;
+                }
+                
                 CString::new(formatted)
                     .map(|c| c.into_raw())
                     .unwrap_or(ptr::null_mut())
+            }
+        }
+    })
+}
+
+/// Get the cause exception type (for exception chaining)
+#[no_mangle]
+pub extern "C" fn viper_get_exception_cause_type() -> *mut i8 {
+    CURRENT_EXCEPTION.with(|e| {
+        match *e.borrow() {
+            None => ptr::null_mut(),
+            Some(ref exc) => {
+                match &exc.cause {
+                    None => ptr::null_mut(),
+                    Some(cause) => {
+                        CString::new(cause.exception_type.clone())
+                            .map(|c| c.into_raw())
+                            .unwrap_or(ptr::null_mut())
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// Get the cause exception message (for exception chaining)
+#[no_mangle]
+pub extern "C" fn viper_get_exception_cause_message() -> *mut i8 {
+    CURRENT_EXCEPTION.with(|e| {
+        match *e.borrow() {
+            None => ptr::null_mut(),
+            Some(ref exc) => {
+                match &exc.cause {
+                    None => ptr::null_mut(),
+                    Some(cause) => {
+                        CString::new(cause.message.clone())
+                            .map(|c| c.into_raw())
+                            .unwrap_or(ptr::null_mut())
+                    }
+                }
             }
         }
     })
