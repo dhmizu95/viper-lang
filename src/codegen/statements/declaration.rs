@@ -2,6 +2,34 @@ use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarType};
 
+/// Check if an expression is a BigInt expression
+fn is_bigint_expr(expr: &Expr, state: &CodeGenState) -> bool {
+    match expr {
+        Expr::BigInt(..) => true,
+        Expr::Ident(name, _) => state.is_bigint(name),
+        Expr::BinOp { left, right, .. } => {
+            is_bigint_expr(left, state) || is_bigint_expr(right, state)
+        }
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                // Check for built-in BigInt functions (case insensitive for constructor)
+                name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" 
+                    || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" 
+                    || name == "is_zero_bigint" || name == "is_negative_bigint" 
+                    || name == "sign_bigint" || name == "bit_length_bigint" || name == "pow"
+            } else {
+                false
+            }
+        }
+        Expr::UnaryOp { operand, .. } => is_bigint_expr(operand, state),
+        Expr::AssignmentExpr { value, .. } => is_bigint_expr(value, state),
+        Expr::Conditional { then_expr, else_expr, .. } => {
+            is_bigint_expr(then_expr, state) || is_bigint_expr(else_expr, state)
+        }
+        _ => false,
+    }
+}
+
 /// Generate variable declaration
 pub(crate) fn generate_declare<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -35,10 +63,9 @@ pub(crate) fn generate_declare<'ctx>(
             val.get_type()
         };
 
-        // Track BigInt variables
+        // Track BigInt variables - use comprehensive detection
         let is_bigint = matches!(type_ann, Some(Type::BigInt))
-            || (val.is_pointer_value() && matches!(expr, Expr::Call { .. }))
-            || matches!(expr, Expr::BigInt(..));
+            || is_bigint_expr(expr, state);
         if is_bigint {
             state.mark_as_bigint(name.to_string());
         }
