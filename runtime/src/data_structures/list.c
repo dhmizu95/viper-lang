@@ -480,3 +480,20 @@ ViperList* vp_list_zeros(int64_t count) {
 ViperList* vp_list_ones(int64_t count) {
     return vp_list_repeat(1, count);
 }
+
+/**
+ * range(start, end) - create a list of integers from start to end-1
+ * Python-style range: range(5) -> [0, 1, 2, 3, 4]
+ */
+ViperList* vp_range(int64_t start, int64_t end) {
+    int64_t count = end - start;
+    if (count <= 0) {
+        return vp_list_create();
+    }
+    
+    ViperList* list = vp_list_create_with_capacity(count);
+    for (int64_t i = start; i < end; i++) {
+        vp_list_append(list, i);
+    }
+    return list;
+}

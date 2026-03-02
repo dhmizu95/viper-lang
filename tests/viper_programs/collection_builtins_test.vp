@@ -1,0 +1,32 @@
+# Test collection builtins: list(), set()
+
+# Test list() with no arguments
+empty_list = list()
+print(len(empty_list))  # Should print 0
+
+# Test list() with range
+list_from_range = list(range(5))
+print(len(list_from_range))  # Should print 5
+print(list_from_range[0])  # Should print 0
+print(list_from_range[4])  # Should print 4
+
+# Test list() copy
+original = [1, 2, 3]
+copy = list(original)
+print(len(copy))  # Should print 3
+print(copy[0])  # Should print 1
+print(copy[2])  # Should print 3
+
+# Test set() with no arguments
+empty_set = set()
+print(len(empty_set))  # Should print 0
+
+# Test set() with list (should remove duplicates)
+set_from_list = set([1, 2, 2, 3, 3, 3])
+print(len(set_from_list))  # Should print 3
+
+# Test set() with range
+set_from_range = set(range(4))
+print(len(set_from_range))  # Should print 4
+
+print("All collection builtin tests passed!")

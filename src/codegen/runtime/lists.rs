@@ -283,5 +283,61 @@ pub fn declare_list_functions<'ctx>(
     let range_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     module.add_function("vp_range", range_type, None);
 
+    // list() builtin - create list from iterable
+    let list_from_iter_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_from_iterable", list_from_iter_type, None);
+
+    // list() from string - create list of character codes
+    let list_from_str_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_from_str", list_from_str_type, None);
+
+    // list() copy - create shallow copy of list
+    let list_copy_from_list_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_copy_from_list", list_copy_from_list_type, None);
+
+    // tuple() builtin - create tuple from iterable
+    let tuple_from_iter_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_tuple_from_iterable", tuple_from_iter_type, None);
+
+    // tuple() from list - create tuple from list
+    let tuple_from_list_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_tuple_from_list", tuple_from_list_type, None);
+
+    // tuple() from string - create tuple of character codes
+    let tuple_from_str_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_tuple_from_str", tuple_from_str_type, None);
+
+    // tuple() copy - create shallow copy of tuple
+    let tuple_copy_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_tuple_copy", tuple_copy_type, None);
+
+    // set() builtin - create set from iterable
+    let set_from_iter_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_set_from_iterable", set_from_iter_type, None);
+
+    // set() from list - create set from list
+    let set_from_list_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_set_from_list", set_from_list_type, None);
+
+    // set() copy - create shallow copy of set
+    let set_copy_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_set_copy", set_copy_type, None);
+
+    // set() add element
+    let set_add_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_set_add", set_add_type, None);
+
+    // set() contains
+    let set_contains_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_set_contains", set_contains_type, None);
+
+    // set() len
+    let set_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_set_len", set_len_type, None);
+
+    // set() print
+    let set_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_set_print", set_print_type, None);
+
     Ok(())
 }

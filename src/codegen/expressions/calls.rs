@@ -218,6 +218,49 @@ pub fn generate_call<'ctx>(
             return generate_reversed_call(state, args);
         }
 
+        // Collection constructors
+        if name == "list" {
+            return generate_list_call(state, args);
+        }
+        if name == "tuple" {
+            return generate_tuple_call(state, args);
+        }
+        if name == "set" {
+            return generate_set_call(state, args);
+        }
+
+        // range() - returns a list of integers
+        if name == "range" {
+            let (start_val, end_val, step_val) = match args.len() {
+                0 => return Err("range expected at least 1 argument, got 0".to_string()),
+                1 => (
+                    state.ir_builder.i64_const(0),
+                    generate_expr(state, &args[0])?.into_int_value(),
+                    state.ir_builder.i64_const(1),
+                ),
+                2 => (
+                    generate_expr(state, &args[0])?.into_int_value(),
+                    generate_expr(state, &args[1])?.into_int_value(),
+                    state.ir_builder.i64_const(1),
+                ),
+                _ => (
+                    generate_expr(state, &args[0])?.into_int_value(),
+                    generate_expr(state, &args[1])?.into_int_value(),
+                    generate_expr(state, &args[2])?.into_int_value(),
+                ),
+            };
+
+            let range_func = state
+                .module
+                .get_function("vp_range")
+                .ok_or_else(|| "vp_range not declared".to_string())?;
+
+            let result = state
+                .ir_builder
+                .build_call(state.builder, range_func, &[start_val.into(), end_val.into()], "range_result");
+            return Ok(result.unwrap());
+        }
+
         // Check for user-defined functions with overload resolution
         // Infer argument types, using var_types for identifiers when available
         let arg_types: Vec<Type> = args.iter().map(|a| {

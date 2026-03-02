@@ -87,6 +87,9 @@ pub enum BuiltinSignature {
     MaxBigint,       // max_bigint(BigInt, BigInt) -> BigInt
     // Math builtins (not requiring import)
     Abs,             // abs(float) -> float
+    // Collection constructors
+    Tuple,           // tuple(iterable?) -> tuple
+    Set,             // set(iterable?) -> set
 }
 
 /// A symbol in the symbol table
@@ -166,6 +169,9 @@ impl Symbol {
                 BuiltinSignature::MaxBigint => Some(Type::BigInt),
                 // Math builtins (not requiring import)
                 BuiltinSignature::Abs => Some(Type::F64),
+                // Collection constructors
+                BuiltinSignature::Tuple => Some(Type::List(Box::new(Type::Infer))),  // Simplified: tuple as list
+                BuiltinSignature::Set => Some(Type::List(Box::new(Type::Infer))),    // Simplified: set as list
             },
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
             SymbolKind::GenericTypeDef { .. } => None,
@@ -211,6 +217,8 @@ impl SymbolTable {
             ("float", SymbolKind::Builtin { signature: BuiltinSignature::Float }),
             ("bool", SymbolKind::Builtin { signature: BuiltinSignature::Bool }),
             ("list", SymbolKind::Builtin { signature: BuiltinSignature::List }),
+            ("tuple", SymbolKind::Builtin { signature: BuiltinSignature::Tuple }),
+            ("set", SymbolKind::Builtin { signature: BuiltinSignature::Set }),
             ("hash", SymbolKind::Builtin { signature: BuiltinSignature::Hash }),
             // Type introspection
             ("isinstance", SymbolKind::Builtin { signature: BuiltinSignature::IsInstance }),

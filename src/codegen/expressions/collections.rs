@@ -688,10 +688,302 @@ pub fn generate_assignment_expr<'ctx>(
                 VarInfo::new_stack(alloca, var_type),
             );
         }
-        
+
         // Return the value (walrus operator returns the assigned value)
         Ok(value_val)
     } else {
         Err("Assignment expression target must be an identifier".to_string())
     }
 }
+
+/* ============================================ */
+/* Collection Built-in Functions                */
+/* ============================================ */
+
+/// Generate list() call - convert iterable to list
+pub fn generate_list_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // list() with no args returns empty list
+    if args.is_empty() {
+        let list_func = state
+            .module
+            .get_function("vp_list_create")
+            .ok_or_else(|| "vp_list_create not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, list_func, &[], "empty_list");
+        return Ok(result.unwrap());
+    }
+
+    if args.len() > 1 {
+        return Err(format!("list() takes at most 1 argument, got {}", args.len()));
+    }
+
+    let arg = &args[0];
+    let arg_val = generate_expr(state, arg)?;
+
+    // Handle different source types
+    let result = match arg {
+        // list(string) - convert string to list of character codes
+        Expr::Str(_, _) => {
+            let from_str_func = state
+                .module
+                .get_function("vp_list_from_str")
+                .ok_or_else(|| "vp_list_from_str not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, from_str_func, &[arg_val.into()], "list_from_str")
+                .unwrap()
+        }
+        // list(list) - copy existing list
+        Expr::List { .. } => {
+            let copy_func = state
+                .module
+                .get_function("vp_list_copy_from_list")
+                .ok_or_else(|| "vp_list_copy_from_list not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, copy_func, &[arg_val.into()], "list_copy")
+                .unwrap()
+        }
+        // list(range(...)) - already returns a list, just copy it
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                if name == "range" {
+                    let copy_func = state
+                        .module
+                        .get_function("vp_list_copy_from_list")
+                        .ok_or_else(|| "vp_list_copy_from_list not declared".to_string())?;
+                    state
+                        .ir_builder
+                        .build_call(state.builder, copy_func, &[arg_val.into()], "list_from_range")
+                        .unwrap()
+                } else {
+                    // Generic iterable
+                    let from_iter_func = state
+                        .module
+                        .get_function("vp_list_from_iterable")
+                        .ok_or_else(|| "vp_list_from_iterable not declared".to_string())?;
+                    state
+                        .ir_builder
+                        .build_call(state.builder, from_iter_func, &[arg_val.into()], "list_from_iter")
+                        .unwrap()
+                }
+            } else {
+                // Generic iterable
+                let from_iter_func = state
+                    .module
+                    .get_function("vp_list_from_iterable")
+                    .ok_or_else(|| "vp_list_from_iterable not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(state.builder, from_iter_func, &[arg_val.into()], "list_from_iter")
+                    .unwrap()
+            }
+        }
+        // Check if identifier holds a list
+        Expr::Ident(name, _) => {
+            if state.is_list(name) {
+                let copy_func = state
+                    .module
+                    .get_function("vp_list_copy_from_list")
+                    .ok_or_else(|| "vp_list_copy_from_list not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(state.builder, copy_func, &[arg_val.into()], "list_copy")
+                    .unwrap()
+            } else {
+                // Generic iterable (including strings)
+                let from_iter_func = state
+                    .module
+                    .get_function("vp_list_from_iterable")
+                    .ok_or_else(|| "vp_list_from_iterable not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(state.builder, from_iter_func, &[arg_val.into()], "list_from_iter")
+                    .unwrap()
+            }
+        }
+        // Default: treat as generic iterable
+        _ => {
+            let from_iter_func = state
+                .module
+                .get_function("vp_list_from_iterable")
+                .ok_or_else(|| "vp_list_from_iterable not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, from_iter_func, &[arg_val.into()], "list_from_iter")
+                .unwrap()
+        }
+    };
+
+    Ok(result)
+}
+
+/// Generate tuple() call - convert iterable to tuple
+pub fn generate_tuple_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // tuple() with no args returns empty tuple
+    if args.is_empty() {
+        // Create empty list and convert to tuple (simplified)
+        let list_func = state
+            .module
+            .get_function("vp_list_create")
+            .ok_or_else(|| "vp_list_create not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, list_func, &[], "empty_tuple");
+        return Ok(result.unwrap());
+    }
+
+    if args.len() > 1 {
+        return Err(format!("tuple() takes at most 1 argument, got {}", args.len()));
+    }
+
+    let arg = &args[0];
+    let arg_val = generate_expr(state, arg)?;
+
+    // Handle different source types
+    let result = match arg {
+        // tuple(string) - convert string to tuple of character codes
+        Expr::Str(_, _) => {
+            let from_str_func = state
+                .module
+                .get_function("vp_tuple_from_str")
+                .ok_or_else(|| "vp_tuple_from_str not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, from_str_func, &[arg_val.into()], "tuple_from_str")
+                .unwrap()
+        }
+        // tuple(list) - convert list to tuple
+        Expr::List { .. } | Expr::Call { .. } => {
+            let from_list_func = state
+                .module
+                .get_function("vp_tuple_from_list")
+                .ok_or_else(|| "vp_tuple_from_list not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, from_list_func, &[arg_val.into()], "tuple_from_list")
+                .unwrap()
+        }
+        // Check if identifier holds a list
+        Expr::Ident(name, _) => {
+            if state.is_list(name) {
+                let from_list_func = state
+                    .module
+                    .get_function("vp_tuple_from_list")
+                    .ok_or_else(|| "vp_tuple_from_list not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(state.builder, from_list_func, &[arg_val.into()], "tuple_from_list")
+                    .unwrap()
+            } else {
+                // Generic iterable (including strings)
+                let from_iter_func = state
+                    .module
+                    .get_function("vp_tuple_from_iterable")
+                    .ok_or_else(|| "vp_tuple_from_iterable not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(state.builder, from_iter_func, &[arg_val.into()], "tuple_from_iter")
+                    .unwrap()
+            }
+        }
+        // Default: treat as generic iterable
+        _ => {
+            let from_iter_func = state
+                .module
+                .get_function("vp_tuple_from_iterable")
+                .ok_or_else(|| "vp_tuple_from_iterable not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, from_iter_func, &[arg_val.into()], "tuple_from_iter")
+                .unwrap()
+        }
+    };
+
+    Ok(result)
+}
+
+/// Generate set() call - create set from iterable
+pub fn generate_set_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // set() with no args returns empty set
+    if args.is_empty() {
+        // Create empty set (using list as placeholder for now)
+        let list_func = state
+            .module
+            .get_function("vp_list_create")
+            .ok_or_else(|| "vp_list_create not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, list_func, &[], "empty_set");
+        return Ok(result.unwrap());
+    }
+
+    if args.len() > 1 {
+        return Err(format!("set() takes at most 1 argument, got {}", args.len()));
+    }
+
+    let arg = &args[0];
+    let arg_val = generate_expr(state, arg)?;
+
+    // Handle different source types
+    let result = match arg {
+        // set(list) - convert list to set
+        Expr::List { .. } | Expr::Call { .. } => {
+            let from_list_func = state
+                .module
+                .get_function("vp_set_from_list")
+                .ok_or_else(|| "vp_set_from_list not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, from_list_func, &[arg_val.into()], "set_from_list")
+                .unwrap()
+        }
+        // Check if identifier holds a list
+        Expr::Ident(name, _) => {
+            if state.is_list(name) {
+                let from_list_func = state
+                    .module
+                    .get_function("vp_set_from_list")
+                    .ok_or_else(|| "vp_set_from_list not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(state.builder, from_list_func, &[arg_val.into()], "set_from_list")
+                    .unwrap()
+            } else {
+                // Generic iterable
+                let from_iter_func = state
+                    .module
+                    .get_function("vp_set_from_iterable")
+                    .ok_or_else(|| "vp_set_from_iterable not declared".to_string())?;
+                state
+                    .ir_builder
+                    .build_call(state.builder, from_iter_func, &[arg_val.into()], "set_from_iter")
+                    .unwrap()
+            }
+        }
+        // Default: treat as generic iterable
+        _ => {
+            let from_iter_func = state
+                .module
+                .get_function("vp_set_from_iterable")
+                .ok_or_else(|| "vp_set_from_iterable not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, from_iter_func, &[arg_val.into()], "set_from_iter")
+                .unwrap()
+        }
+    };
+
+    Ok(result)
+}
+

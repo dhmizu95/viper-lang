@@ -447,10 +447,208 @@ void vp_named_tuple_set_value(ViperNamedTuple* nt, int64_t index, int64_t value)
 
 int64_t vp_named_tuple_get_value(ViperNamedTuple* nt, int64_t index) {
     if (!nt || index < 0 || index >= nt->size) return 0;
-    
+
     return 0; /* Simplified */
 }
 
 int64_t vp_named_tuple_len(ViperNamedTuple* nt) {
     return nt ? nt->size : 0;
 }
+
+/* ============================================ */
+/* Collection Built-in Functions                */
+/* ============================================ */
+
+/**
+ * list() builtin - create list from iterable
+ * For now, handles: list() -> empty list, list(list) -> copy
+ */
+ViperList* vp_list_from_iterable(void* iterable) {
+    if (!iterable) {
+        return vp_list_create();
+    }
+    /* Simplified: just return a copy for now */
+    /* Full implementation would handle various iterable types */
+    return vp_list_create();
+}
+
+/**
+ * list() from string - create list of character codes
+ */
+ViperList* vp_list_from_str(ViperString* str) {
+    if (!str) {
+        return vp_list_create();
+    }
+    
+    ViperList* list = vp_list_create_with_capacity(str->length);
+    for (int64_t i = 0; i < str->length; i++) {
+        vp_list_append(list, (int64_t)str->data[i]);
+    }
+    return list;
+}
+
+/**
+ * list() copy - create shallow copy of list
+ */
+ViperList* vp_list_copy_from_list(ViperList* src) {
+    if (!src) {
+        return vp_list_create();
+    }
+    
+    ViperList* copy = vp_list_create_with_capacity(src->length);
+    for (int64_t i = 0; i < src->length; i++) {
+        vp_list_append(copy, vp_list_get(src, i));
+    }
+    return copy;
+}
+
+/**
+ * tuple() builtin - create tuple from iterable
+ * For now, returns a list (tuple implementation is simplified)
+ */
+ViperList* vp_tuple_from_iterable(void* iterable) {
+    if (!iterable) {
+        return vp_list_create();
+    }
+    /* Simplified: just return a list for now */
+    return vp_list_create();
+}
+
+/**
+ * tuple() from list - convert list to tuple
+ * For now, just returns a copy of the list
+ */
+ViperList* vp_tuple_from_list(ViperList* src) {
+    if (!src) {
+        return vp_list_create();
+    }
+    
+    ViperList* tuple = vp_list_create_with_capacity(src->length);
+    for (int64_t i = 0; i < src->length; i++) {
+        vp_list_append(tuple, vp_list_get(src, i));
+    }
+    return tuple;
+}
+
+/**
+ * tuple() from string - create tuple of character codes
+ */
+ViperList* vp_tuple_from_str(ViperString* str) {
+    if (!str) {
+        return vp_list_create();
+    }
+    
+    ViperList* tuple = vp_list_create_with_capacity(str->length);
+    for (int64_t i = 0; i < str->length; i++) {
+        vp_list_append(tuple, (int64_t)str->data[i]);
+    }
+    return tuple;
+}
+
+/**
+ * tuple() copy - create shallow copy of tuple
+ */
+ViperList* vp_tuple_copy(ViperList* src) {
+    return vp_tuple_from_list(src);
+}
+
+/**
+ * set() builtin - create set from iterable
+ * For now, returns a list (set implementation is simplified)
+ */
+ViperList* vp_set_from_iterable(void* iterable) {
+    if (!iterable) {
+        return vp_list_create();
+    }
+    /* Simplified: just return a list for now */
+    return vp_list_create();
+}
+
+/**
+ * set() from list - convert list to set (removes duplicates)
+ */
+ViperList* vp_set_from_list(ViperList* src) {
+    if (!src) {
+        return vp_list_create();
+    }
+    
+    /* Simple implementation: just copy (no deduplication yet) */
+    /* Full implementation would use hash table for O(1) lookup */
+    ViperList* set = vp_list_create_with_capacity(src->length);
+    for (int64_t i = 0; i < src->length; i++) {
+        int64_t val = vp_list_get(src, i);
+        /* Check if already in set */
+        int found = 0;
+        for (int64_t j = 0; j < set->length; j++) {
+            if (vp_list_get(set, j) == val) {
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            vp_list_append(set, val);
+        }
+    }
+    return set;
+}
+
+/**
+ * set() copy - create shallow copy of set
+ */
+ViperList* vp_set_copy(ViperList* src) {
+    return vp_set_from_list(src);
+}
+
+/**
+ * set() add element
+ */
+void vp_set_add(ViperList* set, int64_t value) {
+    if (!set) return;
+    
+    /* Check if already in set */
+    for (int64_t i = 0; i < set->length; i++) {
+        if (vp_list_get(set, i) == value) {
+            return; /* Already exists */
+        }
+    }
+    vp_list_append(set, value);
+}
+
+/**
+ * set() contains
+ */
+int vp_set_contains(ViperList* set, int64_t value) {
+    if (!set) return 0;
+    
+    for (int64_t i = 0; i < set->length; i++) {
+        if (vp_list_get(set, i) == value) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * set() len
+ */
+int64_t vp_set_len(ViperList* set) {
+    return set ? set->length : 0;
+}
+
+/**
+ * set() print
+ */
+void vp_set_print(ViperList* set) {
+    if (!set) {
+        printf("set()\n");
+        return;
+    }
+    
+    printf("{");
+    for (int64_t i = 0; i < set->length; i++) {
+        if (i > 0) printf(", ");
+        printf("%ld", (long)vp_list_get(set, i));
+    }
+    printf("}\n");
+}
+
