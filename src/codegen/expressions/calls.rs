@@ -91,6 +91,20 @@ pub fn generate_call<'ctx>(
         if let Expr::Super(_) = obj.as_ref() {
             return generate_super_method_call(state, attr, args);
         }
+        
+        // Handle math module specifically for BigInts
+        if let Expr::Ident(name, _) = obj.as_ref() {
+            if name == "math" {
+                match attr.as_str() {
+                    "isqrt" | "gcd" | "lcm" | "factorial" | "comb" | "perm" => {
+                        // Always use BigInt path for these functions
+                        return generate_math_bigint_func(state, attr, args);
+                    }
+                    _ => {} // Fall through to standard math dispatch logic in generate_method_call or others
+                }
+            }
+        }
+        
         // First try user-defined class method call
         if let Ok(result) = crate::codegen::oop::generate_user_method_call(state, obj, attr, args) {
             return Ok(result);
@@ -231,7 +245,7 @@ pub fn generate_call<'ctx>(
 
         // range() - returns a list of integers
         if name == "range" {
-            let (start_val, end_val, step_val) = match args.len() {
+            let (start_val, end_val, _step_val) = match args.len() {
                 0 => return Err("range expected at least 1 argument, got 0".to_string()),
                 1 => (
                     state.ir_builder.i64_const(0),
@@ -407,7 +421,7 @@ pub fn generate_call<'ctx>(
         });
 
         if let Some(func_val) = func_val {
-            let mut arg_values: Vec<_> = args
+            let arg_values: Vec<_> = args
                 .iter()
                 .map(|a| {
                     generate_expr(state, a)
@@ -473,6 +487,73 @@ pub fn generate_call<'ctx>(
     }
 
     return Err(format!("Call target is not a function: {:?}", func));
+}
+
+/// Helper function to handle BigInt math function routing
+pub fn generate_math_bigint_func<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    attr: &str,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let from_i64_func = state
+        .module
+        .get_function("vp_bigint_from_i64")
+        .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+
+    let get_bigint = |val: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'ctx>, String> {
+        if val.is_pointer_value() {
+            Ok(val)
+        } else if val.is_int_value() {
+            let res = state.ir_builder.build_call(state.builder, from_i64_func, &[val.into()], "bigint_from_i64")
+                .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
+            Ok(res.into_pointer_value().into())
+        } else {
+            Err(format!("Cannot convert argument to BigInt for math.{}", attr))
+        }
+    };
+
+    let zero = state.ir_builder.i64_const(0);
+    let result_ptr = state
+        .ir_builder
+        .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res")
+        .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+        .into_pointer_value();
+
+    match attr {
+        "gcd" | "lcm" | "comb" | "perm" => {
+            if args.len() != 2 {
+                return Err(format!("math.{} requires exactly 2 arguments", attr));
+            }
+            let val0 = generate_expr(state, &args[0])?;
+            let val1 = generate_expr(state, &args[1])?;
+            let ptr0 = get_bigint(val0)?;
+            let ptr1 = get_bigint(val1)?;
+            let func_name = format!("vp_bigint_{}", attr);
+            let func = state.module.get_function(&func_name).ok_or_else(|| format!("{} not declared", func_name))?;
+            state.ir_builder.build_call(state.builder, func, &[result_ptr.into(), ptr0.into(), ptr1.into()], &format!("{}_call", attr));
+        },
+        "isqrt" => {
+            if args.len() != 1 {
+                return Err(format!("math.{} requires exactly 1 argument", attr));
+            }
+            let val0 = generate_expr(state, &args[0])?;
+            let ptr0 = get_bigint(val0)?;
+            let func = state.module.get_function("vp_bigint_sqrt").ok_or_else(|| "vp_bigint_sqrt not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[result_ptr.into(), ptr0.into()], "isqrt_call");
+        },
+        "factorial" => {
+            if args.len() != 1 {
+                return Err(format!("math.{} requires exactly 1 argument", attr));
+            }
+            let val0 = generate_expr(state, &args[0])?;
+            let ptr0 = get_bigint(val0)?;
+            let func = state.module.get_function("vp_bigint_factorial").ok_or_else(|| "vp_bigint_factorial not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[result_ptr.into(), ptr0.into()], "factorial_call");
+        },
+        _ => return Err(format!("Unsupported math function for BigInt: {}", attr)),
+    }
+
+    Ok(result_ptr.into())
 }
 
 /// Generate method call
@@ -2211,12 +2292,79 @@ pub fn generate_pow_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    if args.len() < 2 {
-        return Err("pow() requires at least 2 arguments".to_string());
+    if args.len() < 2 || args.len() > 3 {
+        return Err("pow() requires 2 or 3 arguments".to_string());
     }
     
     let base_val = generate_expr(state, &args[0])?;
     let exp_val = generate_expr(state, &args[1])?;
+    
+    let is_bigint = args.iter().any(|arg| {
+        let arg_type = infer_expr_type(arg);
+        arg_type == Type::BigInt || matches!(arg, Expr::Ident(n, _) if state.is_bigint(n))
+    }) || base_val.is_pointer_value() || exp_val.is_pointer_value();
+
+    if is_bigint {
+        let from_i64_func = state
+            .module
+            .get_function("vp_bigint_from_i64")
+            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+            
+        let get_bigint = |val: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'ctx>, String> {
+            if val.is_pointer_value() {
+                Ok(val)
+            } else if val.is_int_value() {
+                let res = state.ir_builder.build_call(state.builder, from_i64_func, &[val.into()], "bigint_from_i64")
+                    .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
+                Ok(res.into_pointer_value().into())
+            } else {
+                Err("Cannot convert to BigInt for pow()".to_string())
+            }
+        };
+
+        let base_ptr = get_bigint(base_val)?;
+        let exp_ptr = get_bigint(exp_val)?;
+        
+        let zero = state.ir_builder.i64_const(0);
+        let result_ptr = state
+            .ir_builder
+            .build_call(state.builder, from_i64_func, &[zero.into()], "bigint_res")
+            .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+            .into_pointer_value();
+
+        if args.len() == 3 {
+            let mod_expr = generate_expr(state, &args[2])?;
+            let mod_ptr = get_bigint(mod_expr)?;
+            let powmod_func = state
+                .module
+                .get_function("vp_bigint_powmod")
+                .ok_or_else(|| "vp_bigint_powmod not declared".to_string())?;
+            
+            state.ir_builder.build_call(
+                state.builder,
+                powmod_func,
+                &[result_ptr.into(), base_ptr.into(), exp_ptr.into(), mod_ptr.into()],
+                "bigint_powmod_call",
+            );
+        } else {
+            let pow_func = state
+                .module
+                .get_function("vp_bigint_pow")
+                .ok_or_else(|| "vp_bigint_pow not declared".to_string())?;
+            
+            state.ir_builder.build_call(
+                state.builder,
+                pow_func,
+                &[result_ptr.into(), base_ptr.into(), exp_ptr.into()],
+                "bigint_pow_call",
+            );
+        }
+        return Ok(result_ptr.into());
+    }
+
+    if args.len() == 3 {
+        return Err("3-argument pow() only supported for BigInt types currently".to_string());
+    }
     
     // Use float pow for now
     let base_float = if base_val.is_float_value() {

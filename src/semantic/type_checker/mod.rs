@@ -113,6 +113,31 @@ impl TypeChecker {
                 if let Err(e) = self.symbol_table.insert(symbol) {
                     self.errors.push(TypeError::new(e, *span));
                 }
+            } else if let crate::ast::Stmt::Extern { name, params, return_type, span, .. } = stmt {
+                // Normalize parameter types
+                let param_types: Vec<Type> =
+                    params.iter()
+                        .map(|p| {
+                            p.type_ann.as_ref()
+                                .map(|t| self.normalize_type(t))
+                                .unwrap_or(Type::Infer)
+                        })
+                        .collect();
+
+                // Normalize return type
+                let normalized_return_type = return_type.as_ref().map(|t| self.normalize_type(t));
+
+                let symbol = Symbol::new_function(
+                    name.clone(),
+                    param_types,
+                    normalized_return_type,
+                    *span,
+                    self.symbol_table.current_scope_id(),
+                    vec![],
+                );
+                if let Err(e) = self.symbol_table.insert(symbol) {
+                    self.errors.push(TypeError::new(e, *span));
+                }
             }
         }
 

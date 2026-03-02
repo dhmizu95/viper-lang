@@ -2,8 +2,8 @@
 # Mathematical functions and constants
 
 # Module metadata
-__name__ = "math"
-__version__ = "0.4.5"
+__name__: str = "math"
+__version__: str = "0.4.5"
 
 # ============================================
 # Mathematical Constants
@@ -71,7 +71,7 @@ def copysign(x: float, y: float) -> float:
     # Implemented in runtime
     return 0.0
 
-def frexp(x: float) -> (float, int):
+def frexp(x: float) -> tuple[float, int]:
     """Return the mantissa and exponent of x."""
     # Implemented in runtime
     return (0.0, 0)
@@ -81,7 +81,7 @@ def ldexp(x: float, i: int) -> float:
     # Implemented in runtime
     return 0.0
 
-def modf(x: float) -> (float, float):
+def modf(x: float) -> tuple[float, float]:
     """Return the fractional and integer parts of x."""
     # Implemented in runtime
     return (0.0, 0.0)
@@ -251,30 +251,40 @@ def lgamma(x: float) -> float:
 # Integer Functions
 # ============================================
 
-def gcd(a: int, b: int) -> int:
-    """Greatest common divisor of a and b."""
-    # Implemented in runtime
-    return 0
+extern "C" def vp_math_gcd(a: int, b: int) -> int
+extern "C" def vp_math_lcm(a: int, b: int) -> int
+extern "C" def vp_math_factorial(n: int) -> int
+extern "C" def vp_math_comb(n: int, k: int) -> int
+extern "C" def vp_math_perm(n: int, k: int) -> int
 
-def lcm(a: int, b: int) -> int:
-    """Least common multiple of a and b."""
-    # Implemented in runtime
-    return 0
+# Note: BigInt versions are handled directly by the codegen via generate_math_bigint_func
+# The wrapper functions below dispatch to either the int runtime or the codegen BigInt path
 
-def factorial(n: int) -> int:
-    """Return n! (n factorial)."""
-    # Implemented in runtime
-    return 0
+def gcd(a, b):
+    """Greatest common divisor of a and b. Works on int and bigint."""
+    # Codegen handles BigInt case directly via generate_math_bigint_func
+    # For int case, call the runtime
+    return vp_math_gcd(a, b)
 
-def comb(n: int, k: int) -> int:
-    """Number of ways to choose k items from n items."""
-    # Implemented in runtime
-    return 0
+def lcm(a, b):
+    """Least common multiple of a and b. Works on int and bigint."""
+    return vp_math_lcm(a, b)
 
-def perm(n: int, k: int) -> int:
-    """Number of ways to choose k items from n items with order."""
-    # Implemented in runtime
-    return 0
+def factorial(n):
+    """Return n! (n factorial). Works on int and bigint."""
+    return vp_math_factorial(n)
+
+def comb(n, k):
+    """Number of ways to choose k items from n items. Works on int and bigint."""
+    return vp_math_comb(n, k)
+
+def perm(n, k):
+    """Number of ways to choose k items from n items with order. Works on int and bigint."""
+    return vp_math_perm(n, k)
+
+def isqrt(n):
+    """Integer square root. Works on int and bigint."""
+    return int(sqrt(float(n)))
 
 # ============================================
 # Floating Point Utilities
@@ -305,21 +315,21 @@ def signbit(x: float) -> bool:
     # Implemented in runtime
     return False
 
-def fsum(values: [float]) -> float:
+def fsum(values: list[float]) -> float:
     """Return an accurate floating point sum of values."""
     total = 0.0
     for v in values:
         total += v
     return total
 
-def prod(values: [float]) -> float:
+def prod(values: list[float]) -> float:
     """Calculate the product of all elements in values."""
     result = 1.0
     for v in values:
         result *= v
     return result
 
-def mean(values: [float]) -> float:
+def mean(values: list[float]) -> float:
     """Calculate the arithmetic mean of values."""
     if len(values) == 0:
         return 0.0
@@ -335,7 +345,7 @@ def fmax(x: float, y: float) -> float:
     # Implemented in runtime
     return 0.0
 
-def dist(p: [float], q: [float]) -> float:
+def dist(p: list[float], q: list[float]) -> float:
     """Return the Euclidean distance between two points p and q."""
     if len(p) != len(q):
         return 0.0

@@ -473,6 +473,31 @@ pub fn generate_index<'ctx>(
         _ => false,
     };
 
+    let is_float_list = {
+        let obj_type = crate::codegen::expressions::infer_expr_type(obj);
+        let obj_type = if let Expr::Ident(name, _) = obj {
+            state.var_types.get(name).cloned().unwrap_or(obj_type)
+        } else {
+            obj_type
+        };
+        
+        match &obj_type {
+            crate::ast::Type::List(inner) => match &**inner {
+                crate::ast::Type::F64 => true,
+                crate::ast::Type::Var(n) if n == "float" || n == "f64" => true,
+                _ => false,
+            },
+            crate::ast::Type::GenericApp { name, type_args } if (name == "list" || name == "List") && type_args.len() == 1 => {
+                match &type_args[0] {
+                    crate::ast::Type::F64 => true,
+                    crate::ast::Type::Var(n) if n == "float" || n == "f64" => true,
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    };
+
     // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
 
@@ -500,6 +525,17 @@ pub fn generate_index<'ctx>(
                 .map_err(|e| format!("Failed to extend bool to i64: {:?}", e))?;
 
             return Ok(i64_val.into());
+        }
+
+        if is_float_list {
+            let list_get = state.module.get_function("vp_list_get_f64").ok_or_else(|| "vp_list_get_f64 not declared".to_string())?;
+
+            let result = state
+                .ir_builder
+                .build_call(state.builder, list_get, &[obj_val.into(), index_val.into()], "list_get")
+                .ok_or_else(|| "build call failed".to_string())?;
+
+            return Ok(result);
         }
 
         // For now, use the generic vp_list_get for non-bool lists.

@@ -356,6 +356,17 @@ void vp_bigint_min(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 void vp_bigint_max(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 
 /* ============================================ */
+/* Math Operations                              */
+/* ============================================ */
+
+void vp_bigint_gcd(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_lcm(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_factorial(ViperBigInt* result, ViperBigInt* n);
+void vp_bigint_comb(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k);
+void vp_bigint_perm(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k);
+void vp_bigint_powmod(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp, ViperBigInt* mod);
+
+/* ============================================ */
 /* JIT Stub Aliases (_c suffix for Rust FFI)    */
 /* ============================================ */
 ViperBigInt* vp_bigint_from_str_c(const char* s);
@@ -379,6 +390,16 @@ void vp_bigint_rshift_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 bool vp_bigint_eq_c(ViperBigInt* a, ViperBigInt* b);
 bool vp_bigint_lt_c(ViperBigInt* a, ViperBigInt* b);
 bool vp_bigint_gt_c(ViperBigInt* a, ViperBigInt* b);
+
+void vp_bigint_min_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_max_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+
+void vp_bigint_gcd_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_lcm_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
+void vp_bigint_factorial_c(ViperBigInt* result, ViperBigInt* n);
+void vp_bigint_comb_c(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k);
+void vp_bigint_perm_c(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k);
+void vp_bigint_powmod_c(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp, ViperBigInt* mod);
 
 #ifdef __cplusplus
 }

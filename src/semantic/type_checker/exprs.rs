@@ -332,7 +332,7 @@ impl TypeChecker {
     /// This is used for raise X from Y where X and Y may be exception classes not defined in the code
     pub(crate) fn check_expr_allow_undefined_class(&mut self, expr: &Expr) {
         match expr {
-            Expr::Call { func, args, .. } => {
+            Expr::Call { func: _, args, .. } => {
                 // For exception class calls like ValueError("msg"), allow undefined classes
                 // Just check the arguments
                 for arg in args {

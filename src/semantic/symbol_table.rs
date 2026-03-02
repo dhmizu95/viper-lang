@@ -319,6 +319,7 @@ impl SymbolTable {
             ("wait", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupWait }),
             // BigInt functions
             ("BigInt", SymbolKind::Builtin { signature: BuiltinSignature::BigInt }),
+            ("bigint", SymbolKind::Builtin { signature: BuiltinSignature::BigInt }),
             ("str_bigint", SymbolKind::Builtin { signature: BuiltinSignature::StrBigint }),
             ("int_bigint", SymbolKind::Builtin { signature: BuiltinSignature::IntBigint }),
             ("abs_bigint", SymbolKind::Builtin { signature: BuiltinSignature::AbsBigint }),

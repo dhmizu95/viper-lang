@@ -115,5 +115,30 @@ pub fn declare_bigint_functions<'ctx>(
     let bit_len_fn_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_bigint_bit_length", bit_len_fn_type, None);
 
+    // Math operations (result, a, b) or (result, n)
+    // vp_bigint_gcd (result, a, b)
+    module.add_function("vp_bigint_gcd", arithmetic_fn_type, None);
+
+    // vp_bigint_lcm (result, a, b)
+    module.add_function("vp_bigint_lcm", arithmetic_fn_type, None);
+
+    // vp_bigint_factorial (result, n) - 2 arguments
+    let unary_arith_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_bigint_factorial", unary_arith_fn_type, None);
+
+    // vp_bigint_comb (result, n, k)
+    module.add_function("vp_bigint_comb", arithmetic_fn_type, None);
+
+    // vp_bigint_perm (result, n, k)
+    module.add_function("vp_bigint_perm", arithmetic_fn_type, None);
+
+    // vp_bigint_powmod (result, base, exp, mod) - 4 arguments
+    let powmod_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_bigint_powmod", powmod_fn_type, None);
+
+    // vp_bigint_min and vp_bigint_max (result, a, b)
+    module.add_function("vp_bigint_min", arithmetic_fn_type, None);
+    module.add_function("vp_bigint_max", arithmetic_fn_type, None);
+
     Ok(())
 }

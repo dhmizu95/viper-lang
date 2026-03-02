@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Stmt};
+use crate::ast::{Expr, Stmt, Type};
 use inkwell::context::Context;
 use inkwell::values::{FunctionValue, GlobalValue, BasicValueEnum, BasicMetadataValueEnum};
 use std::collections::{HashMap, HashSet};
@@ -24,9 +24,9 @@ pub fn generate_stmt<'ctx>(
     dict_vars: &mut HashSet<String>,
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
+    var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
 ) -> Result<(), String> {
-    let mut var_types = HashMap::new();
     let mut state = CodeGenState::new(
         context,
         module,
@@ -40,7 +40,7 @@ pub fn generate_stmt<'ctx>(
         dict_vars,
         bool_list_vars,
         bigint_vars,
-        &mut var_types,
+        var_types,
     );
 
     generate_stmt_internal(&mut state, stmt)
@@ -60,12 +60,12 @@ pub fn generate_stmt_with_escape<'ctx>(
     dict_vars: &mut HashSet<String>,
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
+    var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
     current_class: Option<&str>,
 ) -> Result<(), String> {
-    let mut var_types = HashMap::new();
     let mut state = CodeGenState::with_escape_analysis(
         context,
         module,
@@ -79,7 +79,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         dict_vars,
         bool_list_vars,
         bigint_vars,
-        &mut var_types,
+        var_types,
         escape_analyzer,
         current_function,
     );
@@ -102,13 +102,13 @@ pub fn generate_stmt_with_closure<'ctx>(
     dict_vars: &mut HashSet<String>,
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
+    var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
     closure_analyzer: &ClosureAnalyzer,
     current_class: Option<&str>,
 ) -> Result<(), String> {
-    let mut var_types = HashMap::new();
     let mut state = CodeGenState::with_closure_analysis(
         context,
         module,
@@ -122,7 +122,7 @@ pub fn generate_stmt_with_closure<'ctx>(
         dict_vars,
         bool_list_vars,
         bigint_vars,
-        &mut var_types,
+        var_types,
         escape_analyzer,
         current_function,
         closure_analyzer,
@@ -280,6 +280,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                         state.dict_vars,
                         state.bool_list_vars,
                         state.bigint_vars,
+                        state.var_types,
                         stmt,
                     )?;
                 }
@@ -579,7 +580,7 @@ fn generate_raise_with_cause<'ctx>(
 
 /// Helper to extract exception type and message from an expression
 fn extract_exception_info<'ctx>(
-    state: &mut CodeGenState<'_, 'ctx>,
+    _state: &mut CodeGenState<'_, 'ctx>,
     expr: Option<&Expr>,
 ) -> Result<(String, String), String> {
     match expr {
@@ -639,6 +640,7 @@ fn generate_try_except<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }
@@ -659,6 +661,7 @@ fn generate_try_except<'ctx>(
                 state.dict_vars,
                 state.bool_list_vars,
                 state.bigint_vars,
+                state.var_types,
                 stmt,
             )?;
         }
@@ -680,6 +683,7 @@ fn generate_try_except<'ctx>(
                 state.dict_vars,
                 state.bool_list_vars,
                 state.bigint_vars,
+                state.var_types,
                 stmt,
             )?;
         }
@@ -716,7 +720,7 @@ fn generate_sync_with<'ctx>(
     // Store context manager objects and enter results for each item
     let mut context_managers: Vec<(BasicValueEnum<'ctx>, Option<String>)> = Vec::new();
 
-    for (i, item) in items.iter().enumerate() {
+    for (_i, item) in items.iter().enumerate() {
         // Evaluate context expression
         let context_val = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
 
@@ -763,6 +767,7 @@ fn generate_sync_with<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }
@@ -774,7 +779,7 @@ fn generate_sync_with<'ctx>(
     state.builder.position_at_end(exit_block);
 
     // Call __exit__ with no exception (exc_type=None, exc_val=None, exc_tb=None)
-    for (i, (context_val, _)) in context_managers.iter().rev().enumerate() {
+    for (_i, (context_val, _)) in context_managers.iter().rev().enumerate() {
         call_context_exit(state, context_val, false)?;
     }
 
@@ -924,7 +929,7 @@ fn generate_async_with<'ctx>(
     let mut context_managers: Vec<(inkwell::values::BasicValueEnum<'ctx>, Option<String>)> = Vec::new();
 
     // Process each with item
-    for (i, item) in items.iter().enumerate() {
+    for (_i, item) in items.iter().enumerate() {
         // Evaluate context expression
         let context_val = crate::codegen::expressions::generate_expr(state, &item.context_expr)?;
 
@@ -971,6 +976,7 @@ fn generate_async_with<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }
@@ -981,7 +987,7 @@ fn generate_async_with<'ctx>(
     state.builder.position_at_end(exit_block);
 
     // Call __aexit__ with no exception for each context manager
-    for (i, (context_val, _)) in context_managers.iter().rev().enumerate() {
+    for (_i, (context_val, _)) in context_managers.iter().rev().enumerate() {
         call_async_context_exit(state, context_val, false)?;
     }
 

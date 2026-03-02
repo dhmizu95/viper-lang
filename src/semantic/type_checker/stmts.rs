@@ -510,7 +510,7 @@ impl TypeChecker {
                     self.check_expr(target);
                 }
             }
-            Stmt::Raise { exception, cause, span } => {
+            Stmt::Raise { exception, cause, span: _ } => {
                 if let Some(exc) = exception {
                     // In a raise statement, the exception expression can be:
                     // 1. An exception class call: ValueError("msg")
@@ -523,7 +523,7 @@ impl TypeChecker {
                     self.check_expr_allow_undefined_class(c);
                 }
             }
-            Stmt::With { items, body, is_async, span } => {
+            Stmt::With { items, body, is_async, span: _ } => {
                 self.symbol_table.enter_scope();
                 for item in items {
                     let context_type = self.check_expr(&item.context_expr);
@@ -620,7 +620,7 @@ impl TypeChecker {
     /// Check that a context manager has the required protocol methods
     fn check_context_manager_protocol(
         &mut self,
-        context_expr: &crate::ast::Expr,
+        _context_expr: &crate::ast::Expr,
         context_type: Option<&crate::ast::types::Type>,
         is_async: bool,
         span: crate::utils::Span,

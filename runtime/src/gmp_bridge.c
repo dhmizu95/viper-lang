@@ -425,6 +425,116 @@ uint64_t vp_bigint_hash(ViperBigInt* a) {
     return hash;
 }
 
+void vp_bigint_min(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    if (!result || !a || !b) return;
+    if (mpz_cmp(a->value, b->value) <= 0) {
+        mpz_set(result->value, a->value);
+    } else {
+        mpz_set(result->value, b->value);
+    }
+}
+
+void vp_bigint_max(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    if (!result || !a || !b) return;
+    if (mpz_cmp(a->value, b->value) >= 0) {
+        mpz_set(result->value, a->value);
+    } else {
+        mpz_set(result->value, b->value);
+    }
+}
+
+/* ============================================ */
+/* Math Operations                              */
+/* ============================================ */
+
+void vp_bigint_gcd(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    if (!result || !a || !b) return;
+    mpz_gcd(result->value, a->value, b->value);
+}
+
+void vp_bigint_lcm(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    if (!result || !a || !b) return;
+    mpz_lcm(result->value, a->value, b->value);
+}
+
+void vp_bigint_factorial(ViperBigInt* result, ViperBigInt* n) {
+    if (!result || !n) return;
+    if (mpz_sgn(n->value) < 0) {
+        fprintf(stderr, "Error: factorial of negative number\n");
+        mpz_set_ui(result->value, 0);
+        return;
+    }
+    if (mpz_fits_ulong_p(n->value)) {
+        mpz_fac_ui(result->value, mpz_get_ui(n->value));
+    } else {
+        fprintf(stderr, "Error: factorial input too large\n");
+        mpz_set_ui(result->value, 0);
+    }
+}
+
+void vp_bigint_comb(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k) {
+    if (!result || !n || !k) return;
+    if (mpz_sgn(n->value) < 0 || mpz_sgn(k->value) < 0) {
+        mpz_set_ui(result->value, 0);
+        return;
+    }
+    if (mpz_cmp(k->value, n->value) > 0) {
+        mpz_set_ui(result->value, 0);
+        return;
+    }
+    if (mpz_fits_ulong_p(k->value)) {
+        mpz_bin_ui(result->value, n->value, mpz_get_ui(k->value));
+    } else {
+        mpz_t n_minus_k;
+        mpz_init(n_minus_k);
+        mpz_sub(n_minus_k, n->value, k->value);
+        if (mpz_fits_ulong_p(n_minus_k)) {
+            mpz_bin_ui(result->value, n->value, mpz_get_ui(n_minus_k));
+        } else {
+            fprintf(stderr, "Error: comb k too large\n");
+            mpz_set_ui(result->value, 0);
+        }
+        mpz_clear(n_minus_k);
+    }
+}
+
+void vp_bigint_perm(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k) {
+    if (!result || !n || !k) return;
+    if (mpz_sgn(n->value) < 0 || mpz_sgn(k->value) < 0 || mpz_cmp(k->value, n->value) > 0) {
+        mpz_set_ui(result->value, 0);
+        return;
+    }
+    if (mpz_fits_ulong_p(k->value)) {
+        unsigned long k_ul = mpz_get_ui(k->value);
+        mpz_set_ui(result->value, 1);
+        mpz_t temp_n;
+        mpz_init_set(temp_n, n->value);
+        for (unsigned long i = 0; i < k_ul; ++i) {
+            mpz_mul(result->value, result->value, temp_n);
+            mpz_sub_ui(temp_n, temp_n, 1);
+        }
+        mpz_clear(temp_n);
+    } else {
+        fprintf(stderr, "Error: perm k too large\n");
+        mpz_set_ui(result->value, 0);
+    }
+}
+
+void vp_bigint_powmod(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp, ViperBigInt* mod) {
+    if (!result || !base || !exp || !mod) return;
+    if (mpz_sgn(exp->value) < 0) {
+        fprintf(stderr, "Error: powmod negative exponent\n");
+        mpz_set_ui(result->value, 0);
+        return;
+    }
+    if (mpz_sgn(mod->value) == 0) {
+        fprintf(stderr, "Error: powmod division by zero\n");
+        mpz_set_ui(result->value, 0);
+        return;
+    }
+    mpz_powm(result->value, base->value, exp->value, mod->value);
+}
+
 /* ============================================ */
 /* JIT Stub Aliases (_c suffix for Rust FFI)    */
 /* ============================================ */
@@ -512,4 +622,36 @@ bool vp_bigint_lt_c(ViperBigInt* a, ViperBigInt* b) {
 
 bool vp_bigint_gt_c(ViperBigInt* a, ViperBigInt* b) {
     return vp_bigint_gt(a, b);
+}
+
+void vp_bigint_min_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_min(result, a, b);
+}
+
+void vp_bigint_max_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_max(result, a, b);
+}
+
+void vp_bigint_gcd_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_gcd(result, a, b);
+}
+
+void vp_bigint_lcm_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_lcm(result, a, b);
+}
+
+void vp_bigint_factorial_c(ViperBigInt* result, ViperBigInt* n) {
+    vp_bigint_factorial(result, n);
+}
+
+void vp_bigint_comb_c(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k) {
+    vp_bigint_comb(result, n, k);
+}
+
+void vp_bigint_perm_c(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k) {
+    vp_bigint_perm(result, n, k);
+}
+
+void vp_bigint_powmod_c(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp, ViperBigInt* mod) {
+    vp_bigint_powmod(result, base, exp, mod);
 }

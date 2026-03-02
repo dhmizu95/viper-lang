@@ -1,0 +1,120 @@
+   Compiling viper-lang v0.4.5 (/home/stl/viper-lang)
+error[E0425]: cannot find type `Type` in this scope
+  --> src/codegen/statements/core.rs:27:37
+   |
+27 |     var_types: &mut HashMap<String, Type>,
+   |                                     ^^^^ not found in this scope
+   |
+help: consider importing this enum through its public re-export
+   |
+ 1 + use crate::ast::Type;
+   |
+
+error[E0425]: cannot find type `Type` in this scope
+  --> src/codegen/statements/core.rs:63:37
+   |
+63 |     var_types: &mut HashMap<String, Type>,
+   |                                     ^^^^ not found in this scope
+   |
+help: consider importing this enum through its public re-export
+   |
+ 1 + use crate::ast::Type;
+   |
+
+error[E0425]: cannot find type `Type` in this scope
+   --> src/codegen/statements/core.rs:105:37
+    |
+105 |     var_types: &mut HashMap<String, Type>,
+    |                                     ^^^^ not found in this scope
+    |
+help: consider importing this enum through its public re-export
+    |
+  1 + use crate::ast::Type;
+    |
+
+error[E0061]: this function takes 14 arguments but 13 arguments were supplied
+  --> src/codegen/control_flow/conditional.rs:18:17
+   |
+18 |                 crate::codegen::statements::generate_stmt(
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+31 |                     stmt,
+   |                     ---- argument #13 is missing
+   |
+note: function defined here
+  --> src/codegen/statements/core.rs:14:8
+   |
+14 | pub fn generate_stmt<'ctx>(
+   |        ^^^^^^^^^^^^^
+...
+27 |     var_types: &mut HashMap<String, Type>,
+   |     -------------------------------------
+help: provide the argument
+   |
+18 |                 crate::codegen::statements::generate_stmt(
+...
+30 |                     state.bigint_vars,
+31 ~                     /* var_types */,
+32 ~                     stmt,
+   |
+
+warning: use of deprecated method `inkwell::types::IntType::<'ctx>::ptr_type`: Starting from version 15.0, LLVM doesn't differentiate between pointer types. Use Context::ptr_type instead.
+   --> src/codegen/generator.rs:365:60
+    |
+365 | ...   let i64_ptr_type = self.context.i64_type().ptr_type(inkwell...
+    |                                                  ^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: variable does not need to be mutable
+   --> src/codegen/expressions/calls.rs:430:17
+    |
+430 |             let mut arg_values: Vec<_> = args
+    |                 ----^^^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `step_val`
+   --> src/codegen/expressions/calls.rs:254:38
+    |
+254 |             let (start_val, end_val, step_val) = match args.len() {
+    |                                      ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_step_val`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `state`
+   --> src/codegen/statements/core.rs:583:5
+    |
+583 |     state: &mut CodeGenState<'_, 'ctx>,
+    |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: unused variable: `func`
+   --> src/semantic/type_checker/exprs.rs:335:26
+    |
+335 |             Expr::Call { func, args, .. } => {
+    |                          ^^^^ help: try ignoring the field: `func: _`
+
+warning: unused variable: `span`
+   --> src/semantic/type_checker/stmts.rs:513:45
+    |
+513 |             Stmt::Raise { exception, cause, span } => {
+    |                                             ^^^^ help: try ignoring the field: `span: _`
+
+warning: unused variable: `span`
+   --> src/semantic/type_checker/stmts.rs:526:49
+    |
+526 |             Stmt::With { items, body, is_async, span } => {
+    |                                                 ^^^^ help: try ignoring the field: `span: _`
+
+warning: unused variable: `context_expr`
+   --> src/semantic/type_checker/stmts.rs:623:9
+    |
+623 |         context_expr: &crate::ast::Expr,
+    |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_context_expr`
+
+Some errors have detailed explanations: E0061, E0425.
+For more information about an error, try `rustc --explain E0061`.
+warning: `viper-lang` (lib) generated 8 warnings
+error: could not compile `viper-lang` (lib) due to 4 previous errors; 8 warnings emitted

@@ -355,6 +355,18 @@ pub fn generate_type_convert<'ctx>(
                     .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
                     .expect("int to float conversion");
                 Ok(result.into())
+            } else if arg_val.is_pointer_value() {
+                // Try string to float conversion
+                let str_to_f64 = state
+                    .module
+                    .get_function("vp_f64_from_str")
+                    .ok_or_else(|| "vp_f64_from_str not declared".to_string())?;
+                let result = state
+                    .ir_builder
+                    .build_call(state.builder, str_to_f64, &[arg_val.into()], "str_to_f64")
+                    .unwrap()
+                    .into_float_value();
+                Ok(result.into())
             } else {
                 Err("Cannot convert to float".to_string())
             }
@@ -374,8 +386,8 @@ pub fn generate_type_convert<'ctx>(
                 // Try string to int conversion
                 let str_to_int = state
                     .module
-                    .get_function("vp_str_to_i64")
-                    .ok_or_else(|| "vp_str_to_i64 not declared".to_string())?;
+                    .get_function("vp_i64_from_str")
+                    .ok_or_else(|| "vp_i64_from_str not declared".to_string())?;
                 let result = state
                     .ir_builder
                     .build_call(state.builder, str_to_int, &[arg_val.into()], "str_to_int")
@@ -494,6 +506,15 @@ pub fn generate_math_builtin<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if args.len() != 1 {
         return Err(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
+    }
+
+    let is_bigint = args.iter().any(|arg| {
+        let arg_type = crate::codegen::expressions::core::infer_expr_type(arg);
+        arg_type == Type::BigInt || matches!(arg, Expr::Ident(n, _) if state.is_bigint(n))
+    });
+
+    if is_bigint && name == "abs" {
+        return crate::codegen::expressions::calls::generate_bigint_abs(state, args);
     }
 
     let arg_val = generate_expr(state, &args[0])?;

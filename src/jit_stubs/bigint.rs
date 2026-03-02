@@ -21,10 +21,19 @@ extern "C" {
     pub fn vp_bigint_div_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_mod_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_pow_c(result: *mut c_void, base: *mut c_void, exp: *mut c_void);
+    pub fn vp_bigint_powmod_c(result: *mut c_void, base: *mut c_void, exp: *mut c_void, mod_val: *mut c_void);
     pub fn vp_bigint_sqrt_c(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_abs_c(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_neg_c(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_invert_c(result: *mut c_void, a: *mut c_void);
+    pub fn vp_bigint_min_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_max_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_gcd_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_lcm_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_factorial_c(result: *mut c_void, n: *mut c_void);
+    pub fn vp_bigint_comb_c(result: *mut c_void, n: *mut c_void, k: *mut c_void);
+    pub fn vp_bigint_perm_c(result: *mut c_void, n: *mut c_void, k: *mut c_void);
+
 
     // Bitwise operations
     pub fn vp_bigint_and_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
@@ -47,13 +56,29 @@ extern "C" {
 
 // JIT stub wrappers - these call the C functions
 pub extern "C" fn vp_bigint_from_i64_stub(v: i64) -> *mut c_void {
-    unsafe { vp_bigint_from_i64_c(v) }
+    eprintln!("[RUST DEBUG] vp_bigint_from_i64_stub called with v={}", v);
+    let result = unsafe { vp_bigint_from_i64_c(v) };
+    eprintln!("[RUST DEBUG] vp_bigint_from_i64_stub returning {:?}", result);
+    result
+}
+pub extern "C" fn vp_bigint_from_i64_temp_stub(v: i64) -> *mut c_void {
+    eprintln!("[RUST DEBUG] vp_bigint_from_i64_temp_stub called with v={}", v);
+    let result = unsafe { vp_bigint_from_i64_temp(v) };
+    eprintln!("[RUST DEBUG] vp_bigint_from_i64_temp_stub returning {:?}", result);
+    result
 }
 pub extern "C" fn vp_bigint_from_str_stub(s: *const i8) -> *mut c_void {
+    eprintln!("[RUST DEBUG] vp_bigint_from_str_stub called");
     unsafe { vp_bigint_from_str_c(s) }
 }
 pub extern "C" fn vp_bigint_add_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    eprintln!("[RUST DEBUG] vp_bigint_add_stub: result={:?}, a={:?}, b={:?}", result, a, b);
+    if result.is_null() || a.is_null() || b.is_null() {
+        eprintln!("[RUST DEBUG] vp_bigint_add_stub: NULL POINTER DETECTED!");
+        return;
+    }
     unsafe { vp_bigint_add_c(result, a, b) }
+    eprintln!("[RUST DEBUG] vp_bigint_add_stub completed");
 }
 pub extern "C" fn vp_bigint_sub_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
     unsafe { vp_bigint_sub_c(result, a, b) }
@@ -70,11 +95,38 @@ pub extern "C" fn vp_bigint_mod_stub(result: *mut c_void, a: *mut c_void, b: *mu
 pub extern "C" fn vp_bigint_pow_stub(result: *mut c_void, base: *mut c_void, exp: *mut c_void) {
     unsafe { vp_bigint_pow_c(result, base, exp) }
 }
+pub extern "C" fn vp_bigint_powmod_stub(result: *mut c_void, base: *mut c_void, exp: *mut c_void, mod_val: *mut c_void) {
+    unsafe { vp_bigint_powmod_c(result, base, exp, mod_val) }
+}
+pub extern "C" fn vp_bigint_sqrt_stub(result: *mut c_void, a: *mut c_void) {
+    unsafe { vp_bigint_sqrt_c(result, a) }
+}
 pub extern "C" fn vp_bigint_neg_stub(result: *mut c_void, a: *mut c_void) {
     unsafe { vp_bigint_neg_c(result, a) }
 }
 pub extern "C" fn vp_bigint_abs_stub(result: *mut c_void, a: *mut c_void) {
     unsafe { vp_bigint_abs_c(result, a) }
+}
+pub extern "C" fn vp_bigint_min_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_min_c(result, a, b) }
+}
+pub extern "C" fn vp_bigint_max_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_max_c(result, a, b) }
+}
+pub extern "C" fn vp_bigint_gcd_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_gcd_c(result, a, b) }
+}
+pub extern "C" fn vp_bigint_lcm_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_lcm_c(result, a, b) }
+}
+pub extern "C" fn vp_bigint_factorial_stub(result: *mut c_void, n: *mut c_void) {
+    unsafe { vp_bigint_factorial_c(result, n) }
+}
+pub extern "C" fn vp_bigint_comb_stub(result: *mut c_void, n: *mut c_void, k: *mut c_void) {
+    unsafe { vp_bigint_comb_c(result, n, k) }
+}
+pub extern "C" fn vp_bigint_perm_stub(result: *mut c_void, n: *mut c_void, k: *mut c_void) {
+    unsafe { vp_bigint_perm_c(result, n, k) }
 }
 pub extern "C" fn vp_bigint_cmp_stub(_a: *mut c_void, _b: *mut c_void) -> i32 {
     // Placeholder - not fully implemented
@@ -117,10 +169,18 @@ extern "C" {
     pub fn vp_bigint_div(result: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_mod(result: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_pow(result: *mut c_void, base: *mut c_void, exp: *mut c_void);
+    pub fn vp_bigint_powmod(result: *mut c_void, base: *mut c_void, exp: *mut c_void, mod_val: *mut c_void);
     pub fn vp_bigint_sqrt(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_abs(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_neg(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_invert(result: *mut c_void, a: *mut c_void);
+    pub fn vp_bigint_min(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_max(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_gcd(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_lcm(result: *mut c_void, a: *mut c_void, b: *mut c_void);
+    pub fn vp_bigint_factorial(result: *mut c_void, n: *mut c_void);
+    pub fn vp_bigint_comb(result: *mut c_void, n: *mut c_void, k: *mut c_void);
+    pub fn vp_bigint_perm(result: *mut c_void, n: *mut c_void, k: *mut c_void);
 
     // Bitwise operations
     pub fn vp_bigint_and(result: *mut c_void, a: *mut c_void, b: *mut c_void);

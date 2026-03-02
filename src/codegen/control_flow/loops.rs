@@ -78,6 +78,7 @@ fn generate_while_simple<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }
@@ -105,6 +106,7 @@ fn generate_while_simple<'ctx>(
                 state.dict_vars,
                 state.bool_list_vars,
                 state.bigint_vars,
+                state.var_types,
                 stmt,
             )?;
         }
@@ -195,6 +197,7 @@ fn generate_while_unrolled<'ctx>(
                 state.dict_vars,
                 state.bool_list_vars,
                 state.bigint_vars,
+                state.var_types,
                 stmt,
             )?;
         }
@@ -327,6 +330,7 @@ pub fn generate_for<'ctx>(
                         state.dict_vars,
                         state.bool_list_vars,
                         state.bigint_vars,
+                        state.var_types,
                         stmt,
                     )?;
                 }
@@ -371,6 +375,7 @@ pub fn generate_for<'ctx>(
                             state.dict_vars,
                             state.bool_list_vars,
                             state.bigint_vars,
+                            state.var_types,
                             stmt,
                         )?;
                     }
@@ -437,11 +442,37 @@ pub fn generate_for<'ctx>(
 
     state.builder.position_at_end(body_block);
 
-    // Call vp_list_get(iter_val, counter_val)
+    // Check if iterable is a list of floats
+    let mut iter_type = crate::codegen::expressions::core::infer_expr_type(iter);
+    if let Expr::Ident(name, _) = iter {
+        if let Some(t) = state.var_types.get(name) {
+            iter_type = t.clone();
+        }
+    }
+    
+    println!("ITER_TYPE: {:?}, iter: {:?}", iter_type, iter); if let Expr::Ident(name, _) = iter { println!("In var_types: {:?}", state.var_types.get(name)); }
+    let is_float_list = match &iter_type {
+        crate::ast::Type::List(inner) => match &**inner {
+            crate::ast::Type::F64 => true,
+            crate::ast::Type::Var(n) if n == "float" || n == "f64" => true,
+            _ => false,
+        },
+        crate::ast::Type::GenericApp { name, type_args } if (name == "list" || name == "List") && type_args.len() == 1 => {
+            match &type_args[0] {
+                crate::ast::Type::F64 => true,
+                crate::ast::Type::Var(n) if n == "float" || n == "f64" => true,
+                _ => false,
+            }
+        }
+        _ => false,
+    };
+
+    let func_name = if is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
     let list_get_func = state
         .module
-        .get_function("vp_list_get")
-        .ok_or_else(|| "vp_list_get not declared".to_string())?;
+        .get_function(func_name)
+        .ok_or_else(|| format!("{} not declared", func_name))?;
+        
     let item_val = state
         .ir_builder
         .build_call(
@@ -450,26 +481,39 @@ pub fn generate_for<'ctx>(
             &[iter_val.into(), counter_val.into()],
             "item_val",
         )
-        .unwrap()
-        .into_int_value();
+        .unwrap();
 
     // Bind item_val to target (like 'val')
     let old_var = if let Expr::Ident(target_name, _) = target {
-        // Allocate space for the element value
-        let val_alloca =
-            state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
-        state.builder.build_store(val_alloca, item_val).expect("store");
+        if is_float_list {
+            let val_alloca =
+                state.builder.build_alloca(state.context.f64_type(), &target_name).expect("alloca");
+            state.builder.build_store(val_alloca, item_val.into_float_value()).expect("store");
 
-        // Use state.variables.insert which returns the old value
-        state.variables.insert(
-            target_name.clone(),
-            VarInfo {
-                storage: crate::codegen::variables::VarStorage::Stack(val_alloca),
-                var_type: VarType::Int,
-                class_name: None,
-                closure_value_ptr: None,
-            },
-        )
+            state.variables.insert(
+                target_name.clone(),
+                VarInfo {
+                    storage: crate::codegen::variables::VarStorage::Stack(val_alloca),
+                    var_type: VarType::Float,
+                    class_name: None,
+                    closure_value_ptr: None,
+                },
+            )
+        } else {
+            let val_alloca =
+                state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
+            state.builder.build_store(val_alloca, item_val.into_int_value()).expect("store");
+
+            state.variables.insert(
+                target_name.clone(),
+                VarInfo {
+                    storage: crate::codegen::variables::VarStorage::Stack(val_alloca),
+                    var_type: VarType::Int,
+                    class_name: None,
+                    closure_value_ptr: None,
+                },
+            )
+        }
     } else {
         None
     };
@@ -492,6 +536,7 @@ pub fn generate_for<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }
@@ -737,6 +782,7 @@ pub fn generate_async_for<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }

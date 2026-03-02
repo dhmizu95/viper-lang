@@ -276,7 +276,7 @@ impl<'ctx> CodeGen<'ctx> {
         params: &[crate::ast::Param],
         return_type: &Option<Type>,
         body: &[Stmt],
-        nonlocal_vars: &[String],
+        _nonlocal_vars_param: &[String],
     ) -> Result<(), String> {
         // Save variables from previous function scope
         let saved_variables = std::mem::take(&mut self.variables);
@@ -297,9 +297,9 @@ impl<'ctx> CodeGen<'ctx> {
         let nonlocal_vars: Vec<String> = closure_info
             .map(|info| info.nonlocal_vars.iter().cloned().collect())
             .unwrap_or_default();
-        
+
         // Get variables that need closure cells (captured by nested functions)
-        let captured_vars: Vec<String> = self.closure_analyzer.get_closure_cells_to_create(original_name);
+        let _captured_vars: Vec<String> = self.closure_analyzer.get_closure_cells_to_create(original_name);
 
         // Set up parameters with alloca
         let num_regular_params = params.len();
@@ -362,7 +362,7 @@ impl<'ctx> CodeGen<'ctx> {
                     var_type: VarType::Int,
                 });
                 // Create a variable entry that points to the closure cell
-                let i64_ptr_type = self.context.i64_type().ptr_type(inkwell::AddressSpace::default());
+                let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let value_ptr = crate::codegen::closure_cells::get_closure_cell_value(
                     self.context, &self.module, &self.builder,
                     cell_param.into_pointer_value(), i64_ptr_type
@@ -391,6 +391,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
                 &mut self.bigint_vars,
+                &mut self.var_types,
                 stmt,
                 &mut self.escape_analyzer,
                 original_name,
@@ -493,6 +494,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
                 &mut self.bigint_vars,
+                &mut self.var_types,
                 stmt,
                 &mut self.escape_analyzer,
                 "__module_level__",

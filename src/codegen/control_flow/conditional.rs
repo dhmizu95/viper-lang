@@ -28,6 +28,7 @@ fn generate_if_chain<'ctx>(
                     state.dict_vars,
                     state.bool_list_vars,
                     state.bigint_vars,
+                    state.var_types,
                     stmt,
                 )?;
             }
@@ -81,6 +82,7 @@ fn generate_if_chain<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }
@@ -144,6 +146,7 @@ pub fn generate_if<'ctx>(
             state.dict_vars,
             state.bool_list_vars,
             state.bigint_vars,
+            state.var_types,
             stmt,
         )?;
     }

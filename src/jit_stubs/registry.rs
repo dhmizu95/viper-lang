@@ -414,6 +414,48 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             vp_bigint_pow_stub as *const () as usize,
         );
     }
+    if let Some(func) = module.get_function("vp_bigint_powmod") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_powmod_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_sqrt") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_sqrt_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_gcd") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_gcd_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_lcm") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_lcm_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_factorial") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_factorial_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_comb") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_comb_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_bigint_perm") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_perm_stub as *const () as usize,
+        );
+    }
     if let Some(func) = module.get_function("vp_bigint_neg") {
         execution_engine.add_global_mapping(
             &func.as_global_value(),
@@ -2376,7 +2418,7 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
     }
     if let Some(func) = module.get_function("vp_bigint_from_i64_temp") {
         execution_engine
-            .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_from_i64_temp as *const () as usize);
+            .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_from_i64_temp_stub as *const () as usize);
     }
     // Note: vp_bigint_to_str is already registered with vp_bigint_to_str_stub above (line 465-469)
     // The stub is required for JIT to properly handle the returned string pointer
@@ -2386,7 +2428,7 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
     }
     if let Some(func) = module.get_function("vp_bigint_add") {
         execution_engine
-            .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_add as *const () as usize);
+            .add_global_mapping(&func.as_global_value(), super::bigint::vp_bigint_add_stub as *const () as usize);
     }
     if let Some(func) = module.get_function("vp_bigint_sub") {
         execution_engine
