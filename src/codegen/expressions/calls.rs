@@ -261,6 +261,99 @@ pub fn generate_call<'ctx>(
             return Ok(result.unwrap());
         }
 
+        // Iteration builtins
+        if name == "enumerate" {
+            return generate_enumerate_call(state, args);
+        }
+        if name == "zip" {
+            return generate_zip_call(state, args);
+        }
+
+        // Functional builtins
+        if name == "sum" {
+            return generate_sum_call(state, args);
+        }
+        if name == "min" {
+            return generate_min_call(state, args);
+        }
+        if name == "max" {
+            return generate_max_call(state, args);
+        }
+        if name == "any" {
+            return generate_any_call(state, args);
+        }
+        if name == "all" {
+            return generate_all_call(state, args);
+        }
+
+        // Numeric builtins
+        if name == "round" {
+            return generate_round_call(state, args);
+        }
+        if name == "divmod" {
+            return generate_divmod_call(state, args);
+        }
+        if name == "pow" {
+            return generate_pow_call(state, args);
+        }
+
+        // Introspection builtins
+        if name == "type" {
+            return generate_type_call(state, args);
+        }
+        if name == "id" {
+            return generate_id_call(state, args);
+        }
+        if name == "repr" {
+            return generate_repr_call(state, args);
+        }
+
+        // Attribute builtins
+        if name == "hasattr" {
+            return generate_hasattr_call(state, args);
+        }
+        if name == "getattr" {
+            return generate_getattr_call(state, args);
+        }
+        if name == "setattr" {
+            return generate_setattr_call(state, args);
+        }
+        if name == "delattr" {
+            return generate_delattr_call(state, args);
+        }
+
+        // Conversion builtins
+        if name == "bin" {
+            return generate_bin_call(state, args);
+        }
+        if name == "oct" {
+            return generate_oct_call(state, args);
+        }
+        if name == "hex" {
+            return generate_hex_call(state, args);
+        }
+        if name == "chr" {
+            return generate_chr_call(state, args);
+        }
+        if name == "ord" {
+            return generate_ord_call(state, args);
+        }
+
+        // I/O builtins
+        if name == "input" {
+            return generate_input_call(state, args);
+        }
+
+        // Advanced builtins
+        if name == "callable" {
+            return generate_callable_call(state, args);
+        }
+
+        // dict() constructor
+        if name == "dict" {
+            return generate_dict_call(state, args);
+        }
+
         // Check for user-defined functions with overload resolution
         // Infer argument types, using var_types for identifiers when available
         let arg_types: Vec<Type> = args.iter().map(|a| {
@@ -1879,3 +1972,622 @@ pub fn generate_isinstance_check<'ctx>(
     
     Ok(result.into())
 }
+
+/* ============================================ */
+/* Iteration Builtins                           */
+/* ============================================ */
+
+/// Generate enumerate() call
+pub fn generate_enumerate_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("enumerate() requires at least 1 argument".to_string());
+    }
+    
+    let iterable_val = generate_expr(state, &args[0])?;
+    let start = if args.len() > 1 {
+        generate_expr(state, &args[1])?.into_int_value()
+    } else {
+        state.ir_builder.i64_const(0)
+    };
+    
+    let func = state
+        .module
+        .get_function("vp_enumerate")
+        .ok_or_else(|| "vp_enumerate not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[iterable_val.into(), start.into()], "enumerate_result");
+    Ok(result.unwrap())
+}
+
+/// Generate zip() call
+pub fn generate_zip_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() < 2 {
+        return Err("zip() requires at least 2 arguments".to_string());
+    }
+    
+    let iter1_val = generate_expr(state, &args[0])?;
+    let iter2_val = generate_expr(state, &args[1])?;
+    
+    let func = state
+        .module
+        .get_function("vp_zip")
+        .ok_or_else(|| "vp_zip not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[iter1_val.into(), iter2_val.into()], "zip_result");
+    Ok(result.unwrap())
+}
+
+/* ============================================ */
+/* Functional Builtins                          */
+/* ============================================ */
+
+/// Generate sum() call
+pub fn generate_sum_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("sum() requires at least 1 argument".to_string());
+    }
+    
+    let iterable_val = generate_expr(state, &args[0])?;
+    
+    // Use i64 sum for now
+    let func = state
+        .module
+        .get_function("vp_list_sum")
+        .ok_or_else(|| "vp_list_sum not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[iterable_val.into()], "sum_result");
+    Ok(result.unwrap())
+}
+
+/// Generate min() call
+pub fn generate_min_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("min() requires at least 1 argument".to_string());
+    }
+    
+    let iterable_val = generate_expr(state, &args[0])?;
+    
+    let func = state
+        .module
+        .get_function("vp_list_min")
+        .ok_or_else(|| "vp_list_min not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[iterable_val.into()], "min_result");
+    Ok(result.unwrap())
+}
+
+/// Generate max() call
+pub fn generate_max_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("max() requires at least 1 argument".to_string());
+    }
+    
+    let iterable_val = generate_expr(state, &args[0])?;
+    
+    let func = state
+        .module
+        .get_function("vp_list_max")
+        .ok_or_else(|| "vp_list_max not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[iterable_val.into()], "max_result");
+    Ok(result.unwrap())
+}
+
+/// Generate any() call
+pub fn generate_any_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("any() requires at least 1 argument".to_string());
+    }
+    
+    let iterable_val = generate_expr(state, &args[0])?;
+    
+    let func = state
+        .module
+        .get_function("vp_list_any")
+        .ok_or_else(|| "vp_list_any not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[iterable_val.into()], "any_result");
+    Ok(result.unwrap())
+}
+
+/// Generate all() call
+pub fn generate_all_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("all() requires at least 1 argument".to_string());
+    }
+    
+    let iterable_val = generate_expr(state, &args[0])?;
+    
+    let func = state
+        .module
+        .get_function("vp_list_all")
+        .ok_or_else(|| "vp_list_all not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[iterable_val.into()], "all_result");
+    Ok(result.unwrap())
+}
+
+/* ============================================ */
+/* Numeric Builtins                             */
+/* ============================================ */
+
+/// Generate round() call
+pub fn generate_round_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("round() requires at least 1 argument".to_string());
+    }
+    
+    let number_val = generate_expr(state, &args[0])?;
+    let ndigits = if args.len() > 1 {
+        generate_expr(state, &args[1])?.into_int_value()
+    } else {
+        state.ir_builder.i64_const(0)
+    };
+    
+    let number_float = if number_val.is_float_value() {
+        number_val.into_float_value()
+    } else {
+        state.builder.build_signed_int_to_float(
+            number_val.into_int_value(),
+            state.context.f64_type(),
+            "int_to_float",
+        ).expect("int to float")
+    };
+    
+    let func = state
+        .module
+        .get_function("vp_round_f64")
+        .ok_or_else(|| "vp_round_f64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[number_float.into(), ndigits.into()], "round_result");
+    Ok(result.unwrap())
+}
+
+/// Generate divmod() call
+pub fn generate_divmod_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 2 {
+        return Err("divmod() requires exactly 2 arguments".to_string());
+    }
+    
+    let a_val = generate_expr(state, &args[0])?.into_int_value();
+    let b_val = generate_expr(state, &args[1])?.into_int_value();
+    
+    let func = state
+        .module
+        .get_function("vp_divmod_i64")
+        .ok_or_else(|| "vp_divmod_i64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[a_val.into(), b_val.into()], "divmod_result");
+    Ok(result.unwrap())
+}
+
+/// Generate pow() call
+pub fn generate_pow_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() < 2 {
+        return Err("pow() requires at least 2 arguments".to_string());
+    }
+    
+    let base_val = generate_expr(state, &args[0])?;
+    let exp_val = generate_expr(state, &args[1])?;
+    
+    // Use float pow for now
+    let base_float = if base_val.is_float_value() {
+        base_val.into_float_value()
+    } else {
+        state.builder.build_signed_int_to_float(
+            base_val.into_int_value(),
+            state.context.f64_type(),
+            "int_to_float",
+        ).expect("int to float")
+    };
+    
+    let exp_float = if exp_val.is_float_value() {
+        exp_val.into_float_value()
+    } else {
+        state.builder.build_signed_int_to_float(
+            exp_val.into_int_value(),
+            state.context.f64_type(),
+            "int_to_float",
+        ).expect("int to float")
+    };
+    
+    let func = state
+        .module
+        .get_function("vp_pow_f64")
+        .ok_or_else(|| "vp_pow_f64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[base_float.into(), exp_float.into()], "pow_result");
+    Ok(result.unwrap())
+}
+
+/* ============================================ */
+/* Introspection Builtins                       */
+/* ============================================ */
+
+/// Generate type() call
+pub fn generate_type_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("type() requires at least 1 argument".to_string());
+    }
+    
+    let obj_val = generate_expr(state, &args[0])?;
+    
+    let func = state
+        .module
+        .get_function("vp_type_of")
+        .ok_or_else(|| "vp_type_of not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[obj_val.into()], "type_result");
+    Ok(result.unwrap())
+}
+
+/// Generate id() call
+pub fn generate_id_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("id() requires at least 1 argument".to_string());
+    }
+    
+    let obj_val = generate_expr(state, &args[0])?;
+    
+    // For non-pointer types, just return the value as-is (as identity)
+    if obj_val.is_int_value() {
+        return Ok(obj_val);
+    }
+    if obj_val.is_float_value() {
+        // Convert float bits to int
+        let float_val = obj_val.into_float_value();
+        let int_val = state.builder.build_float_to_signed_int(
+            float_val,
+            state.context.i64_type(),
+            "float_to_int_id",
+        ).expect("float to int");
+        return Ok(int_val.into());
+    }
+    
+    // For pointers, return the pointer address as int
+    let func = state
+        .module
+        .get_function("vp_object_id")
+        .ok_or_else(|| "vp_object_id not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[obj_val.into()], "id_result");
+    Ok(result.unwrap())
+}
+
+/// Generate repr() call
+pub fn generate_repr_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("repr() requires at least 1 argument".to_string());
+    }
+    
+    let obj_val = generate_expr(state, &args[0])?;
+    
+    let func_name = if obj_val.is_int_value() {
+        "vp_repr_i64"
+    } else if obj_val.is_float_value() {
+        "vp_repr_f64"
+    } else if obj_val.is_pointer_value() {
+        "vp_repr_str"
+    } else {
+        "vp_repr_i64"
+    };
+    
+    let func = state
+        .module
+        .get_function(func_name)
+        .ok_or_else(|| format!("{} not declared", func_name))?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[obj_val.into()], "repr_result");
+    Ok(result.unwrap())
+}
+
+/* ============================================ */
+/* Attribute Builtins                           */
+/* ============================================ */
+
+/// Generate hasattr() call
+pub fn generate_hasattr_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 2 {
+        return Err("hasattr() requires exactly 2 arguments".to_string());
+    }
+    
+    let obj_val = generate_expr(state, &args[0])?;
+    let name_val = generate_expr(state, &args[1])?;
+    
+    let func = state
+        .module
+        .get_function("vp_hasattr")
+        .ok_or_else(|| "vp_hasattr not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[obj_val.into(), name_val.into()], "hasattr_result");
+    Ok(result.unwrap())
+}
+
+/// Generate getattr() call - placeholder
+pub fn generate_getattr_call<'ctx>(
+    _state: &mut CodeGenState<'_, 'ctx>,
+    _args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    Err("getattr() not yet implemented".to_string())
+}
+
+/// Generate setattr() call - placeholder
+pub fn generate_setattr_call<'ctx>(
+    _state: &mut CodeGenState<'_, 'ctx>,
+    _args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    Err("setattr() not yet implemented".to_string())
+}
+
+/// Generate delattr() call - placeholder
+pub fn generate_delattr_call<'ctx>(
+    _state: &mut CodeGenState<'_, 'ctx>,
+    _args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    Err("delattr() not yet implemented".to_string())
+}
+
+/* ============================================ */
+/* Conversion Builtins                          */
+/* ============================================ */
+
+/// Generate bin() call
+pub fn generate_bin_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("bin() requires at least 1 argument".to_string());
+    }
+    
+    let num_val = generate_expr(state, &args[0])?.into_int_value();
+    
+    let func = state
+        .module
+        .get_function("vp_bin_i64")
+        .ok_or_else(|| "vp_bin_i64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[num_val.into()], "bin_result");
+    Ok(result.unwrap())
+}
+
+/// Generate oct() call
+pub fn generate_oct_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("oct() requires at least 1 argument".to_string());
+    }
+    
+    let num_val = generate_expr(state, &args[0])?.into_int_value();
+    
+    let func = state
+        .module
+        .get_function("vp_oct_i64")
+        .ok_or_else(|| "vp_oct_i64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[num_val.into()], "oct_result");
+    Ok(result.unwrap())
+}
+
+/// Generate hex() call
+pub fn generate_hex_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("hex() requires at least 1 argument".to_string());
+    }
+    
+    let num_val = generate_expr(state, &args[0])?.into_int_value();
+    
+    let func = state
+        .module
+        .get_function("vp_hex_i64")
+        .ok_or_else(|| "vp_hex_i64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[num_val.into()], "hex_result");
+    Ok(result.unwrap())
+}
+
+/// Generate chr() call
+pub fn generate_chr_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("chr() requires at least 1 argument".to_string());
+    }
+    
+    let num_val = generate_expr(state, &args[0])?.into_int_value();
+    
+    let func = state
+        .module
+        .get_function("vp_chr_i64")
+        .ok_or_else(|| "vp_chr_i64 not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[num_val.into()], "chr_result");
+    Ok(result.unwrap())
+}
+
+/// Generate ord() call
+pub fn generate_ord_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("ord() requires at least 1 argument".to_string());
+    }
+    
+    let str_val = generate_expr(state, &args[0])?;
+    
+    let func = state
+        .module
+        .get_function("vp_ord_str")
+        .ok_or_else(|| "vp_ord_str not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[str_val.into()], "ord_result");
+    Ok(result.unwrap())
+}
+
+/* ============================================ */
+/* I/O Builtins                                 */
+/* ============================================ */
+
+/// Generate input() call
+pub fn generate_input_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let prompt_val = if args.is_empty() {
+        state.ir_builder.string_const(state.module, "").into()
+    } else {
+        generate_expr(state, &args[0])?
+    };
+    
+    let func = state
+        .module
+        .get_function("vp_input")
+        .ok_or_else(|| "vp_input not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[prompt_val.into()], "input_result");
+    Ok(result.unwrap())
+}
+
+/* ============================================ */
+/* Advanced Builtins                            */
+/* ============================================ */
+
+/// Generate callable() call
+pub fn generate_callable_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err("callable() requires at least 1 argument".to_string());
+    }
+    
+    let obj_val = generate_expr(state, &args[0])?;
+    
+    let func = state
+        .module
+        .get_function("vp_is_callable")
+        .ok_or_else(|| "vp_is_callable not declared".to_string())?;
+    
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[obj_val.into()], "callable_result");
+    Ok(result.unwrap())
+}
+
+/// Generate dict() call
+pub fn generate_dict_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // dict() with no args returns empty dict
+    if args.is_empty() {
+        let func = state
+            .module
+            .get_function("vp_dict_create_empty")
+            .ok_or_else(|| "vp_dict_create_empty not declared".to_string())?;
+        let result = state
+            .ir_builder
+            .build_call(state.builder, func, &[], "empty_dict");
+        return Ok(result.unwrap());
+    }
+    
+    // For now, just return empty dict - full implementation would convert iterable
+    let func = state
+        .module
+        .get_function("vp_dict_create_empty")
+        .ok_or_else(|| "vp_dict_create_empty not declared".to_string())?;
+    let result = state
+        .ir_builder
+        .build_call(state.builder, func, &[], "dict_from_iter");
+    Ok(result.unwrap())
+}
+

@@ -339,5 +339,93 @@ pub fn declare_list_functions<'ctx>(
     let set_print_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_set_print", set_print_type, None);
 
+    // dict() builtin
+    let dict_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_dict_create_empty", dict_create_type, None);
+
+    // enumerate() - returns list of (index, value) tuples
+    let enumerate_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_enumerate", enumerate_type, None);
+
+    // zip() - returns list of paired elements
+    let zip_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_zip", zip_type, None);
+
+    // sum() - sum of list elements
+    let sum_i64_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_sum", sum_i64_type, None);
+    let sum_f64_type = f64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_sum_f64", sum_f64_type, None);
+
+    // min/max - find min/max in list
+    let min_i64_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_min", min_i64_type, None);
+    let max_i64_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_max", max_i64_type, None);
+
+    // any/all - boolean reduction
+    let any_type = bool_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_any", any_type, None);
+    let all_type = bool_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_list_all", all_type, None);
+
+    // type() - get type name as string
+    let type_of_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_type_of", type_of_type, None);
+
+    // id() - get object identity (pointer as int)
+    let id_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_object_id", id_type, None);
+
+    // repr() - get string representation
+    let repr_i64_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_repr_i64", repr_i64_type, None);
+    let repr_f64_type = ptr_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_repr_f64", repr_f64_type, None);
+    let repr_str_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_repr_str", repr_str_type, None);
+    let repr_bool_type = ptr_type.fn_type(&[bool_type.into()], false);
+    module.add_function("vp_repr_bool", repr_bool_type, None);
+
+    // bin/oct/hex - number base conversion
+    let bin_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_bin_i64", bin_type, None);
+    let oct_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_oct_i64", oct_type, None);
+    let hex_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_hex_i64", hex_type, None);
+
+    // chr/ord - character conversion
+    let chr_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_chr_i64", chr_type, None);
+    let ord_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_ord_str", ord_type, None);
+
+    // round() - round floating point
+    let round_type = f64_type.fn_type(&[f64_type.into(), i64_type.into()], false);
+    module.add_function("vp_round_f64", round_type, None);
+
+    // divmod() - division with remainder
+    let divmod_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_divmod_i64", divmod_type, None);
+
+    // pow() - power function
+    let pow_i64_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_pow_i64", pow_i64_type, None);
+    let pow_f64_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
+    module.add_function("vp_pow_f64", pow_f64_type, None);
+
+    // hasattr - check if object has attribute
+    let hasattr_type = bool_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    module.add_function("vp_hasattr", hasattr_type, None);
+
+    // callable - check if object is callable
+    let callable_type = bool_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_is_callable", callable_type, None);
+
+    // input - read from stdin
+    let input_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_input", input_type, None);
+
     Ok(())
 }

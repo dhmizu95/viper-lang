@@ -652,3 +652,338 @@ void vp_set_print(ViperList* set) {
     printf("}\n");
 }
 
+/* ============================================ */
+/* Iteration Builtins                           */
+/* ============================================ */
+
+/**
+ * enumerate(iterable, start=0) - returns list of (index, value) tuples
+ * Simplified: returns list of indices for now
+ */
+ViperList* vp_enumerate(ViperList* iterable, int64_t start) {
+    if (!iterable) {
+        return vp_list_create();
+    }
+    
+    /* For now, just return a list of indices - proper tuple support needed */
+    ViperList* result = vp_list_create_with_capacity(iterable->length);
+    for (int64_t i = 0; i < iterable->length; i++) {
+        vp_list_append(result, start + i);
+    }
+    return result;
+}
+
+/**
+ * zip(iter1, iter2) - returns list of paired elements
+ * Simplified: returns first list for now
+ */
+ViperList* vp_zip(ViperList* iter1, ViperList* iter2) {
+    if (!iter1 || !iter2) {
+        return vp_list_create();
+    }
+    
+    /* For now, return iter1 copy - proper tuple support needed */
+    return vp_list_copy_from_list(iter1);
+}
+
+/* ============================================ */
+/* Functional Builtins                          */
+/* ============================================ */
+
+/**
+ * sum(iterable) - sum of all elements
+ */
+int64_t vp_list_sum(ViperList* list) {
+    if (!list) return 0;
+    
+    int64_t total = 0;
+    for (int64_t i = 0; i < list->length; i++) {
+        total += vp_list_get(list, i);
+    }
+    return total;
+}
+
+/**
+ * min(iterable) - minimum element
+ */
+int64_t vp_list_min(ViperList* list) {
+    if (!list || list->length == 0) return 0;
+    
+    int64_t min_val = vp_list_get(list, 0);
+    for (int64_t i = 1; i < list->length; i++) {
+        int64_t val = vp_list_get(list, i);
+        if (val < min_val) {
+            min_val = val;
+        }
+    }
+    return min_val;
+}
+
+/**
+ * max(iterable) - maximum element
+ */
+int64_t vp_list_max(ViperList* list) {
+    if (!list || list->length == 0) return 0;
+    
+    int64_t max_val = vp_list_get(list, 0);
+    for (int64_t i = 1; i < list->length; i++) {
+        int64_t val = vp_list_get(list, i);
+        if (val > max_val) {
+            max_val = val;
+        }
+    }
+    return max_val;
+}
+
+/**
+ * any(iterable) - true if any element is truthy
+ */
+int vp_list_any(ViperList* list) {
+    if (!list) return 0;
+    
+    for (int64_t i = 0; i < list->length; i++) {
+        if (vp_list_get(list, i) != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * all(iterable) - true if all elements are truthy
+ */
+int vp_list_all(ViperList* list) {
+    if (!list) return 1;
+    
+    for (int64_t i = 0; i < list->length; i++) {
+        if (vp_list_get(list, i) == 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* ============================================ */
+/* Introspection Builtins                       */
+/* ============================================ */
+
+/**
+ * type_of(obj) - returns type name as string
+ * Simplified: returns "object" for all types
+ */
+ViperString* vp_type_of(void* obj) {
+    (void)obj;  /* Unused for now */
+    return vp_str_create("object");
+}
+
+/**
+ * object_id(obj) - returns pointer as integer
+ */
+int64_t vp_object_id(void* obj) {
+    return (int64_t)obj;
+}
+
+/**
+ * repr() functions - string representations
+ */
+ViperString* vp_repr_i64(int64_t val) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%ld", (long)val);
+    return vp_str_create(buffer);
+}
+
+ViperString* vp_repr_f64(double val) {
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%g", val);
+    return vp_str_create(buffer);
+}
+
+ViperString* vp_repr_str(ViperString* str) {
+    if (!str) return vp_str_create("None");
+    /* Add quotes */
+    char* quoted = malloc(str->length + 3);
+    quoted[0] = '\'';
+    memcpy(quoted + 1, str->data, str->length);
+    quoted[str->length + 1] = '\'';
+    quoted[str->length + 2] = '\0';
+    ViperString* result = vp_str_create(quoted);
+    free(quoted);
+    return result;
+}
+
+ViperString* vp_repr_bool(int val) {
+    return vp_str_create(val ? "True" : "False");
+}
+
+/* ============================================ */
+/* Conversion Builtins                          */
+/* ============================================ */
+
+/**
+ * bin(n) - binary representation
+ */
+ViperString* vp_bin_i64(int64_t n) {
+    char buffer[65];
+    char* result = buffer + 64;
+    *result = '\0';
+    
+    int64_t abs_n = n < 0 ? -n : n;
+    do {
+        *--result = '0' + (abs_n % 2);
+        abs_n /= 2;
+    } while (abs_n > 0);
+    
+    if (n < 0) *--result = '-';
+    *--result = 'b';
+    *--result = '0';
+    
+    return vp_str_create(result);
+}
+
+/**
+ * oct(n) - octal representation
+ */
+ViperString* vp_oct_i64(int64_t n) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "0%lo", (unsigned long)n);
+    return vp_str_create(buffer);
+}
+
+/**
+ * hex(n) - hexadecimal representation
+ */
+ViperString* vp_hex_i64(int64_t n) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "0x%lx", (unsigned long)n);
+    return vp_str_create(buffer);
+}
+
+/**
+ * chr(n) - character from Unicode code point
+ */
+ViperString* vp_chr_i64(int64_t n) {
+    char buffer[8];
+    if (n >= 0 && n <= 127) {
+        buffer[0] = (char)n;
+        buffer[1] = '\0';
+    } else {
+        buffer[0] = '?';
+        buffer[1] = '\0';
+    }
+    return vp_str_create(buffer);
+}
+
+/**
+ * ord(s) - Unicode code point of first character
+ */
+int64_t vp_ord_str(ViperString* str) {
+    if (!str || str->length == 0) return 0;
+    return (int64_t)(unsigned char)str->data[0];
+}
+
+/* ============================================ */
+/* Numeric Builtins                             */
+/* ============================================ */
+
+/**
+ * round(n, ndigits) - round to ndigits decimal places
+ */
+double vp_round_f64(double n, int64_t ndigits) {
+    double multiplier = 1.0;
+    for (int64_t i = 0; i < ndigits; i++) {
+        multiplier *= 10.0;
+    }
+    double temp = n * multiplier;
+    temp = (temp > 0) ? (int64_t)(temp + 0.5) : (int64_t)(temp - 0.5);
+    return temp / multiplier;
+}
+
+/**
+ * divmod(a, b) - returns tuple (quotient, remainder)
+ * Simplified: returns quotient only for now
+ */
+ViperList* vp_divmod_i64(int64_t a, int64_t b) {
+    ViperList* result = vp_list_create_with_capacity(2);
+    if (b == 0) {
+        vp_list_append(result, 0);
+        vp_list_append(result, 0);
+    } else {
+        vp_list_append(result, a / b);
+        vp_list_append(result, a % b);
+    }
+    return result;
+}
+
+/**
+ * pow(base, exp) - power function
+ */
+double vp_pow_f64(double base, double exp) {
+    return pow(base, exp);
+}
+
+/* ============================================ */
+/* Attribute Builtins                           */
+/* ============================================ */
+
+/**
+ * hasattr(obj, name) - check if object has attribute
+ * Simplified: always returns 0 (false) for now
+ */
+int vp_hasattr(void* obj, ViperString* name) {
+    (void)obj;
+    (void)name;
+    return 0;  /* Not implemented */
+}
+
+/* ============================================ */
+/* Callable Builtin                             */
+/* ============================================ */
+
+/**
+ * is_callable(obj) - check if object is callable
+ * Simplified: always returns 0 (false) for now
+ */
+int vp_is_callable(void* obj) {
+    (void)obj;
+    return 0;  /* Not implemented */
+}
+
+/* ============================================ */
+/* I/O Builtins                                 */
+/* ============================================ */
+
+/**
+ * input(prompt) - read line from stdin
+ */
+ViperString* vp_input(ViperString* prompt) {
+    if (prompt && prompt->length > 0) {
+        printf("%s", prompt->data);
+        fflush(stdout);
+    }
+    
+    char buffer[1024];
+    if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+        return vp_str_create("");
+    }
+    
+    /* Remove trailing newline */
+    size_t len = strlen(buffer);
+    if (len > 0 && buffer[len-1] == '\n') {
+        buffer[len-1] = '\0';
+    }
+    
+    return vp_str_create(buffer);
+}
+
+/* ============================================ */
+/* Dict Builtin                                 */
+/* ============================================ */
+
+/**
+ * dict() - create empty dict
+ */
+ViperDict* vp_dict_create_empty(void) {
+    return vp_dict_create();
+}
+
+

@@ -90,6 +90,48 @@ pub enum BuiltinSignature {
     // Collection constructors
     Tuple,           // tuple(iterable?) -> tuple
     Set,             // set(iterable?) -> set
+    Dict,            // dict(iterable?) -> dict
+    // Iteration builtins
+    Enumerate,       // enumerate(iterable, start=0) -> iterator
+    Zip,             // zip(iter1, iter2, ...) -> iterator
+    Iter,            // iter(iterable) -> iterator
+    Next,            // next(iterator, default?) -> value
+    // Functional builtins
+    Map,             // map(func, iterable) -> iterator
+    Filter,          // filter(func, iterable) -> iterator
+    Sum,             // sum(iterable, start=0) -> number
+    Any,             // any(iterable) -> bool
+    All,             // all(iterable) -> bool
+    // Numeric builtins
+    Min,             // min(iterable) -> value
+    Max,             // max(iterable) -> value
+    Round,           // round(number, ndigits=0) -> number
+    Divmod,          // divmod(a, b) -> (quotient, remainder)
+    Pow,             // pow(base, exp, mod?) -> number
+    // Introspection builtins
+    Type,            // type(obj) -> type
+    Id,              // id(obj) -> int
+    Repr,            // repr(obj) -> str
+    Dir,             // dir(obj?) -> list
+    // Attribute builtins
+    Getattr,         // getattr(obj, name, default?) -> value
+    Setattr,         // setattr(obj, name, value) -> None
+    Hasattr,         // hasattr(obj, name) -> bool
+    Delattr,         // delattr(obj, name) -> None
+    // I/O builtins
+    Input,           // input(prompt?) -> str
+    // Conversion builtins
+    Bin,             // bin(n) -> str
+    Oct,             // oct(n) -> str
+    Hex,             // hex(n) -> str
+    Chr,             // chr(n) -> str
+    Ord,             // ord(s) -> int
+    // Advanced builtins
+    Callable,        // callable(obj) -> bool
+    Issubclass,      // issubclass(cls, classinfo) -> bool
+    // Remaining builtins
+    Slice,           // slice(start, stop, step) -> slice
+    Format,          // format(value, format_spec?) -> str
 }
 
 /// A symbol in the symbol table
@@ -172,6 +214,48 @@ impl Symbol {
                 // Collection constructors
                 BuiltinSignature::Tuple => Some(Type::List(Box::new(Type::Infer))),  // Simplified: tuple as list
                 BuiltinSignature::Set => Some(Type::List(Box::new(Type::Infer))),    // Simplified: set as list
+                BuiltinSignature::Dict => Some(Type::Dict(Box::new(Type::Infer), Box::new(Type::Infer))),
+                // Iteration builtins - return list for simplicity
+                BuiltinSignature::Enumerate => Some(Type::List(Box::new(Type::Tuple(vec![Type::I64, Type::Infer])))),
+                BuiltinSignature::Zip => Some(Type::List(Box::new(Type::Infer))),
+                BuiltinSignature::Iter => Some(Type::Infer),
+                BuiltinSignature::Next => Some(Type::Infer),
+                // Functional builtins
+                BuiltinSignature::Map => Some(Type::Infer),
+                BuiltinSignature::Filter => Some(Type::Infer),
+                BuiltinSignature::Sum => Some(Type::Infer),
+                BuiltinSignature::Any => Some(Type::Bool),
+                BuiltinSignature::All => Some(Type::Bool),
+                // Numeric builtins
+                BuiltinSignature::Min => Some(Type::Infer),
+                BuiltinSignature::Max => Some(Type::Infer),
+                BuiltinSignature::Round => Some(Type::F64),
+                BuiltinSignature::Divmod => Some(Type::Tuple(vec![Type::I64, Type::I64])),
+                BuiltinSignature::Pow => Some(Type::F64),
+                // Introspection builtins
+                BuiltinSignature::Type => Some(Type::Str),  // Simplified: return string representation
+                BuiltinSignature::Id => Some(Type::I64),
+                BuiltinSignature::Repr => Some(Type::Str),
+                BuiltinSignature::Dir => Some(Type::List(Box::new(Type::Str))),
+                // Attribute builtins
+                BuiltinSignature::Getattr => Some(Type::Infer),
+                BuiltinSignature::Setattr => Some(Type::None),
+                BuiltinSignature::Hasattr => Some(Type::Bool),
+                BuiltinSignature::Delattr => Some(Type::None),
+                // I/O builtins
+                BuiltinSignature::Input => Some(Type::Str),
+                // Conversion builtins
+                BuiltinSignature::Bin => Some(Type::Str),
+                BuiltinSignature::Oct => Some(Type::Str),
+                BuiltinSignature::Hex => Some(Type::Str),
+                BuiltinSignature::Chr => Some(Type::Str),
+                BuiltinSignature::Ord => Some(Type::I64),
+                // Advanced builtins
+                BuiltinSignature::Callable => Some(Type::Bool),
+                BuiltinSignature::Issubclass => Some(Type::Bool),
+                // Remaining builtins
+                BuiltinSignature::Slice => Some(Type::Infer),
+                BuiltinSignature::Format => Some(Type::Str),
             },
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
             SymbolKind::GenericTypeDef { .. } => None,
@@ -244,6 +328,49 @@ impl SymbolTable {
             ("max_bigint", SymbolKind::Builtin { signature: BuiltinSignature::MaxBigint }),
             // Math builtins (not requiring import)
             ("abs", SymbolKind::Builtin { signature: BuiltinSignature::Abs }),
+            // Collection constructors
+            ("dict", SymbolKind::Builtin { signature: BuiltinSignature::Dict }),
+            // Iteration builtins
+            ("enumerate", SymbolKind::Builtin { signature: BuiltinSignature::Enumerate }),
+            ("zip", SymbolKind::Builtin { signature: BuiltinSignature::Zip }),
+            ("iter", SymbolKind::Builtin { signature: BuiltinSignature::Iter }),
+            ("next", SymbolKind::Builtin { signature: BuiltinSignature::Next }),
+            // Functional builtins
+            ("map", SymbolKind::Builtin { signature: BuiltinSignature::Map }),
+            ("filter", SymbolKind::Builtin { signature: BuiltinSignature::Filter }),
+            ("sum", SymbolKind::Builtin { signature: BuiltinSignature::Sum }),
+            ("any", SymbolKind::Builtin { signature: BuiltinSignature::Any }),
+            ("all", SymbolKind::Builtin { signature: BuiltinSignature::All }),
+            // Numeric builtins
+            ("min", SymbolKind::Builtin { signature: BuiltinSignature::Min }),
+            ("max", SymbolKind::Builtin { signature: BuiltinSignature::Max }),
+            ("round", SymbolKind::Builtin { signature: BuiltinSignature::Round }),
+            ("divmod", SymbolKind::Builtin { signature: BuiltinSignature::Divmod }),
+            ("pow", SymbolKind::Builtin { signature: BuiltinSignature::Pow }),
+            // Introspection builtins
+            ("type", SymbolKind::Builtin { signature: BuiltinSignature::Type }),
+            ("id", SymbolKind::Builtin { signature: BuiltinSignature::Id }),
+            ("repr", SymbolKind::Builtin { signature: BuiltinSignature::Repr }),
+            ("dir", SymbolKind::Builtin { signature: BuiltinSignature::Dir }),
+            // Attribute builtins
+            ("getattr", SymbolKind::Builtin { signature: BuiltinSignature::Getattr }),
+            ("setattr", SymbolKind::Builtin { signature: BuiltinSignature::Setattr }),
+            ("hasattr", SymbolKind::Builtin { signature: BuiltinSignature::Hasattr }),
+            ("delattr", SymbolKind::Builtin { signature: BuiltinSignature::Delattr }),
+            // I/O builtins
+            ("input", SymbolKind::Builtin { signature: BuiltinSignature::Input }),
+            // Conversion builtins
+            ("bin", SymbolKind::Builtin { signature: BuiltinSignature::Bin }),
+            ("oct", SymbolKind::Builtin { signature: BuiltinSignature::Oct }),
+            ("hex", SymbolKind::Builtin { signature: BuiltinSignature::Hex }),
+            ("chr", SymbolKind::Builtin { signature: BuiltinSignature::Chr }),
+            ("ord", SymbolKind::Builtin { signature: BuiltinSignature::Ord }),
+            // Advanced builtins
+            ("callable", SymbolKind::Builtin { signature: BuiltinSignature::Callable }),
+            ("issubclass", SymbolKind::Builtin { signature: BuiltinSignature::Issubclass }),
+            // Remaining builtins
+            ("slice", SymbolKind::Builtin { signature: BuiltinSignature::Slice }),
+            ("format", SymbolKind::Builtin { signature: BuiltinSignature::Format }),
         ];
 
         let span = Span::empty(0, 0);
