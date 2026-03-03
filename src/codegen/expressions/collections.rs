@@ -447,7 +447,8 @@ pub fn generate_index<'ctx>(
 
     // Handle tuple indexing
     // Tuples are now heap-allocated ViperTuple* pointers
-    let is_tuple_type = obj_val.is_pointer_value() && match obj {
+    // Check the AST type annotation, not just the LLVM value type
+    let is_tuple_type = match obj {
         Expr::Ident(name, _) => {
             // Check if the variable type is a tuple
             if let Some(var_type) = state.var_types.get(name) {
@@ -460,7 +461,7 @@ pub fn generate_index<'ctx>(
         _ => false,
     };
 
-    if is_tuple_type {
+    if is_tuple_type && obj_val.is_pointer_value() {
         // Use runtime function vp_tuple_get(tuple: ViperTuple*, index: i64) -> i64
         let tuple_get_func = state
             .module
@@ -512,7 +513,20 @@ pub fn generate_index<'ctx>(
     }
 
     // Dynamic tuple index - use runtime function
-    if obj_val.is_pointer_value() && matches!(obj, Expr::Tuple { .. } | Expr::Ident(_, _)) {
+    // Only for actual tuple types, not lists
+    let is_tuple_var = match obj {
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, crate::ast::Type::Tuple(_))
+            } else {
+                false
+            }
+        },
+        Expr::Tuple { .. } => true,
+        _ => false,
+    };
+    
+    if obj_val.is_pointer_value() && is_tuple_var {
         let tuple_get_func = state
             .module
             .get_function("vp_tuple_get")
