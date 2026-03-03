@@ -1,5 +1,359 @@
 # Compact Dictionary Implementation Plan
 
+## 🚀 Critical Optimization: String Interning
+
+**Problem**: Without interning, every dict lookup requires `strcmp()` - character-by-character comparison.
+
+**Solution**: String interning makes key comparison a **single pointer comparison** - same speed as integer comparison.
+
+### How It Works
+
+```
+String Literal in Code          Global String Pool
+     "user_id"  ─────────────►  [0x1000] { hash: 0xABCD, len: 7, data: "user_id" }
+     "user_id"  ─────────────►  (returns same 0x1000 pointer - deduplicated!)
+     "email"    ─────────────►  [0x2000] { hash: 0x1234, len: 5, data: "email" }
+```
+
+### Tagged Pointer Scheme for ViperValue
+
+```
+LSB Bits  Type
+  00      BigInt (GMP) / Raw i64 (tagged int)
+  01      Interned String (heap pointer)
+  10      Dictionary / Array
+  11      User Class Instance
+```
+
+### Fast Dict Lookup with Interned Strings
+
+```c
+ViperValue vp_compact_dict_get(CompactDict* dict, ViperValue key) {
+    uint64_t hash = get_hash_from_value(key);  // Fast: read struct field
+    uint32_t idx = hash & (dict->index_size - 1);
+
+    while (dict->index_map[idx] != INDEX_EMPTY) {
+        CompactDictEntry* entry = &dict->entries[dict->index_map[idx]];
+        
+        // THE SPEED WIN: Single pointer comparison!
+        if (entry->key.data.as_ptr == key.data.as_ptr) {
+            return entry->value;
+        }
+        idx = (idx + 1) & (dict->index_size - 1);
+    }
+    return VIPER_NONE;
+}
+```
+
+**Benefits:**
+- ✅ **Deduplication**: "user_id" 1000× → stored once
+- ✅ **O(1) key comparison**: Pointer compare vs `strcmp()`
+- ✅ **ARC synergy**: Interned strings have `ref_count = -1` (immortal, no free)
+
+---
+
+## 🧵 String Interning Implementation
+
+### ViperString Structure
+
+```c
+/* runtime/include/viper_string.h */
+
+typedef struct {
+    int64_t ref_count;      /* -1 = immortal (interned literal) */
+    uint64_t hash;          /* Pre-computed hash for dict lookups */
+    int64_t length;         /* String length */
+    char data[];            /* Flexible array member */
+} ViperString;
+```
+
+### Global String Pool
+
+```c
+/* runtime/strings/intern_pool.c */
+
+#include <pthread.h>
+
+#define STRING_POOL_CAPACITY 65536
+
+typedef struct {
+    ViperString** strings;          /* Array of string pointers */
+    uint64_t* hashes;               /* Parallel hash array */
+    size_t count;                   /* Current string count */
+    size_t capacity;                /* Pool capacity */
+    pthread_mutex_t lock;           /* Thread-safe */
+} StringPool;
+
+/* Global singleton pool */
+static StringPool global_pool = {0};
+static pthread_mutex_t pool_init_lock = PTHREAD_MUTEX_INITIALIZER;
+
+void vp_string_pool_init(void) {
+    pthread_mutex_lock(&pool_init_lock);
+    if (global_pool.strings == NULL) {
+        global_pool.capacity = STRING_POOL_CAPACITY;
+        global_pool.strings = calloc(global_pool.capacity, sizeof(ViperString*));
+        global_pool.hashes = calloc(global_pool.capacity, sizeof(uint64_t));
+        global_pool.count = 0;
+        pthread_mutex_init(&global_pool.lock, NULL);
+    }
+    pthread_mutex_unlock(&pool_init_lock);
+}
+
+/* FNV-1a hash for strings */
+static inline uint64_t fnv1a_hash(const char* str, size_t len) {
+    uint64_t hash = 14695981039346656037ULL;
+    for (size_t i = 0; i < len; i++) {
+        hash ^= (uint8_t)str[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+/* Lookup existing string in pool */
+static ViperString* pool_lookup(const char* str, size_t len, uint64_t hash) {
+    for (size_t i = 0; i < global_pool.count; i++) {
+        if (global_pool.hashes[i] != hash) continue;
+        
+        ViperString* existing = global_pool.strings[i];
+        if (existing->length != len) continue;
+        if (memcmp(existing->data, str, len) == 0) {
+            return existing;  /* Found! */
+        }
+    }
+    return NULL;
+}
+
+/* Intern a string - returns canonical pointer */
+ViperString* vp_string_intern(const char* str, size_t len) {
+    if (!str) return NULL;
+    
+    uint64_t hash = fnv1a_hash(str, len);
+    
+    pthread_mutex_lock(&global_pool.lock);
+    
+    /* Check if already interned */
+    ViperString* existing = pool_lookup(str, len, hash);
+    if (existing) {
+        pthread_mutex_unlock(&global_pool.lock);
+        return existing;
+    }
+    
+    /* Allocate new interned string */
+    ViperString* new_str = malloc(sizeof(ViperString) + len + 1);
+    new_str->ref_count = -1;  /* Immortal - never freed */
+    new_str->hash = hash;
+    new_str->length = len;
+    memcpy(new_str->data, str, len);
+    new_str->data[len] = '\0';
+    
+    /* Add to pool */
+    if (global_pool.count >= global_pool.capacity) {
+        /* Grow pool */
+        global_pool.capacity *= 2;
+        global_pool.strings = realloc(global_pool.strings, 
+                                       global_pool.capacity * sizeof(ViperString*));
+        global_pool.hashes = realloc(global_pool.hashes,
+                                      global_pool.capacity * sizeof(uint64_t));
+    }
+    
+    global_pool.strings[global_pool.count] = new_str;
+    global_pool.hashes[global_pool.count] = hash;
+    global_pool.count++;
+    
+    pthread_mutex_unlock(&global_pool.lock);
+    return new_str;
+}
+
+/* Convenience function for C strings */
+ViperString* vp_string_intern_cstr(const char* str) {
+    return vp_string_intern(str, strlen(str));
+}
+
+/* Get hash from interned string */
+static inline uint64_t vp_string_get_hash(ViperString* s) {
+    return s ? s->hash : 0;
+}
+
+/* Compare two interned strings - O(1) pointer comparison! */
+static inline bool vp_string_equals(ViperString* a, ViperString* b) {
+    return a == b;  /* Same pointer = same string */
+}
+```
+
+### Rust Codegen: Emitting Interned Strings
+
+```rust
+// src/codegen/literals.rs
+
+use inkwell::values::{BasicValue, PointerValue};
+
+pub struct StringConstants<'ctx> {
+    constants: HashMap<String, PointerValue<'ctx>>,
+}
+
+impl<'ctx> CodeGenerator<'ctx> {
+    /// Emit a string literal - returns interned, tagged pointer
+    pub fn emit_string_literal(&self, value: &str) -> Result<PointerValue<'ctx>, String> {
+        // Check if we already emitted this string in this module
+        if let Some(&global) = self.string_constants.get(value) {
+            return Ok(global);
+        }
+
+        // Create ViperString struct type if not exists
+        let viper_string_type = self.get_or_create_viper_string_type();
+        
+        // Create global constant for the string data
+        let string_data = self.context.const_string(value.as_bytes(), true);
+        let string_data_ptr = self.builder.build_global_string_ptr(value, "str_data");
+        
+        // Compute hash at compile time (FNV-1a)
+        let hash = fnv1a_hash_compile_time(value);
+        
+        // Build ViperString struct:
+        // { ref_count: -1, hash: u64, length: i64, data: [N x i8] }
+        let ref_count = self.context.i64_type().const_int(-1i64 as u64, true);  // Immortal
+        let hash_val = self.context.i64_type().const_int(hash, false);
+        let length = self.context.i64_type().const_int(value.len() as u64, false);
+        
+        let viper_string = self.builder.build_struct(
+            viper_string_type,
+            &[ref_count.into(), hash_val.into(), length.into(), string_data_ptr.as_basic_value()],
+            "viper_str",
+        );
+        
+        // Create global variable for the ViperString
+        let global = self.module.add_global(viper_string_type, None, "vip_str");
+        global.set_initializer(&viper_string);
+        global.set_constant(true);
+        global.set_thread_local_mode(Some(inkwell::module::ThreadLocalMode::GeneralDynamicTLSModel));
+        
+        // Tag the pointer: LSB = 01 for interned string
+        let ptr_as_int = self.builder.build_ptr_to_int(global, self.context.i64_type(), "ptr_int");
+        let tag = self.context.i64_type().const_int(0b01, false);  // Interned string tag
+        let tagged = self.builder.build_or(ptr_as_int, tag, "tagged_str");
+        
+        self.string_constants.insert(value.to_string(), global);
+        
+        Ok(global)
+    }
+    
+    /// Compile-time FNV-1a hash (const fn in Rust)
+    fn fnv1a_hash_compile_time(&self, str: &str) -> u64 {
+        const FNV_OFFSET: u64 = 14695981039346656037;
+        const FNV_PRIME: u64 = 1099511628211;
+        
+        let mut hash = FNV_OFFSET;
+        for byte in str.as_bytes() {
+            hash ^= *byte as u64;
+            hash = hash.wrapping_mul(FNV_PRIME);
+        }
+        hash
+    }
+}
+```
+
+### Updated ViperValue with String Tag
+
+```c
+/* runtime/include/viper_types.h */
+
+/* Type tags encoded in LSB of ViperValue */
+typedef enum {
+    VIPER_TAG_RAW_I64    = 0b00,  /* Small integer (tagged pointer) */
+    VIPER_TAG_INTERNED_STR = 0b01, /* Interned string pointer */
+    VIPER_TAG_HEAP_OBJ   = 0b10,  /* Dict, List, BigInt */
+    VIPER_TAG_CLASS_INST = 0b11,  /* User class instance */
+} ViperTag;
+
+/* Extract tag from ViperValue */
+static inline ViperTag vp_value_get_tag(ViperValue val) {
+    return (ViperTag)(val.data.as_ptr & 0b11);
+}
+
+/* Check if value is an interned string */
+static inline bool vp_value_is_interned_str(ViperValue val) {
+    return vp_value_get_tag(val) == VIPER_TAG_INTERNED_STR;
+}
+
+/* Get ViperString from tagged value */
+static inline ViperString* vp_value_to_viper_string(ViperValue val) {
+    if (vp_value_is_interned_str(val)) {
+        return (ViperString*)(val.data.as_ptr & ~0b11);  /* Clear tag bits */
+    }
+    return NULL;
+}
+
+/* Create ViperValue from interned string */
+static inline ViperValue vp_value_from_viper_string(ViperString* s) {
+    ViperValue val;
+    val.type = VIPER_TYPE_STR;  /* For switch statements */
+    val.data.as_ptr = (void*)((uintptr_t)s | VIPER_TAG_INTERNED_STR);
+    val._reserved = 0;
+    return val;
+}
+```
+
+### Updated Hash Function for Interned Strings
+
+```c
+/* Now hash extraction is O(1) - just read the pre-computed field! */
+static inline uint64_t vp_compact_dict_hash(ViperValue key) {
+    if (vp_value_is_interned_str(key)) {
+        ViperString* s = vp_value_to_viper_string(key);
+        return s->hash;  /* Pre-computed, O(1)! */
+    }
+    
+    /* Fallback for non-interned keys */
+    switch (key.type) {
+        case VIPER_TYPE_I64:
+            return fnv1a_hash_bytes((const uint8_t*)&key.data.as_i64, 8);
+        case VIPER_TYPE_F64:
+            return fnv1a_hash_bytes((const uint8_t*)&key.data.as_f64, 8);
+        /* ... other types ... */
+        default:
+            return 0;
+    }
+}
+```
+
+### Updated Key Comparison - O(1) Pointer Compare
+
+```c
+/* Value equality check - optimized for interned strings */
+static inline bool vp_values_equal(ViperValue a, ViperValue b) {
+    /* Fast path: both are interned strings */
+    if (vp_value_is_interned_str(a) && vp_value_is_interned_str(b)) {
+        return a.data.as_ptr == b.data.as_ptr;  /* Pointer comparison! */
+    }
+    
+    /* Fast path: both are raw i64 */
+    if (vp_value_get_tag(a) == VIPER_TAG_RAW_I64 && 
+        vp_value_get_tag(b) == VIPER_TAG_RAW_I64) {
+        return a.data.as_i64 == b.data.as_i64;
+    }
+    
+    /* Slow path: type-specific comparison */
+    if (a.type != b.type) return false;
+    
+    switch (a.type) {
+        case VIPER_TYPE_I64: return a.data.as_i64 == b.data.as_i64;
+        case VIPER_TYPE_F64: return a.data.as_f64 == b.data.as_f64;
+        case VIPER_TYPE_BOOL: return a.data.as_bool == b.data.as_bool;
+        case VIPER_TYPE_STR: {
+            /* Both are strings - check if interned first */
+            ViperString* sa = vp_value_to_viper_string(a);
+            ViperString* sb = vp_value_to_viper_string(b);
+            if (sa && sb) return sa == sb;  /* Interned: pointer compare */
+            return strcmp(a.data.as_str, b.data.as_str) == 0;  /* Non-interned: strcmp */
+        }
+        default: return false;
+    }
+}
+```
+
+---
+
 ## 📊 Analysis: Current vs. Compact Dict
 
 ### Current Implementation (Chaining with Separate Chaining)
@@ -545,15 +899,24 @@ void vp_compact_dict_iter_free(CompactDictIter* iter) {
 
 | Week | Tasks | Deliverable |
 |------|-------|-------------|
-| 1 | 1, 2, 7 | `viper_types.h` updated, hash function ready |
-| 2 | 3, 4, 5 | Core ops + resize + vacuum working |
-| 3 | 6, 8, 9 | Iteration + LLVM bindings + JIT |
-| 4 | 10, 11 | Tests + benchmarks |
+| 1 | 0.1-0.5 | String interning infrastructure complete |
+| 2 | 1, 2, 7 | `viper_types.h` updated, hash function ready |
+| 3 | 3, 4, 5 | Core ops + resize + vacuum working |
+| 4 | 6, 8, 9 | Iteration + LLVM bindings + JIT |
+| 5 | 10, 11 | Tests + benchmarks |
 
 ---
 
 ## ✅ Task List
 
+### String Interning (Prerequisite)
+- [ ] **Task 0.1**: Create `viper_string.h` with ViperString struct
+- [ ] **Task 0.2**: Implement global string pool (`intern_pool.c`)
+- [ ] **Task 0.3**: Add string interning to Rust codegen (`literals.rs`)
+- [ ] **Task 0.4**: Update `viper_types.h` with string tag enums
+- [ ] **Task 0.5**: Implement `vp_values_equal()` with fast path for interned strings
+
+### Compact Dictionary Core
 - [ ] **Task 1**: Design CompactDict with dynamic index width (uint8_t/uint16_t/uint32_t)
 - [ ] **Task 2**: Implement hash function with ViperValue key support (tagged pointers)
 - [ ] **Task 3**: Implement CompactDict core operations (create, set, get, contains)
@@ -594,26 +957,54 @@ void vp_compact_dict_iter_free(CompactDictIter* iter) {
 
 ## 📈 Expected Performance Gains
 
-| Metric | Current | Compact Dict | Improvement |
-|--------|---------|--------------|-------------|
-| Memory per entry | ~64 bytes | ~48 bytes | **25% reduction** |
-| Lookup (cache hits) | 2-3 | 1-2 | **33% faster** |
-| Iteration speed | O(n) with gaps | O(n) linear | **5-10x faster** |
-| Insertion order | ❌ | ✅ | Python compatible |
-| Type support | Strings only | All types | More flexible |
+| Metric | Current | Compact Dict | Compact + Interning | Improvement |
+|--------|---------|--------------|---------------------|-------------|
+| Memory per entry | ~64 bytes | ~48 bytes | ~48 bytes | **25% reduction** |
+| String key lookup | O(n) `strcmp()` | O(n) `strcmp()` | **O(1) pointer compare** | **10-100x faster** |
+| String hash | O(n) compute | O(n) compute | **O(1) pre-computed** | **Instant** |
+| Lookup (cache hits) | 2-3 | 1-2 | 1-2 | **33% faster** |
+| Iteration speed | O(n) with gaps | O(n) linear | O(n) linear | **5-10x faster** |
+| String memory | N × len | N × len | **1 × len (dedup)** | **90%+ savings** |
+| Insertion order | ❌ | ✅ | ✅ | Python compatible |
+| Type support | Strings only | All types | All types | More flexible |
+
+### String Interning Impact Example
+
+```
+Code: 1000 dict lookups with "user_id" key
+
+Without Interning:
+  - 1000 × hash("user_id") = 1000 × 7 char iterations
+  - 1000 × strcmp("user_id", key) = up to 7000 char comparisons
+  Total: ~14,000 operations
+
+With Interning:
+  - Hash: Pre-computed at compile time = 0 operations
+  - Comparison: Single pointer compare = 1 operation
+  Total: ~1,000 operations (14x faster!)
+
+Memory Savings:
+  - "user_id" appears 1000× in code
+  - Without: 1000 × 8 bytes = 8000 bytes
+  - With: 1 × 8 bytes = 8 bytes (99.9% savings!)
+```
 
 ---
 
 ## 🔬 Future Optimizations
 
 1. **SIMD Lookup**: Use SIMD to check 8-16 index slots in parallel
-2. **String Interning**: Deduplicate string keys across dicts
-3. **Small Dict Optimization**: Embed entries in header for dicts < 4 entries
-4. **Robin Hood Hashing**: Track PSL for more predictable lookups
-5. **SWAR Techniques**: Use word-level parallelism for tombstone detection
+2. **Small Dict Optimization**: Embed entries in header for dicts < 4 entries
+3. **Robin Hood Hashing**: Track PSL for more predictable lookups
+4. **SWAR Techniques**: Use word-level parallelism for tombstone detection
+5. **Thread-Local String Pools**: Per-thread pools to reduce lock contention
+6. **String Pool Serialization**: Dump/load interned strings for faster startup
+7. **Adaptive Index Width**: Grow/shrink width dynamically based on occupancy
+8. **Vectorized Rehashing**: SIMD-accelerated rehash during resize
 
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Created:** 2026-03-04  
+**Updated:** 2026-03-04 (Added String Interning)  
 **Status:** Ready for implementation
