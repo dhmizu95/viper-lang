@@ -40,6 +40,8 @@ pub struct CodeGen<'ctx> {
     current_function: Option<String>,
     current_class: Option<String>,  // Current class context for super() and methods
     in_classmethod: bool,  // True when generating code for a @classmethod
+    /// Module name for __name__ builtin
+    module_name: String,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -72,6 +74,7 @@ impl<'ctx> CodeGen<'ctx> {
             current_function: None,
             current_class: None,
             in_classmethod: false,
+            module_name: module_name.to_string(),
         }
     }
 
@@ -88,6 +91,10 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Declare runtime functions first
         crate::codegen::runtime::declare_runtime_functions(self.context, &self.module)?;
+
+        // Generate __name__ builtin constant
+        // For the main module, use "__main__"; for imported modules, use the module name
+        self.generate_name_builtin()?;
 
         // Note: Closure cell runtime is generated on-demand when nested functions with nonlocal are used
         // For now, we skip generating it to avoid linking issues with simple programs
@@ -236,12 +243,14 @@ impl<'ctx> CodeGen<'ctx> {
                 let nonlocal_vars: Vec<String> = closure_info
                     .map(|info| info.nonlocal_vars.iter().cloned().collect())
                     .unwrap_or_default();
-                
+
                 // Compute mangled name including closure info
+                // Rename user's main to __user_main to match declaration
+                let func_name = if name == "main" { "__user_main" } else { name };
                 use crate::codegen::functions::infer_param_types_from_body;
                 let param_types = infer_param_types_from_body(params, body);
-                let mangled_name = mangle_function_name_with_closure(name, &param_types, &nonlocal_vars);
-                self.define_function(&mangled_name, name, params, return_type, body, &nonlocal_vars)?;
+                let mangled_name = mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
+                self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
             }
         }
         // Second pass: define nested functions in compound statements
@@ -470,16 +479,36 @@ impl<'ctx> CodeGen<'ctx> {
     fn generate_main_with_statements(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         let main_type = self.context.i64_type().fn_type(&[], false);
 
-        let has_user_main = self.functions.contains_key("main");
+        // Check if user defined main and save it
+        let user_main_func = self.functions.remove("main");
+        let _has_user_main = user_main_func.is_some();
 
-        // Generate viper_init function for top-level statements
+        // Generate viper_init function that only initializes __name__
         let init_type = self.context.void_type().fn_type(&[], false);
         let init_func = self.module.add_function("viper_init", init_type, None);
         let init_entry = self.context.append_basic_block(init_func, "entry");
         self.builder.position_at_end(init_entry);
 
-        // Generate top-level statements into init
-        // For top-level code, use a pseudo-function name
+        // Initialize __name__ builtin
+        self.initialize_name_builtin()?;
+
+        // viper_init only initializes __name__, no module-level statements
+        self.ir_builder.build_return(&self.builder, None);
+
+        // Generate wrapper main function
+        let wrapper_main = self.module.add_function("main", main_type, None);
+        let entry = self.context.append_basic_block(wrapper_main, "entry");
+        self.builder.position_at_end(entry);
+        
+        // Call viper_init first
+        let _ = self.builder.build_call(init_func, &[], "call_init");
+        
+        // Add user's main back to functions map as __user_main so calls to main() are redirected
+        if let Some(user_main) = user_main_func {
+            self.functions.insert("__user_main".to_string(), user_main);
+        }
+        
+        // Generate module-level statements (calls to main() will be redirected to __user_main)
         for stmt in stmts {
             crate::codegen::statements::generate_stmt_with_escape(
                 self.context,
@@ -501,23 +530,12 @@ impl<'ctx> CodeGen<'ctx> {
                 None,  // No class context for module-level code
             )?;
         }
-
+        
         // Generate ARC cleanup for module-level variables
         self.generate_arc_cleanup("__module_level__");
 
-        self.ir_builder.build_return(&self.builder, None);
-
-        // If user didn't define main, we define it
-        if !has_user_main {
-            let main_func = self.module.add_function("main", main_type, None);
-            let entry = self.context.append_basic_block(main_func, "entry");
-            self.builder.position_at_end(entry);
-
-            // Call viper_init
-            let _ = self.builder.build_call(init_func, &[], "call_init");
-
-            self.ir_builder.build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
-        }
+        // Return 0 (module-level code is responsible for calling main() if needed)
+        self.ir_builder.build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
 
         Ok(())
     }
@@ -532,14 +550,17 @@ impl<'ctx> CodeGen<'ctx> {
                     let nonlocal_vars: Vec<String> = closure_info
                         .map(|info| info.nonlocal_vars.iter().cloned().collect())
                         .unwrap_or_default();
-                    
+
+                    // Rename user's main to __user_main so we can wrap it
+                    let func_name = if name == "main" { "__user_main" } else { name };
+
                     // Declare with closure cell parameters
                     crate::codegen::functions::declare_function_with_closure(
                         self.context,
                         &mut self.module,
                         &self.type_mapper,
                         &mut self.functions,
-                        name,
+                        func_name,
                         params,
                         return_type,
                         Some(body),
@@ -911,6 +932,58 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Restore previous class context
         self.current_class = saved_class;
+        
+        Ok(())
+    }
+
+    /// Generate __name__ builtin constant
+    /// For the main module, use "__main__"; for imported modules, use the module name
+    fn generate_name_builtin(&mut self) -> Result<(), String> {
+        // Create a global pointer variable for __name__ (will be initialized in viper_init)
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let global = self.module.add_global(ptr_type, None, "__name__");
+        global.set_constant(false);
+        global.set_initializer(&ptr_type.const_null());
+        global.set_unnamed_addr(false);
+        
+        // Store the pointer type for correct loading later
+        self.var_types.insert("__name__".to_string(), crate::ast::Type::Str);
+        
+        // Store in global_constants for lookup
+        self.global_constants.insert("__name__".to_string(), global);
+        
+        Ok(())
+    }
+
+    /// Initialize __name__ builtin in viper_init
+    fn initialize_name_builtin(&mut self) -> Result<(), String> {
+        // For the main module, use "__main__" as the name
+        // This allows if __name__ == "__main__" to work correctly
+        let name_value = "__main__";
+        
+        // Create string constant for __name__
+        let str_val = self.ir_builder.string_const(&self.module, name_value);
+        let create_func = self
+            .module
+            .get_function("vp_str_create")
+            .ok_or_else(|| "vp_str_create not declared".to_string())?;
+        
+        let result = self
+            .ir_builder
+            .build_call(
+                &mut self.builder,
+                create_func,
+                &[str_val.into()],
+                "__name__",
+            )
+            .ok_or_else(|| "Failed to create __name__ string".to_string())?;
+        
+        // Store the result in the __name__ global
+        if let Some(global) = self.global_constants.get("__name__") {
+            self.builder
+                .build_store(global.as_pointer_value(), result)
+                .map_err(|e| format!("Failed to store __name__: {:?}", e))?;
+        }
         
         Ok(())
     }
