@@ -695,6 +695,19 @@ pub fn generate_slice<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let obj_val = generate_expr(state, obj)?;
 
+    // Check if this is a string
+    let is_string = match obj {
+        Expr::Ident(obj_name, _) => {
+            if let Some(var_type) = state.var_types.get(obj_name) {
+                matches!(var_type, crate::ast::Type::Str)
+            } else {
+                false
+            }
+        },
+        Expr::Str(_, _) => true,
+        _ => false,
+    };
+
     // Check if this is a bool list (bit vector)
     let is_bool_list = match obj {
         Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
@@ -709,22 +722,55 @@ pub fn generate_slice<'ctx>(
         state.ir_builder.i64_const(0).into()
     };
 
-    // Generate end value (default to list length)
+    // Generate end value (default to length)
     let end_val = if let Some(end_expr) = end {
         generate_expr(state, end_expr)?
     } else {
-        // Need to get list length
-        let list_len = state
+        // Need to get length based on type
+        if is_string {
+            let str_len = state
+                .module
+                .get_function("vp_str_len")
+                .ok_or_else(|| "vp_str_len not declared".to_string())?;
+
+            let result = state
+                .ir_builder
+                .build_call(state.builder, str_len, &[obj_val.into()], "str_len")
+                .ok_or_else(|| "build call failed".to_string())?;
+            result
+        } else {
+            let list_len = state
+                .module
+                .get_function("vp_list_len")
+                .ok_or_else(|| "vp_list_len not declared".to_string())?;
+
+            let result = state
+                .ir_builder
+                .build_call(state.builder, list_len, &[obj_val.into()], "list_len")
+                .ok_or_else(|| "build call failed".to_string())?;
+            result
+        }
+    };
+
+    // For strings, use vp_str_slice (doesn't support step)
+    if is_string {
+        let str_slice = state
             .module
-            .get_function("vp_list_len")
-            .ok_or_else(|| "vp_list_len not declared".to_string())?;
+            .get_function("vp_str_slice")
+            .ok_or_else(|| "vp_str_slice not declared".to_string())?;
 
         let result = state
             .ir_builder
-            .build_call(state.builder, list_len, &[obj_val.into()], "list_len")
+            .build_call(
+                state.builder,
+                str_slice,
+                &[obj_val.into(), start_val.into(), end_val.into()],
+                "str_slice",
+            )
             .ok_or_else(|| "build call failed".to_string())?;
-        result
-    };
+
+        return Ok(result);
+    }
 
     // Generate step value (default to 1)
     let step_val = if let Some(step_expr) = step {

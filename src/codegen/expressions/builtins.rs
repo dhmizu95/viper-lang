@@ -100,9 +100,23 @@ pub fn generate_print_call<'ctx>(
                 Expr::BigInt(_, _) => true,
                 Expr::Call { func, .. } => {
                     // Check if calling a known BigInt function or if result is a pointer
-                    if let Expr::Ident(func_name, _) = func.as_ref() {
+                    // Method calls are represented as Call { func: Attribute { obj, attr }, args }
+                    let method_name = if let Expr::Attribute { attr, .. } = func.as_ref() {
+                        Some(attr.as_str())
+                    } else if let Expr::Ident(func_name, _) = func.as_ref() {
+                        Some(func_name.as_str())
+                    } else {
+                        None
+                    };
+                    
+                    if let Some(func_name) = method_name {
                         // str_bigint() and int_bigint() return non-BigInt types
                         if func_name == "str_bigint" || func_name == "int_bigint" {
+                            false
+                        // String methods return strings, not BigInts
+                        } else if func_name == "upper" || func_name == "lower" || func_name == "strip"
+                            || func_name == "capitalize" || func_name == "title" || func_name == "swapcase"
+                            || func_name == "replace" || func_name == "split" || func_name == "join" {
                             false
                         } else {
                             func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" || func_name == "pow_bigint"

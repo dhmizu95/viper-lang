@@ -60,6 +60,9 @@ pub fn declare_print_functions<'ctx>(
     let str_lower_type = ptr_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_str_lower", str_lower_type, None);
 
+    let str_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_str_slice", str_slice_type, None);
+
     let str_split_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_split", str_split_type, None);
 
