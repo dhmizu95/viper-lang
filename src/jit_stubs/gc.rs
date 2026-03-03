@@ -1,4 +1,6 @@
 // GC module stubs for JIT
+// Note: Viper uses ARC (Automatic Reference Counting) for memory management
+// These GC functions are stubs for compatibility and statistics only
 
 pub extern "C" fn vp_gc_collect() {
     // In ARC system, this is a no-op
