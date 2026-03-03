@@ -188,6 +188,40 @@ VIPER_ALWAYS_INLINE void* vp_object_data_inline(ViperObject* obj) {
 }
 
 /* ============================================ */
+/* Tuple (fixed-size heterogeneous collection)  */
+/* ============================================ */
+
+/* ViperTuple - Heap-allocated tuple with tagged values
+ * Layout: Header (24 bytes) + elements (8 bytes each)
+ * Total: 24 + (size * 8) bytes
+ */
+typedef struct ViperTuple {
+    int64_t ref_count;    /* 0:  Reference count for ARC */
+    int64_t size;         /* 8:  Number of elements */
+    int64_t* elements;    /* 16: Array of ViperValue (tagged i64 values) */
+    uint64_t _reserved;   /* 24: Padding for alignment */
+} ViperTuple;             /* Total: 32 bytes header + elements */
+
+/* Inline tuple accessors for LLVM optimization */
+VIPER_ALWAYS_INLINE int64_t vp_tuple_len_inline(ViperTuple* tuple) {
+    return tuple ? tuple->size : 0;
+}
+
+VIPER_ALWAYS_INLINE int64_t vp_tuple_get_inline(ViperTuple* tuple, int64_t index) {
+    if (VIPER_UNLIKELY(!tuple || index < 0 || index >= tuple->size)) {
+        return 0;
+    }
+    return tuple->elements[index];
+}
+
+VIPER_ALWAYS_INLINE void vp_tuple_set_inline(ViperTuple* tuple, int64_t index, int64_t value) {
+    if (VIPER_UNLIKELY(!tuple || index < 0 || index >= tuple->size)) {
+        return;
+    }
+    tuple->elements[index] = value;
+}
+
+/* ============================================ */
 /* Bounds Check Macros for Release Mode         */
 /* ============================================ */
 

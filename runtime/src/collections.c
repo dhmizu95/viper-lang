@@ -396,63 +396,242 @@ void vp_default_dict_set(ViperDefaultDict* dd, const char* key, int64_t value) {
 }
 
 /* ============================================ */
-/* NamedTuple (Simple struct-like container)    */
+/* Tuple (fixed-size heterogeneous collection)  */
 /* ============================================ */
 
-typedef struct ViperNamedTuple {
-    ViperDict* fields;
-    ViperList* values;
-    int64_t size;
-} ViperNamedTuple;
-
-ViperNamedTuple* vp_named_tuple_create(int64_t size) {
-    ViperNamedTuple* nt = (ViperNamedTuple*)vp_arc_alloc(sizeof(ViperNamedTuple));
-    if (nt) {
-        nt->fields = vp_dict_create();
-        nt->values = vp_list_create();
-        nt->size = size;
-        
-        /* Pre-allocate values */
+/**
+ * vp_tuple_create - Create a new tuple with given size
+ * @size: Number of elements in the tuple
+ * 
+ * Returns: Pointer to newly created ViperTuple, or NULL on failure
+ * 
+ * Memory layout:
+ *   - ViperTuple header (32 bytes): ref_count, size, elements pointer
+ *   - elements array (size * 8 bytes): tagged i64 values
+ */
+ViperTuple* vp_tuple_create(int64_t size) {
+    if (size < 0) return NULL;
+    
+    // Allocate tuple header
+    ViperTuple* tuple = (ViperTuple*)vp_arc_alloc(sizeof(ViperTuple));
+    if (!tuple) return NULL;
+    
+    tuple->ref_count = 1;
+    tuple->size = size;
+    
+    // Allocate elements array if size > 0
+    if (size > 0) {
+        tuple->elements = (int64_t*)vp_arc_alloc(size * sizeof(int64_t));
+        if (!tuple->elements) {
+            vp_arc_release(tuple);
+            return NULL;
+        }
+        // Initialize elements to 0
         for (int64_t i = 0; i < size; i++) {
-            vp_list_append(nt->values, 0);
+            tuple->elements[i] = 0;
+        }
+    } else {
+        tuple->elements = NULL;
+    }
+    
+    return tuple;
+}
+
+/**
+ * vp_tuple_free - Free a tuple and its elements
+ * @tuple: Tuple to free
+ */
+void vp_tuple_free(ViperTuple* tuple) {
+    if (!tuple) return;
+    
+    // Free elements array if present
+    if (tuple->elements) {
+        vp_arc_release(tuple->elements);
+        tuple->elements = NULL;
+    }
+    
+    // Free the tuple header
+    vp_arc_release(tuple);
+}
+
+/**
+ * vp_tuple_get - Get element at index from tuple
+ * @tuple: Tuple to access
+ * @index: Index of element (supports negative indices)
+ * 
+ * Returns: Element value (tagged i64), or 0 on error
+ */
+int64_t vp_tuple_get(ViperTuple* tuple, int64_t index) {
+    if (!tuple) return 0;
+    
+    // Handle negative indices
+    if (index < 0) {
+        index = tuple->size + index;
+    }
+    
+    if (index < 0 || index >= tuple->size) {
+        return 0;
+    }
+    return tuple->elements[index];
+}
+
+/**
+ * vp_tuple_set - Set element at index in tuple
+ * @tuple: Tuple to modify
+ * @index: Index of element
+ * @value: Value to set (tagged i64)
+ */
+void vp_tuple_set(ViperTuple* tuple, int64_t index, int64_t value) {
+    if (!tuple || index < 0 || index >= tuple->size) {
+        return;
+    }
+    tuple->elements[index] = value;
+}
+
+/**
+ * vp_tuple_len - Get length of tuple
+ * @tuple: Tuple to query
+ * 
+ * Returns: Number of elements in tuple
+ */
+int64_t vp_tuple_len(ViperTuple* tuple) {
+    return tuple ? tuple->size : 0;
+}
+
+/**
+ * vp_tuple_hash - Compute hash of tuple
+ * @tuple: Tuple to hash
+ * 
+ * Returns: Hash value (FNV-1a variant)
+ * 
+ * Note: Only works for tuples with hashable elements
+ * (integers, floats, bools, strings, bytes, and other hashable tuples)
+ */
+int64_t vp_tuple_hash(ViperTuple* tuple) {
+    if (!tuple) return 0;
+    
+    // FNV-1a hash parameters
+    const uint64_t FNV_OFFSET = 14695981039346656037ULL;
+    const uint64_t FNV_PRIME = 1099511628211ULL;
+    
+    uint64_t hash = FNV_OFFSET;
+    
+    // Include size in hash
+    for (size_t i = 0; i < sizeof(int64_t); i++) {
+        hash ^= (tuple->size >> (i * 8)) & 0xFF;
+        hash *= FNV_PRIME;
+    }
+    
+    // Include elements in hash
+    for (int64_t i = 0; i < tuple->size; i++) {
+        int64_t elem = tuple->elements[i];
+        for (size_t j = 0; j < sizeof(int64_t); j++) {
+            hash ^= (elem >> (j * 8)) & 0xFF;
+            hash *= FNV_PRIME;
         }
     }
-    return nt;
+    
+    return (int64_t)hash;
 }
 
-void vp_named_tuple_free(ViperNamedTuple* nt) {
-    if (!nt) return;
+/**
+ * vp_tuple_slice - Create a slice of a tuple
+ * @tuple: Source tuple
+ * @start: Start index (supports negative)
+ * @end: End index (supports negative, exclusive)
+ * 
+ * Returns: New tuple containing sliced elements, or NULL on error
+ */
+ViperTuple* vp_tuple_slice(ViperTuple* tuple, int64_t start, int64_t end) {
+    if (!tuple) return NULL;
     
-    if (nt->fields) {
-        vp_dict_free(nt->fields);
+    int64_t size = tuple->size;
+    
+    // Handle negative indices
+    if (start < 0) start = size + start;
+    if (end < 0) end = size + end;
+    
+    // Clamp to valid range
+    if (start < 0) start = 0;
+    if (end > size) end = size;
+    if (start > end) start = end;
+    
+    int64_t new_size = end - start;
+    ViperTuple* result = vp_tuple_create(new_size);
+    if (!result) return NULL;
+    
+    // Copy elements
+    for (int64_t i = 0; i < new_size; i++) {
+        result->elements[i] = tuple->elements[start + i];
     }
-    if (nt->values) {
-        vp_list_free(nt->values);
+    
+    return result;
+}
+
+/**
+ * vp_tuple_concat - Concatenate two tuples
+ * @a: First tuple
+ * @b: Second tuple
+ * 
+ * Returns: New tuple containing all elements from both tuples
+ */
+ViperTuple* vp_tuple_concat(ViperTuple* a, ViperTuple* b) {
+    if (!a && !b) return vp_tuple_create(0);
+    if (!a) return a;  // Return b, but caller needs to handle ref counting
+    if (!b) return b;
+    
+    int64_t new_size = a->size + b->size;
+    ViperTuple* result = vp_tuple_create(new_size);
+    if (!result) return NULL;
+    
+    // Copy elements from first tuple
+    for (int64_t i = 0; i < a->size; i++) {
+        result->elements[i] = a->elements[i];
     }
-    vp_arc_release(nt);
-}
-
-void vp_named_tuple_set_field(ViperNamedTuple* nt, int64_t index, const char* name) {
-    if (!nt || index < 0 || index >= nt->size || !name) return;
     
-    vp_dict_set_str_i64(nt->fields, (void*)name, index);
-}
-
-void vp_named_tuple_set_value(ViperNamedTuple* nt, int64_t index, int64_t value) {
-    if (!nt || index < 0 || index >= nt->size) return;
+    // Copy elements from second tuple
+    for (int64_t i = 0; i < b->size; i++) {
+        result->elements[a->size + i] = b->elements[i];
+    }
     
-    /* Simplified: would need proper list set implementation */
-    (void)value;
+    return result;
 }
 
-int64_t vp_named_tuple_get_value(ViperNamedTuple* nt, int64_t index) {
-    if (!nt || index < 0 || index >= nt->size) return 0;
-
-    return 0; /* Simplified */
+/**
+ * vp_tuple_count - Count occurrences of value in tuple
+ * @tuple: Tuple to search
+ * @value: Value to count
+ * 
+ * Returns: Number of times value appears in tuple
+ */
+int64_t vp_tuple_count(ViperTuple* tuple, int64_t value) {
+    if (!tuple) return 0;
+    
+    int64_t count = 0;
+    for (int64_t i = 0; i < tuple->size; i++) {
+        if (tuple->elements[i] == value) {
+            count++;
+        }
+    }
+    return count;
 }
 
-int64_t vp_named_tuple_len(ViperNamedTuple* nt) {
-    return nt ? nt->size : 0;
+/**
+ * vp_tuple_index - Find first index of value in tuple
+ * @tuple: Tuple to search
+ * @value: Value to find
+ * 
+ * Returns: Index of first occurrence, or -1 if not found
+ */
+int64_t vp_tuple_index(ViperTuple* tuple, int64_t value) {
+    if (!tuple) return -1;
+    
+    for (int64_t i = 0; i < tuple->size; i++) {
+        if (tuple->elements[i] == value) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 /* ============================================ */
@@ -504,28 +683,30 @@ ViperList* vp_list_copy_from_list(ViperList* src) {
 
 /**
  * tuple() builtin - create tuple from iterable
- * For now, returns a list (tuple implementation is simplified)
+ * Currently handles: tuple() -> empty tuple, tuple(list) -> convert list to tuple
  */
-ViperList* vp_tuple_from_iterable(void* iterable) {
+ViperTuple* vp_tuple_from_iterable(void* iterable) {
     if (!iterable) {
-        return vp_list_create();
+        return vp_tuple_create(0);
     }
-    /* Simplified: just return a list for now */
-    return vp_list_create();
+    /* Simplified: just return empty tuple for now */
+    /* Full implementation would handle various iterable types */
+    return vp_tuple_create(0);
 }
 
 /**
  * tuple() from list - convert list to tuple
- * For now, just returns a copy of the list
  */
-ViperList* vp_tuple_from_list(ViperList* src) {
+ViperTuple* vp_tuple_from_list(ViperList* src) {
     if (!src) {
-        return vp_list_create();
+        return vp_tuple_create(0);
     }
+
+    ViperTuple* tuple = vp_tuple_create(src->length);
+    if (!tuple) return NULL;
     
-    ViperList* tuple = vp_list_create_with_capacity(src->length);
     for (int64_t i = 0; i < src->length; i++) {
-        vp_list_append(tuple, vp_list_get(src, i));
+        tuple->elements[i] = vp_list_get(src, i);
     }
     return tuple;
 }
@@ -533,14 +714,16 @@ ViperList* vp_tuple_from_list(ViperList* src) {
 /**
  * tuple() from string - create tuple of character codes
  */
-ViperList* vp_tuple_from_str(ViperString* str) {
+ViperTuple* vp_tuple_from_str(ViperString* str) {
     if (!str) {
-        return vp_list_create();
+        return vp_tuple_create(0);
     }
     
-    ViperList* tuple = vp_list_create_with_capacity(str->length);
+    ViperTuple* tuple = vp_tuple_create(str->length);
+    if (!tuple) return NULL;
+    
     for (int64_t i = 0; i < str->length; i++) {
-        vp_list_append(tuple, (int64_t)str->data[i]);
+        tuple->elements[i] = (int64_t)str->data[i];
     }
     return tuple;
 }
@@ -548,8 +731,18 @@ ViperList* vp_tuple_from_str(ViperString* str) {
 /**
  * tuple() copy - create shallow copy of tuple
  */
-ViperList* vp_tuple_copy(ViperList* src) {
-    return vp_tuple_from_list(src);
+ViperTuple* vp_tuple_copy(ViperTuple* src) {
+    if (!src) {
+        return vp_tuple_create(0);
+    }
+    
+    ViperTuple* copy = vp_tuple_create(src->size);
+    if (!copy) return NULL;
+    
+    for (int64_t i = 0; i < src->size; i++) {
+        copy->elements[i] = src->elements[i];
+    }
+    return copy;
 }
 
 /**

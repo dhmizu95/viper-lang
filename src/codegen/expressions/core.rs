@@ -2,9 +2,8 @@
 
 use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
-use crate::codegen::types::TypeMapper;
 use crate::codegen::variables::{VarStorage, VarType};
-use inkwell::values::{BasicValue, BasicValueEnum};
+use inkwell::values::BasicValueEnum;
 use crate::codegen::expressions::builtins::*;
 use crate::codegen::expressions::calls::*;
 use crate::codegen::expressions::collections::*;
@@ -15,33 +14,81 @@ pub fn generate_tuple<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    if elements.is_empty() {
-        return Ok(state.ir_builder.i64_const(0).into());
+    // Use runtime function to create heap-allocated tuple
+    let tuple_create_func = state
+        .module
+        .get_function("vp_tuple_create")
+        .ok_or_else(|| "vp_tuple_create not declared".to_string())?;
+
+    // Create tuple with the right size
+    let size_val = state.ir_builder.i64_const(elements.len() as i64);
+    let tuple_val = state
+        .ir_builder
+        .build_call(state.builder, tuple_create_func, &[size_val.into()], "new_tuple")
+        .ok_or_else(|| "Failed to create tuple".to_string())?;
+
+    // If tuple has elements, set them
+    if !elements.is_empty() {
+        let tuple_set_func = state
+            .module
+            .get_function("vp_tuple_set")
+            .ok_or_else(|| "vp_tuple_set not declared".to_string())?;
+
+        for (idx, elem) in elements.iter().enumerate() {
+            let elem_val = generate_expr(state, elem)?;
+            let index_val = state.ir_builder.i64_const(idx as i64);
+            
+            // Ensure element is i64 for storage in tuple
+            let elem_i64 = if elem_val.is_int_value() {
+                let int_val = elem_val.into_int_value();
+                let int_type = int_val.get_type();
+                // Extend smaller int types to i64
+                if int_type.get_bit_width() != 64 {
+                    state
+                        .builder
+                        .build_int_z_extend(int_val, state.context.i64_type(), "extend_to_i64")
+                        .map_err(|e| format!("Failed to extend int to i64: {:?}", e))?
+                } else {
+                    int_val
+                }
+            } else if elem_val.is_float_value() {
+                // Bitcast f64 to i64 for storage (tagged value)
+                state
+                    .builder
+                    .build_float_to_signed_int(elem_val.into_float_value(), state.context.i64_type(), "f64_to_i64")
+                    .map_err(|e| format!("Failed to convert float to i64: {:?}", e))?
+            } else if elem_val.is_pointer_value() {
+                // Pointer types (str, list, etc.) are already i64-compatible
+                state
+                    .builder
+                    .build_ptr_to_int(elem_val.into_pointer_value(), state.context.i64_type(), "ptr_to_i64")
+                    .map_err(|e| format!("Failed to convert ptr to i64: {:?}", e))?
+            } else {
+                // Check if it's a bool (i1 type)
+                let ty = elem_val.get_type();
+                if ty.is_int_type() && ty.into_int_type().get_bit_width() == 1 {
+                    // Bool (i1) needs to be zero-extended to i64
+                    state
+                        .builder
+                        .build_int_z_extend(elem_val.into_int_value(), state.context.i64_type(), "bool_to_i64")
+                        .map_err(|e| format!("Failed to extend bool to i64: {:?}", e))?
+                } else {
+                    return Err(format!("Unsupported tuple element type: {:?}", ty));
+                }
+            };
+
+            let _ = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    tuple_set_func,
+                    &[tuple_val.into(), index_val.into(), elem_i64.into()],
+                    &format!("tuple_set_{}", idx),
+                );
+        }
     }
 
-    let element_values: Result<Vec<BasicValueEnum<'ctx>>, String> =
-        elements.iter().map(|e| generate_expr(state, e)).collect();
-
-    let element_values = element_values?;
-
-    let type_mapper = TypeMapper::new(state.context);
-    let tuple_type =
-        type_mapper.llvm_type(&Type::Tuple(elements.iter().map(infer_expr_type).collect()));
-
-    let struct_type = tuple_type.into_struct_type();
-
-    // Create the struct value directly using const_struct
-    let struct_val: BasicValueEnum<'ctx> = state.context.const_struct(&element_values.iter().map(|v| {
-        if v.is_int_value() {
-            v.into_int_value().as_basic_value_enum()
-        } else if v.is_float_value() {
-            v.into_float_value().as_basic_value_enum()
-        } else {
-            v.as_basic_value_enum()
-        }
-    }).collect::<Vec<_>>(), false).as_basic_value_enum();
-
-    Ok(struct_val)
+    Ok(tuple_val)
 }
 
 pub fn infer_expr_type(expr: &Expr) -> Type {
@@ -207,68 +254,90 @@ pub fn generate_expr<'ctx>(
                     }
                     VarStorage::Stack(alloca) => {
                         // Stack-allocated variable: load from alloca
-                        match var_info.var_type {
-                            VarType::Float => {
-                                let f64_type = state.context.f64_type();
-                                Ok(state.builder.build_load(f64_type, *alloca, name).expect("load"))
-                            }
-                            VarType::Pointer | VarType::Bytes => {
-                                let ptr_type =
-                                    state.context.ptr_type(inkwell::AddressSpace::default());
-                                Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load"))
-                            }
-                            VarType::Bool => {
-                                let bool_type = state.context.bool_type();
-                                Ok(state
-                                    .builder
-                                    .build_load(bool_type, *alloca, name)
-                                    .expect("load"))
-                            }
-                            VarType::Int => {
-                                let i64_type = state.context.i64_type();
-                                Ok(state.builder.build_load(i64_type, *alloca, name).expect("load"))
-                            }
-                            VarType::Struct => {
-                                // For struct types (Result), use the default Result struct type
-                                let result_struct_type = state.context.struct_type(&[
-                                    state.context.i8_type().into(),
-                                    state.context.i64_type().into(),
-                                ], false);
-                                Ok(state.builder.build_load(result_struct_type, *alloca, name).expect("load struct"))
+                        // Check if this is a tuple type (heap-allocated pointer)
+                        let is_tuple = state.var_types.get(name)
+                            .map(|t| matches!(t, crate::ast::Type::Tuple(_)))
+                            .unwrap_or(false);
+                        
+                        if is_tuple {
+                            // Tuples are now heap-allocated pointers
+                            let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                            Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load tuple"))
+                        } else {
+                            match var_info.var_type {
+                                VarType::Float => {
+                                    let f64_type = state.context.f64_type();
+                                    Ok(state.builder.build_load(f64_type, *alloca, name).expect("load"))
+                                }
+                                VarType::Pointer | VarType::Bytes => {
+                                    let ptr_type =
+                                        state.context.ptr_type(inkwell::AddressSpace::default());
+                                    Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load"))
+                                }
+                                VarType::Bool => {
+                                    let bool_type = state.context.bool_type();
+                                    Ok(state
+                                        .builder
+                                        .build_load(bool_type, *alloca, name)
+                                        .expect("load"))
+                                }
+                                VarType::Int => {
+                                    let i64_type = state.context.i64_type();
+                                    Ok(state.builder.build_load(i64_type, *alloca, name).expect("load"))
+                                }
+                                VarType::Struct => {
+                                    // For struct types (Result), use the default Result struct type
+                                    let result_struct_type = state.context.struct_type(&[
+                                        state.context.i8_type().into(),
+                                        state.context.i64_type().into(),
+                                    ], false);
+                                    Ok(state.builder.build_load(result_struct_type, *alloca, name).expect("load struct"))
+                                }
                             }
                         }
                     }
                     VarStorage::ClosureCell(_) => {
                         // Closure cell: load through the cell's value pointer
                         if let Some(value_ptr) = &var_info.closure_value_ptr {
-                            match var_info.var_type {
-                                VarType::Float => {
-                                    let f64_type = state.context.f64_type();
-                                    Ok(state.builder.build_load(f64_type, *value_ptr, name).expect("load from cell"))
-                                }
-                                VarType::Pointer | VarType::Bytes => {
-                                    let ptr_type =
-                                        state.context.ptr_type(inkwell::AddressSpace::default());
-                                    Ok(state.builder.build_load(ptr_type, *value_ptr, name).expect("load from cell"))
-                                }
-                                VarType::Bool => {
-                                    let bool_type = state.context.bool_type();
-                                    Ok(state
-                                        .builder
-                                        .build_load(bool_type, *value_ptr, name)
-                                        .expect("load from cell"))
-                                }
-                                VarType::Int => {
-                                    let i64_type = state.context.i64_type();
-                                    Ok(state.builder.build_load(i64_type, *value_ptr, name).expect("load from cell"))
-                                }
-                                VarType::Struct => {
-                                    // Load struct value (e.g., Result)
-                                    let result_struct_type = state.context.struct_type(&[
-                                        state.context.i8_type().into(),
-                                        state.context.i64_type().into(),
-                                    ], false);
-                                    Ok(state.builder.build_load(result_struct_type, *value_ptr, name).expect("load from cell"))
+                            // Check if this is a tuple type (heap-allocated pointer)
+                            let is_tuple = state.var_types.get(name)
+                                .map(|t| matches!(t, crate::ast::Type::Tuple(_)))
+                                .unwrap_or(false);
+                            
+                            if is_tuple {
+                                // Tuples are now heap-allocated pointers
+                                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                                Ok(state.builder.build_load(ptr_type, *value_ptr, name).expect("load tuple from cell"))
+                            } else {
+                                match var_info.var_type {
+                                    VarType::Float => {
+                                        let f64_type = state.context.f64_type();
+                                        Ok(state.builder.build_load(f64_type, *value_ptr, name).expect("load from cell"))
+                                    }
+                                    VarType::Pointer | VarType::Bytes => {
+                                        let ptr_type =
+                                            state.context.ptr_type(inkwell::AddressSpace::default());
+                                        Ok(state.builder.build_load(ptr_type, *value_ptr, name).expect("load from cell"))
+                                    }
+                                    VarType::Bool => {
+                                        let bool_type = state.context.bool_type();
+                                        Ok(state
+                                            .builder
+                                            .build_load(bool_type, *value_ptr, name)
+                                            .expect("load from cell"))
+                                    }
+                                    VarType::Int => {
+                                        let i64_type = state.context.i64_type();
+                                        Ok(state.builder.build_load(i64_type, *value_ptr, name).expect("load from cell"))
+                                    }
+                                    VarType::Struct => {
+                                        // Load struct value (e.g., Result)
+                                        let result_struct_type = state.context.struct_type(&[
+                                            state.context.i8_type().into(),
+                                            state.context.i64_type().into(),
+                                        ], false);
+                                        Ok(state.builder.build_load(result_struct_type, *value_ptr, name).expect("load from cell"))
+                                    }
                                 }
                             }
                         } else {
