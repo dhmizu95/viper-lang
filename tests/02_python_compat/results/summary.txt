@@ -2,20 +2,20 @@
 
 Category                 | Passed  | Failed  | Total 
 ------------------------|----------|----------|--------
-01_builtin_functions     |       0 |       1 |      1
-02_collections           |       0 |       0 |      0
-03_comprehensions        |       0 |       1 |      1
-04_context_managers      |       0 |       1 |      1
-05_control_flow          |       1 |       0 |      1
-06_data_types            |       0 |       1 |      1
-07_exceptions            |       0 |       1 |      1
+01_data_types            |       0 |       1 |      1
+02_operators             |       0 |       1 |      1
+03_string_operations     |       0 |       1 |      1
+04_control_flow          |       1 |       0 |      1
+05_collections           |       0 |       0 |      0
+06_builtin_functions     |       0 |       1 |      1
+07_comprehensions        |       0 |       1 |      1
 08_functions             |       0 |       1 |      1
-09_math_library          |       0 |       1 |      1
-10_modules               |       0 |       1 |      1
-11_stdlib                |       0 |       0 |      0
-12_oop                   |       0 |       1 |      1
-13_operators             |       0 |       1 |      1
-14_string_operations     |       0 |       1 |      1
-15_type_hints            |       0 |       0 |      0
+09_type_hints            |       0 |       0 |      0
+10_exceptions            |       0 |       1 |      1
+11_modules               |       0 |       1 |      1
+12_math_library          |       0 |       1 |      1
+13_stdlib                |       0 |       0 |      0
+14_oop                   |       0 |       1 |      1
+15_context_managers      |       0 |       1 |      1
 ------------------------|----------|----------|--------
 TOTAL                    |      12 |       3 |     48
