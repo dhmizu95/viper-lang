@@ -4,7 +4,7 @@
 Test all Python features (language + stdlib) on Viper by running Viper code without modification, producing both summary and detailed reports, and continuing tests on failure.
 
 ## Configuration
-- **Test Location**: `tests/python_compat/`
+- **Test Location**: `tests/02_python_compat/`
 - **Test Runner**: `run_python_tests.sh` (new)
 - **BigInt Tests**: Must PASS (full support expected)
 

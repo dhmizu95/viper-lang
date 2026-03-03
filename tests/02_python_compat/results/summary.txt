@@ -2,6 +2,7 @@
 
 Category                 | Passed  | Failed  | Total 
 ------------------------|----------|----------|--------
+02_python_compat         |       0 |       0 |      0
 builtin_functions        |       0 |       1 |      1
 collections              |       0 |       0 |      0
 comprehensions           |       0 |       1 |      1

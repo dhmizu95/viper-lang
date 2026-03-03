@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VIPER=./target/debug/viper
-TEST_DIR=tests/python_compat
+TEST_DIR=tests/02_python_compat
 OUTPUT_DIR=$TEST_DIR/results
 SUMMARY_FILE=$OUTPUT_DIR/summary.txt
 DETAILED_FILE=$OUTPUT_DIR/detailed.json
