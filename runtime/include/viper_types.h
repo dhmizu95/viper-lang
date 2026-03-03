@@ -221,6 +221,15 @@ VIPER_ALWAYS_INLINE void vp_tuple_set_inline(ViperTuple* tuple, int64_t index, i
     tuple->elements[index] = value;
 }
 
+/* Tuple contains check */
+VIPER_ALWAYS_INLINE int64_t vp_tuple_contains_inline(ViperTuple* tuple, int64_t value) {
+    if (!tuple) return 0;
+    for (int64_t i = 0; i < tuple->size; i++) {
+        if (tuple->elements[i] == value) return 1;
+    }
+    return 0;
+}
+
 /* ============================================ */
 /* Bounds Check Macros for Release Mode         */
 /* ============================================ */

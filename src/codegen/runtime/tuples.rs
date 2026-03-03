@@ -30,6 +30,11 @@ pub fn declare_tuple_functions<'ctx>(
     let tuple_len_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_tuple_len", tuple_len_type, None);
 
+    // vp_tuple_contains(tuple: ViperTuple*, value: i64) -> i1 (bool)
+    let bool_type = context.bool_type();
+    let tuple_contains_type = bool_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_tuple_contains", tuple_contains_type, None);
+
     // vp_tuple_hash(tuple: ViperTuple*) -> i64
     let tuple_hash_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_tuple_hash", tuple_hash_type, None);

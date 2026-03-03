@@ -20,8 +20,22 @@ pub fn generate_membership_op<'ctx>(
         _ => false,
     };
 
+    let is_tuple = match right {
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, crate::ast::Type::Tuple(_))
+            } else {
+                false
+            }
+        },
+        Expr::Tuple { .. } => true,
+        _ => false,
+    };
+
     let contains_func_name = if is_dict {
         "vp_dict_contains"
+    } else if is_tuple {
+        "vp_tuple_contains"
     } else {
         "vp_list_contains"
     };

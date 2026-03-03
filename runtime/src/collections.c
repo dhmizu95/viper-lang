@@ -499,6 +499,24 @@ int64_t vp_tuple_len(ViperTuple* tuple) {
 }
 
 /**
+ * vp_tuple_contains - Check if value is in tuple
+ * @tuple: Tuple to search
+ * @value: Value to find (tagged i64)
+ *
+ * Returns: 1 if found, 0 otherwise
+ */
+int64_t vp_tuple_contains(ViperTuple* tuple, int64_t value) {
+    if (!tuple) return 0;
+    
+    for (int64_t i = 0; i < tuple->size; i++) {
+        if (tuple->elements[i] == value) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
  * vp_tuple_hash - Compute hash of tuple
  * @tuple: Tuple to hash
  * 
