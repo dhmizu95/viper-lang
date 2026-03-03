@@ -134,7 +134,7 @@ echo "=== Results: $TOTAL_PASS passed, $TOTAL_FAIL failed, $TOTAL_ERRORS errors 
     printf "%-24s | %-7s | %-7s | %-6s\n" "Category" "Passed" "Failed" "Total"
     echo "------------------------|----------|----------|--------"
     
-    for cat in $(find $TEST_DIR -maxdepth 1 -type d -not -name "python_compat" -not -name "results" | xargs -n1 basename | sort); do
+    for cat in $(find $TEST_DIR -maxdepth 1 -type d -not -name "02_python_compat" -not -name "results" | xargs -n1 basename | sort); do
         pass=${CATEGORY_PASS[$cat]:-0}
         fail=${CATEGORY_FAIL[$cat]:-0}
         total=${CATEGORY_TOTAL[$cat]:-0}
