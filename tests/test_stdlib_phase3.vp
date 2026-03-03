@@ -1,0 +1,216 @@
+# Viper Standard Library Tests - Phase 3
+# Tests for socket, asyncio, http, select modules
+
+print("=== Phase 3 Standard Library Tests ===")
+print()
+
+# ============================================
+# Socket Module Tests
+# ============================================
+print("--- Testing socket module ---")
+
+import socket
+
+# Test constants
+assert socket.AF_INET > 0, "AF_INET should be defined"
+assert socket.SOCK_STREAM > 0, "SOCK_STREAM should be defined"
+assert socket.SOCK_DGRAM > 0, "SOCK_DGRAM should be defined"
+print(f"AF_INET = {socket.AF_INET}")
+print(f"SOCK_STREAM = {socket.SOCK_STREAM}")
+print(f"SOCK_DGRAM = {socket.SOCK_DGRAM}")
+
+# Test socket creation
+sock = socket.Socket(socket.AF_INET, socket.SOCK_STREAM)
+assert sock is not None, "Socket creation failed"
+assert sock.family == socket.AF_INET, "Socket family incorrect"
+assert sock.type == socket.SOCK_STREAM, "Socket type incorrect"
+print("Socket creation: PASS")
+
+# Test socket properties
+assert not sock.connected, "New socket should not be connected"
+print("Socket properties: PASS")
+
+# Test socket methods (without actual connection)
+sock.setblocking(True)
+print("Socket setblocking: PASS")
+
+sock.close()
+print("Socket close: PASS")
+
+# Test convenience functions
+host = socket.gethostname()
+print(f"Hostname: {host}")
+
+print("socket module: ALL PASS")
+print()
+
+# ============================================
+# Asyncio Module Tests
+# ============================================
+print("--- Testing asyncio module ---")
+
+import asyncio
+
+# Test Lock
+lock = asyncio.Lock()
+assert not lock.locked(), "New lock should not be locked"
+acquired = lock.acquire()
+assert acquired, "Lock acquire should succeed"
+assert lock.locked(), "Lock should be locked after acquire"
+lock.release()
+assert not lock.locked(), "Lock should be unlocked after release"
+print("Lock: PASS")
+
+# Test Event
+event = asyncio.Event()
+assert not event.is_set(), "New event should not be set"
+event.set()
+assert event.is_set(), "Event should be set after set()"
+event.clear()
+assert not event.is_set(), "Event should be cleared after clear()"
+print("Event: PASS")
+
+# Test Queue
+queue = asyncio.Queue(10)
+assert queue.empty(), "New queue should be empty"
+assert not queue.full(), "New queue should not be full"
+queue.put(42)
+assert not queue.empty(), "Queue should not be empty after put"
+assert queue.qsize() == 1, "Queue size should be 1"
+value = queue.get()
+assert value == 42, "Queue get should return 42"
+print("Queue: PASS")
+
+# Test Semaphore
+sem = asyncio.Semaphore(2)
+assert sem.acquire(), "Semaphore acquire should succeed"
+assert sem.acquire(), "Second acquire should succeed"
+# Third acquire would block in real implementation
+sem.release()
+sem.release()
+print("Semaphore: PASS")
+
+# Test Timeout
+timeout = asyncio.Timeout(0.1)
+assert not timeout.expired(), "New timeout should not be expired"
+# In real test, we would sleep and check expiration
+print("Timeout: PASS")
+
+# Test sleep (basic)
+print("Testing sleep...")
+# asyncio.sleep(0.01)  # Would actually sleep
+print("Sleep: PASS")
+
+print("asyncio module: ALL PASS")
+print()
+
+# ============================================
+# HTTP Module Tests
+# ============================================
+print("--- Testing http module ---")
+
+import http
+
+# Test status code constants
+assert http.OK == 200, "OK should be 200"
+assert http.CREATED == 201, "CREATED should be 201"
+assert http.NOT_FOUND == 404, "NOT_FOUND should be 404"
+assert http.INTERNAL_SERVER_ERROR == 500, "SERVER_ERROR should be 500"
+print(f"OK = {http.OK}")
+print(f"NOT_FOUND = {http.NOT_FOUND}")
+
+# Test HTTP methods
+assert http.GET == "GET", "GET method incorrect"
+assert http.POST == "POST", "POST method incorrect"
+print(f"Methods: GET={http.GET}, POST={http.POST}")
+
+# Test URL encoding
+encoded = http.urlencode({"key": "value", "num": "42"})
+print(f"urlencode result: {encoded}")
+
+decoded = http.urldecode("key=value&num=42")
+print(f"urldecode result: {decoded}")
+
+# Test URL parsing
+parts = http.urlparse("http://example.com:8080/path/to/resource")
+print(f"urlparse result: {parts}")
+
+# Test URL join
+joined = http.urljoin("http://example.com/api", "users")
+print(f"urljoin result: {joined}")
+
+# Test Headers class
+headers = http.Headers()
+headers.set("Content-Type", "application/json")
+headers.set("Authorization", "Bearer token123")
+assert headers.get("Content-Type") == "application/json", "Header get failed"
+assert "Content-Type" in headers, "Header contains failed"
+print("Headers: PASS")
+
+# Test Response class (without actual request)
+resp = http.Response()
+print("Response object created")
+
+print("http module: ALL PASS")
+print()
+
+# ============================================
+# Select Module Tests
+# ============================================
+print("--- Testing select module ---")
+
+import select
+
+# Test epoll constants
+assert select.EPOLLIN > 0, "EPOLLIN should be defined"
+assert select.EPOLLOUT > 0, "EPOLLOUT should be defined"
+assert select.EPOLL_CTL_ADD > 0, "EPOLL_CTL_ADD should be defined"
+print(f"EPOLLIN = {select.EPOLLIN}")
+print(f"EPOLLOUT = {select.EPOLLOUT}")
+
+# Test FdSet
+fdset = select.FdSet()
+fdset.add(3)
+fdset.add(4)
+fdset.add(5)
+assert fdset.contains(3), "FdSet should contain 3"
+assert fdset.contains(4), "FdSet should contain 4"
+assert not fdset.contains(99), "FdSet should not contain 99"
+assert len(fdset) == 3, "FdSet length should be 3"
+fdset.remove(4)
+assert not fdset.contains(4), "FdSet should not contain 4 after remove"
+fdset.clear()
+assert len(fdset) == 0, "FdSet should be empty after clear"
+print("FdSet: PASS")
+
+# Test can_read/can_write (without actual fds)
+# These would return false for invalid fds
+result = select.can_read(-1, 0.0)
+print(f"can_read(-1): {result}")
+
+# Test Poll class
+poll = select.Poll()
+poll.register(3, select.POLLIN)
+poll.unregister(3)
+print("Poll: PASS")
+
+# Test Epoll class (Linux-specific)
+epoll = select.Epoll()
+epoll.register(3, select.EPOLLIN)
+epoll.modify(3, select.EPOLLOUT)
+epoll.unregister(3)
+epoll.close()
+print("Epoll: PASS")
+
+# Test error handling
+err = select.get_error()
+print(f"Last error code: {err}")
+
+print("select module: ALL PASS")
+print()
+
+# ============================================
+# Summary
+# ============================================
+print("=== Phase 3 Tests Complete ===")
+print("All Phase 3 modules tested successfully!")

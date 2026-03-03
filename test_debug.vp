@@ -1,0 +1,3 @@
+print("__name__ defined: ")
+print(__name__)
+print("\n")

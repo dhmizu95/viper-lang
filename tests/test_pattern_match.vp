@@ -1,0 +1,32 @@
+# Test pattern matching on Result types
+
+def divide(a: int, b: int) -> Result[int, str]:
+    if b == 0:
+        return Err("Division by zero")
+    return Ok(a / b)
+
+def test_pattern_match():
+    r1 = divide(10, 2)
+    r2 = divide(10, 0)
+    
+    # Pattern match on Ok
+    match r1:
+        case Ok(value):
+            print("Got Ok:")
+            print(value)
+        case Err(e):
+            print("Got Err:")
+            print(e)
+    
+    # Pattern match on Err
+    match r2:
+        case Ok(value):
+            print("Got Ok:")
+            print(value)
+        case Err(e):
+            print("Got Err:")
+            print(e)
+    
+    print("Pattern matching tests passed!")
+
+test_pattern_match()

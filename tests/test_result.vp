@@ -1,0 +1,36 @@
+# Test error propagation with the ? operator
+
+# A function that returns a Result type
+def divide(a: int, b: int) -> Result[int, str]:
+    if b == 0:
+        return Err("Division by zero")
+    return Ok(a / b)
+
+# A function that uses ? to propagate errors
+def compute(a: int, b: int, c: int) -> Result[int, str]:
+    # The ? operator unwraps the Result, returning early on error
+    x = divide(a, b)?
+    y = divide(x, c)?
+    return Ok(y)
+
+# Test without error propagation
+def test_ok():
+    result = compute(100, 5, 2)
+    if result.is_ok():
+        print("Success: " + str(result.unwrap()))
+    else:
+        print("Error: " + str(result.unwrap_err()))
+
+# Test with error propagation
+def test_error():
+    result = compute(100, 0, 2)  # Will fail with division by zero
+    if result.is_ok():
+        print("Success: " + str(result.unwrap()))
+    else:
+        print("Error caught: " + str(result.unwrap_err()))
+
+# Main
+print("Testing error propagation...")
+test_ok()
+test_error()
+print("Done")

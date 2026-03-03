@@ -1,0 +1,107 @@
+# Test for math module functions
+# Tests: sqrt, abs, ln, floor
+# Note: abs() is a builtin, others require import
+
+import math
+
+def test_sqrt() -> None:
+    """Test square root function"""
+    print("=== Testing sqrt ===")
+    
+    x: float = 16.0
+    result: float = math.sqrt(x)
+    print("math.sqrt(16.0):", result)
+    
+    y: float = 100.0
+    result2: float = math.sqrt(y)
+    print("math.sqrt(100.0):", result2)
+    
+    print("sqrt test passed!")
+
+def test_abs_builtin() -> None:
+    """Test absolute value function (builtin - no import needed)"""
+    print("\n=== Testing abs (builtin) ===")
+    
+    x: float = -5.0
+    result: float = abs(x)
+    print("abs(-5.0):", result)
+    
+    y: float = 3.14
+    result2: float = abs(y)
+    print("abs(3.14):", result2)
+    
+    print("abs test passed!")
+
+def test_ln() -> None:
+    """Test natural logarithm function"""
+    print("\n=== Testing ln ===")
+    
+    e_val: float = 2.718281828459045
+    result: float = math.ln(e_val)
+    print("math.ln(e):", result)
+    
+    x: float = 1.0
+    result2: float = math.ln(x)
+    print("math.ln(1.0):", result2)
+    
+    print("ln test passed!")
+
+def test_floor() -> None:
+    """Test floor function"""
+    print("\n=== Testing floor ===")
+    
+    x: float = 3.7
+    result: float = math.floor(x)
+    print("math.floor(3.7):", result)
+    
+    y: float = 3.14
+    result2: float = math.floor(y)
+    print("math.floor(3.14):", result2)
+    
+    print("floor test passed!")
+
+def test_math_expressions() -> None:
+    """Test math in expressions"""
+    print("\n=== Testing Math Expressions ===")
+    
+    # Simple operations
+    x: float = 16.0
+    sqrt_result: float = math.sqrt(x)
+    print("math.sqrt(16.0):", sqrt_result)
+    
+    # Using result in another operation
+    y: float = 100.0
+    floor_result: float = math.floor(y)
+    print("math.floor(100.0):", floor_result)
+    
+    # Test abs (builtin)
+    z: float = -2.5
+    abs_z: float = abs(z)
+    print("abs(-2.5):", abs_z)
+    
+    # In conditionals
+    w: float = 2.0
+    sqrt_w: float = math.sqrt(w)
+    one: float = 1.0
+    if sqrt_w > one:
+        print("math.sqrt(2.0) > 1.0: true")
+    
+    print("Math expressions test passed!")
+
+def main() -> None:
+    """Run all math builtin tests"""
+    print("========================================")
+    print("  Viper Math Module Test")
+    print("========================================")
+    
+    test_sqrt()
+    test_abs_builtin()
+    test_ln()
+    test_floor()
+    test_math_expressions()
+    
+    print("\n========================================")
+    print("  All math module tests completed!")
+    print("========================================")
+
+main()

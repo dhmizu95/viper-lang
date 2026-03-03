@@ -1,0 +1,17 @@
+# Test factorial loop
+
+def main():
+    print("Start")
+    result = bigint("1")
+    i = bigint("1")
+    n = bigint("10")
+    print("Before loop")
+    while i <= n:
+        print("i =")
+        print(i)
+        result = result * i
+        i = i + bigint("1")
+    print("After loop")
+    print("result =")
+    print(result)
+    print("Done")

@@ -1,0 +1,315 @@
+# BigInt Number-Theoretic Functions Test
+# Tests for: isqrt, gcd, lcm, factorial, comb, perm, pow_mod
+
+def main():
+    print("=== BigInt Number-Theoretic Functions Test ===")
+    print("")
+
+    # ============================================
+    # Test isqrt (Python-style math.isqrt)
+    # ============================================
+    print("--- Testing isqrt (Python-style) ---")
+    
+    # Test perfect squares
+    n1 = 144n
+    result1 = isqrt(n1)
+    expected1 = 12n
+    print("isqrt(144) = ")
+    print(result1)
+    print("")
+    if result1 == expected1:
+        print("PASS: isqrt(144) = 12")
+    else:
+        print("FAIL: isqrt(144)")
+    print("")
+
+    # Test non-perfect square
+    n3 = 20n
+    result3 = isqrt(n3)
+    expected3 = 4n  # floor(sqrt(20)) = 4
+    print("isqrt(20) = ")
+    print(result3)
+    print("")
+    if result3 == expected3:
+        print("PASS: isqrt(20) = 4")
+    else:
+        print("FAIL: isqrt(20)")
+    print("")
+
+    # Test large number: isqrt(10^100) = 10^50
+    n_large_str = "1" + "0" * 100
+    n_large = bigint(n_large_str)
+    result_large = isqrt(n_large)
+    expected_large_str = "1" + "0" * 50
+    expected_large = bigint(expected_large_str)
+    print("isqrt(10^100) = ")
+    print(result_large)
+    print("")
+    if result_large == expected_large:
+        print("PASS: isqrt(10^100) = 10^50")
+    else:
+        print("FAIL: isqrt(10^100)")
+    print("")
+
+    # ============================================
+    # Test gcd_bigint
+    # ============================================
+    print("--- Testing gcd_bigint ---")
+    
+    # Test simple GCD
+    a1 = 48n
+    b1 = 18n
+    result_gcd1 = gcd_bigint(a1, b1)
+    expected_gcd1 = 6n
+    print("gcd(48, 18) = ")
+    print(result_gcd1)
+    print("")
+    if result_gcd1 == expected_gcd1:
+        print("PASS: gcd(48, 18) = 6")
+    else:
+        print("FAIL: gcd(48, 18)")
+    print("")
+
+    # Test coprime numbers
+    a2 = 17n
+    b2 = 19n
+    result_gcd2 = gcd_bigint(a2, b2)
+    expected_gcd2 = 1n
+    print("gcd(17, 19) = ")
+    print(result_gcd2)
+    print("")
+    if result_gcd2 == expected_gcd2:
+        print("PASS: gcd(17, 19) = 1 (coprime)")
+    else:
+        print("FAIL: gcd(17, 19)")
+    print("")
+
+    # ============================================
+    # Test lcm_bigint
+    # ============================================
+    print("--- Testing lcm_bigint ---")
+    
+    # Test simple LCM
+    x1 = 4n
+    y1 = 6n
+    result_lcm1 = lcm_bigint(x1, y1)
+    expected_lcm1 = 12n
+    print("lcm(4, 6) = ")
+    print(result_lcm1)
+    print("")
+    if result_lcm1 == expected_lcm1:
+        print("PASS: lcm(4, 6) = 12")
+    else:
+        print("FAIL: lcm(4, 6)")
+    print("")
+
+    # Test LCM of coprime numbers
+    x2 = 3n
+    y2 = 5n
+    result_lcm2 = lcm_bigint(x2, y2)
+    expected_lcm2 = 15n
+    print("lcm(3, 5) = ")
+    print(result_lcm2)
+    print("")
+    if result_lcm2 == expected_lcm2:
+        print("PASS: lcm(3, 5) = 15")
+    else:
+        print("FAIL: lcm(3, 5)")
+    print("")
+
+    # ============================================
+    # Test factorial_bigint
+    # ============================================
+    print("--- Testing factorial_bigint ---")
+    
+    # Test 0! = 1
+    f0 = 0n
+    result_f0 = factorial_bigint(f0)
+    expected_f0 = 1n
+    print("0! = ")
+    print(result_f0)
+    print("")
+    if result_f0 == expected_f0:
+        print("PASS: 0! = 1")
+    else:
+        print("FAIL: 0!")
+    print("")
+
+    # Test 5! = 120
+    f5 = 5n
+    result_f5 = factorial_bigint(f5)
+    expected_f5 = 120n
+    print("5! = ")
+    print(result_f5)
+    print("")
+    if result_f5 == expected_f5:
+        print("PASS: 5! = 120")
+    else:
+        print("FAIL: 5!")
+    print("")
+
+    # Test 10! = 3628800
+    f10 = 10n
+    result_f10 = factorial_bigint(f10)
+    expected_f10 = 3628800n
+    print("10! = ")
+    print(result_f10)
+    print("")
+    if result_f10 == expected_f10:
+        print("PASS: 10! = 3628800")
+    else:
+        print("FAIL: 10!")
+    print("")
+
+    # ============================================
+    # Test comb_bigint (combinations)
+    # ============================================
+    print("--- Testing comb_bigint ---")
+    
+    # Test C(5, 2) = 10
+    n_c1 = 5n
+    k_c1 = 2n
+    result_c1 = comb_bigint(n_c1, k_c1)
+    expected_c1 = 10n
+    print("C(5, 2) = ")
+    print(result_c1)
+    print("")
+    if result_c1 == expected_c1:
+        print("PASS: C(5, 2) = 10")
+    else:
+        print("FAIL: C(5, 2)")
+    print("")
+
+    # Test C(10, 5) = 252
+    n_c2 = 10n
+    k_c2 = 5n
+    result_c2 = comb_bigint(n_c2, k_c2)
+    expected_c2 = 252n
+    print("C(10, 5) = ")
+    print(result_c2)
+    print("")
+    if result_c2 == expected_c2:
+        print("PASS: C(10, 5) = 252")
+    else:
+        print("FAIL: C(10, 5)")
+    print("")
+
+    # Test C(n, 0) = 1
+    n_c3 = 100n
+    k_c3 = 0n
+    result_c3 = comb_bigint(n_c3, k_c3)
+    expected_c3 = 1n
+    print("C(100, 0) = ")
+    print(result_c3)
+    print("")
+    if result_c3 == expected_c3:
+        print("PASS: C(100, 0) = 1")
+    else:
+        print("FAIL: C(100, 0)")
+    print("")
+
+    # ============================================
+    # Test perm_bigint (permutations)
+    # ============================================
+    print("--- Testing perm_bigint ---")
+    
+    # Test P(5, 3) = 60
+    n_p1 = 5n
+    k_p1 = 3n
+    result_p1 = perm_bigint(n_p1, k_p1)
+    expected_p1 = 60n
+    print("P(5, 3) = ")
+    print(result_p1)
+    print("")
+    if result_p1 == expected_p1:
+        print("PASS: P(5, 3) = 60")
+    else:
+        print("FAIL: P(5, 3)")
+    print("")
+
+    # Test P(10, 2) = 90
+    n_p2 = 10n
+    k_p2 = 2n
+    result_p2 = perm_bigint(n_p2, k_p2)
+    expected_p2 = 90n
+    print("P(10, 2) = ")
+    print(result_p2)
+    print("")
+    if result_p2 == expected_p2:
+        print("PASS: P(10, 2) = 90")
+    else:
+        print("FAIL: P(10, 2)")
+    print("")
+
+    # ============================================
+    # Test pow_mod_bigint (modular exponentiation)
+    # ============================================
+    print("--- Testing pow_mod_bigint ---")
+    
+    # Test 2^10 mod 1000 = 1024 mod 1000 = 24
+    base1 = 2n
+    exp1 = 10n
+    mod1 = 1000n
+    result_pm1 = pow_mod_bigint(base1, exp1, mod1)
+    expected_pm1 = 24n
+    print("2^10 mod 1000 = ")
+    print(result_pm1)
+    print("")
+    if result_pm1 == expected_pm1:
+        print("PASS: 2^10 mod 1000 = 24")
+    else:
+        print("FAIL: 2^10 mod 1000")
+    print("")
+
+    # ============================================
+    # Test abs_bigint, min_bigint, max_bigint
+    # ============================================
+    print("--- Testing abs_bigint, min_bigint, max_bigint ---")
+    
+    # Test abs_bigint
+    neg_num = -9876543210n
+    abs_num = abs_bigint(neg_num)
+    expected_abs = 9876543210n
+    print("abs(-9876543210) = ")
+    print(abs_num)
+    print("")
+    if abs_num == expected_abs:
+        print("PASS: abs_bigint")
+    else:
+        print("FAIL: abs_bigint")
+    print("")
+
+    # Test min_bigint
+    x_min = 100n
+    y_min = 50n
+    result_min = min_bigint(x_min, y_min)
+    expected_min = 50n
+    print("min(100, 50) = ")
+    print(result_min)
+    print("")
+    if result_min == expected_min:
+        print("PASS: min_bigint")
+    else:
+        print("FAIL: min_bigint")
+    print("")
+
+    # Test max_bigint
+    x_max = 100n
+    y_max = 50n
+    result_max = max_bigint(x_max, y_max)
+    expected_max = 100n
+    print("max(100, 50) = ")
+    print(result_max)
+    print("")
+    if result_max == expected_max:
+        print("PASS: max_bigint")
+    else:
+        print("FAIL: max_bigint")
+    print("")
+
+    # ============================================
+    # Summary
+    # ============================================
+    print("=== All Tests Complete ===")
+
+main()

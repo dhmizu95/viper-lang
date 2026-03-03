@@ -1,0 +1,268 @@
+# Viper Standard Library Tests - Phase 4
+# Tests for hashlib, decimal, logging modules
+
+print("=== Phase 4 Standard Library Tests ===")
+print()
+
+# ============================================
+# Hashlib Module Tests
+# ============================================
+print("--- Testing hashlib module ---")
+
+import hashlib
+
+# Test available algorithms
+print(f"Available algorithms: {hashlib.algorithms_available}")
+print(f"Guaranteed algorithms: {hashlib.algorithms_guaranteed}")
+
+# Test SHA256
+h = hashlib.sha256("hello")
+digest = h.hexdigest()
+print(f"SHA256('hello') = {digest}")
+assert len(digest) == 64, "SHA256 hex digest should be 64 chars"
+
+# Test MD5
+h = hashlib.md5("hello")
+digest = h.hexdigest()
+print(f"MD5('hello') = {digest}")
+assert len(digest) == 32, "MD5 hex digest should be 32 chars"
+
+# Test SHA512
+h = hashlib.sha512("hello")
+digest = h.hexdigest()
+print(f"SHA512('hello') = {digest}")
+assert len(digest) == 128, "SHA512 hex digest should be 128 chars"
+
+# Test new() function
+h = hashlib.new("sha256", "test")
+print(f"new('sha256', 'test') created")
+
+# Test hash properties
+h = hashlib.sha256()
+assert h.name == "sha256", "Hash name should be sha256"
+assert h.digest_size > 0, "Digest size should be positive"
+assert h.block_size > 0, "Block size should be positive"
+print(f"Hash properties: name={h.name}, digest_size={h.digest_size}, block_size={h.block_size}")
+
+# Test update
+h = hashlib.sha256()
+h.update("hello")
+h.update(" ")
+h.update("world")
+digest1 = h.hexdigest()
+
+h2 = hashlib.sha256("hello world")
+digest2 = h2.hexdigest()
+assert digest1 == digest2, "Incremental update should match single update"
+print("Incremental update: PASS")
+
+# Test copy
+h1 = hashlib.sha256("hello")
+h2 = h1.copy()
+h1.update(" world")
+digest1 = h1.hexdigest()
+digest2 = h2.hexdigest()
+assert digest1 != digest2, "Copied hash should be independent"
+print("Hash copy: PASS")
+
+# Test direct hash functions
+digest = hashlib.hash_sha256("test")
+print(f"hash_sha256('test') = {digest}")
+
+digest = hashlib.hash_md5("test")
+print(f"hash_md5('test') = {digest}")
+
+digest = hashlib.hash_sha512("test")
+print(f"hash_sha512('test') = {digest}")
+
+# Test HMAC
+hmac = hashlib.HMAC("secret", "message", "sha256")
+digest = hmac.hexdigest()
+print(f"HMAC-SHA256('secret', 'message') = {digest}")
+
+# Test compare_digest
+result = hashlib.compare_digest("abc", "abc")
+assert result == True, "compare_digest should return True for equal strings"
+result = hashlib.compare_digest("abc", "def")
+assert result == False, "compare_digest should return False for different strings"
+print("compare_digest: PASS")
+
+print("hashlib module: ALL PASS")
+print()
+
+# ============================================
+# Decimal Module Tests
+# ============================================
+print("--- Testing decimal module ---")
+
+from decimal import Decimal, create_decimal, getcontext
+
+# Test creation from string
+d = Decimal("3.14159")
+assert str(d) == "3.14159", "Decimal from string failed"
+print(f"Decimal('3.14159') = {d}")
+
+# Test creation from int
+d = Decimal.from_int(42)
+assert d.to_int() == 42, "Decimal from int failed"
+print(f"Decimal.from_int(42) = {d}")
+
+# Test creation from float
+d = Decimal.from_float(3.14)
+print(f"Decimal.from_float(3.14) = {d}")
+
+# Test arithmetic
+a = Decimal("10.5")
+b = Decimal("3.2")
+
+c = a + b
+print(f"{a} + {b} = {c}")
+assert c.to_float() > 13.7 and c.to_float() < 13.71, "Addition failed"
+
+c = a - b
+print(f"{a} - {b} = {c}")
+
+c = a * b
+print(f"{a} * {b} = {c}")
+
+c = a / b
+print(f"{a} / {b} = {c}")
+
+# Test negation
+c = -a
+print(f"-{a} = {c}")
+
+# Test absolute value
+neg = Decimal("-5.5")
+c = abs(neg)
+assert c.to_float() == 5.5, "abs failed"
+print(f"abs({neg}) = {c}")
+
+# Test comparison
+a = Decimal("10")
+b = Decimal("5")
+assert a > b, "10 should be > 5"
+assert a >= b, "10 should be >= 5"
+assert b < a, "5 should be < 10"
+assert b <= a, "5 should be <= 10"
+assert a == Decimal("10"), "10 should == 10"
+assert a != b, "10 should != 5"
+print("Comparisons: PASS")
+
+# Test rounding
+d = Decimal("3.14159")
+rounded = d.round(2)
+print(f"round({d}, 2) = {rounded}")
+
+floored = d.floor()
+print(f"floor({d}) = {floored}")
+
+ceiled = d.ceil()
+print(f"ceil({d}) = {ceiled}")
+
+# Test properties
+d = Decimal("0")
+assert d.is_zero(), "0 should be zero"
+print("is_zero: PASS")
+
+d = Decimal("-5")
+assert d.is_signed(), "-5 should be signed"
+print("is_signed: PASS")
+
+# Test constants
+print(f"Decimal.ZERO = {Decimal.from_str('0')}")
+print(f"Decimal.ONE = {Decimal.from_str('1')}")
+print(f"PI = {Decimal.from_str('3.141592653589793')}")
+print(f"E = {Decimal.from_str('2.718281828459045')}")
+
+# Test precision (no floating point errors)
+a = Decimal("0.1")
+b = Decimal("0.2")
+c = a + b
+print(f"0.1 + 0.2 = {c} (no floating point error!)")
+
+print("decimal module: ALL PASS")
+print()
+
+# ============================================
+# Logging Module Tests
+# ============================================
+print("--- Testing logging module ---")
+
+import logging
+
+# Test level constants
+assert logging.DEBUG == 0, "DEBUG should be 0"
+assert logging.INFO == 1, "INFO should be 1"
+assert logging.WARNING == 2, "WARNING should be 2"
+assert logging.ERROR == 3, "ERROR should be 3"
+assert logging.CRITICAL == 4, "CRITICAL should be 4"
+print(f"DEBUG={logging.DEBUG}, INFO={logging.INFO}, WARNING={logging.WARNING}")
+print(f"ERROR={logging.ERROR}, CRITICAL={logging.CRITICAL}")
+
+# Test basic config
+logging.basic_config(logging.INFO, "%(levelname)s - %(message)s")
+print("basic_config: PASS")
+
+# Test get_logger
+logger = logging.get_logger("test_logger")
+assert logger is not None, "get_logger should return logger"
+print(f"get_logger('test_logger'): {logger}")
+
+# Test logger levels
+logger.set_level(logging.DEBUG)
+assert logger.get_level() == logging.DEBUG, "Logger level should be DEBUG"
+print(f"Logger level: {logger.get_level()}")
+
+# Test enabled_for
+assert logger.enabled_for(logging.DEBUG), "Should be enabled for DEBUG"
+assert logger.enabled_for(logging.INFO), "Should be enabled for INFO"
+print("enabled_for: PASS")
+
+# Test logging methods
+logger.debug("This is a DEBUG message")
+logger.info("This is an INFO message")
+logger.warning("This is a WARNING message")
+logger.error("This is an ERROR message")
+logger.critical("This is a CRITICAL message")
+print("Logging methods: PASS")
+
+# Test convenience functions
+logging.debug("Root logger DEBUG")
+logging.info("Root logger INFO")
+logging.warning("Root logger WARNING")
+logging.error("Root logger ERROR")
+logging.critical("Root logger CRITICAL")
+print("Convenience functions: PASS")
+
+# Test LogRecord
+record = logging.LogRecord(logging.INFO, "test", "Test message")
+assert record.level == logging.INFO, "Record level incorrect"
+assert record.name == "test", "Record name incorrect"
+assert record.message == "Test message", "Record message incorrect"
+print(f"LogRecord: {record}")
+
+# Test Formatter
+formatter = logging.Formatter("%(levelname)s - %(name)s - %(message)s")
+formatted = formatter.format(record)
+print(f"Formatted: {formatted}")
+
+# Test StreamHandler
+handler = logging.StreamHandler()
+handler.set_level(logging.INFO)
+handler.set_formatter(formatter)
+print("StreamHandler: PASS")
+
+# Test Filter
+filter_obj = logging.Filter("test")
+result = filter_obj.filter(record)
+print(f"Filter result: {result}")
+
+print("logging module: ALL PASS")
+print()
+
+# ============================================
+# Summary
+# ============================================
+print("=== Phase 4 Tests Complete ===")
+print("All Phase 4 modules tested successfully!")

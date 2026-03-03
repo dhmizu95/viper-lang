@@ -57,5 +57,4 @@ benchmarks/target/
 benchmarks/**/target/
 
 # Test files (keep in repo but ignore compiled outputs)
-test_*.vp
 

@@ -1,0 +1,13 @@
+# Test string assignment from vp_str_from_i64
+
+def main():
+    print("=== Test str() assignment ===")
+    
+    n = 12345
+    
+    # This should work - str() with int
+    s = str(n)
+    print("s = str(12345):")
+    print(s)
+    
+    print("=== Done ===")

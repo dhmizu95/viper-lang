@@ -1,0 +1,21 @@
+# Test global keyword
+
+global_counter = 0
+
+def test_global():
+    global global_counter
+    global_counter = 10
+    print("Global test: counter set to", global_counter)
+
+def test_global_increment():
+    global global_counter
+    global_counter = global_counter + 5
+    print("Global increment test: counter is now", global_counter)
+
+def main():
+    test_global()
+    test_global_increment()
+    if global_counter == 15:
+        print("All global tests passed!")
+    else:
+        print("Global tests FAILED")

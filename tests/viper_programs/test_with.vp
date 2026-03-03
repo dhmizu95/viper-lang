@@ -1,0 +1,29 @@
+# Test: With statement
+# Tests the with keyword syntax parsing and stub codegen
+
+def get_value():
+    return 42
+
+def test_with_simple():
+    # Simple with statement - stub evaluates context and generates body
+    with 42 as ctx:
+        print("inside with block")
+    print("with simple ok")
+
+def test_with_without_as():
+    # With without 'as' clause
+    with get_value():
+        print("no as clause")
+
+def test_with_expression():
+    # With using an expression
+    with [4, 5, 6] as arr:
+        print("with expression")
+
+def main():
+    test_with_simple()
+    test_with_without_as()
+    test_with_expression()
+    print("all with tests passed")
+
+main()

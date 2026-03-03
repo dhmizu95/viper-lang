@@ -1,0 +1,60 @@
+# Test loop else clauses - simple version
+
+def test_for_else_no_break():
+result = 0
+    for i in range(5):
+        result = result + i
+    else:
+        result = result + 100
+    
+    if result == 110:
+        print("For-else no break test passed:", result)
+    else:
+        print("For-else no break test FAILED:", result)
+
+def test_for_else_with_break():
+result = 0
+    for i in range(5):
+        if i == 3:
+            break
+        result = result + i
+    else:
+        result = result + 1000
+    
+    if result == 3:  # 0+1+2 = 3, else block not executed
+        print("For-else with break test passed:", result)
+    else:
+        print("For-else with break test FAILED:", result)
+
+def test_while_else_no_break():
+count = 0
+    while count < 5:
+        count = count + 1
+    else:
+        count = count + 50
+    
+    if count == 55:
+        print("While-else no break test passed:", count)
+    else:
+        print("While-else no break test FAILED:", count)
+
+def test_while_else_with_break():
+count = 0
+    while count < 5:
+        if count == 3:
+            break
+        count = count + 1
+    else:
+        count = count + 500
+    
+    if count == 3:
+        print("While-else with break test passed:", count)
+    else:
+        print("While-else with break test FAILED:", count)
+
+def main():
+    test_for_else_no_break()
+    test_for_else_with_break()
+    test_while_else_no_break()
+    test_while_else_with_break()
+    print("All loop-else tests completed!")

@@ -1,0 +1,17 @@
+# Test importing a module
+
+import test_module
+
+def main() -> None:
+    # Use imported module
+    result = test_module.greet("World")
+    print(result)
+    
+    sum_val = test_module.add(3.0, 4.0)
+    print("3 + 4 =", sum_val)
+    
+    print("PI =", test_module.PI)
+    
+    print("Import test passed!")
+
+main()

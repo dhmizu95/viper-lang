@@ -1,0 +1,13 @@
+# Test str(len(str_bigint()))
+
+def main():
+    print("Start")
+    result = bigint("100")
+    print("Created result")
+    s = str_bigint(result)
+    print("Called str_bigint")
+    n = len(s)
+    print("Called len")
+    print("len =")
+    print(n)
+    print("Done")

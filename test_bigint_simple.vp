@@ -1,0 +1,5 @@
+# Simple BigInt test to trigger segfault with debug logging
+a = bigint(12345678901234567890)
+b = bigint(98765432109876543210)
+c = a + b
+print(c)

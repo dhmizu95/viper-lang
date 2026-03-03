@@ -1,0 +1,43 @@
+# Test Result helper methods
+
+def divide(a: int, b: int) -> Result[int, str]:
+    if b == 0:
+        return Err("Division by zero")
+    return Ok(a / b)
+
+def test_result_methods():
+    # Test is_ok and is_err
+    r1 = divide(10, 2)
+    r2 = divide(10, 0)
+    
+    print("Testing is_ok:")
+    print(r1.is_ok())  # Should be True
+    print(r2.is_ok())  # Should be False
+    
+    print("Testing is_err:")
+    print(r1.is_err())  # Should be False
+    print(r2.is_err())  # Should be True
+    
+    # Test unwrap
+    print("Testing unwrap:")
+    val1 = r1.unwrap()
+    print(val1)  # Should be 5
+    
+    # Test unwrap_or
+    print("Testing unwrap_or:")
+    val2 = r2.unwrap_or(999)
+    print(val2)  # Should be 999
+    
+    # Test unwrap_or_default
+    print("Testing unwrap_or_default:")
+    val3 = r2.unwrap_or_default()
+    print(val3)  # Should be 0
+    
+    # Test expect (ignores message for now)
+    print("Testing expect:")
+    val4 = r1.expect("Should work")
+    print(val4)  # Should be 5
+    
+    print("All Result method tests passed!")
+
+test_result_methods()

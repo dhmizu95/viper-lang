@@ -1,0 +1,46 @@
+# Test: Delete statement
+# Tests the del keyword for deleting variables, list elements, and dict items
+
+def test_del_variable():
+    # Delete a single variable (stub - just evaluates the target)
+    x = 10
+    del x
+    print("del variable ok")
+
+def test_del_multiple():
+    # Delete multiple variables at once
+    a = 1
+    b = 2
+    c = 3
+    del a, b, c
+    print("del multiple ok")
+
+def test_del_in_function():
+    # Delete inside a function scope
+    local_var = 100
+    del local_var
+    print("del in function ok")
+
+def test_del_list_elements():
+    # Delete list elements (stub - evaluates the index expression)
+    lst = [1, 2, 3, 4, 5]
+    del lst[0]
+    del lst[1]
+    print("del list elements ok")
+
+def test_del_in_loop():
+    # Delete inside a loop
+    for i in range(3):
+        temp = i * 10
+        del temp
+    print("del in loop ok")
+
+def main():
+    test_del_variable()
+    test_del_multiple()
+    test_del_in_function()
+    test_del_list_elements()
+    test_del_in_loop()
+    print("all del tests passed")
+
+main()

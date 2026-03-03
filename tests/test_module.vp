@@ -1,0 +1,9 @@
+# Test module import system
+
+def greet(name: str) -> str:
+    return "Hello, " + name + "!"
+
+def add(a: float, b: float) -> float:
+    return a + b
+
+PI: float = 3.14159

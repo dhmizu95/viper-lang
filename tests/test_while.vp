@@ -1,0 +1,15 @@
+# Test bigint while loop
+
+def main():
+    print("Start")
+    result = bigint("1")
+    i = bigint("1")
+    n = bigint("10")
+    
+    while i <= n:
+        result = result * i
+        i = i + bigint("1")
+    
+    print("result =")
+    print(result)
+    print("Done")

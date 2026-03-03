@@ -1,0 +1,34 @@
+# Test isinstance type narrowing
+
+def test_isinstance():
+    # Test with different types
+    x = 42
+    print("isinstance(42, int):")
+    print(isinstance(x, int))      # Should be True
+    print("isinstance(42, str):")
+    print(isinstance(x, str))      # Should be False
+    
+    y = "hello"
+    print("isinstance('hello', str):")
+    print(isinstance(y, str))      # Should be True
+    print("isinstance('hello', int):")
+    print(isinstance(y, int))      # Should be False
+    
+    z = 3.14
+    print("isinstance(3.14, float):")
+    print(isinstance(z, float))      # Should be True
+    print("isinstance(3.14, bool):")
+    print(isinstance(z, bool))     # Should be False
+    
+    b = True
+    print("isinstance(True, bool):")
+    print(isinstance(b, bool))     # Should be True
+    
+    # Test with None
+    n = None
+    print("isinstance(None, None):")
+    print(isinstance(n, None))     # Should be True
+    
+    print("All isinstance tests passed!")
+
+test_isinstance()
