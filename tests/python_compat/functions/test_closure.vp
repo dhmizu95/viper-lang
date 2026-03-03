@@ -1,0 +1,41 @@
+def make_counter():
+    count = 0
+    def counter():
+        nonlocal count
+        count += 1
+        return count
+    return counter
+
+def make_adder(n):
+    def adder(x):
+        return x + n
+    return adder
+
+def make_multiplier(factor):
+    def multiplier(x):
+        return x * factor
+    return multiplier
+
+def outer():
+    x = 10
+    def inner():
+        return x * 2
+    return inner
+
+def main():
+    c1 = make_counter()
+    print(c1())
+    print(c1())
+    print(c1())
+    
+    add5 = make_adder(5)
+    add10 = make_adder(10)
+    print(add5(3))
+    print(add10(3))
+    
+    mult2 = make_multiplier(2)
+    print(mult2(5))
+    
+    f = outer()
+    print(f())
+    print("Closure tests completed")

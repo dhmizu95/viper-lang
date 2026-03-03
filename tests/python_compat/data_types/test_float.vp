@@ -1,0 +1,25 @@
+def test_float_operations():
+    a = 10.5
+    b = 2.5
+    print(a + b)
+    print(a - b)
+    print(a * b)
+    print(a / b)
+
+def test_float_comparison():
+    print(5.5 == 5.5)
+    print(5.5 != 3.3)
+    print(5.5 > 3.3)
+
+def test_float_conversion():
+    print(5)
+
+def test_float_functions():
+    print(abs(-3.5))
+
+def main():
+    test_float_operations()
+    test_float_comparison()
+    test_float_conversion()
+    test_float_functions()
+    print("Float tests completed")

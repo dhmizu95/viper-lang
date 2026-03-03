@@ -1,0 +1,32 @@
+class Animal:
+    def __init__(self, name):
+        self.name = name
+    
+    def speak(self):
+        return "Some sound"
+    
+    def get_name(self):
+        return self.name
+
+class Dog(Animal):
+    def speak(self):
+        return "Woof!"
+
+class Cat(Animal):
+    def speak(self):
+        return "Meow!"
+
+class CatDog(Dog, Cat):
+    pass
+
+def main():
+    animal = Animal("Generic")
+    dog = Dog("Buddy")
+    cat = Cat("Whiskers")
+    cd = CatDog("Combo")
+    
+    print(animal.get_name() + ": " + animal.speak())
+    print(dog.get_name() + ": " + dog.speak())
+    print(cat.get_name() + ": " + cat.speak())
+    print(cd.get_name() + ": " + cd.speak())
+    print("Inheritance tests completed")

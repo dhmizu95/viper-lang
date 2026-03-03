@@ -1,0 +1,44 @@
+def test_break_in_for():
+    for i in range(10):
+        if i == 5:
+            break
+        print(i)
+
+def test_continue_in_for():
+    for i in range(5):
+        if i == 2:
+            continue
+        print(i)
+
+def test_break_in_while():
+    i = 0
+    while i < 10:
+        if i == 5:
+            break
+        print(i)
+        i += 1
+
+def test_continue_in_while():
+    i = 0
+    while i < 5:
+        i += 1
+        if i == 3:
+            continue
+        print(i)
+
+def test_pass():
+    for i in range(3):
+        pass
+    
+    def empty_func():
+        pass
+    
+    print("pass works")
+
+def main():
+    test_break_in_for()
+    test_continue_in_for()
+    test_break_in_while()
+    test_continue_in_while()
+    test_pass()
+    print("Break/continue/pass tests completed")

@@ -1,0 +1,46 @@
+def test_while_basic():
+    i = 0
+    while i < 5:
+        print(i)
+        i += 1
+
+def test_while_with_break():
+    i = 0
+    while True:
+        print(i)
+        if i >= 3:
+            break
+        i += 1
+
+def test_while_with_continue():
+    i = 0
+    while i < 5:
+        i += 1
+        if i == 3:
+            continue
+        print(i)
+
+def test_while_else():
+    i = 0
+    while i < 3:
+        print(i)
+        i += 1
+    else:
+        print("loop completed")
+
+def test_nested_while():
+    i = 0
+    while i < 3:
+        j = 0
+        while j < 3:
+            print(i, j)
+            j += 1
+        i += 1
+
+def main():
+    test_while_basic()
+    test_while_with_break()
+    test_while_with_continue()
+    test_while_else()
+    test_nested_while()
+    print("While loop tests completed")

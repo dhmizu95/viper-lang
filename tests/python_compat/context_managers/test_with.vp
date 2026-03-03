@@ -1,0 +1,36 @@
+class MyContext:
+    def __enter__(self):
+        print("Entering context")
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("Exiting context")
+        return False
+
+def test_with_basic():
+    with MyContext() as ctx:
+        print("Inside context")
+
+def test_with_file():
+    print("File handling test (skipped - no file I/O)")
+
+class Resource:
+    def __init__(self, name):
+        self.name = name
+    
+    def __enter__(self):
+        print("Acquired:", self.name)
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("Released:", self.name)
+
+def test_with_resource():
+    with Resource("test"):
+        print("Using resource")
+
+def main():
+    test_with_basic()
+    test_with_file()
+    test_with_resource()
+    print("Context manager tests completed")

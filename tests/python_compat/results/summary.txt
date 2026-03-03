@@ -1,0 +1,21 @@
+=== Python Feature Test Summary ===
+
+Category                 | Passed  | Failed  | Total 
+------------------------|----------|----------|--------
+builtin_functions        |       0 |       1 |      1
+collections              |       0 |       0 |      0
+comprehensions           |       0 |       1 |      1
+context_managers         |       0 |       1 |      1
+control_flow             |       1 |       0 |      1
+data_types               |       0 |       1 |      1
+exceptions               |       0 |       1 |      1
+functions                |       0 |       1 |      1
+math_library             |       0 |       1 |      1
+modules                  |       0 |       1 |      1
+oop                      |       0 |       1 |      1
+operators                |       0 |       1 |      1
+stdlib                   |       0 |       0 |      0
+string_operations        |       0 |       1 |      1
+type_hints               |       0 |       0 |      0
+------------------------|----------|----------|--------
+TOTAL                    |      12 |       3 |     48

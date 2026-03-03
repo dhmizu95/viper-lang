@@ -1,0 +1,39 @@
+def test_len():
+    print(len([1, 2, 3]))
+    print(len("hello"))
+    print(len({"a": 1, "b": 2}))
+
+def test_range():
+    for i in range(5):
+        print(i)
+    
+    for i in range(1, 6):
+        print(i)
+    
+    for i in range(0, 10, 2):
+        print(i)
+
+def test_enumerate():
+    lst = ["a", "b", "c"]
+    for i, item in enumerate(lst):
+        print(i, item)
+
+def test_zip():
+    names = ["a", "b", "c"]
+    nums = [1, 2, 3]
+    for name, num in zip(names, nums):
+        print(name, num)
+
+def test_reversed_sorted():
+    lst = [3, 1, 4, 1, 5]
+    print(sorted(lst))
+    print(sorted(lst, reverse=True))
+    print(list(reversed(lst)))
+
+def main():
+    test_len()
+    test_range()
+    test_enumerate()
+    test_zip()
+    test_reversed_sorted()
+    print("Builtin function tests completed")

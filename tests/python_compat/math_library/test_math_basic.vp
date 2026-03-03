@@ -1,0 +1,7 @@
+import math
+
+n: bigint = bigint("100")
+result: bigint = math.isqrt(n)
+print(result)
+
+print("Math tests completed")

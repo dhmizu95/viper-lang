@@ -1,0 +1,45 @@
+def test_try_except():
+    try:
+        x = 10 / 0
+    except ZeroDivisionError:
+        print("Division by zero")
+
+def test_try_except_else():
+    try:
+        x = 10 / 2
+    except ZeroDivisionError:
+        print("Division by zero")
+    else:
+        print("No exception occurred")
+
+def test_try_except_finally():
+    try:
+        x = 10 / 2
+    except ZeroDivisionError:
+        print("Division by zero")
+    finally:
+        print("Finally block executed")
+
+def test_multiple_except():
+    try:
+        x = 10 / 0
+    except ZeroDivisionError:
+        print("Zero division")
+    except TypeError:
+        print("Type error")
+    except Exception:
+        print("Other exception")
+
+def test_except_as():
+    try:
+        x = 10 / 0
+    except ZeroDivisionError as e:
+        print("Caught:", e)
+
+def main():
+    test_try_except()
+    test_try_except_else()
+    test_try_except_finally()
+    test_multiple_except()
+    test_except_as()
+    print("Try-except tests completed")

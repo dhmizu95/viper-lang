@@ -1,0 +1,35 @@
+def test_list_comprehension():
+    squares = [x * x for x in range(10)]
+    print(squares)
+    
+    evens = [x for x in range(20) if x % 2 == 0]
+    print(evens)
+    
+    matrix = [[i * j for j in range(3)] for i in range(3)]
+    print(matrix)
+
+def test_dict_comprehension():
+    squares = {x: x * x for x in range(5)}
+    print(squares)
+    
+    word_lengths = {word: len(word) for word in ["hello", "world", "test"]}
+    print(word_lengths)
+
+def test_set_comprehension():
+    squares = {x * x for x in range(10)}
+    print(squares)
+    
+    unique_chars = {c for c in "hello world"}
+    print(unique_chars)
+
+def test_generator_expression():
+    gen = (x * x for x in range(5))
+    result = sum(gen)
+    print(result)
+
+def main():
+    test_list_comprehension()
+    test_dict_comprehension()
+    test_set_comprehension()
+    test_generator_expression()
+    print("Comprehension tests completed")

@@ -1,0 +1,63 @@
+import math
+
+def test_factorial_big():
+    result: bigint = math.factorial(100)
+    print(len(str(result)))
+    
+    result2: bigint = math.factorial(500)
+    print(len(str(result2)))
+    
+    result3: bigint = math.factorial(1000)
+    print(len(str(result3)))
+
+def test_gcd_large():
+    a: bigint = bigint("100000000000000000000000000000")
+    b: bigint = bigint("1000000000000000000000000000000")
+    result: bigint = math.gcd(a, b)
+    print(result > 0)
+
+def test_pow_large():
+    result: bigint = pow(bigint("2"), bigint("100"))
+    print(len(str(result)))
+    
+    result2: bigint = pow(bigint("10"), bigint("100"))
+    print(len(str(result2)))
+    
+    result3: bigint = pow(bigint("2"), bigint("1000"))
+    print(len(str(result3)) > 0)
+
+def test_sqrt_large():
+    n: bigint = bigint("1000000000000000000000000000000")
+    result: bigint = math.isqrt(n)
+    print(result > 0)
+    
+    n2: bigint = bigint("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+    result2: bigint = math.isqrt(n2)
+    print(len(str(result2)) > 0)
+
+def test_comb_perm():
+    result: bigint = math.comb(100, 50)
+    print(result > 0)
+    
+    result2: bigint = math.perm(50, 10)
+    print(result2 > 0)
+
+def test_lcm():
+    a: bigint = bigint("1000000000000")
+    b: bigint = bigint("1500000000000")
+    result: bigint = math.lcm(a, b)
+    print(result > 0)
+    
+    a2: bigint = bigint("100000000000000000000")
+    b2: bigint = bigint("1000000000000000000000")
+    result2: bigint = math.lcm(a2, b2)
+    print(len(str(result2)) > 0)
+
+def main():
+    test_factorial_big()
+    test_gcd_large()
+    test_pow_large()
+    test_sqrt_large()
+    test_comb_perm()
+    test_lcm()
+    print("Math bigint tests completed")

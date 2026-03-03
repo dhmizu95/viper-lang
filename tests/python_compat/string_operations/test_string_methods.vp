@@ -1,0 +1,26 @@
+s = "Hello World"
+
+def test_upper_lower():
+    print(s.upper())
+    print(s.lower())
+
+def test_strip():
+    s = "  hello  "
+    print(s.strip())
+
+def test_replace():
+    print(s.replace("World", "Viper"))
+
+def test_split():
+    print("a,b,c".split(","))
+
+def test_join():
+    print(",".join(["a", "b", "c"]))
+
+def main():
+    test_upper_lower()
+    test_strip()
+    test_replace()
+    test_split()
+    test_join()
+    print("String methods tests completed")

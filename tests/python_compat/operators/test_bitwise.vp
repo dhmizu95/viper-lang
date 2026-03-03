@@ -1,0 +1,33 @@
+def test_bitwise_and():
+    print(5 & 3)
+    print(7 & 3)
+    print(10 & 15)
+
+def test_bitwise_or():
+    print(5 | 3)
+    print(7 | 3)
+    print(10 | 15)
+
+def test_bitwise_xor():
+    print(5 ^ 3)
+    print(7 ^ 3)
+    print(10 ^ 15)
+
+def test_bitwise_shift():
+    print(5 << 1)
+    print(5 << 2)
+    print(10 >> 1)
+    print(10 >> 2)
+
+def test_bitwise_not():
+    print(~5)
+    print(~0)
+    print(~-1)
+
+def main():
+    test_bitwise_and()
+    test_bitwise_or()
+    test_bitwise_xor()
+    test_bitwise_shift()
+    test_bitwise_not()
+    print("Bitwise tests completed")
