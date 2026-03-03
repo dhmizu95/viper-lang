@@ -4,7 +4,7 @@ use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::types::TypeMapper;
 use crate::codegen::variables::{VarStorage, VarType};
-use inkwell::values::BasicValueEnum;
+use inkwell::values::{BasicValue, BasicValueEnum};
 use crate::codegen::expressions::builtins::*;
 use crate::codegen::expressions::calls::*;
 use crate::codegen::expressions::collections::*;
@@ -30,29 +30,18 @@ pub fn generate_tuple<'ctx>(
 
     let struct_type = tuple_type.into_struct_type();
 
-    let struct_alloca = state
-        .builder
-        .build_alloca(struct_type, "tuple")
-        .map_err(|e| format!("Failed to allocate struct: {:?}", e))?;
-
-    for (i, elem_val) in element_values.iter().enumerate() {
-        let index = state.context.i32_type().const_int(i as u64, false);
-        let elem_ptr = unsafe {
-            state.builder.build_in_bounds_gep(struct_type, struct_alloca, &[index], "elem_ptr")
+    // Create the struct value directly using const_struct
+    let struct_val: BasicValueEnum<'ctx> = state.context.const_struct(&element_values.iter().map(|v| {
+        if v.is_int_value() {
+            v.into_int_value().as_basic_value_enum()
+        } else if v.is_float_value() {
+            v.into_float_value().as_basic_value_enum()
+        } else {
+            v.as_basic_value_enum()
         }
-        .map_err(|e| format!("Failed to build GEP: {:?}", e))?;
-        state
-            .builder
-            .build_store(elem_ptr, *elem_val)
-            .map_err(|e| format!("Failed to store element: {:?}", e))?;
-    }
+    }).collect::<Vec<_>>(), false).as_basic_value_enum();
 
-    let struct_value = state
-        .builder
-        .build_load(struct_type, struct_alloca, "tuple_load")
-        .map_err(|e| format!("Failed to load struct: {:?}", e))?;
-
-    Ok(struct_value.into())
+    Ok(struct_val)
 }
 
 pub fn infer_expr_type(expr: &Expr) -> Type {
@@ -240,12 +229,12 @@ pub fn generate_expr<'ctx>(
                                 Ok(state.builder.build_load(i64_type, *alloca, name).expect("load"))
                             }
                             VarType::Struct => {
-                                // Load struct value (e.g., Result)
+                                // For struct types (Result), use the default Result struct type
                                 let result_struct_type = state.context.struct_type(&[
                                     state.context.i8_type().into(),
                                     state.context.i64_type().into(),
                                 ], false);
-                                Ok(state.builder.build_load(result_struct_type, *alloca, name).expect("load"))
+                                Ok(state.builder.build_load(result_struct_type, *alloca, name).expect("load struct"))
                             }
                         }
                     }

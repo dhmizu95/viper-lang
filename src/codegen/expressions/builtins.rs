@@ -235,6 +235,15 @@ pub fn generate_len_call<'ctx>(
     let obj_expr = &args[0];
     let obj_val = generate_expr(state, obj_expr)?;
 
+    // Check if it's a tuple (struct type)
+    let is_tuple = obj_val.get_type().is_struct_type();
+    if is_tuple && !obj_val.is_pointer_value() {
+        // For tuples, get the length from the struct type
+        let struct_type = obj_val.get_type().into_struct_type();
+        let len = struct_type.count_fields();
+        return Ok(state.ir_builder.i64_const(len as i64).into());
+    }
+
     // Check if it's a list (literal, variable, or list repetition)
     let is_list = match obj_expr {
         Expr::List { .. } | Expr::Array { .. } | Expr::ListComprehension { .. } => true,

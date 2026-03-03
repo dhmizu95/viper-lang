@@ -158,8 +158,13 @@ pub(crate) fn generate_declare<'ctx>(
         // Check if this is a Bytes literal
         let is_bytes = matches!(expr, Expr::Bytes(_, _));
 
+        // Check if this is a tuple (struct type)
+        let is_tuple = matches!(expr, Expr::Tuple { .. });
+
         let var_type = if is_bytes {
             VarType::Bytes
+        } else if is_tuple {
+            VarType::Struct
         } else if val.is_float_value() {
             VarType::Float
         } else if val.is_pointer_value() {
@@ -174,8 +179,11 @@ pub(crate) fn generate_declare<'ctx>(
         // to allow reassignment in loops
         // CRITICAL: BigInt values MUST remain as alloca (not promoted to SSA)
         // because ARC retain/release operations don't work correctly with PHI nodes
-        let is_scalar = !is_ref_type;
-        let use_stack = !can_stack_alloc || is_scalar || mutable || is_bigint;
+        // Tuples and other struct types always use register allocation since they're by-value
+        // and we need to preserve the exact struct type
+        let is_scalar = !is_ref_type && !is_tuple && var_type != VarType::Struct;
+        // Force tuples and struct types to always use register allocation
+        let use_stack = (!can_stack_alloc || is_scalar || mutable || is_bigint) && var_type != VarType::Struct;
 
         if !use_stack {
             // Use SSA register allocation for non-escaping variables or non-mutable scalars

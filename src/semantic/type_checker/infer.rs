@@ -46,7 +46,18 @@ impl TypeChecker {
                     None
                 }
             }
-            Expr::Dict { .. } => Some(Type::Var("dict".to_string())),
+            Expr::Dict { pairs, .. } => {
+                if pairs.is_empty() {
+                    Some(Type::Dict(Box::new(Type::Infer), Box::new(Type::Infer)))
+                } else {
+                    let key_type = self.infer_expr_type(&pairs[0].0);
+                    let value_type = self.infer_expr_type(&pairs[0].1);
+                    match (key_type, value_type) {
+                        (Some(k), Some(v)) => Some(Type::Dict(Box::new(k), Box::new(v))),
+                        _ => Some(Type::Dict(Box::new(Type::Infer), Box::new(Type::Infer))),
+                    }
+                }
+            }
             Expr::Await { future, .. } => {
                 // Await returns the type of the future
                 self.infer_expr_type(future)
@@ -257,6 +268,7 @@ impl TypeChecker {
                 if let Some(obj_type) = self.infer_expr_type(obj) {
                     match obj_type {
                         Type::List(elem_type) => Some(*elem_type),
+                        Type::Dict(_, value_type) => Some(*value_type),
                         Type::Var(s) if s.starts_with("dict") => Some(Type::Infer),
                         _ => Some(Type::I64),
                     }

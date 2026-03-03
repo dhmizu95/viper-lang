@@ -445,6 +445,116 @@ pub fn generate_index<'ctx>(
         return Ok(result);
     }
 
+    // Handle tuple indexing
+    // Tuples can be struct values (inline) or pointers (stored in variables)
+    let is_tuple_type = obj_val.get_type().is_struct_type() || 
+        (obj_val.is_pointer_value() && match obj {
+            Expr::Ident(name, _) => {
+                // Check if the variable type is a tuple
+                if let Some(var_type) = state.var_types.get(name) {
+                    matches!(var_type, crate::ast::Type::Tuple(_))
+                } else {
+                    false
+                }
+            },
+            Expr::Tuple { .. } => true,
+            _ => false,
+        });
+
+    if is_tuple_type {
+        let index_int = index_val.into_int_value();
+        
+        // For tuples, we need to get the index as a constant
+        if index_int.is_const() {
+            if let Some(const_index) = index_int.get_zero_extended_constant() {
+                // Handle negative indices
+                let tuple_size = match obj {
+                    Expr::Ident(name, _) => {
+                        if let Some(var_type) = state.var_types.get(name) {
+                            if let crate::ast::Type::Tuple(element_types) = var_type {
+                                element_types.len() as i64
+                            } else {
+                                return Err("Tuple variable has non-tuple type".to_string());
+                            }
+                        } else {
+                            return Err("Tuple variable type not found".to_string());
+                        }
+                    },
+                    Expr::Tuple { elements, .. } => elements.len() as i64,
+                    _ => return Err("Tuple size unknown".to_string()),
+                };
+                
+                // Convert negative index to positive
+                let actual_index = if (const_index as i64) < 0 {
+                    tuple_size + const_index as i64
+                } else {
+                    const_index as i64
+                };
+                
+                if actual_index < 0 || actual_index >= tuple_size {
+                    return Err(format!("Tuple index {} out of range (size {})", const_index, tuple_size));
+                }
+                
+                // Handle both pointer and non-pointer tuple values
+                if obj_val.is_pointer_value() {
+                    // Tuple is stored as a pointer to a struct
+                    // Use GEP to get pointer to the element, then load
+                    let tuple_ptr = obj_val.into_pointer_value();
+                    
+                    // Get element type - assume i64 for now (common case)
+                    let elem_type = state.context.i64_type();
+                    
+                    // Cast tuple pointer to i64 pointer array
+                    let i64_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                    let tuple_as_i64_ptr = state
+                        .builder
+                        .build_pointer_cast(tuple_ptr, i64_ptr_type, "tuple_i64_ptr")
+                        .map_err(|e| format!("Failed to cast tuple pointer: {:?}", e))?;
+                    
+                    // Get pointer to the element
+                    let elem_ptr = unsafe {
+                        state.builder.build_in_bounds_gep(
+                            elem_type,
+                            tuple_as_i64_ptr,
+                            &[state.context.i32_type().const_int(actual_index as u64, false)],
+                            "elem_ptr",
+                        )
+                    }
+                    .map_err(|e| format!("Failed to build GEP for tuple element: {:?}", e))?;
+                    
+                    // Load the element
+                    let result = state
+                        .builder
+                        .build_load(elem_type, elem_ptr, "tuple_elem")
+                        .map_err(|e| format!("Failed to load tuple element: {:?}", e))?;
+                    
+                    return Ok(result);
+                } else {
+                    // Tuple is a struct value
+                    let result = state
+                        .builder
+                        .build_extract_value(obj_val.into_struct_value(), actual_index as u32, "tuple_elem")
+                        .map_err(|e| format!("Failed to extract tuple element: {:?}", e))?;
+                    
+                    // Ensure the result is i64 for compatibility with print()
+                    if result.is_int_value() {
+                        let int_type = result.into_int_value().get_type();
+                        if int_type.get_bit_width() != 64 {
+                            let extended = state
+                                .builder
+                                .build_int_z_extend(result.into_int_value(), state.context.i64_type(), "tuple_elem_i64")
+                                .map_err(|e| format!("Failed to extend tuple element: {:?}", e))?;
+                            return Ok(extended.into());
+                        }
+                    }
+                    return Ok(result);
+                }
+            }
+        }
+        // Dynamic index - need to use a runtime function or switch statement
+        return Err("Dynamic tuple indexing not supported".to_string());
+    }
+
     let index_val = index_val.into_int_value();
 
     // Check if this is a list by examining the object
