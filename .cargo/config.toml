@@ -1,5 +1,5 @@
 [env]
-LLVM_SYS_200_PREFIX = "/usr/lib/llvm-20"
+LLVM_SYS_210_PREFIX = "/usr/lib/llvm-21"
 
 # PGO environment configuration
 # LLVM_PROFILE_FILE is set dynamically in the PGO script
