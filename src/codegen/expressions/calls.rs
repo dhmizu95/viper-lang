@@ -118,6 +118,13 @@ pub fn generate_call<'ctx>(
         if crate::codegen::oop::class_exists(name) {
             return crate::codegen::oop::generate_class_instantiation(state, name, args);
         }
+        
+        // Special handling: redirect calls to main() to __user_main()
+        // This is needed because we wrap user's main to ensure viper_init runs first
+        if name == "main" && state.functions.contains_key("__user_main") {
+            return generate_user_main_call(state, args);
+        }
+        
         if name == "print" {
             return generate_print_call(state, args);
         }
@@ -2727,7 +2734,7 @@ pub fn generate_dict_call<'ctx>(
             .build_call(state.builder, func, &[], "empty_dict");
         return Ok(result.unwrap());
     }
-    
+
     // For now, just return empty dict - full implementation would convert iterable
     let func = state
         .module
@@ -2739,3 +2746,32 @@ pub fn generate_dict_call<'ctx>(
     Ok(result.unwrap())
 }
 
+/// Generate call to __user_main (redirected from main())
+pub fn generate_user_main_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if !args.is_empty() {
+        return Err("main() takes no arguments".to_string());
+    }
+    
+    let user_main_func = state
+        .functions
+        .get("__user_main")
+        .copied()
+        .ok_or_else(|| "__user_main function not found".to_string())?;
+    
+    let call_result = state
+        .builder
+        .build_call(user_main_func, &[], "user_main_call");
+    
+    match call_result {
+        Ok(call_site) => {
+            match call_site.try_as_basic_value() {
+                inkwell::values::ValueKind::Basic(bv) => Ok(bv),
+                _ => Ok(state.ir_builder.i64_const(0).into()),
+            }
+        }
+        Err(e) => Err(format!("Call to __user_main failed: {:?}", e)),
+    }
+}

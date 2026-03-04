@@ -183,8 +183,83 @@ pub fn generate_binop<'ctx>(
         }
     }
 
-    // Handle comparison operators on pointers (identity comparison)
+    // Handle string comparison with == and !=
     if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
+        // Check if this is string equality comparison
+        if matches!(op, BinOp::Eq | BinOp::NotEq) {
+            let str_equals_func = state
+                .module
+                .get_function("vp_str_equals")
+                .ok_or_else(|| "vp_str_equals not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    str_equals_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "str_cmp",
+                )
+                .ok_or_else(|| "vp_str_equals call failed".to_string())?;
+            
+            // For !=, negate the result
+            if matches!(op, BinOp::NotEq) {
+                let not_result = state
+                    .builder
+                    .build_not(result.into_int_value(), "str_neq")
+                    .map_err(|e| format!("Failed to negate: {:?}", e))?;
+                return Ok(not_result.into());
+            }
+            
+            return Ok(result.into());
+        }
+        
+        // For other comparison operators (<, >, <=, >=), use string comparison
+        if matches!(op, BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq) {
+            let str_compare_func = state
+                .module
+                .get_function("vp_str_compare")
+                .ok_or_else(|| "vp_str_compare not declared".to_string())?;
+            
+            let cmp_result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    str_compare_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "str_compare",
+                )
+                .ok_or_else(|| "vp_str_compare call failed".to_string())?;
+            
+            let cmp_val = cmp_result.into_int_value();
+            let zero = state.context.i64_type().const_zero();
+            
+            match op {
+                BinOp::Lt => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
+                        .map_err(|e| format!("str_lt: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                BinOp::Gt => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
+                        .map_err(|e| format!("str_gt: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                BinOp::LtEq => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
+                        .map_err(|e| format!("str_lte: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                BinOp::GtEq => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
+                        .map_err(|e| format!("str_gte: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                _ => {}
+            }
+        }
+        
+        // For identity comparison (is, is not) and other operators, use pointer comparison
         return comparison::generate_pointer_binop(state.builder, state.context, lhs_val, rhs_val, op);
     }
 

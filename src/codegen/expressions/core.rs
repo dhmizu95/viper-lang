@@ -235,7 +235,14 @@ pub fn generate_expr<'ctx>(
                 // For simple literal types, determine the load type from the value
                 let load_type = match global.get_initializer() {
                     Some(init) => init.get_type(),
-                    None => state.context.i64_type().into(),
+                    None => {
+                        // No initializer (e.g., __name__), check var_types for pointer types
+                        if state.var_types.get(name).map(|t| matches!(t, crate::ast::Type::Str | crate::ast::Type::List(_) | crate::ast::Type::Dict(_, _) | crate::ast::Type::Bytes)).unwrap_or(false) {
+                            state.context.ptr_type(inkwell::AddressSpace::default()).into()
+                        } else {
+                            state.context.i64_type().into()
+                        }
+                    }
                 };
                 let loaded = state
                     .builder
