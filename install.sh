@@ -7,6 +7,7 @@ set -e
 
 # Configuration
 INSTALL_MODE="${INSTALL_MODE:-local}"  # local or system
+CLEAN_BUILD="${1:-}"  # clean or empty (cached)
 INSTALL_DIR="$HOME/.local"
 if [ "$INSTALL_MODE" = "system" ]; then
     INSTALL_DIR="/usr/local"
@@ -69,6 +70,11 @@ echo ""
 print_info "Detected OS: $OS"
 print_info "Installation mode: $INSTALL_MODE"
 print_info "Installation directory: $INSTALL_DIR"
+if [ "$CLEAN_BUILD" = "clean" ]; then
+    print_info "Build type: clean (full rebuild)"
+else
+    print_info "Build type: cached (incremental)"
+fi
 echo ""
 
 # Check and install dependencies
@@ -222,8 +228,12 @@ rm -rf "$VIPER_BIN/viper" "$VIPER_LIB"/* "$VIPER_INCLUDE"/*
 
 # Build compiler
 echo ""
-print_info "Building Viper compiler (release mode)..."
-cargo clean
+if [ "$CLEAN_BUILD" = "clean" ]; then
+    print_info "Building Viper compiler (release mode, clean build)..."
+    cargo clean
+else
+    print_info "Building Viper compiler (release mode, cached build)..."
+fi
 if cargo build --release 2>&1 | tee /tmp/viper_build.log; then
     print_success "Compiler built successfully"
 else
