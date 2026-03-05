@@ -92,7 +92,7 @@ fi
 # LLVM
 print_info "Checking LLVM..."
 LLVM_FOUND=false
-for llvm_config_cmd in llvm-config-20 llvm-config20 llvm-config; do
+for llvm_config_cmd in llvm-config-21 llvm-config21 llvm-config; do
     if check_command "$llvm_config_cmd"; then
         LLVM_VERSION=$("$llvm_config_cmd" --version 2>/dev/null || echo "unknown")
         print_success "LLVM installed: $LLVM_VERSION"
@@ -103,14 +103,14 @@ done
 
 if [ "$LLVM_FOUND" = false ]; then
     print_warning "LLVM not found in PATH"
-    print_info "LLVM 20.x is required"
+    print_info "LLVM 21.x is required"
     
     case "$OS" in
         ubuntu|debian)
-            print_info "Install with: sudo apt install llvm-20 llvm-20-dev"
+            print_info "Install with: sudo apt install llvm-21 llvm-21-dev"
             ;;
         fedora)
-            print_info "Install with: sudo dnf install llvm20 llvm20-devel"
+            print_info "Install with: sudo dnf install llvm21 llvm21-devel"
             ;;
         arch|manjaro)
             print_info "Install with: sudo pacman -S llvm"
@@ -119,7 +119,7 @@ if [ "$LLVM_FOUND" = false ]; then
             print_info "Install with: brew install llvm"
             ;;
         *)
-            print_info "Please install LLVM 20.x from https://llvm.org/"
+            print_info "Please install LLVM 21.x from https://llvm.org/"
             ;;
     esac
     echo ""
