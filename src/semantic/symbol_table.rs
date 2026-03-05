@@ -76,8 +76,8 @@ pub enum BuiltinSignature {
     WaitGroupAdd,    // add(wg, n) -> None
     WaitGroupDone,   // done(wg) -> None
     WaitGroupWait,   // wait(wg) -> None
-    // BigInt functions
-    BigInt,          // BigInt(str) -> BigInt
+    // BigInt functions - removed, use int type instead
+    // BigInt constructor removed - BigInt(str) -> BigInt
     StrBigint,       // str_bigint(BigInt) -> Str
     IntBigint,       // int_bigint(BigInt) -> I64
     AbsBigint,       // abs_bigint(BigInt) -> BigInt
@@ -200,8 +200,9 @@ impl Symbol {
                 BuiltinSignature::WaitGroupAdd => Some(Type::None),
                 BuiltinSignature::WaitGroupDone => Some(Type::None),
                 BuiltinSignature::WaitGroupWait => Some(Type::None),
-                // BigInt functions
-                BuiltinSignature::BigInt => Some(Type::BigInt),
+                // BigInt functions - removed, use int type instead
+                // int() builtin returns i64 for compatibility; use int type annotation for arbitrary precision
+                // BigInt constructor removed
                 BuiltinSignature::StrBigint => Some(Type::Str),
                 BuiltinSignature::IntBigint => Some(Type::I64),
                 BuiltinSignature::AbsBigint => Some(Type::BigInt),
@@ -317,9 +318,7 @@ impl SymbolTable {
             ("add", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupAdd }),
             ("done", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupDone }),
             ("wait", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupWait }),
-            // BigInt functions
-            ("BigInt", SymbolKind::Builtin { signature: BuiltinSignature::BigInt }),
-            ("bigint", SymbolKind::Builtin { signature: BuiltinSignature::BigInt }),
+            // BigInt functions - removed, use int type instead
             ("str_bigint", SymbolKind::Builtin { signature: BuiltinSignature::StrBigint }),
             ("int_bigint", SymbolKind::Builtin { signature: BuiltinSignature::IntBigint }),
             ("abs_bigint", SymbolKind::Builtin { signature: BuiltinSignature::AbsBigint }),

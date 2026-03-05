@@ -651,11 +651,6 @@ impl<'a> Lexer<'a> {
                         }
                     }
                     // Parse as hex integer
-                    // Check for BigInt suffix 'n'
-                    if let Some('n') = self.peek() {
-                        self.advance(); // consume 'n'
-                        return Ok(TokenKind::BigInt(s.clone()));
-                    }
                     match i64::from_str_radix(&s[2..], 16) {
                         Ok(v) => return Ok(TokenKind::Int(v as i128)),
                         Err(_) => return Ok(TokenKind::BigInt(s.clone())),
@@ -678,11 +673,6 @@ impl<'a> Lexer<'a> {
                         return Err(format!("Invalid binary literal: {}", s));
                     }
                     // Parse as binary integer
-                    // Check for BigInt suffix 'n'
-                    if let Some('n') = self.peek() {
-                        self.advance(); // consume 'n'
-                        return Ok(TokenKind::BigInt(s.clone()));
-                    }
                     match i64::from_str_radix(&s[2..], 2) {
                         Ok(v) => return Ok(TokenKind::Int(v as i128)),
                         Err(_) => return Ok(TokenKind::BigInt(s.clone())),
@@ -705,11 +695,6 @@ impl<'a> Lexer<'a> {
                         return Err(format!("Invalid octal literal: {}", s));
                     }
                     // Parse as octal integer
-                    // Check for BigInt suffix 'n'
-                    if let Some('n') = self.peek() {
-                        self.advance(); // consume 'n'
-                        return Ok(TokenKind::BigInt(s.clone()));
-                    }
                     match i64::from_str_radix(&s[2..], 8) {
                         Ok(v) => return Ok(TokenKind::Int(v as i128)),
                         Err(_) => return Ok(TokenKind::BigInt(s.clone())),
@@ -776,17 +761,11 @@ impl<'a> Lexer<'a> {
         if is_float {
             Ok(TokenKind::Float(s.parse().unwrap()))
         } else {
-            // Check for BigInt suffix 'n' (e.g., 123n)
-            if let Some('n') = self.peek() {
-                self.advance(); // consume 'n'
-                // Return the numeric string without the 'n' suffix
-                Ok(TokenKind::BigInt(s.clone()))
-            } else {
-                // Try to parse as i64 first, if it fails, return as BigInt
-                match s.parse::<i64>() {
-                    Ok(v) => Ok(TokenKind::Int(v as i128)),
-                    Err(_) => Ok(TokenKind::BigInt(s.clone())),
-                }
+            // Try to parse as i64 first, if it fails, return as BigInt
+            // Large integers are automatically promoted to BigInt tokens
+            match s.parse::<i64>() {
+                Ok(v) => Ok(TokenKind::Int(v as i128)),
+                Err(_) => Ok(TokenKind::BigInt(s.clone())),
             }
         }
     }

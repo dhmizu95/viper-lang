@@ -192,8 +192,8 @@ impl TypeChecker {
                                 crate::semantic::symbol_table::BuiltinSignature::Int => Some(Type::I64),
                                 crate::semantic::symbol_table::BuiltinSignature::Float => Some(Type::F64),
                                 crate::semantic::symbol_table::BuiltinSignature::Bool => Some(Type::Bool),
-                                // BigInt functions
-                                crate::semantic::symbol_table::BuiltinSignature::BigInt => Some(Type::BigInt),
+                                // BigInt functions - removed, use int type instead
+                                // BigInt constructor removed
                                 crate::semantic::symbol_table::BuiltinSignature::StrBigint => Some(Type::Str),
                                 crate::semantic::symbol_table::BuiltinSignature::IntBigint => Some(Type::I64),
                                 crate::semantic::symbol_table::BuiltinSignature::AbsBigint => Some(Type::BigInt),

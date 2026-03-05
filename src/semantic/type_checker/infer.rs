@@ -159,10 +159,8 @@ impl TypeChecker {
                                         crate::semantic::symbol_table::BuiltinSignature::Len => {
                                             Some(Type::I64)
                                         }
-                                        // BigInt functions
-                                        crate::semantic::symbol_table::BuiltinSignature::BigInt => {
-                                            Some(Type::BigInt)
-                                        }
+                                        // BigInt functions - removed, use int type instead
+                                        // BigInt constructor removed
                                         crate::semantic::symbol_table::BuiltinSignature::StrBigint => {
                                             Some(Type::Str)
                                         }

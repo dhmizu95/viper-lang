@@ -146,10 +146,8 @@ pub fn generate_call<'ctx>(
             return generate_type_convert(state, name, args);
         }
 
-        // BigInt functions
-        if name == "bigint" || name == "BigInt" {
-            return generate_bigint_constructor(state, args);
-        }
+        // BigInt functions - removed, use int type instead
+        // BigInt() constructor removed - use int type annotation or auto-promotion
         if name == "str_bigint" {
             // Use generate_str_call which properly handles BigInt to string conversion
             return generate_str_call(state, args);
@@ -1228,50 +1226,6 @@ pub fn generate_reversed_call<'ctx>(
 /* ============================================ */
 /* BigInt Built-in Functions                    */
 /* ============================================ */
-
-/// Generate BigInt constructor call
-pub fn generate_bigint_constructor<'ctx>(
-    state: &mut CodeGenState<'_, 'ctx>,
-    args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
-    if args.len() != 1 {
-        return Err(format!("BigInt() takes exactly 1 argument, got {}", args.len()));
-    }
-
-    let arg_val = generate_expr(state, &args[0])?;
-    
-    // If argument is a string, use vp_bigint_from_str
-    if arg_val.is_pointer_value() {
-        let from_str_func = state
-            .module
-            .get_function("vp_bigint_from_str")
-            .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
-        
-        let result = state
-            .ir_builder
-            .build_call(state.builder, from_str_func, &[arg_val.into()], "bigint_create")
-            .expect("bigint_from_str call");
-        
-        return Ok(result.into());
-    }
-    
-    // If argument is i64, use vp_bigint_from_i64
-    if arg_val.is_int_value() {
-        let from_i64_func = state
-            .module
-            .get_function("vp_bigint_from_i64")
-            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
-        
-        let result = state
-            .ir_builder
-            .build_call(state.builder, from_i64_func, &[arg_val.into()], "bigint_create")
-            .expect("bigint_from_i64 call");
-        
-        return Ok(result.into());
-    }
-    
-    Err("BigInt() requires string or integer argument".to_string())
-}
 
 /// Generate str_bigint() call - convert BigInt to string
 pub fn generate_bigint_to_str<'ctx>(

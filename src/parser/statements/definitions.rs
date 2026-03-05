@@ -351,7 +351,6 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
             // Python-style aliases
             "int" => Type::Int,   // Python int -> auto-promoting tagged integer
             "float" => Type::F64, // Python float -> Viper f64
-            "bigint" => Type::BigInt,  // BigInt type
             // Viper native types
             "i8" => Type::I8,
             "i16" => Type::I16,

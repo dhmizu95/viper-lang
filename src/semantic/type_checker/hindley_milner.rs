@@ -538,14 +538,7 @@ impl TypeChecker {
         _span: crate::utils::Span,
     ) -> Option<(Vec<Type>, Type)> {
         match name {
-            // BigInt constructor: BigInt(str) -> BigInt
-            "BigInt" => {
-                if args.len() == 1 {
-                    Some((vec![Type::Str], Type::BigInt))
-                } else {
-                    None
-                }
-            }
+            // BigInt constructor removed - use int type annotation or auto-promotion
             // str_bigint: str_bigint(BigInt) -> Str
             "str_bigint" => {
                 if args.len() == 1 {

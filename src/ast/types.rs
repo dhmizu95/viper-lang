@@ -79,11 +79,11 @@ pub enum Type {
 
 impl Type {
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::BigInt)
+        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::F32 | Type::F64 | Type::BigInt)
     }
 
     pub fn is_integer(&self) -> bool {
-        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::BigInt)
+        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::BigInt)
     }
 
     pub fn is_float(&self) -> bool {
@@ -115,6 +115,7 @@ impl Type {
                 | Type::I16
                 | Type::I32
                 | Type::I64
+                | Type::Int
                 | Type::F32
                 | Type::F64
                 | Type::Bool
@@ -139,6 +140,7 @@ impl Type {
             | Type::I16
             | Type::I32
             | Type::I64
+            | Type::Int
             | Type::F32
             | Type::F64
             | Type::Bool

@@ -76,9 +76,11 @@ impl TypeChecker {
             // Reverse: BigInt can be implicitly used where int expected (may truncate, but allow)
             (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::BigInt) => true,
 
-            // int (tagged integer) is compatible with i64 and vice versa
+            // int (tagged arbitrary precision) is compatible with i64 and vice versa
             (Type::Int, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
             (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::Int) => true,
+            // int (tagged arbitrary precision) is compatible with BigInt internally
+            (Type::Int, Type::BigInt) | (Type::BigInt, Type::Int) => true,
 
             // Tuples are compatible if their elements are compatible
             (Type::Tuple(t1), Type::Tuple(t2)) => {
