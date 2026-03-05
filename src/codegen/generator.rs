@@ -475,13 +475,50 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
+    /// Check whether any of the given statements contain a direct or indirect call to `main()`.
+    /// This is used to decide whether to emit an explicit `__user_main` call in the wrapper.
+    fn stmts_call_main(stmts: &[Stmt]) -> bool {
+        for stmt in stmts {
+            match stmt {
+                // Direct call: main()
+                Stmt::Expr(expr) => {
+                    if let Expr::Call { func, .. } = expr {
+                        if let Expr::Ident(name, _) = func.as_ref() {
+                            if name == "main" {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                // if __name__ == "__main__": main()  (or any if-block containing a main() call)
+                Stmt::If { body, else_body, .. } => {
+                    if Self::stmts_call_main(body) {
+                        return true;
+                    }
+                    if let Some(else_stmts) = else_body {
+                        if Self::stmts_call_main(else_stmts) {
+                            return true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
     /// Generate main function handling top-level statements
     fn generate_main_with_statements(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         let main_type = self.context.i64_type().fn_type(&[], false);
 
         // Check if user defined main and save it
         let user_main_func = self.functions.remove("main");
-        let _has_user_main = user_main_func.is_some();
+        let has_user_main = user_main_func.is_some();
+
+        // Detect whether the module-level statements already call main() explicitly
+        // (e.g. via `if __name__ == "__main__": main()` or a bare `main()` call).
+        // If they do, we must NOT emit an extra call at wrapper exit — that would double-execute.
+        let module_calls_main = Self::stmts_call_main(stmts);
 
         // Generate viper_init function that only initializes __name__
         let init_type = self.context.void_type().fn_type(&[], false);
@@ -499,15 +536,15 @@ impl<'ctx> CodeGen<'ctx> {
         let wrapper_main = self.module.add_function("main", main_type, None);
         let entry = self.context.append_basic_block(wrapper_main, "entry");
         self.builder.position_at_end(entry);
-        
+
         // Call viper_init first
         let _ = self.builder.build_call(init_func, &[], "call_init");
-        
+
         // Add user's main back to functions map as __user_main so calls to main() are redirected
         if let Some(user_main) = user_main_func {
             self.functions.insert("__user_main".to_string(), user_main);
         }
-        
+
         // Generate module-level statements (calls to main() will be redirected to __user_main)
         for stmt in stmts {
             crate::codegen::statements::generate_stmt_with_escape(
@@ -530,14 +567,21 @@ impl<'ctx> CodeGen<'ctx> {
                 None,  // No class context for module-level code
             )?;
         }
-        
+
         // Generate ARC cleanup for module-level variables
         self.generate_arc_cleanup("__module_level__");
 
-        // Call __user_main if it exists
-        if let Some(user_main) = self.functions.get("__user_main") {
-            let user_main_func = *user_main;
-            let _ = self.builder.build_call(user_main_func, &[], "call_user_main");
+        // Only emit an explicit __user_main call when the module-level statements did NOT
+        // already call main() themselves. This handles the implicit-main pattern:
+        //   def main(): ...
+        //   # (no call at module level)
+        // Without this, programs that use `if __name__ == "__main__": main()` would execute
+        // main() twice — once through that statement and once through the explicit call here.
+        if has_user_main && !module_calls_main {
+            if let Some(user_main) = self.functions.get("__user_main") {
+                let user_main_func = *user_main;
+                let _ = self.builder.build_call(user_main_func, &[], "call_user_main");
+            }
         }
 
         // Return 0

@@ -368,6 +368,18 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             vp_str_format_stub as *const () as usize,
         );
     }
+    if let Some(func) = module.get_function("vp_str_equals") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_equals_stub as *const () as usize,
+        );
+    }
+    if let Some(func) = module.get_function("vp_str_compare") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_str_compare_stub as *const () as usize,
+        );
+    }
 
     // BigInt runtime functions
     if let Some(func) = module.get_function("vp_bigint_from_i64") {
