@@ -1,0 +1,221 @@
+# Python-style int Type - Comprehensive Feature Test
+# Tests all working features of the arbitrary precision int type
+
+def factorial(n: int) -> int:
+    """Recursive factorial with int return type"""
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+def main():
+    print("==============================================")
+    print("Python-style int Type - Comprehensive Test")
+    print("==============================================")
+    print("")
+
+    # ============================================
+    # 1. Type Annotations with int
+    # ============================================
+    print("1. Type Annotations")
+    print("-------------------")
+    a: int = 42
+    b: int = 123456789012345678901234567890
+    print("a: int = 42")
+    print(a)
+    print("b: int = 123456789012345678901234567890")
+    print(b)
+    print("")
+
+    # ============================================
+    # 2. Large Integer Literals (Auto-promotion)
+    # ============================================
+    print("2. Large Integer Literals (Auto-promotion)")
+    print("------------------------------------------")
+    small = 100
+    large = 9223372036854775808  # i64::MAX + 1
+    huge = 1234567890123456789012345678901234567890
+    print("small = 100")
+    print(small)
+    print("large = 9223372036854775808 (i64::MAX + 1)")
+    print(large)
+    print("huge = 1234567890123456789012345678901234567890")
+    print(huge)
+    print("")
+
+    # ============================================
+    # 3. int() Constructor - Arbitrary Precision
+    # ============================================
+    print("3. int() Constructor")
+    print("--------------------")
+    from_str = int("999999999999999999999999999999")
+    from_int = int(42)
+    from_float = int(3.99)
+    print("int('999999999999999999999999999999')")
+    print(from_str)
+    print("int(42)")
+    print(from_int)
+    print("int(3.99)")
+    print(from_float)
+    print("")
+
+    # ============================================
+    # 4. Arithmetic Operations
+    # ============================================
+    print("4. Arithmetic Operations")
+    print("------------------------")
+    x = int("123456789012345678901234567890")
+    y = int("987654321098765432109876543210")
+    sum_val = x + y
+    diff_val = y - x
+    prod_val = x * 2
+    div_val = y // 100000000000000000000000000000
+    mod_val = y % 10
+    print("x = 123456789012345678901234567890")
+    print("y = 987654321098765432109876543210")
+    print("x + y =")
+    print(sum_val)
+    print("y - x =")
+    print(diff_val)
+    print("x * 2 =")
+    print(prod_val)
+    print("y // 100000000000000000000000000000 =")
+    print(div_val)
+    print("y % 10 =")
+    print(mod_val)
+    print("")
+
+    # ============================================
+    # 5. Comparison Operations
+    # ============================================
+    print("5. Comparison Operations")
+    print("------------------------")
+    print("x < y:")
+    if x < y:
+        print(1)
+    print("x > y:")
+    if x > y:
+        print(1)
+    else:
+        print(0)
+    print("x == x:")
+    if x == x:
+        print(1)
+    else:
+        print(0)
+    print("x != y:")
+    if x != y:
+        print(1)
+    else:
+        print(0)
+    print("x <= y:")
+    if x <= y:
+        print(1)
+    else:
+        print(0)
+    print("x >= y:")
+    if x >= y:
+        print(1)
+    else:
+        print(0)
+    print("")
+
+    # ============================================
+    # 6. Mixed Operations (int + i64)
+    # ============================================
+    print("6. Mixed Operations (int + i64)")
+    print("--------------------------------")
+    mixed_add = x + 100
+    mixed_mul = x * 3
+    mixed_sub = x - 50
+    print("x + 100 =")
+    print(mixed_add)
+    print("x * 3 =")
+    print(mixed_mul)
+    print("x - 50 =")
+    print(mixed_sub)
+    print("")
+
+    # ============================================
+    # 7. Negative Integers
+    # ============================================
+    print("7. Negative Integers")
+    print("--------------------")
+    neg = int("-123456789012345678901234567890")
+    print("neg = int('-123456789012345678901234567890')")
+    print(neg)
+    neg_arith = neg * -1
+    print("neg * -1 =")
+    print(neg_arith)
+    print("")
+
+    # ============================================
+    # 8. Factorial (Recursive with int return)
+    # ============================================
+    print("8. Factorial (Recursive)")
+    print("------------------------")
+    fact5 = factorial(5)
+    fact10 = factorial(10)
+    fact20 = factorial(20)
+    print("factorial(5) =")
+    print(fact5)
+    print("factorial(10) =")
+    print(fact10)
+    print("factorial(20) =")
+    print(fact20)
+    print("")
+
+    # ============================================
+    # 9. Bitwise Operations
+    # ============================================
+    print("9. Bitwise Operations")
+    print("---------------------")
+    bit_a = int("12345678901234567890")
+    bit_b = int("98765432109876543210")
+    bit_and = bit_a & bit_b
+    bit_or = bit_a | bit_b
+    bit_xor = bit_a ^ bit_b
+    print("a = 12345678901234567890")
+    print("b = 98765432109876543210")
+    print("a & b =")
+    print(bit_and)
+    print("a | b =")
+    print(bit_or)
+    print("a ^ b =")
+    print(bit_xor)
+    print("")
+
+    # ============================================
+    # 10. Conditional Expressions
+    # ============================================
+    print("10. Conditional Expressions")
+    print("---------------------------")
+    cond_val = 100 if x > y else 200
+    print("100 if x > y else 200 =")
+    print(cond_val)
+    print("")
+
+    # ============================================
+    # 11. int in Expressions
+    # ============================================
+    print("11. int in Complex Expressions")
+    print("------------------------------")
+    expr1 = (x + y) * 2
+    expr2 = x * x + y * y
+    expr3 = (x - y) * (x + y)
+    print("(x + y) * 2 =")
+    print(expr1)
+    print("x * x + y * y =")
+    print(expr2)
+    print("(x - y) * (x + y) =")
+    print(expr3)
+    print("")
+
+    # ============================================
+    # Summary
+    # ============================================
+    print("==============================================")
+    print("All Python-style int tests completed!")
+    print("==============================================")
+
+if __name__ == "__main__":
+    main()

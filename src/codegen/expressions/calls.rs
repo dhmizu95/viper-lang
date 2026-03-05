@@ -2233,19 +2233,92 @@ pub fn generate_divmod_call<'ctx>(
     if args.len() != 2 {
         return Err("divmod() requires exactly 2 arguments".to_string());
     }
-    
-    let a_val = generate_expr(state, &args[0])?.into_int_value();
-    let b_val = generate_expr(state, &args[1])?.into_int_value();
-    
-    let func = state
-        .module
-        .get_function("vp_divmod_i64")
-        .ok_or_else(|| "vp_divmod_i64 not declared".to_string())?;
-    
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[a_val.into(), b_val.into()], "divmod_result");
-    Ok(result.unwrap())
+
+    let a_val = generate_expr(state, &args[0])?;
+    let b_val = generate_expr(state, &args[1])?;
+
+    // Check if either argument is BigInt (pointer value)
+    let is_bigint = a_val.is_pointer_value() || b_val.is_pointer_value();
+
+    if is_bigint {
+        // Use BigInt divmod
+        let from_i64_func = state
+            .module
+            .get_function("vp_bigint_from_i64")
+            .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+
+        let get_bigint = |val: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'ctx>, String> {
+            if val.is_pointer_value() {
+                Ok(val)
+            } else if val.is_int_value() {
+                let res = state
+                    .ir_builder
+                    .build_call(state.builder, from_i64_func, &[val.into()], "bigint_from_i64")
+                    .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
+                Ok(res.into_pointer_value().into())
+            } else {
+                Err("Cannot convert to BigInt for divmod".to_string())
+            }
+        };
+
+        let a_bigint = get_bigint(a_val)?;
+        let b_bigint = get_bigint(b_val)?;
+
+        // Allocate result BigInt
+        let zero = state.ir_builder.i64_const(0);
+        let quot_ptr = state
+            .ir_builder
+            .build_call(state.builder, from_i64_func, &[zero.into()], "quot_bigint")
+            .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+            .into_pointer_value();
+
+        let rem_ptr = state
+            .ir_builder
+            .build_call(state.builder, from_i64_func, &[zero.into()], "rem_bigint")
+            .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?
+            .into_pointer_value();
+
+        let divmod_func = state
+            .module
+            .get_function("vp_bigint_divmod")
+            .ok_or_else(|| "vp_bigint_divmod not declared".to_string())?;
+
+        state
+            .ir_builder
+            .build_call(state.builder, divmod_func, &[quot_ptr.into(), rem_ptr.into(), a_bigint.into(), b_bigint.into()], "divmod_bigint");
+
+        // Return tuple (quotient, remainder)
+        let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+        let tuple_struct = state.context.struct_type(&[
+            ptr_type.into(),
+            ptr_type.into(),
+        ], false);
+        let tuple_val = state.builder.build_alloca(tuple_struct, "divmod_tuple").expect("alloca");
+        let quot_gep = unsafe {
+            state.builder.build_struct_gep(tuple_struct, tuple_val, 0, "quot_gep").expect("quot_gep")
+        };
+        let rem_gep = unsafe {
+            state.builder.build_struct_gep(tuple_struct, tuple_val, 1, "rem_gep").expect("rem_gep")
+        };
+        state.builder.build_store(quot_gep, quot_ptr).expect("store_quot");
+        state.builder.build_store(rem_gep, rem_ptr).expect("store_rem");
+        let loaded = state.builder.build_load(tuple_struct, tuple_val, "divmod_result").expect("load_divmod");
+        Ok(loaded)
+    } else {
+        // Use i64 divmod
+        let a_int = a_val.into_int_value();
+        let b_int = b_val.into_int_value();
+
+        let func = state
+            .module
+            .get_function("vp_divmod_i64")
+            .ok_or_else(|| "vp_divmod_i64 not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(state.builder, func, &[a_int.into(), b_int.into()], "divmod_result");
+        Ok(result.unwrap())
+    }
 }
 
 /// Generate pow() call

@@ -410,27 +410,45 @@ pub fn generate_type_convert<'ctx>(
             }
         }
         "int" => {
-            // Convert to int
+            // Convert to int (Python-style: arbitrary precision)
             if arg_val.is_int_value() {
-                Ok(arg_val)
-            } else if arg_val.is_float_value() {
-                let float_val = arg_val.into_float_value();
+                // Already an i64, convert to BigInt for arbitrary precision
+                let from_i64_func = state
+                    .module
+                    .get_function("vp_bigint_from_i64")
+                    .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
                 let result = state
+                    .ir_builder
+                    .build_call(state.builder, from_i64_func, &[arg_val.into()], "int_from_i64")
+                    .unwrap();
+                Ok(result)
+            } else if arg_val.is_float_value() {
+                // Float to int: first convert to i64, then to BigInt
+                let float_val = arg_val.into_float_value();
+                let int_val = state
                     .builder
                     .build_float_to_signed_int(float_val, state.context.i64_type(), "float_to_int")
                     .expect("float to int conversion");
-                Ok(result.into())
-            } else if arg_val.is_pointer_value() {
-                // Try string to int conversion
-                let str_to_int = state
+                let from_i64_func = state
                     .module
-                    .get_function("vp_i64_from_str")
-                    .ok_or_else(|| "vp_i64_from_str not declared".to_string())?;
+                    .get_function("vp_bigint_from_i64")
+                    .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
                 let result = state
                     .ir_builder
-                    .build_call(state.builder, str_to_int, &[arg_val.into()], "str_to_int")
+                    .build_call(state.builder, from_i64_func, &[int_val.into()], "int_from_float")
                     .unwrap();
                 Ok(result)
+            } else if arg_val.is_pointer_value() {
+                // String to int (arbitrary precision)
+                let str_to_bigint = state
+                    .module
+                    .get_function("vp_bigint_from_str")
+                    .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
+                let result = state
+                    .ir_builder
+                    .build_call(state.builder, str_to_bigint, &[arg_val.into()], "str_to_int")
+                    .unwrap();
+                Ok(result.into_pointer_value().into())
             } else {
                 Err("Cannot convert to int".to_string())
             }

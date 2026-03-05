@@ -15,7 +15,9 @@ pub fn is_bigint_expr<'a, 'ctx>(expr: &Expr, state: &CodeGenState<'a, 'ctx>) -> 
         Expr::Call { func, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 // Check for built-in BigInt functions (case insensitive for constructor)
-                name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint"
+                // int() now returns arbitrary precision int (BigInt internally)
+                name == "bigint" || name == "BigInt" || name == "int"
+                    || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint"
                     || name == "min_bigint" || name == "max_bigint" || name == "is_zero_bigint"
                     || name == "is_negative_bigint" || name == "sign_bigint" || name == "bit_length_bigint"
                     || name == "pow"  // pow() can return BigInt when given BigInt arguments

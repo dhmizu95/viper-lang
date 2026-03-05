@@ -175,7 +175,7 @@ impl Symbol {
                 BuiltinSignature::Range => Some(Type::List(Box::new(Type::I64))),
                 BuiltinSignature::Len => Some(Type::I64),
                 BuiltinSignature::Str => Some(Type::Str),
-                BuiltinSignature::Int => Some(Type::I64),
+                BuiltinSignature::Int => Some(Type::Int),  // Python-style: int() returns arbitrary precision int
                 BuiltinSignature::Float => Some(Type::F64),
                 BuiltinSignature::Bool => Some(Type::Bool),
                 BuiltinSignature::List => Some(Type::List(Box::new(Type::Infer))),

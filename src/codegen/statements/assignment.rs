@@ -85,7 +85,8 @@ pub(crate) fn generate_assign<'ctx>(
                         if name == "str_bigint" || name == "int_bigint" {
                             return false;
                         }
-                        name == "bigint" || name == "BigInt" || name.ends_with("_bigint")
+                        // int() now returns arbitrary precision int (BigInt internally)
+                        name == "bigint" || name == "BigInt" || name == "int" || name.ends_with("_bigint")
                     } else {
                         false
                     }
