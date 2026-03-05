@@ -13,11 +13,12 @@ fn is_bigint_expr(expr: &Expr, state: &CodeGenState) -> bool {
         Expr::Call { func, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 // Check for built-in BigInt functions (case insensitive for constructor)
-                // int() now returns arbitrary precision int (BigInt internally)
-                name == "bigint" || name == "BigInt" || name == "int" || name == "abs_bigint" || name == "pow_bigint"
+                // int(), abs(), and pow() return arbitrary precision int (BigInt internally)
+                name == "bigint" || name == "BigInt" || name == "int" || name == "abs" || name == "pow"
+                    || name == "abs_bigint" || name == "pow_bigint"
                     || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint"
                     || name == "is_zero_bigint" || name == "is_negative_bigint"
-                    || name == "sign_bigint" || name == "bit_length_bigint" || name == "pow"
+                    || name == "sign_bigint" || name == "bit_length_bigint"
             } else {
                 false
             }

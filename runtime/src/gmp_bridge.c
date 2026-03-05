@@ -655,3 +655,8 @@ void vp_bigint_perm_c(ViperBigInt* result, ViperBigInt* n, ViperBigInt* k) {
 void vp_bigint_powmod_c(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp, ViperBigInt* mod) {
     vp_bigint_powmod(result, base, exp, mod);
 }
+
+void vp_bigint_divmod_c(ViperBigInt* quotient, ViperBigInt* remainder,
+                        ViperBigInt* a, ViperBigInt* b) {
+    vp_bigint_divmod(quotient, remainder, a, b);
+}

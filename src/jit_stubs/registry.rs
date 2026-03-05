@@ -424,6 +424,12 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
             vp_bigint_powmod_stub as *const () as usize,
         );
     }
+    if let Some(func) = module.get_function("vp_bigint_divmod") {
+        execution_engine.add_global_mapping(
+            &func.as_global_value(),
+            vp_bigint_divmod_stub as *const () as usize,
+        );
+    }
     if let Some(func) = module.get_function("vp_bigint_sqrt") {
         execution_engine.add_global_mapping(
             &func.as_global_value(),

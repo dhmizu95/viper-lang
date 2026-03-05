@@ -22,6 +22,7 @@ extern "C" {
     pub fn vp_bigint_mod_c(result: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_pow_c(result: *mut c_void, base: *mut c_void, exp: *mut c_void);
     pub fn vp_bigint_powmod_c(result: *mut c_void, base: *mut c_void, exp: *mut c_void, mod_val: *mut c_void);
+    pub fn vp_bigint_divmod_c(quotient: *mut c_void, remainder: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_sqrt_c(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_abs_c(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_neg_c(result: *mut c_void, a: *mut c_void);
@@ -98,6 +99,9 @@ pub extern "C" fn vp_bigint_pow_stub(result: *mut c_void, base: *mut c_void, exp
 pub extern "C" fn vp_bigint_powmod_stub(result: *mut c_void, base: *mut c_void, exp: *mut c_void, mod_val: *mut c_void) {
     unsafe { vp_bigint_powmod_c(result, base, exp, mod_val) }
 }
+pub extern "C" fn vp_bigint_divmod_stub(quotient: *mut c_void, remainder: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_divmod_c(quotient, remainder, a, b) }
+}
 pub extern "C" fn vp_bigint_sqrt_stub(result: *mut c_void, a: *mut c_void) {
     unsafe { vp_bigint_sqrt_c(result, a) }
 }
@@ -170,6 +174,7 @@ extern "C" {
     pub fn vp_bigint_mod(result: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_pow(result: *mut c_void, base: *mut c_void, exp: *mut c_void);
     pub fn vp_bigint_powmod(result: *mut c_void, base: *mut c_void, exp: *mut c_void, mod_val: *mut c_void);
+    pub fn vp_bigint_divmod(quotient: *mut c_void, remainder: *mut c_void, a: *mut c_void, b: *mut c_void);
     pub fn vp_bigint_sqrt(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_abs(result: *mut c_void, a: *mut c_void);
     pub fn vp_bigint_neg(result: *mut c_void, a: *mut c_void);

@@ -1,5 +1,0 @@
-# Simple BigInt test to trigger segfault with debug logging
-a = int(12345678901234567890)
-b = int(98765432109876543210)
-c = a + b
-print(c)

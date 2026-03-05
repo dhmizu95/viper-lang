@@ -119,7 +119,9 @@ pub fn generate_print_call<'ctx>(
                             || func_name == "replace" || func_name == "split" || func_name == "join" {
                             false
                         } else {
-                            func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" || func_name == "pow_bigint"
+                            // Check for BigInt-returning functions
+                            func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" || func_name == "abs"
+                                || func_name == "pow_bigint" || func_name == "pow"
                                 || func_name == "sqrt_bigint" || func_name == "min_bigint" || func_name == "max_bigint"
                                 || val.is_pointer_value()  // User-defined BigInt function
                         }
@@ -148,12 +150,22 @@ pub fn generate_print_call<'ctx>(
                     .module
                     .get_function("vp_bigint_to_str")
                     .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
-                
+
                 let base = state.context.i32_type().const_int(10, false);
+                let c_str_val = state
+                    .ir_builder
+                    .build_call(state.builder, to_str_func, &[val.into(), base.into()], "c_str_conv")
+                    .expect("vp_bigint_to_str");
+
+                // Convert C string to Viper string
+                let str_create_func = state
+                    .module
+                    .get_function("vp_str_create")
+                    .ok_or_else(|| "vp_str_create not declared".to_string())?;
                 let str_val = state
                     .ir_builder
-                    .build_call(state.builder, to_str_func, &[val.into(), base.into()], "str_conv")
-                    .expect("vp_bigint_to_str");
+                    .build_call(state.builder, str_create_func, &[c_str_val.into()], "str_conv")
+                    .expect("vp_str_create");
 
                 let print_func = state
                     .module
