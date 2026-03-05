@@ -2329,21 +2329,26 @@ pub fn generate_pow_call<'ctx>(
     if args.len() < 2 || args.len() > 3 {
         return Err("pow() requires 2 or 3 arguments".to_string());
     }
-    
+
     let base_val = generate_expr(state, &args[0])?;
     let exp_val = generate_expr(state, &args[1])?;
-    
-    let is_bigint = args.iter().any(|arg| {
-        let arg_type = infer_expr_type(arg);
-        arg_type == Type::BigInt || matches!(arg, Expr::Ident(n, _) if state.is_bigint(n))
-    }) || base_val.is_pointer_value() || exp_val.is_pointer_value();
+
+    // Check if either argument is BigInt using the same detection as bigint operators
+    let is_bigint_expr = |arg: &Expr| -> bool {
+        use crate::codegen::expressions::operators::bigint::is_bigint_expr as check_bigint;
+        check_bigint(arg, state)
+    };
+
+    let is_bigint = args.iter().any(is_bigint_expr)
+        || base_val.is_pointer_value()
+        || exp_val.is_pointer_value();
 
     if is_bigint {
         let from_i64_func = state
             .module
             .get_function("vp_bigint_from_i64")
             .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
-            
+
         let get_bigint = |val: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'ctx>, String> {
             if val.is_pointer_value() {
                 Ok(val)
@@ -2358,7 +2363,7 @@ pub fn generate_pow_call<'ctx>(
 
         let base_ptr = get_bigint(base_val)?;
         let exp_ptr = get_bigint(exp_val)?;
-        
+
         let zero = state.ir_builder.i64_const(0);
         let result_ptr = state
             .ir_builder
@@ -2373,7 +2378,7 @@ pub fn generate_pow_call<'ctx>(
                 .module
                 .get_function("vp_bigint_powmod")
                 .ok_or_else(|| "vp_bigint_powmod not declared".to_string())?;
-            
+
             state.ir_builder.build_call(
                 state.builder,
                 powmod_func,
@@ -2385,7 +2390,7 @@ pub fn generate_pow_call<'ctx>(
                 .module
                 .get_function("vp_bigint_pow")
                 .ok_or_else(|| "vp_bigint_pow not declared".to_string())?;
-            
+
             state.ir_builder.build_call(
                 state.builder,
                 pow_func,
@@ -2399,8 +2404,8 @@ pub fn generate_pow_call<'ctx>(
     if args.len() == 3 {
         return Err("3-argument pow() only supported for BigInt types currently".to_string());
     }
-    
-    // Use float pow for now
+
+    // Use float pow for non-BigInt cases
     let base_float = if base_val.is_float_value() {
         base_val.into_float_value()
     } else {
@@ -2410,7 +2415,7 @@ pub fn generate_pow_call<'ctx>(
             "int_to_float",
         ).expect("int to float")
     };
-    
+
     let exp_float = if exp_val.is_float_value() {
         exp_val.into_float_value()
     } else {

@@ -185,9 +185,44 @@ def main():
     print("")
 
     # ============================================
-    # 10. Conditional Expressions
+    # 10. Power Operation (BigInt)
     # ============================================
-    print("10. Conditional Expressions")
+    print("10. Power Operation (BigInt)")
+    print("----------------------------")
+    pow_result = pow(2, 100)
+    print("pow(2, 100) =")
+    print(pow_result)
+    
+    pow_big = pow(int("2"), int("100"))
+    print("pow(int(2), int(100)) =")
+    print(pow_big)
+    print("")
+
+    # ============================================
+    # 11. Abs Operation (BigInt)
+    # ============================================
+    print("11. Abs Operation (BigInt)")
+    print("--------------------------")
+    neg_val = int("-999999999999999999999999999999")
+    abs_val = abs(neg_val)
+    print("abs(int('-999999999999999999999999999999')) =")
+    print(abs_val)
+    print("")
+
+    # ============================================
+    # 12. Divmod Operation (i64)
+    # ============================================
+    print("12. Divmod Operation")
+    print("--------------------")
+    divmod_result = divmod(123456789, 1000)
+    print("divmod(123456789, 1000) =")
+    print(divmod_result)
+    print("")
+
+    # ============================================
+    # 13. Conditional Expressions
+    # ============================================
+    print("13. Conditional Expressions")
     print("---------------------------")
     cond_val = 100 if x > y else 200
     print("100 if x > y else 200 =")
@@ -195,9 +230,9 @@ def main():
     print("")
 
     # ============================================
-    # 11. int in Expressions
+    # 14. int in Complex Expressions
     # ============================================
-    print("11. int in Complex Expressions")
+    print("14. int in Complex Expressions")
     print("------------------------------")
     expr1 = (x + y) * 2
     expr2 = x * x + y * y

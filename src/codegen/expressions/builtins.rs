@@ -564,10 +564,8 @@ pub fn generate_math_builtin<'ctx>(
         return Err(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
     }
 
-    let is_bigint = args.iter().any(|arg| {
-        let arg_type = crate::codegen::expressions::core::infer_expr_type(arg);
-        arg_type == Type::BigInt || matches!(arg, Expr::Ident(n, _) if state.is_bigint(n))
-    });
+    // Use the same BigInt detection as operators
+    let is_bigint = crate::codegen::expressions::operators::bigint::is_bigint_expr(&args[0], state);
 
     if is_bigint && name == "abs" {
         return crate::codegen::expressions::calls::generate_bigint_abs(state, args);
