@@ -1,0 +1,6 @@
+# Simple test
+def main():
+    print(42)
+    print("hello")
+    x = 1000000
+    print(x)

@@ -15,7 +15,9 @@ fn main() {
     // Link against Viper runtime library (for non-BigInt runtime functions)
     println!("cargo:rustc-link-lib=static=viper");
 
-    // Link against GMP for BigInt support
+    // Link against GMP for BigInt support - use vendor path
+    let vendor_gmp_lib = manifest_dir.join("vendor").join("gmp").join("lib");
+    println!("cargo:rustc-link-search=native={}", vendor_gmp_lib.display());
     println!("cargo:rustc-link-lib=gmp");
 
     // Rebuild if runtime changes

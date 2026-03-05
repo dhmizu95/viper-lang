@@ -534,7 +534,13 @@ impl<'ctx> CodeGen<'ctx> {
         // Generate ARC cleanup for module-level variables
         self.generate_arc_cleanup("__module_level__");
 
-        // Return 0 (module-level code is responsible for calling main() if needed)
+        // Call __user_main if it exists
+        if let Some(user_main) = self.functions.get("__user_main") {
+            let user_main_func = *user_main;
+            let _ = self.builder.build_call(user_main_func, &[], "call_user_main");
+        }
+
+        // Return 0
         self.ir_builder.build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
 
         Ok(())

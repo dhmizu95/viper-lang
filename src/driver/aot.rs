@@ -153,7 +153,7 @@ pub fn compile_file_aot(
         opt_args.push("--passes");
         opt_args.push(passes);
 
-        let opt_output = std::process::Command::new("/usr/lib/llvm-20/bin/opt")
+        let opt_output = std::process::Command::new("/usr/lib/llvm-21/bin/opt")
             .args(&opt_args)
             .output()
             .map_err(|e| format!("opt failed: {}", e))?;
@@ -313,15 +313,14 @@ pub fn link_with_gcc(
         "-lviper".to_string(),
     ]);
 
-    // Static linking for full portability (no external dependencies)
-    // -static: link everything statically
-    // -lgmp: GMP for BigInt (statically linked)
-    args.push("-static".to_string());
+    // Add vendor GMP library path
+    args.push("-Lvendor/gmp/lib".to_string());
+
+    // Link libraries (GMP for BigInt support)
     args.extend_from_slice(&[
         "-lgmp".to_string(),
         "-lm".to_string(),
         "-lpthread".to_string(),
-        "-lc".to_string(),
     ]);
 
     println!("   Linking with GCC...");
@@ -400,7 +399,7 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     let opt_bc = format!("{}.opt.bc", module_name);
 
     // Use aggressive optimization passes
-    let opt_status = std::process::Command::new("/usr/lib/llvm-20/bin/opt")
+    let opt_status = std::process::Command::new("/usr/lib/llvm-21/bin/opt")
         .args(&[
             "-O3",
             "-mtriple=x86_64-pc-linux-gnu",
