@@ -3,15 +3,15 @@
 def main():
     print("=== Debug str_bigint ===")
     
-    a = bigint("12345")
+    a = int("12345")
     
     # Test 1: Direct call in print
     print("Test 1 - Direct:")
-    print(str_bigint(a))
+    print(str_int(a))
     
     # Test 2: Assign and print
     print("Test 2 - Assign:")
-    s = str_bigint(a)
+    s = str_int(a)
     print("s assigned")
     print(s)
     

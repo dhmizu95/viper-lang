@@ -2,11 +2,11 @@
 
 def main():
     print("Start")
-    a = bigint("100")
+    a = int("100")
     print("Created a")
     
     # Test direct call in print
-    print("Direct str_bigint(a):")
-    print(str_bigint(a))
+    print("Direct str_int(a):")
+    print(str_int(a))
     
     print("Done")

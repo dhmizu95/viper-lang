@@ -4,23 +4,23 @@ def main():
     print("=== Debug bigint Test 2 ===")
     
     # Test with n suffix (this works)
-    x = 100n
-    print("x (100n) =")
+    x = 100
+    print("x (100) =")
     print(x)
     
-    # Test with bigint() constructor
-    y = bigint("100")
+    # Test with int() constructor
+    y = int("100")
     print("y (bigint) =")
     print(y)
     
     # Test str_bigint with n-suffix
-    print("str_bigint(x):")
-    sx = str_bigint(x)
+    print("str_int(x):")
+    sx = str_int(x)
     print(sx)
     
-    # Test str_bigint with bigint()
-    print("str_bigint(y):")
-    sy = str_bigint(y)
+    # Test str_bigint with int()
+    print("str_int(y):")
+    sy = str_int(y)
     print(sy)
     
     print("=== Test complete ===")

@@ -2,9 +2,9 @@
 
 def main():
     print("Start")
-    a = bigint("100")
+    a = int("100")
     print("Created a")
-    s = str_bigint(a)
+    s = str_int(a)
     print("Called str_bigint")
     print(s)
     print("Done")

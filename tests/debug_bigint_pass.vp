@@ -3,16 +3,16 @@
 def main():
     print("=== Debug bigint passing ===")
     
-    a = bigint("12345")
+    a = int("12345")
     
     # Test 1: Pass directly
     print("Test 1 - Direct:")
-    print(str_bigint(a))
+    print(str_int(a))
     
     # Test 2: Pass through variable
     print("Test 2 - Through var:")
     b = a
-    print(str_bigint(b))
+    print(str_int(b))
     
     # Test 3: str() for comparison
     print("Test 3 - str():")

@@ -2,8 +2,8 @@
 
 def main():
     print("Start")
-    i = bigint("1")
-    n = bigint("10")
+    i = int("1")
+    n = int("10")
     
     print("i <= n:")
     print(i <= n)

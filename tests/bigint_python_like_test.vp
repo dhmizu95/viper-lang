@@ -1,23 +1,23 @@
 # bigint Python-like Syntax Test Suite
 # Demonstrates natural Python-style bigint usage
 
-# Test 1: bigint with 'n' suffix (like JavaScript bigint)
+# Test 1: int with 'n' suffix (like JavaScript bigint)
 def test_bigint_suffix():
-    print("Test 1: bigint with 'n' suffix")
-    a = 123456789012345678901234567890n
-    b = 987654321098765432109876543210n
+    print("Test 1: int with 'n' suffix")
+    a = 123456789012345678901234567890
+    b = 987654321098765432109876543210
     print("a = ")
-    print(str_bigint(a))
+    print(str_int(a))
     print("b = ")
-    print(str_bigint(b))
+    print(str_int(b))
 
 # Test 2: Automatic bigint for large integers (exceeds int)
-def test_auto_bigint():
+def test_auto_int():
     print("Test 2: Automatic bigint for large integers")
     # This number is too large for int, automatically becomes bigint
     x = 123456789012345678901234567890
     print("x (auto bigint) = ")
-    print(str_bigint(x))
+    print(str_int(x))
 
 # Test 3: Regular integers still work as int
 def test_regular_int():
@@ -29,26 +29,26 @@ def test_regular_int():
     print("large_i64 = ")
     print(large_i64)
 
-# Test 4: bigint arithmetic with natural syntax
+# Test 4: int arithmetic with natural syntax
 def test_bigint_arithmetic():
-    print("Test 4: bigint arithmetic")
-    a = 100000000000000000000n
-    b = 50000000000000000000n
+    print("Test 4: int arithmetic")
+    a = 100000000000000000000
+    b = 50000000000000000000
     
     print("a + b = ")
-    print(str_bigint(a + b))
+    print(str_int(a + b))
     print("a - b = ")
-    print(str_bigint(a - b))
+    print(str_int(a - b))
     print("a * b = ")
-    print(str_bigint(a * b))
+    print(str_int(a * b))
     print("a / b = ")
-    print(str_bigint(a / b))
+    print(str_int(a / b))
 
-# Test 5: bigint comparisons
+# Test 5: int comparisons
 def test_bigint_comparisons():
-    print("Test 5: bigint comparisons")
-    a = 100000000000000000000n
-    b = 50000000000000000000n
+    print("Test 5: int comparisons")
+    a = 100000000000000000000
+    b = 50000000000000000000
     
     if a > b:
         print("a > b: True")
@@ -60,70 +60,70 @@ def test_bigint_comparisons():
     else:
         print("a < b: False")
 
-# Test 6: bigint bitwise operations
+# Test 6: int bitwise operations
 def test_bigint_bitwise():
-    print("Test 6: bigint bitwise operations")
-    a = 0xFF00FF00FF00FF00n
+    print("Test 6: int bitwise operations")
+    a = 0xFF00FF00FF00FF00
     b = 0x00FF00FF00FF00FFn
     
     print("a & b = 0x")
-    print(str_bigint(a & b))
+    print(str_int(a & b))
     print("a | b = 0x")
-    print(str_bigint(a | b))
+    print(str_int(a | b))
     print("a ^ b = 0x")
-    print(str_bigint(a ^ b))
+    print(str_int(a ^ b))
 
-# Test 7: bigint shifts
+# Test 7: int shifts
 def test_bigint_shifts():
-    print("Test 7: bigint shifts")
-    a = 1n
-    b = 10n
+    print("Test 7: int shifts")
+    a = 1
+    b = 10
     
-    print("1n << 10n = ")
-    print(str_bigint(a << b))
+    print("1 << 10 = ")
+    print(str_int(a << b))
     
-    print("(1n << 10n) >> 5n = ")
-    print(str_bigint((a << b) >> 5n))
+    print("(1 << 10) >> 5 = ")
+    print(str_int((a << b) >> 5))
 
 # Test 8: Very large numbers (2^1000)
 def test_bigint_power():
     print("Test 8: Very large numbers")
-    two = 2n
-    exp = 1000n
-    result = pow_bigint(two, exp)
+    two = 2
+    exp = 1000
+    result = pow_int(two, exp)
     print("2^1000 = ")
-    print(str_bigint(result))
+    print(str_int(result))
 
 # Test 9: Hex, binary, octal bigint literals
 def test_bigint_bases():
-    print("Test 9: bigint with different bases")
+    print("Test 9: int with different bases")
     
     hex_big = 0xDEADBEEFCAFEn
     print("0xDEADBEEFCAFEn = ")
-    print(str_bigint(hex_big))
+    print(str_int(hex_big))
     
-    bin_big = 0b1111111111111111111111111111111111111111n
-    print("0b1111111111111111111111111111111111111111n = ")
-    print(str_bigint(bin_big))
+    bin_big = 0b1111111111111111111111111111111111111111
+    print("0b1111111111111111111111111111111111111111 = ")
+    print(str_int(bin_big))
     
-    oct_big = 0o777777777777777777777n
-    print("0o777777777777777777777n = ")
-    print(str_bigint(oct_big))
+    oct_big = 0o777777777777777777777
+    print("0o777777777777777777777 = ")
+    print(str_int(oct_big))
 
 # Test 10: Mixed operations
 def test_bigint_mixed():
     print("Test 10: Mixed operations")
-    a = 100n
-    b = 3n
+    a = 100
+    b = 3
     
     q = a / b
     r = a % b
-    print("100n / 3n = ")
-    print(str_bigint(q))
-    print("100n % 3n = ")
-    print(str_bigint(r))
-    print("q * 3n + r = ")
-    print(str_bigint(q * b + r))
+    print("100 / 3 = ")
+    print(str_int(q))
+    print("100 % 3 = ")
+    print(str_int(r))
+    print("q * 3 + r = ")
+    print(str_int(q * b + r))
 
 # Run all tests
 def main():
@@ -133,7 +133,7 @@ def main():
     test_bigint_suffix()
     print("")
     
-    test_auto_bigint()
+    test_auto_int()
     print("")
     
     test_regular_int()

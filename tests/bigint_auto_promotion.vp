@@ -8,7 +8,7 @@ small = 42
 large = 9223372036854775808  # int::MAX + 1
 
 # Explicit bigint with 'n' suffix
-explicit = 123n
+explicit = 123
 
 # Very large integer (hundreds of digits)
 huge = 1234567890123456789012345678901234567890123456789012345678901234567890
@@ -42,22 +42,22 @@ print(large // 2)
 print(large % 10)
 
 # Test explicit bigint constructor
-from_big = bigint("123456789012345678901234567890")
+from_big = int("123456789012345678901234567890")
 
 # Test bigint functions
-abs_val = abs_bigint(neg_large)
+abs_val = abs_int(neg_large)
 print("abs worked")
 
 # Test with function that explicitly returns bigint
-def factorial_big(n: bigint) -> bigint:
-    result = 1n
-    i = 1n
+def factorial_big(n: int) -> bigint:
+    result = 1
+    i = 1
     while i <= n:
         result = result * i
-        i = i + 1n
+        i = i + 1
     return result
 
-fact5 = factorial_big(5n)
+fact5 = factorial_big(5)
 print(fact5)
 
 print("All bigint tests passed!")

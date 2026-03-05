@@ -4,8 +4,8 @@ def main():
     print("=== bigint n-suffix Test ===")
     
     # Test with n suffix
-    a = 100n
-    b = 50n
+    a = 100
+    b = 50
     
     print("a = ")
     print(a)

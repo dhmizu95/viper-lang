@@ -3,21 +3,21 @@ def main():
     print("=== bigint math functions test ===")
     
     # Test pow_bigint
-    a = 2n
-    b = 100n
-    p = pow_bigint(a, b)
+    a = 2
+    b = 100
+    p = pow_int(a, b)
     print("2^100 = ")
     print(p)
     print("")
     
     # Test sqrt_bigint
     # 2^100 sqrt should be 2^50
-    s = sqrt_bigint(p)
+    s = sqrt_int(p)
     print("sqrt(2^100) = ")
     print(s)
     print("")
     
-    expected_s = pow_bigint(2n, 50n)
+    expected_s = pow_int(2, 50)
     print("expected sqrt = ")
     print(expected_s)
     print("")
@@ -33,13 +33,13 @@ def main():
     print("")
     
     # Test abs_bigint
-    neg_a = -1000000000000000000000000000000n
-    abs_a = abs_bigint(neg_a)
+    neg_a = -1000000000000000000000000000000
+    abs_a = abs_int(neg_a)
     print("abs(-10^30) = ")
     print(abs_a)
     print("")
     
-    if abs_a > 0n:
+    if abs_a > 0:
         print("abs(-10^30) is positive ✅")
 
 main()

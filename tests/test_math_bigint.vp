@@ -16,25 +16,25 @@ def test_isqrt_int():
     assert math.isqrt(10000) == 100
     print("test_isqrt_int: PASSED")
 
-def test_isqrt_bigint():
+def test_isqrt_int():
     """Test integer square root with bigint"""
     print("=== test_isqrt_bigint ===")
 
     # Test with bigint literal
-    n1: bigint = bigint("100000000000000000000000000000")
-    result1: bigint = math.isqrt(n1)
+    n1: int = int("100000000000000000000000000000")
+    result1: int = math.isqrt(n1)
     print("isqrt(10^29) = ")
     print(result1)
     print("")
 
     # Verify: result^2 <= n < (result+1)^2
     assert result1 * result1 <= n1
-    assert (result1 + bigint("1")) * (result1 + bigint("1")) > n1
+    assert (result1 + int("1")) * (result1 + int("1")) > n1
 
     # Test 10^100 (perfect square: 10^50)
-    n2: bigint = bigint("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
-    result2: bigint = math.isqrt(n2)
-    expected: bigint = bigint("10000000000000000000000000000000000000000000000000000")
+    n2: int = int("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+    result2: int = math.isqrt(n2)
+    expected: int = int("10000000000000000000000000000000000000000000000000000")
     print("isqrt(10^100) = ")
     print(result2)
     print("")
@@ -52,23 +52,23 @@ def test_gcd_int():
     assert math.gcd(100, 25) == 25
     print("test_gcd_int: PASSED")
 
-def test_gcd_bigint():
+def test_gcd_int():
     """Test GCD with bigint"""
     print("=== test_gcd_bigint ===")
-    a = bigint("123456789012345678901234567890")
-    b = bigint("987654321098765432109876543210")
+    a = int("123456789012345678901234567890")
+    b = int("987654321098765432109876543210")
     result = math.gcd(a, b)
     print("gcd(large1, large2) = ")
     print(result)
     print("")
     
     # Verify it divides both
-    assert a % result == bigint("0")
-    assert b % result == bigint("0")
+    assert a % result == int("0")
+    assert b % result == int("0")
     
     # Test coprime bigints
-    a = bigint("100000000000000000000000000001")
-    b = bigint("100000000000000000000000000003")
+    a = int("100000000000000000000000000001")
+    b = int("100000000000000000000000000003")
     result = math.gcd(a, b)
     print("gcd(coprime_big) = ")
     print(result)
@@ -85,19 +85,19 @@ def test_lcm_int():
     assert math.lcm(7, 0) == 0
     print("test_lcm_int: PASSED")
 
-def test_lcm_bigint():
+def test_lcm_int():
     """Test LCM with bigint"""
     print("=== test_lcm_bigint ===")
-    a = bigint("1000000000000")
-    b = bigint("1500000000000")
+    a = int("1000000000000")
+    b = int("1500000000000")
     result = math.lcm(a, b)
     print("lcm(10^12, 1.5*10^12) = ")
     print(result)
     print("")
     
     # Verify it's divisible by both
-    assert result % a == bigint("0")
-    assert result % b == bigint("0")
+    assert result % a == int("0")
+    assert result % b == int("0")
     print("test_lcm_bigint: PASSED")
 
 def test_factorial_small():
@@ -126,24 +126,24 @@ def test_factorial_large():
     print("50! = ")
     print(result)
     print("")
-    assert result > bigint("10") ** bigint("60")
+    assert result > int("10") ** int("60")
     
     # 100! has 158 digits
     result = math.factorial(100)
     print("100! (first 50 digits) = ")
     # Just verify it's very large
-    assert result > bigint("10") ** bigint("150")
+    assert result > int("10") ** int("150")
     print("test_factorial_large: PASSED")
 
-def test_factorial_bigint():
+def test_factorial_int():
     """Test factorial with bigint input"""
     print("=== test_factorial_bigint ===")
-    n = bigint("30")
+    n = int("30")
     result = math.factorial(n)
     print("30! = ")
     print(result)
     print("")
-    assert result > bigint("10") ** bigint("30")
+    assert result > int("10") ** int("30")
     print("test_factorial_bigint: PASSED")
 
 def test_comb_int():
@@ -173,15 +173,15 @@ def test_comb_large():
     assert result == 2598960
     print("test_comb_large: PASSED")
 
-def test_comb_bigint():
+def test_comb_int():
     """Test combinations with bigint"""
     print("=== test_comb_bigint ===")
-    n = bigint("1000")
-    k = bigint("500")
+    n = int("1000")
+    k = int("500")
     result = math.comb(n, k)
     print("C(1000, 500) (digits) = ")
     # Just check it's a very large number
-    assert result > bigint("10") ** bigint("100")
+    assert result > int("10") ** int("100")
     print("test_comb_bigint: PASSED")
 
 def test_perm_int():
@@ -220,24 +220,24 @@ def test_pow_mod_int():
     assert pow(5, 3, 100) == 25
     print("test_pow_mod_int: PASSED")
 
-def test_pow_bigint():
+def test_pow_int():
     """Test power with bigint"""
     print("=== test_pow_bigint ===")
-    result: bigint = pow(bigint("2"), bigint("100"))
+    result: int = pow(int("2"), int("100"))
     print("2^100 = ")
     print(result)
     print("")
 
     # Use pow instead of ** for BigInt
-    check_val: bigint = pow(bigint("10"), bigint("30"))
+    check_val: int = pow(int("10"), int("30"))
     assert result > check_val
 
     # 2^1000
-    result2: bigint = pow(bigint("2"), bigint("1000"))
+    result2: int = pow(int("2"), int("1000"))
     print("2^1000 (digits) = ")
     print(result2)
     print("")
-    check_val2: bigint = pow(bigint("10"), bigint("300"))
+    check_val2: int = pow(int("10"), int("300"))
     assert result2 > check_val2
     print("test_pow_bigint: PASSED")
 
@@ -246,45 +246,45 @@ def test_pow_bigint_mod():
     print("=== test_pow_bigint_mod ===")
 
     # Fermat's little theorem: a^(p-1) ≡ 1 (mod p) for prime p
-    p: bigint = bigint("1000000007")  # Prime
-    a: bigint = bigint("12345")
-    result: bigint = pow(a, p - bigint("1"), p)
+    p: int = int("1000000007")  # Prime
+    a: int = int("12345")
+    result: int = pow(a, p - int("1"), p)
     print("12345^(p-1) mod p = ")
     print(result)
     print("")
-    assert result == bigint("1")
+    assert result == int("1")
 
     # RSA-style computation
-    base: bigint = bigint("2")
-    exp: bigint = bigint("10000")
-    mod: bigint = bigint("1000000007")
-    result2: bigint = pow(base, exp, mod)
+    base: int = int("2")
+    exp: int = int("10000")
+    mod: int = int("1000000007")
+    result2: int = pow(base, exp, mod)
     print("2^10000 mod (10^9+7) = ")
     print(result2)
     print("")
     assert result2 < mod
     print("test_pow_bigint_mod: PASSED")
 
-def test_abs_bigint():
+def test_abs_int():
     """Test absolute value with bigint"""
     print("=== test_abs_bigint ===")
-    assert abs(bigint("42")) == bigint("42")
-    assert abs(bigint("-42")) == bigint("42")
-    assert abs(bigint("0")) == bigint("0")
+    assert abs(int("42")) == int("42")
+    assert abs(int("-42")) == int("42")
+    assert abs(int("0")) == int("0")
 
-    neg: bigint = bigint("-1000000000000000000000000000000")
-    pos: bigint = abs(neg)
+    neg: int = int("-1000000000000000000000000000000")
+    pos: int = abs(neg)
     print("abs(-10^30) = ")
     print(pos)
     print("")
-    assert pos > bigint("0")
+    assert pos > int("0")
     print("test_abs_bigint: PASSED")
 
-def test_min_max_bigint():
+def test_min_max_int():
     """Test min/max with bigint"""
     print("=== test_min_max_bigint ===")
-    a: bigint = bigint("100000000000000000000")
-    b: bigint = bigint("50000000000000000000")
+    a: int = int("100000000000000000000")
+    b: int = int("50000000000000000000")
 
     assert min(a, b) == b
     assert max(a, b) == a
@@ -297,31 +297,31 @@ def test_min_max_bigint():
     print("")
     print("test_min_max_bigint: PASSED")
 
-def test_sum_bigint():
+def test_sum_int():
     """Test sum with bigint list"""
     print("=== test_sum_bigint ===")
-    items = [bigint("100000000000000000000"), bigint("200000000000000000000"), bigint("300000000000000000000")]
+    items = [int("100000000000000000000"), int("200000000000000000000"), int("300000000000000000000")]
     result = sum(items)
     print("sum([10^20, 2*10^20, 3*10^20]) = ")
     print(result)
     print("")
-    assert result == bigint("600000000000000000000")
+    assert result == int("600000000000000000000")
     print("test_sum_bigint: PASSED")
 
 def test_rsa_style():
     """Test RSA-style modular exponentiation"""
     print("=== test_rsa_style ===")
     # Simplified RSA example
-    p = bigint("61")
-    q = bigint("53")
+    p = int("61")
+    q = int("53")
     n = p * q  # 3233
-    phi = (p - bigint("1")) * (q - bigint("1"))  # 3120
-    e = bigint("17")
+    phi = (p - int("1")) * (q - int("1"))  # 3120
+    e = int("17")
     
     # Compute d (simplified - not the full modular inverse)
-    d = bigint("2753")
+    d = int("2753")
     
-    message = bigint("65")
+    message = int("65")
     encrypted = pow(message, e, n)
     decrypted = pow(encrypted, d, n)
     
@@ -347,17 +347,17 @@ def main():
     # Integer square root
     test_isqrt_int()
     print("")
-    test_isqrt_bigint()
+    test_isqrt_int()
     print("")
 
     # GCD and LCM
     test_gcd_int()
     print("")
-    test_gcd_bigint()
+    test_gcd_int()
     print("")
     test_lcm_int()
     print("")
-    test_lcm_bigint()
+    test_lcm_int()
     print("")
 
     # Factorial
@@ -365,7 +365,7 @@ def main():
     print("")
     test_factorial_large()
     print("")
-    test_factorial_bigint()
+    test_factorial_int()
     print("")
 
     # Combinations and Permutations
@@ -373,7 +373,7 @@ def main():
     print("")
     test_comb_large()
     print("")
-    test_comb_bigint()
+    test_comb_int()
     print("")
     test_perm_int()
     print("")
@@ -385,17 +385,17 @@ def main():
     print("")
     test_pow_mod_int()
     print("")
-    test_pow_bigint()
+    test_pow_int()
     print("")
     test_pow_bigint_mod()
     print("")
 
     # Built-in overloads
-    test_abs_bigint()
+    test_abs_int()
     print("")
-    test_min_max_bigint()
+    test_min_max_int()
     print("")
-    test_sum_bigint()
+    test_sum_int()
     print("")
 
     # Integration test

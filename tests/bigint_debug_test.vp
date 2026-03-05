@@ -4,7 +4,7 @@ def main():
     print("=== Debug bigint Test ===")
     
     # Test 1: Create bigint from string
-    a = bigint("100")
+    a = int("100")
     
     # Test 2: Print directly (should work)
     print("Direct print of a:")
@@ -12,7 +12,7 @@ def main():
     
     # Test 3: Print with str_bigint
     print("Print with str_bigint:")
-    s = str_bigint(a)
+    s = str_int(a)
     print(s)
     
     print("=== Test complete ===")

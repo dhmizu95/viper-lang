@@ -3,12 +3,12 @@
 def main():
     print("=== bigint Literal Test ===")
     
-    a = bigint("12345")
+    a = int("12345")
     print("a =")
     print(a)
     
-    print("str_bigint(a) =")
-    s = str_bigint(a)
+    print("str_int(a) =")
+    s = str_int(a)
     print(s)
     
     print("=== Test complete ===")

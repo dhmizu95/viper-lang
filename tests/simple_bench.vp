@@ -5,27 +5,27 @@ def main():
     
     # Test 1: Factorial(100)
     print("1. Factorial(100)")
-    result = bigint("1")
-    i = bigint("1")
-    n = bigint("100")
+    result = int("1")
+    i = int("1")
+    n = int("100")
     while i <= n:
         result = result * i
-        i = i + bigint("1")
-    print("   Result: " + str(len(str_bigint(result))) + " digits")
+        i = i + int("1")
+    print("   Result: " + str(len(str_int(result))) + " digits")
     print()
     
     # Test 2: Fibonacci(1000)
     print("2. Fibonacci(1000)")
-    a = bigint("0")
-    b = bigint("1")
-    i = bigint("0")
-    n = bigint("1000")
+    a = int("0")
+    b = int("1")
+    i = int("0")
+    n = int("1000")
     while i < n:
         temp = a + b
         a = b
         b = temp
-        i = i + bigint("1")
-    print("   Result: " + str(len(str_bigint(a))) + " digits")
+        i = i + int("1")
+    print("   Result: " + str(len(str_int(a))) + " digits")
     print()
     
     print("=== Done ===")

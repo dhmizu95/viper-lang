@@ -10,7 +10,7 @@ def main():
     print(s)
     
     # Test str() with bigint
-    a = bigint("99999")
+    a = int("99999")
     s2 = str(a)
     print("str(bigint) =")
     print(s2)

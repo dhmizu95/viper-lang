@@ -1,7 +1,7 @@
 import math
 
-n: bigint = bigint("100")
-result: bigint = math.isqrt(n)
+n: int = int("100")
+result: int = math.isqrt(n)
 print(result)
 
 print("Math tests completed")

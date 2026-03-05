@@ -3,18 +3,18 @@
 def main():
     print("=== bigint Conversion Test ===")
     
-    a = bigint("12345")
+    a = int("12345")
     print("a =")
     print(a)
     
     # Test int_bigint
-    print("int_bigint(a) =")
-    n = int_bigint(a)
+    print("int_int(a) =")
+    n = int_int(a)
     print(n)
     
     # Test str_bigint
-    print("str_bigint(a) =")
-    s = str_bigint(a)
+    print("str_int(a) =")
+    s = str_int(a)
     print(s)
     
     print("=== Test complete ===")

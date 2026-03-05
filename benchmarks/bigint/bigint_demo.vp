@@ -6,8 +6,8 @@ def main():
     print("")
     
     # Create BigInts using 'n' suffix
-    a = 123456789012345678901234567890n
-    b = 987654321098765432109876543210n
+    a = 123456789012345678901234567890
+    b = 987654321098765432109876543210
     
     print("a = " + str(a))
     print("b = " + str(b))
@@ -31,13 +31,13 @@ def main():
     print("")
     
     # Power
-    two = 2n
-    result = pow_bigint(two, 1000n)
+    two = 2
+    result = pow_int(two, 1000)
     print("2^1000 = " + str(result))
     print("")
     
     # Bitwise
-    x = 0xFF00FF00n
+    x = 0xFF00FF00
     y = 0x00FF00FFn
     print("x & y = " + str(x & y))
     print("x | y = " + str(x | y))

@@ -1,9 +1,9 @@
 def main():
-    a = 2n
+    a = 2
     print(a)
-    b = 100n
+    b = 100
     print(b)
-    p = pow_bigint(a, b)
+    p = pow_int(a, b)
     print(p)
 
 main()

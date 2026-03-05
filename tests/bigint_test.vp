@@ -3,64 +3,64 @@
 
 # Test 1: Basic bigint creation
 def test_bigint_creation():
-    print("Test 1: bigint creation")
-    a = bigint("123456789012345678901234567890")
-    b = bigint("987654321098765432109876543210")
+    print("Test 1: int creation")
+    a = int("123456789012345678901234567890")
+    b = int("987654321098765432109876543210")
     print("a = ")
-    print(str_bigint(a))
+    print(str_int(a))
     print("b = ")
-    print(str_bigint(b))
+    print(str_int(b))
 
-# Test 2: bigint addition
+# Test 2: int addition
 def test_bigint_add():
-    print("Test 2: bigint addition")
-    a = bigint("123456789012345678901234567890")
-    b = bigint("987654321098765432109876543210")
+    print("Test 2: int addition")
+    a = int("123456789012345678901234567890")
+    b = int("987654321098765432109876543210")
     c = a + b
     print("a + b = ")
-    print(str_bigint(c))
+    print(str_int(c))
 
-# Test 3: bigint subtraction
+# Test 3: int subtraction
 def test_bigint_sub():
-    print("Test 3: bigint subtraction")
-    a = bigint("987654321098765432109876543210")
-    b = bigint("123456789012345678901234567890")
+    print("Test 3: int subtraction")
+    a = int("987654321098765432109876543210")
+    b = int("123456789012345678901234567890")
     c = a - b
     print("a - b = ")
-    print(str_bigint(c))
+    print(str_int(c))
 
-# Test 4: bigint multiplication
+# Test 4: int multiplication
 def test_bigint_mul():
-    print("Test 4: bigint multiplication")
-    a = bigint("123456789012345678")
-    b = bigint("987654321098765432")
+    print("Test 4: int multiplication")
+    a = int("123456789012345678")
+    b = int("987654321098765432")
     c = a * b
     print("a * b = ")
-    print(str_bigint(c))
+    print(str_int(c))
 
-# Test 5: bigint division
+# Test 5: int division
 def test_bigint_div():
-    print("Test 5: bigint division")
-    a = bigint("98765432109876543210")
-    b = bigint("123456789012345678")
+    print("Test 5: int division")
+    a = int("98765432109876543210")
+    b = int("123456789012345678")
     q = a / b
     print("a / b = ")
-    print(str_bigint(q))
+    print(str_int(q))
 
-# Test 6: bigint modulo
+# Test 6: int modulo
 def test_bigint_mod():
-    print("Test 6: bigint modulo")
-    a = bigint("98765432109876543210")
-    b = bigint("123456789012345678")
+    print("Test 6: int modulo")
+    a = int("98765432109876543210")
+    b = int("123456789012345678")
     r = a % b
     print("a % b = ")
-    print(str_bigint(r))
+    print(str_int(r))
 
-# Test 7: bigint comparison
+# Test 7: int comparison
 def test_bigint_cmp():
-    print("Test 7: bigint comparison")
-    a = bigint("123456789012345678901234567890")
-    b = bigint("987654321098765432109876543210")
+    print("Test 7: int comparison")
+    a = int("123456789012345678901234567890")
+    b = int("987654321098765432109876543210")
     
     if a < b:
         print("a < b: True")
@@ -77,62 +77,62 @@ def test_bigint_cmp():
     else:
         print("a == b: False")
 
-# Test 8: bigint bitwise operations
+# Test 8: int bitwise operations
 def test_bigint_bitwise():
-    print("Test 8: bigint bitwise operations")
-    a = bigint("0xFF00FF00FF00FF00")
-    b = bigint("0x00FF00FF00FF00FF")
+    print("Test 8: int bitwise operations")
+    a = int("0xFF00FF00FF00FF00")
+    b = int("0x00FF00FF00FF00FF")
     
     c = a & b
     print("a & b = 0x")
-    print(str_bigint(c))
+    print(str_int(c))
     
     d = a | b
     print("a | b = 0x")
-    print(str_bigint(d))
+    print(str_int(d))
     
     e = a ^ b
     print("a ^ b = 0x")
-    print(str_bigint(e))
+    print(str_int(e))
 
-# Test 9: bigint shifts
+# Test 9: int shifts
 def test_bigint_shifts():
-    print("Test 9: bigint shifts")
-    a = bigint("1")
-    b = bigint("10")
+    print("Test 9: int shifts")
+    a = int("1")
+    b = int("10")
     
     c = a << b
     print("1 << 10 = ")
-    print(str_bigint(c))
+    print(str_int(c))
     
-    d = c >> bigint("5")
+    d = c >> int("5")
     print("(1 << 10) >> 5 = ")
-    print(str_bigint(d))
+    print(str_int(d))
 
 # Test 10: Very large numbers
 def test_bigint_large():
     print("Test 10: Very large numbers")
     # 2^1000
-    two = bigint("2")
-    exp = bigint("1000")
-    result = pow_bigint(two, exp)
+    two = int("2")
+    exp = int("1000")
+    result = pow_int(two, exp)
     print("2^1000 = ")
-    print(str_bigint(result))
+    print(str_int(result))
 
 # Test 11: Mixed operations
 def test_bigint_mixed():
     print("Test 11: Mixed operations")
-    a = bigint("100")
-    b = bigint("3")
+    a = int("100")
+    b = int("3")
     
     q = a / b
     r = a % b
     print("100 / 3 = ")
-    print(str_bigint(q))
+    print(str_int(q))
     print("100 % 3 = ")
-    print(str_bigint(r))
+    print(str_int(r))
     print("q * 3 + r = ")
-    print(str_bigint(q * b + r))
+    print(str_int(q * b + r))
 
 # Run all tests
 def main():

@@ -2,41 +2,41 @@
 import math
 
 # Test GCD
-a1: bigint = bigint("48")
-b1: bigint = bigint("18")
-result1: bigint = math.gcd(a1, b1)
+a1: int = int("48")
+b1: int = int("18")
+result1: int = math.gcd(a1, b1)
 print("gcd(48, 18) = ")
 print(result1)
 print("")
-assert result1 == bigint("6")
+assert result1 == int("6")
 print("GCD test: PASSED")
 
 # Test LCM  
-a2: bigint = bigint("4")
-b2: bigint = bigint("6")
-result2: bigint = math.lcm(a2, b2)
+a2: int = int("4")
+b2: int = int("6")
+result2: int = math.lcm(a2, b2)
 print("lcm(4, 6) = ")
 print(result2)
 print("")
-assert result2 == bigint("12")
+assert result2 == int("12")
 print("LCM test: PASSED")
 
 # Test factorial
-n1: bigint = bigint("5")
-result3: bigint = math.factorial(n1)
+n1: int = int("5")
+result3: int = math.factorial(n1)
 print("5! = ")
 print(result3)
 print("")
-assert result3 == bigint("120")
+assert result3 == int("120")
 print("Factorial test: PASSED")
 
 # Test isqrt
-n2: bigint = bigint("100")
-result4: bigint = math.isqrt(n2)
+n2: int = int("100")
+result4: int = math.isqrt(n2)
 print("isqrt(100) = ")
 print(result4)
 print("")
-assert result4 == bigint("10")
+assert result4 == int("10")
 print("isqrt test: PASSED")
 
 print("ALL SIMPLE TESTS PASSED!")

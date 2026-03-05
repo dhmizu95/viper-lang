@@ -2,8 +2,8 @@
 
 def main():
     print("Start")
-    a = bigint("100")
-    b = bigint("50")
+    a = int("100")
+    b = int("50")
     
     c = a + b
     print("a + b =")

@@ -3,8 +3,8 @@
 def main():
     print("=== bigint Operations Test ===")
     
-    a = bigint("100")
-    b = bigint("50")
+    a = int("100")
+    b = int("50")
     
     # Test arithmetic
     print("a + b =")

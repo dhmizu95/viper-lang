@@ -1,5 +1,5 @@
 def main():
-    a = 100n
+    a = 100
     neg_a = -a
     print(neg_a)
 
