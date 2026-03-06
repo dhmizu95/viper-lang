@@ -22,10 +22,15 @@
 /* Made non-static for inline codegen */
 VIPER_NEVER_INLINE void vp_list_grow(ViperList* list) {
     int64_t new_capacity = list->capacity * LIST_GROWTH_FACTOR;
-    int64_t* new_data = (int64_t*)realloc(list->data.data_i64, new_capacity * sizeof(int64_t));
+    int64_t* new_data = (int64_t*)vp_arc_alloc(new_capacity * sizeof(int64_t));
 
     if (!new_data) {
         vp_panic("Failed to grow list");
+    }
+
+    if (list->data.data_i64) {
+        memcpy(new_data, list->data.data_i64, list->length * sizeof(int64_t));
+        vp_arc_release(list->data.data_i64);
     }
 
     list->data.data_i64 = new_data;
@@ -35,8 +40,18 @@ VIPER_NEVER_INLINE void vp_list_grow(ViperList* list) {
 static void vp_list_destroy(void* ptr) {
     ViperList* list = (ViperList*)ptr;
     if (list->data.data_i64) {
-        free(list->data.data_i64);
+        vp_arc_release(list->data.data_i64);
         list->data.data_i64 = NULL;
+    }
+}
+
+/* Ensure data array is unique before mutations */
+VIPER_ALWAYS_INLINE void vp_list_ensure_unique(ViperList* list) {
+    if (list->data.data_i64 && vp_arc_ref_count(list->data.data_i64) > 1) {
+        int64_t* new_data = (int64_t*)vp_arc_alloc(list->capacity * sizeof(int64_t));
+        memcpy(new_data, list->data.data_i64, list->length * sizeof(int64_t));
+        vp_arc_release(list->data.data_i64);
+        list->data.data_i64 = new_data;
     }
 }
 
@@ -51,7 +66,7 @@ ViperList* vp_list_create_with_capacity(int64_t cap) {
     list->length = 0;
     list->capacity = cap > 0 ? cap : LIST_INITIAL_CAPACITY;
     list->elem_type = VIPER_LIST_I64;
-    list->data.data_i64 = (int64_t*)malloc(list->capacity * sizeof(int64_t));
+    list->data.data_i64 = (int64_t*)vp_arc_alloc(list->capacity * sizeof(int64_t));
 
     if (!list->data.data_i64) {
         vp_panic("Failed to allocate list data");
@@ -69,7 +84,7 @@ ViperList* vp_list_create(void) {
     list->length = 0;
     list->capacity = LIST_INITIAL_CAPACITY;
     list->elem_type = VIPER_LIST_I64;
-    list->data.data_i64 = (int64_t*)malloc(list->capacity * sizeof(int64_t));
+    list->data.data_i64 = (int64_t*)vp_arc_alloc(list->capacity * sizeof(int64_t));
 
     if (!list->data.data_i64) {
         vp_panic("Failed to allocate list data");
@@ -94,13 +109,21 @@ void vp_list_reserve(ViperList* list, int64_t capacity) {
     if (capacity <= 0) {
         return;  /* Nothing to reserve */
     }
+    
+    vp_list_ensure_unique(list);
+    
     if (capacity <= list->capacity) {
         return;  /* Already have enough capacity */
     }
 
-    int64_t* new_data = (int64_t*)realloc(list->data.data_i64, capacity * sizeof(int64_t));
+    int64_t* new_data = (int64_t*)vp_arc_alloc(capacity * sizeof(int64_t));
     if (!new_data) {
         vp_panic("Failed to reserve list capacity");
+    }
+
+    if (list->data.data_i64) {
+        memcpy(new_data, list->data.data_i64, list->length * sizeof(int64_t));
+        vp_arc_release(list->data.data_i64);
     }
 
     list->data.data_i64 = new_data;
@@ -109,6 +132,7 @@ void vp_list_reserve(ViperList* list, int64_t capacity) {
 
 /* OPTIMIZED: Minimal checks for hot path */
 void vp_list_append(ViperList* list, int64_t value) {
+    vp_list_ensure_unique(list);
     if (list->length >= list->capacity) {
         vp_list_grow(list);
     }
@@ -125,6 +149,8 @@ void vp_list_insert(ViperList* list, int64_t index, int64_t value) {
         vp_panic("List index out of range");
         return;
     }
+
+    vp_list_ensure_unique(list);
 
     if (list->length >= list->capacity) {
         vp_list_grow(list);
@@ -150,6 +176,8 @@ int64_t vp_list_remove(ViperList* list, int64_t index) {
         return 0;
     }
 
+    vp_list_ensure_unique(list);
+
     int64_t value = list->data.data_i64[index];
 
     /* Shift elements to the left */
@@ -172,12 +200,15 @@ int64_t vp_list_pop(ViperList* list) {
         return 0;
     }
 
+    vp_list_ensure_unique(list);
+
     list->length--;
     return list->data.data_i64[list->length];
 }
 
 void vp_list_clear(ViperList* list) {
     if (!list) return;
+    vp_list_ensure_unique(list);
     list->length = 0;
 }
 
@@ -197,6 +228,7 @@ int64_t vp_list_get(ViperList* list, int64_t index) {
 /* OPTIMIZED: Minimal checks for hot path - assume valid index */
 /* Supports negative indexing: list[-1] = last element */
 void vp_list_set(ViperList* list, int64_t index, int64_t value) {
+    vp_list_ensure_unique(list);
     /* Handle negative indexing */
     if (index < 0) {
         index = list->length + index;
@@ -229,16 +261,19 @@ bool vp_list_contains(ViperList* list, int64_t value) {
 ViperList* vp_list_copy(ViperList* list) {
     if (!list) return NULL;
 
-    ViperList* copy = vp_list_create();
+    ViperList* copy = (ViperList*)vp_arc_alloc(sizeof(ViperList));
+    vp_arc_set_destructor(copy, vp_list_destroy);
 
-    if (list->length > 0) {
-        /* Ensure capacity */
-        while (copy->capacity < list->length) {
-            vp_list_grow(copy);
-        }
-
-        memcpy(copy->data.data_i64, list->data.data_i64, list->length * sizeof(int64_t));
-        copy->length = list->length;
+    copy->ref_count = 1;
+    copy->length = list->length;
+    copy->capacity = list->capacity;
+    copy->elem_type = list->elem_type;
+    
+    /* CoW: Share the underlying data array */
+    copy->data.data_i64 = list->data.data_i64;
+    
+    if (copy->data.data_i64) {
+        vp_arc_retain(copy->data.data_i64);
     }
 
     return copy;
@@ -306,6 +341,8 @@ void vp_list_extend(ViperList* list, ViperList* other) {
         return;  /* Extending with NULL is a no-op */
     }
 
+    vp_list_ensure_unique(list);
+
     /* Ensure capacity */
     int64_t new_length = list->length + other->length;
     while (list->capacity < new_length) {
@@ -367,6 +404,7 @@ static int compare_i64(const void* a, const void* b) {
  */
 void vp_list_sort(ViperList* list) {
     if (!list || list->length <= 1) return;
+    vp_list_ensure_unique(list);
     qsort(list->data.data_i64, list->length, sizeof(int64_t), compare_i64);
 }
 
@@ -376,6 +414,8 @@ void vp_list_sort(ViperList* list) {
  */
 void vp_list_reverse(ViperList* list) {
     if (!list || list->length <= 1) return;
+
+    vp_list_ensure_unique(list);
 
     int64_t left = 0;
     int64_t right = list->length - 1;

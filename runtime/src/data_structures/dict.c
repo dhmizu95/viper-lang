@@ -1,6 +1,6 @@
 /**
  * Viper Dictionary (Hash Map) Implementation
- * A hash map with reference counting
+ * Open addressing with linear probing
  */
 
 #include <stdlib.h>
@@ -8,8 +8,13 @@
 #include <stdio.h>
 #include "viper_stdlib.h"
 
-#define DICT_INITIAL_BUCKETS 16
+#define DICT_INITIAL_CAPACITY 16
 #define DICT_LOAD_FACTOR 0.75
+
+/* Control bytes */
+#define CTRL_EMPTY   0x00
+#define CTRL_DELETED 0x01
+#define CTRL_FULL    0x02
 
 /* ============================================ */
 /* Hash Function                                */
@@ -17,8 +22,6 @@
 
 static uint64_t vp_dict_hash(const char* key) {
     if (!key) return 0;
-
-    /* FNV-1a hash function */
     uint64_t hash = 14695981039346656037ULL;
     while (*key) {
         hash ^= (uint64_t)(*key);
@@ -29,96 +32,79 @@ static uint64_t vp_dict_hash(const char* key) {
 }
 
 /* ============================================ */
-/* DictEntry Internal Functions                 */
-/* ============================================ */
-
-static DictEntry* vp_dict_entry_create(const char* key, ViperValue value) {
-    DictEntry* entry = (DictEntry*)malloc(sizeof(DictEntry));
-    if (!entry) {
-        vp_panic("Failed to allocate dict entry");
-        return NULL;
-    }
-
-    entry->key = vp_str_create(key);
-    entry->value = value;
-    entry->next = NULL;
-
-    return entry;
-}
-
-static void vp_dict_entry_free(DictEntry* entry) {
-    if (!entry) return;
-
-    if (entry->key) {
-        vp_str_free(entry->key);
-    }
-
-    /* Free value if it's a reference type */
-    if (entry->value.type == VIPER_TYPE_STR) {
-        vp_str_free(entry->value.data.as_str);
-    } else if (entry->value.type == VIPER_TYPE_LIST) {
-        vp_list_free(entry->value.data.as_list);
-    } else if (entry->value.type == VIPER_TYPE_DICT) {
-        vp_dict_free(entry->value.data.as_dict);
-    }
-
-    free(entry);
-}
-
-/* ============================================ */
 /* Dict Internal Functions                      */
 /* ============================================ */
+
+static void free_value(ViperValue* val) {
+    if (val->type == VIPER_TYPE_STR && val->data.as_str) {
+        vp_str_free(val->data.as_str);
+    } else if (val->type == VIPER_TYPE_LIST && val->data.as_list) {
+        vp_list_free(val->data.as_list);
+    } else if (val->type == VIPER_TYPE_DICT && val->data.as_dict) {
+        vp_dict_free(val->data.as_dict);
+    }
+}
 
 static void vp_dict_resize(ViperDict* dict, int64_t new_size) {
     if (!dict || new_size <= 0) return;
 
-    DictEntry** new_buckets = (DictEntry**)calloc(new_size, sizeof(DictEntry*));
-    if (!new_buckets) {
+    DictEntry* old_entries = dict->entries;
+    uint8_t* old_ctrl = dict->ctrl;
+    int64_t old_size = dict->size;
+
+    dict->entries = (DictEntry*)calloc(new_size, sizeof(DictEntry));
+    dict->ctrl = (uint8_t*)calloc(new_size, sizeof(uint8_t)); // All 0 = EMPTY
+    if (!dict->entries || !dict->ctrl) {
         vp_panic("Failed to resize dictionary");
         return;
     }
 
+    dict->size = new_size;
+    dict->count = 0; // Will be incremented properly below
+
     /* Rehash all entries */
-    for (int64_t i = 0; i < dict->size; i++) {
-        DictEntry* entry = dict->buckets[i];
-        while (entry) {
-            DictEntry* next = entry->next;
-
-            uint64_t new_hash = vp_dict_hash(entry->key);
-            int64_t new_index = new_hash % new_size;
-
-            entry->next = new_buckets[new_index];
-            new_buckets[new_index] = entry;
-
-            entry = next;
+    for (int64_t i = 0; i < old_size; i++) {
+        if (old_ctrl[i] == CTRL_FULL) {
+            /* We bypass vp_dict_set to avoid freeing old_entries or duplicating strings */
+            uint64_t hash = vp_dict_hash(old_entries[i].key);
+            int64_t idx = hash & (new_size - 1); // Assuming size is power of 2
+            
+            while (dict->ctrl[idx] == CTRL_FULL) {
+                idx = (idx + 1) & (new_size - 1);
+            }
+            
+            dict->entries[idx] = old_entries[i];
+            dict->ctrl[idx] = CTRL_FULL;
+            dict->count++;
         }
     }
 
-    /* Free old buckets array (not entries, they've been moved) */
-    free(dict->buckets);
-
-    dict->buckets = new_buckets;
-    dict->size = new_size;
+    if (old_entries) free(old_entries);
+    if (old_ctrl) free(old_ctrl);
 }
 
 static void vp_dict_destroy(void* ptr) {
     ViperDict* dict = (ViperDict*)ptr;
     if (!dict) return;
 
-    /* Free all entries */
-    for (int64_t i = 0; i < dict->size; i++) {
-        DictEntry* entry = dict->buckets[i];
-        while (entry) {
-            DictEntry* next = entry->next;
-            vp_dict_entry_free(entry);
-            entry = next;
+    if (dict->ctrl && dict->entries) {
+        for (int64_t i = 0; i < dict->size; i++) {
+            if (dict->ctrl[i] == CTRL_FULL) {
+                if (dict->entries[i].key) {
+                    vp_str_free(dict->entries[i].key);
+                }
+                free_value(&dict->entries[i].value);
+            }
         }
     }
 
-    /* Free buckets array */
-    if (dict->buckets) {
-        free(dict->buckets);
-        dict->buckets = NULL;
+    if (dict->entries) {
+        free(dict->entries);
+        dict->entries = NULL;
+    }
+    if (dict->ctrl) {
+        free(dict->ctrl);
+        dict->ctrl = NULL;
     }
 }
 
@@ -127,20 +113,7 @@ static void vp_dict_destroy(void* ptr) {
 /* ============================================ */
 
 ViperDict* vp_dict_create(void) {
-    ViperDict* dict = (ViperDict*)vp_arc_alloc(sizeof(ViperDict));
-
-    dict->ref_count = 1;
-    dict->size = DICT_INITIAL_BUCKETS;
-    dict->count = 0;
-    dict->buckets = (DictEntry**)calloc(dict->size, sizeof(DictEntry*));
-
-    if (!dict->buckets) {
-        vp_panic("Failed to allocate dict buckets");
-    }
-
-    vp_arc_set_destructor(dict, vp_dict_destroy);
-
-    return dict;
+    return vp_dict_create_with_capacity(DICT_INITIAL_CAPACITY);
 }
 
 ViperDict* vp_dict_create_with_capacity(int64_t initial_cap) {
@@ -148,18 +121,18 @@ ViperDict* vp_dict_create_with_capacity(int64_t initial_cap) {
 
     dict->ref_count = 1;
     
-    /* Calculate appropriate bucket size (power of 2 >= initial_cap) */
-    int64_t bucket_size = DICT_INITIAL_BUCKETS;
-    while (bucket_size < initial_cap) {
+    int64_t bucket_size = DICT_INITIAL_CAPACITY;
+    while (bucket_size < initial_cap * 2) { // x2 to account for load factor
         bucket_size *= 2;
     }
     
     dict->size = bucket_size;
     dict->count = 0;
-    dict->buckets = (DictEntry**)calloc(dict->size, sizeof(DictEntry*));
+    dict->entries = (DictEntry*)calloc(dict->size, sizeof(DictEntry));
+    dict->ctrl = (uint8_t*)calloc(dict->size, sizeof(uint8_t));
 
-    if (!dict->buckets) {
-        vp_panic("Failed to allocate dict buckets");
+    if (!dict->entries || !dict->ctrl) {
+        vp_panic("Failed to allocate dict memory");
     }
 
     vp_arc_set_destructor(dict, vp_dict_destroy);
@@ -173,68 +146,55 @@ void vp_dict_free(ViperDict* dict) {
 }
 
 void vp_dict_set(ViperDict* dict, const char* key, ViperValue value) {
-    if (!dict || !key) {
-        vp_panic("Cannot set on NULL dict or with NULL key");
-        return;
-    }
+    if (!dict || !key) vp_panic("Cannot set on NULL dict or with NULL key");
 
-    /* Check load factor and resize if needed */
-    double load_factor = (double)(dict->count + 1) / dict->size;
-    if (load_factor > DICT_LOAD_FACTOR) {
+    if ((double)(dict->count + 1) > dict->size * DICT_LOAD_FACTOR) {
         vp_dict_resize(dict, dict->size * 2);
     }
 
     uint64_t hash = vp_dict_hash(key);
-    int64_t index = hash % dict->size;
+    int64_t idx = hash & (dict->size - 1);
+    int64_t first_deleted = -1;
 
-    /* Check if key already exists */
-    DictEntry* entry = dict->buckets[index];
-    while (entry) {
-        if (strcmp(entry->key, key) == 0) {
-            /* Update existing value */
-            /* Free old value if reference type */
-            if (entry->value.type == VIPER_TYPE_STR) {
-                vp_str_free(entry->value.data.as_str);
-            } else if (entry->value.type == VIPER_TYPE_LIST) {
-                vp_list_free(entry->value.data.as_list);
-            } else if (entry->value.type == VIPER_TYPE_DICT) {
-                vp_dict_free(entry->value.data.as_dict);
+    while (1) {
+        if (dict->ctrl[idx] == CTRL_EMPTY) {
+            break;
+        } else if (dict->ctrl[idx] == CTRL_DELETED) {
+            if (first_deleted == -1) first_deleted = idx;
+        } else if (dict->ctrl[idx] == CTRL_FULL) {
+            if (strcmp(dict->entries[idx].key, key) == 0) {
+                /* Update existing value */
+                free_value(&dict->entries[idx].value);
+                dict->entries[idx].value = value;
+                return;
             }
-
-            entry->value = value;
-            return;
         }
-        entry = entry->next;
+        idx = (idx + 1) & (dict->size - 1);
     }
 
     /* Insert new entry */
-    DictEntry* new_entry = vp_dict_entry_create(key, value);
-    new_entry->next = dict->buckets[index];
-    dict->buckets[index] = new_entry;
+    int64_t target_idx = (first_deleted != -1) ? first_deleted : idx;
+    dict->entries[target_idx].key = vp_str_create(key);
+    dict->entries[target_idx].value = value;
+    dict->ctrl[target_idx] = CTRL_FULL;
     dict->count++;
 }
 
 ViperValue vp_dict_get(ViperDict* dict, const char* key) {
-    if (!dict || !key) {
-        ViperValue null_val = {0};
-        null_val.type = VIPER_TYPE_NONE;
-        return null_val;
-    }
-
-    uint64_t hash = vp_dict_hash(key);
-    int64_t index = hash % dict->size;
-
-    DictEntry* entry = dict->buckets[index];
-    while (entry) {
-        if (strcmp(entry->key, key) == 0) {
-            return entry->value;
-        }
-        entry = entry->next;
-    }
-
-    /* Key not found */
     ViperValue null_val = {0};
     null_val.type = VIPER_TYPE_NONE;
+    if (!dict || !key) return null_val;
+
+    uint64_t hash = vp_dict_hash(key);
+    int64_t idx = hash & (dict->size - 1);
+
+    while (dict->ctrl[idx] != CTRL_EMPTY) {
+        if (dict->ctrl[idx] == CTRL_FULL && strcmp(dict->entries[idx].key, key) == 0) {
+            return dict->entries[idx].value;
+        }
+        idx = (idx + 1) & (dict->size - 1);
+    }
+
     return null_val;
 }
 
@@ -242,14 +202,13 @@ bool vp_dict_contains(ViperDict* dict, const char* key) {
     if (!dict || !key) return false;
 
     uint64_t hash = vp_dict_hash(key);
-    int64_t index = hash % dict->size;
+    int64_t idx = hash & (dict->size - 1);
 
-    DictEntry* entry = dict->buckets[index];
-    while (entry) {
-        if (strcmp(entry->key, key) == 0) {
+    while (dict->ctrl[idx] != CTRL_EMPTY) {
+        if (dict->ctrl[idx] == CTRL_FULL && strcmp(dict->entries[idx].key, key) == 0) {
             return true;
         }
-        entry = entry->next;
+        idx = (idx + 1) & (dict->size - 1);
     }
 
     return false;
@@ -259,25 +218,18 @@ bool vp_dict_remove(ViperDict* dict, const char* key) {
     if (!dict || !key) return false;
 
     uint64_t hash = vp_dict_hash(key);
-    int64_t index = hash % dict->size;
+    int64_t idx = hash & (dict->size - 1);
 
-    DictEntry* entry = dict->buckets[index];
-    DictEntry* prev = NULL;
-
-    while (entry) {
-        if (strcmp(entry->key, key) == 0) {
-            if (prev) {
-                prev->next = entry->next;
-            } else {
-                dict->buckets[index] = entry->next;
-            }
-
-            vp_dict_entry_free(entry);
+    while (dict->ctrl[idx] != CTRL_EMPTY) {
+        if (dict->ctrl[idx] == CTRL_FULL && strcmp(dict->entries[idx].key, key) == 0) {
+            vp_str_free(dict->entries[idx].key);
+            dict->entries[idx].key = NULL;
+            free_value(&dict->entries[idx].value);
+            dict->ctrl[idx] = CTRL_DELETED;
             dict->count--;
             return true;
         }
-        prev = entry;
-        entry = entry->next;
+        idx = (idx + 1) & (dict->size - 1);
     }
 
     return false;
@@ -287,15 +239,12 @@ void vp_dict_clear(ViperDict* dict) {
     if (!dict) return;
 
     for (int64_t i = 0; i < dict->size; i++) {
-        DictEntry* entry = dict->buckets[i];
-        while (entry) {
-            DictEntry* next = entry->next;
-            vp_dict_entry_free(entry);
-            entry = next;
+        if (dict->ctrl[i] == CTRL_FULL) {
+            if (dict->entries[i].key) vp_str_free(dict->entries[i].key);
+            free_value(&dict->entries[i].value);
         }
-        dict->buckets[i] = NULL;
+        dict->ctrl[i] = CTRL_EMPTY;
     }
-
     dict->count = 0;
 }
 
@@ -307,13 +256,11 @@ int64_t vp_dict_len(ViperDict* dict) {
 ViperDict* vp_dict_copy(ViperDict* dict) {
     if (!dict) return NULL;
 
-    ViperDict* copy = vp_dict_create();
+    ViperDict* copy = vp_dict_create_with_capacity(dict->size);
 
     for (int64_t i = 0; i < dict->size; i++) {
-        DictEntry* entry = dict->buckets[i];
-        while (entry) {
-            vp_dict_set(copy, entry->key, entry->value);
-            entry = entry->next;
+        if (dict->ctrl[i] == CTRL_FULL) {
+            vp_dict_set(copy, dict->entries[i].key, dict->entries[i].value);
         }
     }
 
@@ -331,19 +278,8 @@ ViperDictIter* vp_dict_iter_create(ViperDict* dict) {
     if (!iter) return NULL;
 
     iter->dict = dict;
-    iter->bucket_index = 0;
-    iter->current = NULL;
-
-    /* Find first entry */
-    while (iter->bucket_index < dict->size) {
-        if (dict->buckets[iter->bucket_index]) {
-            iter->current = dict->buckets[iter->bucket_index];
-            return iter;
-        }
-        iter->bucket_index++;
-    }
-
-    return iter;  /* Empty dict */
+    iter->iter_index = 0;
+    return iter;
 }
 
 void vp_dict_iter_free(ViperDictIter* iter) {
@@ -353,29 +289,17 @@ void vp_dict_iter_free(ViperDictIter* iter) {
 bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value) {
     if (!iter || !iter->dict || !key || !value) return false;
 
-    if (!iter->current) return false;
-
-    *key = iter->current->key;
-    *value = iter->current->value;
-
-    /* Move to next entry */
-    if (iter->current->next) {
-        iter->current = iter->current->next;
-    } else {
-        /* Move to next bucket */
-        iter->bucket_index++;
-        iter->current = NULL;
-
-        while (iter->bucket_index < iter->dict->size) {
-            if (iter->dict->buckets[iter->bucket_index]) {
-                iter->current = iter->dict->buckets[iter->bucket_index];
-                break;
-            }
-            iter->bucket_index++;
+    while (iter->iter_index < iter->dict->size) {
+        if (iter->dict->ctrl[iter->iter_index] == CTRL_FULL) {
+            *key = iter->dict->entries[iter->iter_index].key;
+            *value = iter->dict->entries[iter->iter_index].value;
+            iter->iter_index++;
+            return true;
         }
+        iter->iter_index++;
     }
 
-    return true;
+    return false;
 }
 
 /* ============================================ */
@@ -383,12 +307,7 @@ bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value)
 /* ============================================ */
 
 void vp_dict_print(ViperDict* dict) {
-    if (!dict) {
-        printf("{}");
-        return;
-    }
-
-    if (!dict->buckets) {
+    if (!dict || !dict->entries) {
         printf("{}");
         return;
     }
@@ -396,61 +315,54 @@ void vp_dict_print(ViperDict* dict) {
     printf("{");
     
     bool first = true;
-    int64_t count = 0;
-    
-    for (int64_t i = 0; i < dict->size && count < dict->count; i++) {
-        if (!dict->buckets[i]) continue;
+    for (int64_t i = 0; i < dict->size; i++) {
+        if (dict->ctrl[i] != CTRL_FULL) continue;
         
-        DictEntry* entry = dict->buckets[i];
-        while (entry) {
-            if (!first) {
-                printf(", ");
-            }
-            first = false;
-            count++;
-            
-            /* Print key */
-            if (entry->key) {
-                printf("'%s': ", entry->key);
-            } else {
-                printf("<null_key>: ");
-            }
-            
-            /* Print value based on type */
-            switch (entry->value.type) {
-                case VIPER_TYPE_I64:
-                    printf("%ld", (long)entry->value.data.as_i64);
-                    break;
-                case VIPER_TYPE_F64:
-                    printf("%f", entry->value.data.as_f64);
-                    break;
-                case VIPER_TYPE_BOOL:
-                    printf("%s", entry->value.data.as_bool ? "True" : "False");
-                    break;
-                case VIPER_TYPE_STR:
-                    if (entry->value.data.as_str) {
-                        printf("'%s'", entry->value.data.as_str);
-                    } else {
-                        printf("<null_str>");
-                    }
-                    break;
-                case VIPER_TYPE_NONE:
-                    printf("None");
-                    break;
-                case VIPER_TYPE_LIST:
-                    printf("<list>");
-                    break;
-                case VIPER_TYPE_DICT:
-                    printf("<dict>");
-                    break;
-                default:
-                    printf("<unknown>");
-                    break;
-            }
-            
-            entry = entry->next;
+        if (!first) {
+            printf(", ");
+        }
+        first = false;
+        
+        DictEntry* entry = &dict->entries[i];
+        
+        if (entry->key) {
+            printf("'%s': ", entry->key);
+        } else {
+            printf("<null_key>: ");
+        }
+        
+        switch (entry->value.type) {
+            case VIPER_TYPE_I64:
+                printf("%ld", (long)entry->value.data.as_i64);
+                break;
+            case VIPER_TYPE_F64:
+                printf("%f", entry->value.data.as_f64);
+                break;
+            case VIPER_TYPE_BOOL:
+                printf("%s", entry->value.data.as_bool ? "True" : "False");
+                break;
+            case VIPER_TYPE_STR:
+                if (entry->value.data.as_str) {
+                    printf("'%s'", entry->value.data.as_str);
+                } else {
+                    printf("<null_str>");
+                }
+                break;
+            case VIPER_TYPE_NONE:
+                printf("None");
+                break;
+            case VIPER_TYPE_LIST:
+                printf("<list>");
+                break;
+            case VIPER_TYPE_DICT:
+                printf("<dict>");
+                break;
+            default:
+                printf("<unknown>");
+                break;
         }
     }
     
     printf("}");
 }
+

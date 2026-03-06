@@ -135,16 +135,15 @@ VIPER_ALWAYS_INLINE void vp_list_set_inline(ViperList* list, int64_t index, int6
 typedef struct DictEntry {
     char* key;            /* 0:  Key string */
     ViperValue value;     /* 8:  Value (24 bytes) */
-    struct DictEntry* next;/* 32: Next entry in chain */
-} DictEntry;              /* Total: 40 bytes per entry */
+} DictEntry;              /* Total: 32 bytes per entry */
 
 /* ViperDict - Unified 40-byte layout */
 struct ViperDict {
     int64_t ref_count;    /* 0:  Reference count */
     int64_t size;         /* 8:  Bucket array size */
     int64_t count;        /* 16: Number of entries */
-    DictEntry** buckets;  /* 24: Bucket array pointer */
-    uint64_t _reserved;   /* 32: Padding for alignment */
+    DictEntry* entries;   /* 24: Array of flat entries */
+    uint8_t* ctrl;        /* 32: Control bytes (1 per bucket) */
 };                        /* Total: 40 bytes */
 
 /* Inline dict accessors */

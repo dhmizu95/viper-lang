@@ -167,8 +167,7 @@ void vp_dict_set_str_str(ViperDict* dict, void* viper_str, void* value_str);
 typedef struct ViperDictIter ViperDictIter;
 struct ViperDictIter {
     ViperDict* dict;
-    int64_t bucket_index;
-    DictEntry* current;
+    int64_t iter_index;
 };
 
 ViperDictIter* vp_dict_iter_create(ViperDict* dict);

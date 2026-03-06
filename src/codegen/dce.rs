@@ -183,7 +183,9 @@ impl DeadCodeEliminator {
     fn mark_expr_vars(&mut self, expr: &Expr) {
         match expr {
             Expr::Ident(name, _) => {
-                self.used_vars.insert(name.clone());
+                if !self.used_vars.contains(name) {
+                    self.used_vars.insert(name.clone());
+                }
                 // Mark the current definition as used
                 if let Some(var_def) = self.var_defs.get_mut(name) {
                     var_def.is_used = true;
@@ -271,21 +273,21 @@ impl DeadCodeEliminator {
 
     /// Mark dead stores - stores that are overwritten before being used
     fn mark_dead_stores(&mut self, stmts: &[Stmt]) {
-        // Clone store indices to avoid borrow checker issues
-        let stores: Vec<_> = self.var_stores.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        // Temporarily take stores to avoid borrow checker issues without cloning
+        let stores = std::mem::take(&mut self.var_stores);
 
         // For each variable with multiple stores
-        for (var_name, store_indices) in stores {
+        for (var_name, store_indices) in &stores {
             if store_indices.len() <= 1 {
                 continue; // Only check variables with multiple stores
             }
 
             // Check if variable is ever used
-            let var_is_used = self.used_vars.contains(&var_name);
+            let var_is_used = self.used_vars.contains(var_name);
 
             if !var_is_used {
                 // Variable is never used - all stores are dead (unless they have side effects)
-                for &store_idx in &store_indices {
+                for &store_idx in store_indices {
                     // Check if this specific store has side effects
                     let has_side_effects = stmts
                         .get(store_idx)
@@ -301,6 +303,9 @@ impl DeadCodeEliminator {
                 self.mark_redundant_stores(&var_name, &store_indices, stmts);
             }
         }
+        
+        // Restore stores to avoid losing them
+        self.var_stores = stores;
     }
 
     /// Check if the value being assigned in a statement has side effects
