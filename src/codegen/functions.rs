@@ -169,11 +169,18 @@ fn param_is_used_as_iterable(param_name: &str, body: &[Stmt]) -> bool {
 /// Check if a statement contains a for loop where the parameter is the iterable
 fn stmt_contains_iterable_usage(param_name: &str, stmt: &Stmt) -> bool {
     match stmt {
-        Stmt::For { iter, .. } => {
-            if let Expr::Ident(name, _) = iter.as_ref() {
-                return name == param_name;
-            }
-            expr_contains_ident(param_name, iter)
+        Stmt::For { iter, body, else_body, .. } => {
+            let used_as_iter = if let Expr::Ident(name, _) = iter.as_ref() {
+                name == param_name
+            } else {
+                false
+            };
+            
+            used_as_iter 
+                || body.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
+                || else_body.as_ref().map_or(false, |eb| {
+                    eb.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
+                })
         }
         Stmt::If { body, else_body, .. } => {
             body.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
