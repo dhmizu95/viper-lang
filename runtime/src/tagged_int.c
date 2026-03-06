@@ -23,13 +23,27 @@ static inline bool fits_in_i63(int64_t value) {
  * Allocate a new BigInt for TaggedInt promotion
  */
 static ViperBigInt* alloc_bigint_for_tagged(void) {
-    /* Use malloc directly for standalone usage */
-    ViperBigInt* bigint = (ViperBigInt*)malloc(sizeof(ViperBigInt));
+    /* Use ARC allocation for proper memory management */
+    ViperBigInt* bigint = (ViperBigInt*)vp_arc_alloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;
 
     /* Initialize GMP value */
     mpz_init(bigint->value);
+    
+    /* Set destructor for ARC cleanup */
+    vp_arc_set_destructor(bigint, (void (*)(void*))vp_bigint_destroy);
+    
     return bigint;
+}
+
+/**
+ * Free a BigInt allocated by alloc_bigint_for_tagged
+ * This properly cleans up GMP resources and frees memory via ARC
+ */
+static void free_bigint_for_tagged(ViperBigInt* bigint) {
+    if (bigint) {
+        vp_arc_release(bigint);
+    }
 }
 
 /**
@@ -116,8 +130,7 @@ ViperBigInt* tagged_int_to_bigint(TaggedInt value) {
  */
 static void free_temp_bigint(ViperBigInt* bigint) {
     if (bigint) {
-        mpz_clear(bigint->value);
-        free(bigint);
+        vp_arc_release(bigint);
     }
 }
 
@@ -142,8 +155,8 @@ TaggedInt tagged_int_add(TaggedInt a, TaggedInt b) {
                 /* Try to demote result back to SmallInt */
                 TaggedInt demoted = try_demote_bigint(result->value);
                 if (demoted != 0) {
-                    mpz_clear(result->value);
-                    free(result);
+                    // mpz_clear handled by ARC destructor
+                    free_bigint_for_tagged(result);
                     return demoted;
                 }
                 
@@ -167,8 +180,8 @@ TaggedInt tagged_int_add(TaggedInt a, TaggedInt b) {
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
-            mpz_clear(result->value);
-            free(result);
+            // mpz_clear handled by ARC destructor
+            free_bigint_for_tagged(result);
             /* Free temporaries */
             if (tagged_int_is_small(a)) free_temp_bigint(a_big);
             if (tagged_int_is_small(b)) free_temp_bigint(b_big);
@@ -202,8 +215,8 @@ TaggedInt tagged_int_sub(TaggedInt a, TaggedInt b) {
                 /* Try to demote result back to SmallInt */
                 TaggedInt demoted = try_demote_bigint(result->value);
                 if (demoted != 0) {
-                    mpz_clear(result->value);
-                    free(result);
+                    // mpz_clear handled by ARC destructor
+                    free_bigint_for_tagged(result);
                     free_temp_bigint(a_big);
                     free_temp_bigint(b_big);
                     return demoted;
@@ -229,8 +242,8 @@ TaggedInt tagged_int_sub(TaggedInt a, TaggedInt b) {
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
-            mpz_clear(result->value);
-            free(result);
+            // mpz_clear handled by ARC destructor
+            free_bigint_for_tagged(result);
             /* Free temporaries */
             if (tagged_int_is_small(a)) free_temp_bigint(a_big);
             if (tagged_int_is_small(b)) free_temp_bigint(b_big);
@@ -264,8 +277,8 @@ TaggedInt tagged_int_mul(TaggedInt a, TaggedInt b) {
                 /* Try to demote result back to SmallInt */
                 TaggedInt demoted = try_demote_bigint(result->value);
                 if (demoted != 0) {
-                    mpz_clear(result->value);
-                    free(result);
+                    // mpz_clear handled by ARC destructor
+                    free_bigint_for_tagged(result);
                     free_temp_bigint(a_big);
                     free_temp_bigint(b_big);
                     return demoted;
@@ -291,8 +304,8 @@ TaggedInt tagged_int_mul(TaggedInt a, TaggedInt b) {
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
-            mpz_clear(result->value);
-            free(result);
+            // mpz_clear handled by ARC destructor
+            free_bigint_for_tagged(result);
             /* Free temporaries */
             if (tagged_int_is_small(a)) free_temp_bigint(a_big);
             if (tagged_int_is_small(b)) free_temp_bigint(b_big);
@@ -340,8 +353,8 @@ TaggedInt tagged_int_div(TaggedInt a, TaggedInt b) {
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
-            mpz_clear(result->value);
-            free(result);
+            // mpz_clear handled by ARC destructor
+            free_bigint_for_tagged(result);
             /* Free temporaries */
             if (tagged_int_is_small(a)) free_temp_bigint(a_big);
             if (tagged_int_is_small(b)) free_temp_bigint(b_big);
@@ -372,8 +385,8 @@ TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b) {
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
-            mpz_clear(result->value);
-            free(result);
+            // mpz_clear handled by ARC destructor
+            free_bigint_for_tagged(result);
             free_temp_bigint(b_big);
             return demoted;
         }
@@ -449,8 +462,8 @@ TaggedInt tagged_int_neg(TaggedInt a) {
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
-            mpz_clear(result->value);
-            free(result);
+            // mpz_clear handled by ARC destructor
+            free_bigint_for_tagged(result);
             return demoted;
         }
     }
@@ -530,8 +543,8 @@ bigint_case:
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
-            mpz_clear(result->value);
-            free(result);
+            // mpz_clear handled by ARC destructor
+            free_bigint_for_tagged(result);
             /* Free temporaries */
             if (tagged_int_is_small(base)) free_temp_bigint(base_big);
             if (tagged_int_is_small(exp)) free_temp_bigint(exp_big);
@@ -585,11 +598,9 @@ void tagged_int_print(TaggedInt value) {
 void tagged_int_free(TaggedInt value) {
     if (tagged_int_is_bigint(value)) {
         ViperBigInt* bigint = tagged_int_get_bigint(value);
-        /* Sanity check: pointer should be in valid memory range */
-        /* Valid heap pointers are typically in lower address space */
-        if (bigint != NULL && ((uint64_t)bigint >> 48) == 0) {
-            mpz_clear(bigint->value);
-            free(bigint);
+        /* Use ARC release for proper memory management */
+        if (bigint != NULL) {
+            vp_arc_release(bigint);
         }
     }
     /* Small integers don't need freeing */
