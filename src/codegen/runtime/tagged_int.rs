@@ -6,7 +6,6 @@
 
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
-use inkwell::IntPredicate;
 
 /// Declare tagged integer runtime functions
 pub fn declare_tagged_int_functions<'ctx>(

@@ -35,13 +35,9 @@ pub struct CodeGen<'ctx> {
     closure_analyzer: ClosureAnalyzer,
     /// Variables that are captured by nested functions
     closure_cells: HashMap<String, crate::codegen::state::ClosureCellInfo<'ctx>>,
-    /// Variables captured by this function's nested functions
-    captured_vars: HashSet<String>,
     current_function: Option<String>,
     current_class: Option<String>,  // Current class context for super() and methods
     in_classmethod: bool,  // True when generating code for a @classmethod
-    /// Module name for __name__ builtin
-    module_name: String,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -70,11 +66,9 @@ impl<'ctx> CodeGen<'ctx> {
             escape_analyzer: EscapeAnalyzer::new(),
             closure_analyzer: ClosureAnalyzer::new(),
             closure_cells: HashMap::new(),
-            captured_vars: HashSet::new(),
             current_function: None,
             current_class: None,
             in_classmethod: false,
-            module_name: module_name.to_string(),
         }
     }
 
@@ -95,10 +89,6 @@ impl<'ctx> CodeGen<'ctx> {
         // Generate __name__ builtin constant
         // For the main module, use "__main__"; for imported modules, use the module name
         self.generate_name_builtin()?;
-
-        // Note: Closure cell runtime is generated on-demand when nested functions with nonlocal are used
-        // For now, we skip generating it to avoid linking issues with simple programs
-        // crate::codegen::runtime::closure_cells::declare_closure_cell_functions(self.context, &self.module)?;
 
         // First pass: declare all functions (including class methods and nested functions)
         self.declare_all_functions(&module.statements)?;
@@ -814,27 +804,6 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var").unwrap();
             }
         }
-    }
-
-    /// Create a global constant from a literal expression
-    fn create_global_constant(&mut self, name: &str, value: &Expr) -> Result<(), String> {
-        let val = match value {
-            Expr::Int(n, _) => self.ir_builder.i64_const(*n).as_basic_value_enum(),
-            Expr::Float(n, _) => self.ir_builder.f64_const(*n).as_basic_value_enum(),
-            Expr::Bool(b, _) => self.ir_builder.bool_const(*b).as_basic_value_enum(),
-            Expr::Str(s, _) => self.ir_builder.string_const(&self.module, s).as_basic_value_enum(),
-            Expr::Bytes(b, _) => self.ir_builder.bytes_const(&self.module, b).as_basic_value_enum(),
-            Expr::None(_) => self.ir_builder.i64_const(0).as_basic_value_enum(),
-            _ => return Err(format!("Cannot create global constant from non-literal expression")),
-        };
-
-        let global = self.module.add_global(val.get_type(), None, name);
-        global.set_constant(true);
-        global.set_initializer(&val);
-        global.set_unnamed_addr(false);
-
-        self.global_constants.insert(name.to_string(), global);
-        Ok(())
     }
 
     /// Check if an expression can be used as a simple global initializer

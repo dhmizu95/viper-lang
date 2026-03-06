@@ -20,7 +20,6 @@ use crate::codegen::state::CodeGenState;
 ///     int64_t elem_type;    // offset 24 (24-31)
 ///     void* data;           // offset 32 (32-39)
 /// };
-const LIST_DATA_OFFSET_BYTES: u32 = 32;
 
 /// Get the data pointer from a ViperList struct
 /// Returns a pointer to the element data (e.g., i8* for bool lists)
@@ -263,9 +262,6 @@ pub fn inline_i64_list_set<'ctx>(
 ///     int64_t elem_type;    // offset 24 (24-31)
 ///     void* data;           // offset 32 (32-39)
 /// };
-const LIST_LENGTH_OFFSET: u32 = 8;
-const LIST_CAPACITY_OFFSET: u32 = 16;
-const LIST_DATA_OFFSET: u32 = 32;
 
 /// Get pointer to length field
 fn get_length_ptr<'ctx>(

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::lexer::indent_stack::{IndentChange, IndentStack};
 use crate::lexer::tokens::{Token, TokenKind};
 use crate::utils::Span;

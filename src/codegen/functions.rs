@@ -255,17 +255,6 @@ fn param_is_passed_to_list_function(param_name: &str, body: &[Stmt]) -> bool {
     false
 }
 
-/// Check if a parameter is passed as argument to a function call
-/// This indicates the parameter might be a reference type (list, dict, etc.)
-fn param_is_passed_to_function(param_name: &str, body: &[Stmt]) -> bool {
-    for stmt in body {
-        if stmt_contains_function_call_with_param(param_name, stmt) {
-            return true;
-        }
-    }
-    false
-}
-
 /// Check if a parameter is used as a scalar (in arithmetic/comparison operations)
 fn stmt_contains_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
     match stmt {
@@ -473,42 +462,6 @@ fn stmt_contains_list_function_call_with_param(param_name: &str, stmt: &Stmt) ->
     }
 }
 
-/// Check if a statement contains a function call where the parameter is passed as an argument
-fn stmt_contains_function_call_with_param(param_name: &str, stmt: &Stmt) -> bool {
-    match stmt {
-        Stmt::Expr(expr) => expr_contains_function_call_with_param(param_name, expr),
-        Stmt::Assign { target, value, .. } => {
-            expr_contains_function_call_with_param(param_name, target)
-                || expr_contains_function_call_with_param(param_name, value)
-        }
-        Stmt::If { condition, body, else_body, .. } => {
-            expr_contains_function_call_with_param(param_name, condition)
-                || body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
-                || else_body.as_ref().map_or(false, |eb| {
-                    eb.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
-                })
-        }
-        Stmt::While { condition, body, .. } => {
-            expr_contains_function_call_with_param(param_name, condition)
-                || body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
-        }
-        Stmt::For { body, .. } => {
-            body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
-        }
-        Stmt::Return { value, .. } => {
-            value.as_ref().map_or(false, |v| expr_contains_function_call_with_param(param_name, v))
-        }
-        Stmt::Function { body, .. } => {
-            body.iter().any(|s| stmt_contains_function_call_with_param(param_name, s))
-        }
-        Stmt::Declare { value, .. } => {
-            value.as_ref().map_or(false, |v| expr_contains_function_call_with_param(param_name, v))
-        }
-        Stmt::AugAssign { value, .. } => expr_contains_function_call_with_param(param_name, value),
-        _ => false,
-    }
-}
-
 /// Check if an expression contains a LIST function call where the parameter is passed as an argument
 /// Excludes universal builtins that accept any type
 fn expr_contains_list_function_call_with_param(param_name: &str, expr: &Expr) -> bool {
@@ -548,37 +501,6 @@ fn expr_contains_list_function_call_with_param(param_name: &str, expr: &Expr) ->
         Expr::Index { obj, index, .. } => {
             expr_contains_list_function_call_with_param(param_name, obj)
                 || expr_contains_list_function_call_with_param(param_name, index)
-        }
-        _ => false,
-    }
-}
-
-/// Check if an expression contains a function call where the parameter is passed as an argument
-fn expr_contains_function_call_with_param(param_name: &str, expr: &Expr) -> bool {
-    match expr {
-        Expr::Call { func: _, args, .. } => {
-            // Check if any argument is the parameter
-            args.iter().any(|arg| {
-                if let Expr::Ident(name, _) = arg {
-                    name == param_name
-                } else {
-                    false
-                }
-            })
-            // Also check nested calls in arguments
-            || args.iter().any(|arg| expr_contains_function_call_with_param(param_name, arg))
-        }
-        Expr::BinOp { left, right, .. } => {
-            expr_contains_function_call_with_param(param_name, left)
-                || expr_contains_function_call_with_param(param_name, right)
-        }
-        Expr::UnaryOp { operand, .. } => {
-            expr_contains_function_call_with_param(param_name, operand)
-        }
-        Expr::Attribute { obj, .. } => expr_contains_function_call_with_param(param_name, obj),
-        Expr::Index { obj, index, .. } => {
-            expr_contains_function_call_with_param(param_name, obj)
-                || expr_contains_function_call_with_param(param_name, index)
         }
         _ => false,
     }

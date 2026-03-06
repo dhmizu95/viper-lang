@@ -434,22 +434,6 @@ pub fn generate_call<'ctx>(
                 })
                 .collect::<Result<_, _>>()?;
 
-            // Note: Closure cell parameter passing is disabled until runtime is properly linked
-            // Append closure cell parameters if this is a nested function call
-            // Check if current function has captured variables that need to be passed
-            // if let Some(current_func) = state.current_function {
-            //     if let Some(closure_analyzer) = state.closure_analyzer {
-            //         let captured = closure_analyzer.get_closure_cells_to_create(current_func);
-            //         for var_name in &captured {
-            //             if let Some(var_info) = state.variables.get(var_name) {
-            //                 if let Some(cell_ptr) = var_info.get_closure_cell() {
-            //                     arg_values.push(cell_ptr.into());
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
-
             let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "call");
             return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
         }
@@ -2294,12 +2278,8 @@ pub fn generate_divmod_call<'ctx>(
             ptr_type.into(),
         ], false);
         let tuple_val = state.builder.build_alloca(tuple_struct, "divmod_tuple").expect("alloca");
-        let quot_gep = unsafe {
-            state.builder.build_struct_gep(tuple_struct, tuple_val, 0, "quot_gep").expect("quot_gep")
-        };
-        let rem_gep = unsafe {
-            state.builder.build_struct_gep(tuple_struct, tuple_val, 1, "rem_gep").expect("rem_gep")
-        };
+        let quot_gep = state.builder.build_struct_gep(tuple_struct, tuple_val, 0, "quot_gep").expect("quot_gep");
+        let rem_gep = state.builder.build_struct_gep(tuple_struct, tuple_val, 1, "rem_gep").expect("rem_gep");
         state.builder.build_store(quot_gep, quot_ptr).expect("store_quot");
         state.builder.build_store(rem_gep, rem_ptr).expect("store_rem");
         let loaded = state.builder.build_load(tuple_struct, tuple_val, "divmod_result").expect("load_divmod");

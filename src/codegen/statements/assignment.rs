@@ -1,22 +1,6 @@
 use crate::ast::{BinOp, Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarStorage, VarType};
-use inkwell::values::BasicValueEnum;
-
-/// Check if an expression is a simple identifier
-fn value_is_identifier(value: &Expr) -> bool {
-    matches!(value, Expr::Ident(..))
-}
-
-/// Check if two pointer values are the same SSA value
-fn values_are_same_pointer<'ctx>(a: BasicValueEnum<'ctx>, b: BasicValueEnum<'ctx>) -> bool {
-    if let (inkwell::values::BasicValueEnum::PointerValue(a_ptr), inkwell::values::BasicValueEnum::PointerValue(b_ptr)) = (a, b) {
-        // Compare the underlying LLVM values
-        a_ptr == b_ptr
-    } else {
-        false
-    }
-}
 
 /// Get the type of an expression for assignment type tracking.
 /// Unlike infer_expr_type, this looks up identifier types from var_types.
