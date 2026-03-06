@@ -146,6 +146,21 @@ void vp_arc_mark_shared(void* ptr);
 bool vp_arc_is_shared(void* ptr);
 
 /* ============================================ */
+/* Wrapper Functions (for stdlib.h)             */
+/* ============================================ */
+
+void* vp_alloc(size_t size);
+void* vp_alloc_local(size_t size);
+void vp_free(void* ptr);
+void vp_retain(void* ptr);
+void vp_retain_local(void* ptr);
+void vp_release(void* ptr);
+void vp_release_local(void* ptr);
+void vp_release_batch(void** ptrs, size_t count);
+void vp_release_batch_local(void** ptrs, size_t count);
+int64_t vp_ref_count(void* ptr);
+
+/* ============================================ */
 /* Helper Macros                                */
 /* ============================================ */
 

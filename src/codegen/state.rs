@@ -228,6 +228,34 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         }
     }
 
+    /// Check if a variable can use move semantics
+    pub fn can_move(&self, var_name: &str) -> bool {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
+        {
+            analyzer.can_move(func, var_name)
+        } else {
+            false
+        }
+    }
+
+    /// Mark a variable as used (prevents move semantics)
+    pub fn mark_variable_used(&mut self, var_name: &str) {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_mut(), self.current_function)
+        {
+            analyzer.mark_variable_used(func, var_name);
+        }
+    }
+
+    /// Check if ARC elision is safe
+    pub fn can_elide_arc(&self, var_name: &str) -> bool {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
+        {
+            analyzer.can_elide_arc(func, var_name)
+        } else {
+            false
+        }
+    }
+
     /// Mark a variable as a list
     pub fn mark_as_list(&mut self, name: String) {
         self.list_vars.insert(name);

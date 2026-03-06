@@ -284,6 +284,14 @@ void vp_release_local(void* ptr) {
     vp_arc_release_local(ptr);
 }
 
+void vp_release_batch(void** ptrs, size_t count) {
+    vp_arc_release_batch(ptrs, count);
+}
+
+void vp_release_batch_local(void** ptrs, size_t count) {
+    vp_arc_release_batch_local(ptrs, count);
+}
+
 int64_t vp_ref_count(void* ptr) {
     return vp_arc_ref_count(ptr);
 }

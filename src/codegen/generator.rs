@@ -738,33 +738,68 @@ impl<'ctx> CodeGen<'ctx> {
     fn generate_arc_cleanup(&mut self, function_name: &str) {
         // Find variables that need cleanup
         let vars_needing_cleanup = self.escape_analyzer.get_vars_needing_cleanup(function_name);
-        if vars_needing_cleanup.is_empty() {
-            return;
-        }
-
-        let mut local_vars = Vec::new();
-        let mut shared_vars = Vec::new();
+        
+        // OPTIMIZATION 3: Batch Release - Group releases by thread-local vs shared
+        let mut local_vars: Vec<inkwell::values::PointerValue> = Vec::new();
+        let mut shared_vars: Vec<inkwell::values::PointerValue> = Vec::new();
 
         for var_name in vars_needing_cleanup {
             if let Some(var_info) = self.variables.get(var_name) {
-                // If the variable might be shared across threads, it needs atomic release
-                if self.escape_analyzer.is_thread_shared(function_name, var_name) {
-                    shared_vars.push(var_info.clone());
-                } else {
-                    local_vars.push(var_info.clone());
+                if let crate::codegen::variables::VarStorage::Stack(stack_ptr) = &var_info.storage {
+                    // Load the pointer value
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let value = self.builder.build_load(ptr_type, *stack_ptr, "load_var").unwrap();
+                    if let inkwell::values::BasicValueEnum::PointerValue(ptr_val) = value {
+                        // Check if shared across threads
+                        if self.escape_analyzer.is_thread_shared(function_name, var_name) {
+                            shared_vars.push(ptr_val);
+                        } else {
+                            local_vars.push(ptr_val);
+                        }
+                    }
                 }
             }
         }
 
-        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-        let null_ptr = ptr_type.const_null();
-
-        // Generate individual release calls for each variable
-        // (batch release would be more efficient but requires runtime support)
-        for var in &local_vars {
-            if let crate::codegen::variables::VarStorage::Stack(stack_ptr) = &var.storage {
-                let value = self.builder.build_load(ptr_type, *stack_ptr, "load_var").unwrap();
-                if let inkwell::values::BasicValueEnum::PointerValue(ptr_val) = value {
+        // Use batch release for local variables (more efficient)
+        if !local_vars.is_empty() {
+            // For small counts, individual releases are fine
+            // For large counts, could use vp_release_batch_local
+            if local_vars.len() >= 4 {
+                // Batch release for 4+ variables
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let array_type = ptr_type.array_type(local_vars.len() as u32);
+                let array_alloca = self.builder.build_alloca(array_type, "batch_ptrs").unwrap();
+                
+                // Store each pointer in the array
+                for (i, ptr) in local_vars.iter().enumerate() {
+                    let gep = unsafe {
+                        self.builder.build_in_bounds_gep(
+                            array_type,
+                            array_alloca,
+                            &[self.context.i32_type().const_zero(), self.context.i32_type().const_int(i as u64, false)],
+                            "ptr_gep"
+                        )
+                    }.unwrap();
+                    self.builder.build_store(gep, *ptr).unwrap();
+                }
+                
+                // Call batch release
+                if let Some(batch_func) = self.module.get_function("vp_release_batch_local") {
+                    let array_ptr = self.builder.build_pointer_cast(
+                        array_alloca,
+                        ptr_type.ptr_type(inkwell::AddressSpace::default()),
+                        "array_cast"
+                    ).unwrap();
+                    self.builder.build_call(
+                        batch_func,
+                        &[array_ptr.into(), self.context.i32_type().const_int(local_vars.len() as u64, false).into()],
+                        "batch_release"
+                    ).unwrap();
+                }
+            } else {
+                // Individual releases for small counts
+                for ptr_val in local_vars {
                     if let Some(release_func) = self.module.get_function("vp_release_local") {
                         self.builder.build_call(release_func, &[ptr_val.into()], "release_var").unwrap();
                     }
@@ -772,14 +807,11 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
-        for var in &shared_vars {
-            if let crate::codegen::variables::VarStorage::Stack(stack_ptr) = &var.storage {
-                let value = self.builder.build_load(ptr_type, *stack_ptr, "load_var").unwrap();
-                if let inkwell::values::BasicValueEnum::PointerValue(ptr_val) = value {
-                    if let Some(release_func) = self.module.get_function("vp_release") {
-                        self.builder.build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var").unwrap();
-                    }
-                }
+        // Shared variables need individual releases (different destructor signature)
+        let null_ptr = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+        for ptr_val in shared_vars {
+            if let Some(release_func) = self.module.get_function("vp_release") {
+                self.builder.build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var").unwrap();
             }
         }
     }

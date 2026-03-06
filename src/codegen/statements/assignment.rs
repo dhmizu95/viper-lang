@@ -291,14 +291,27 @@ pub(crate) fn generate_assign<'ctx>(
                 }
             }
 
-            // Retain new value if it's a reference type that escapes (but not stack arrays)
-            // Exception: Fresh BigInt allocations already have ref_count=1
+            // OPTIMIZATION 1: ARC Elision - Skip retain if variable can be moved
+            // OPTIMIZATION 2: Move Semantics - Skip retain/release when transferring ownership
             let is_ref_type = val.is_pointer_value();
             let needs_arc = state.needs_arc(name);
-            let should_retain = is_ref_type && needs_arc && !is_stack_array && !is_fresh_bigint;
+            
+            // Check if we can use move semantics (skip retain/release entirely)
+            let can_use_move = state.can_move(name);
+            
+            // Check if ARC elision is safe (single-use, doesn't escape)
+            let can_elide = state.can_elide_arc(name);
+            
+            // Only retain if we can't elide or move
+            let should_retain = is_ref_type && needs_arc && !is_stack_array && !is_fresh_bigint 
+                && !can_use_move && !can_elide;
+            
             if should_retain {
                 state.build_retain(val, name);
             }
+            
+            // Mark variable as used for future move detection
+            state.mark_variable_used(name);
         } else {
             let ty = val.get_type();
 
