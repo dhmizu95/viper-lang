@@ -658,7 +658,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
 }
 
 /// Generate tuple unpacking: a, b, c = (1, 2, 3)
-fn generate_tuple_unpack<'ctx>(
+pub(crate) fn generate_tuple_unpack<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     targets: &[Expr],
     value: &Expr,

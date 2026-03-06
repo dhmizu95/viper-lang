@@ -1,0 +1,360 @@
+//! Main dispatch functions for statement code generation.
+
+use crate::ast::{Expr, Stmt, Type};
+use inkwell::context::Context;
+use inkwell::values::{FunctionValue, GlobalValue};
+use std::collections::{HashMap, HashSet};
+
+use super::*;
+use crate::codegen::builder::IRBuilder;
+use crate::codegen::state::CodeGenState;
+use crate::codegen::variables::{LoopContext, VarInfo};
+use crate::semantic::escape_analysis::EscapeAnalyzer;
+use crate::semantic::closure_analysis::ClosureAnalyzer;
+
+// Import helper functions from sibling modules
+use crate::codegen::statements::declaration::{generate_const, generate_declare, generate_global, generate_nonlocal};
+use crate::codegen::statements::assignment::{generate_assign, generate_aug_assign, generate_tuple_unpack};
+use crate::codegen::statements::concurrency::{
+    generate_chan, generate_recv, generate_send, generate_sync, generate_task,
+    generate_waitgroup, generate_wg_add, generate_wg_done, generate_wg_wait,
+};
+use crate::codegen::statements::patterns::generate_match_pattern;
+
+/// Generate code for a statement
+pub fn generate_stmt<'ctx>(
+    context: &'ctx Context,
+    module: &inkwell::module::Module<'ctx>,
+    builder: &inkwell::builder::Builder<'ctx>,
+    ir_builder: &IRBuilder<'ctx>,
+    variables: &mut HashMap<String, VarInfo<'ctx>>,
+    functions: &HashMap<String, FunctionValue<'ctx>>,
+    global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
+    loop_stack: &mut Vec<LoopContext<'ctx>>,
+    list_vars: &mut HashSet<String>,
+    dict_vars: &mut HashSet<String>,
+    bool_list_vars: &mut HashSet<String>,
+    bigint_vars: &mut HashSet<String>,
+    var_types: &mut HashMap<String, Type>,
+    stmt: &Stmt,
+) -> Result<(), String> {
+    let mut state = CodeGenState::new(
+        context,
+        module,
+        builder,
+        ir_builder,
+        variables,
+        functions,
+        global_constants,
+        loop_stack,
+        list_vars,
+        dict_vars,
+        bool_list_vars,
+        bigint_vars,
+        var_types,
+    );
+
+    generate_stmt_internal(&mut state, stmt)
+}
+
+/// Generate code for a statement with escape analysis
+pub fn generate_stmt_with_escape<'ctx>(
+    context: &'ctx Context,
+    module: &inkwell::module::Module<'ctx>,
+    builder: &inkwell::builder::Builder<'ctx>,
+    ir_builder: &IRBuilder<'ctx>,
+    variables: &mut HashMap<String, VarInfo<'ctx>>,
+    functions: &HashMap<String, FunctionValue<'ctx>>,
+    global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
+    loop_stack: &mut Vec<LoopContext<'ctx>>,
+    list_vars: &mut HashSet<String>,
+    dict_vars: &mut HashSet<String>,
+    bool_list_vars: &mut HashSet<String>,
+    bigint_vars: &mut HashSet<String>,
+    var_types: &mut HashMap<String, Type>,
+    stmt: &Stmt,
+    escape_analyzer: &mut EscapeAnalyzer,
+    current_function: &str,
+    current_class: Option<&str>,
+) -> Result<(), String> {
+    let mut state = CodeGenState::with_escape_analysis(
+        context,
+        module,
+        builder,
+        ir_builder,
+        variables,
+        functions,
+        global_constants,
+        loop_stack,
+        list_vars,
+        dict_vars,
+        bool_list_vars,
+        bigint_vars,
+        var_types,
+        escape_analyzer,
+        current_function,
+    );
+    state.current_class = current_class.map(|s| s.to_string());
+
+    generate_stmt_internal(&mut state, stmt)
+}
+
+/// Generate code for a statement with escape analysis and closure analysis
+pub fn generate_stmt_with_closure<'ctx>(
+    context: &'ctx Context,
+    module: &inkwell::module::Module<'ctx>,
+    builder: &inkwell::builder::Builder<'ctx>,
+    ir_builder: &IRBuilder<'ctx>,
+    variables: &mut HashMap<String, VarInfo<'ctx>>,
+    functions: &HashMap<String, FunctionValue<'ctx>>,
+    global_constants: &mut HashMap<String, GlobalValue<'ctx>>,
+    loop_stack: &mut Vec<LoopContext<'ctx>>,
+    list_vars: &mut HashSet<String>,
+    dict_vars: &mut HashSet<String>,
+    bool_list_vars: &mut HashSet<String>,
+    bigint_vars: &mut HashSet<String>,
+    var_types: &mut HashMap<String, Type>,
+    stmt: &Stmt,
+    escape_analyzer: &mut EscapeAnalyzer,
+    current_function: &str,
+    closure_analyzer: &ClosureAnalyzer,
+    current_class: Option<&str>,
+) -> Result<(), String> {
+    let mut state = CodeGenState::with_closure_analysis(
+        context,
+        module,
+        builder,
+        ir_builder,
+        variables,
+        functions,
+        global_constants,
+        loop_stack,
+        list_vars,
+        dict_vars,
+        bool_list_vars,
+        bigint_vars,
+        var_types,
+        escape_analyzer,
+        current_function,
+        closure_analyzer,
+    );
+    state.current_class = current_class.map(|s| s.to_string());
+
+    generate_stmt_internal(&mut state, stmt)
+}
+
+/// Internal statement generation
+pub(crate) fn generate_stmt_internal<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    stmt: &Stmt,
+) -> Result<(), String> {
+    match stmt {
+        Stmt::Expr(expr) => {
+            crate::codegen::expressions::generate_expr(state, expr)?;
+        }
+        Stmt::Declare { name, value, mutable, type_ann, .. } => {
+            generate_declare(state, name, *mutable, value, type_ann)?;
+        }
+        Stmt::Global { names, .. } => {
+            generate_global(state, names)?;
+        }
+        Stmt::Nonlocal { names, .. } => {
+            generate_nonlocal(state, names)?;
+        }
+        Stmt::Const { name, value, .. } => {
+            generate_const(state, name, value)?;
+        }
+        Stmt::Assign { target, value, .. } => {
+            // Check for tuple unpacking
+            if let Expr::Tuple { elements, .. } = target.as_ref() {
+                generate_tuple_unpack(state, elements, value)?;
+            } else {
+                generate_assign(state, target, value)?;
+            }
+        }
+        Stmt::AugAssign { target, op, value, .. } => {
+            generate_aug_assign(state, target, op, value)?;
+        }
+        Stmt::Return { value, .. } => {
+            return crate::codegen::control_flow::generate_return(state, value);
+        }
+        Stmt::If { condition, body, elif_blocks, else_body, .. } => {
+            return crate::codegen::control_flow::generate_if(
+                state,
+                condition,
+                body,
+                elif_blocks,
+                else_body,
+            );
+        }
+        Stmt::While { condition, body, else_body, .. } => {
+            return crate::codegen::control_flow::generate_while(state, condition, body, else_body);
+        }
+        Stmt::For { target, iter, body, else_body, is_async, .. } => {
+            if *is_async {
+                return crate::codegen::control_flow::generate_async_for(state, target, iter, body);
+            }
+            return crate::codegen::control_flow::generate_for(state, target, iter, body, else_body, false);
+        }
+        Stmt::Function { .. } => {
+            // Already handled in first pass
+        }
+        Stmt::Break(_) => {
+            return crate::codegen::control_flow::generate_break(
+                state.builder,
+                state.ir_builder,
+                state.loop_stack,
+            );
+        }
+        Stmt::Continue(_) => {
+            return crate::codegen::control_flow::generate_continue(
+                state.builder,
+                state.ir_builder,
+                state.loop_stack,
+            );
+        }
+        Stmt::Pass(_) => {
+            // No-op
+        }
+        Stmt::Import { module, alias, .. } => {
+            generate_import(state, module, alias.as_deref())?;
+        }
+        Stmt::FromImport { module, names, .. } => {
+            generate_from_import(state, module, names)?;
+        }
+        // Concurrency statements (Phase 3)
+        Stmt::Sync { body, .. } => {
+            return generate_sync(state, body);
+        }
+        Stmt::Task { call, span } => {
+            return generate_task(state, call, span);
+        }
+        Stmt::Chan { size, .. } => {
+            return generate_chan(state, size);
+        }
+        Stmt::Send { chan, value, .. } => {
+            return generate_send(state, chan, value);
+        }
+        Stmt::Recv { chan, .. } => {
+            return generate_recv(state, chan);
+        }
+        Stmt::WaitGroup { .. } => {
+            return generate_waitgroup(state);
+        }
+        Stmt::WgAdd { wg, n, .. } => {
+            return generate_wg_add(state, wg, n);
+        }
+        Stmt::WgDone { wg, .. } => {
+            return generate_wg_done(state, wg);
+        }
+        Stmt::WgWait { wg, .. } => {
+            return generate_wg_wait(state, wg);
+        }
+        Stmt::Match { subject, cases, span: _ } => {
+            let subject_val = crate::codegen::expressions::generate_expr(state, subject)?;
+
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+            let end_bb = state.context.append_basic_block(func, "match_end");
+
+            // Generate each case as a simple if statement
+            for (i, case) in cases.iter().enumerate() {
+                let matches = generate_match_pattern(state, &case.pattern, subject_val)?;
+
+                // Create blocks for this case
+                let then_bb = state.context.append_basic_block(func, &format!("match_case_{}", i));
+                let next_else_bb = if i < cases.len() - 1 {
+                    state.context.append_basic_block(func, &format!("match_else_{}", i))
+                } else {
+                    end_bb  // Last case's else goes to end
+                };
+
+                // Generate the conditional branch
+                state.builder.build_conditional_branch(matches, then_bb, next_else_bb).unwrap();
+
+                // Generate then block (case body)
+                state.builder.position_at_end(then_bb);
+
+                // Save the current variable count to restore after case
+                let saved_var_count = state.variables.len();
+
+                for stmt in &case.body {
+                    crate::codegen::statements::generate_stmt(
+                        state.context,
+                        state.module,
+                        state.builder,
+                        state.ir_builder,
+                        state.variables,
+                        state.functions,
+                        state.global_constants,
+                        state.loop_stack,
+                        state.list_vars,
+                        state.dict_vars,
+                        state.bool_list_vars,
+                        state.bigint_vars,
+                        state.var_types,
+                        stmt,
+                    )?;
+                }
+
+                // Branch to end after case body
+                if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                    state.builder.build_unconditional_branch(end_bb).unwrap();
+                }
+
+                // Remove variables that were added in this case
+                // (restore to the count before the case)
+                let keys_to_remove: Vec<String> = state.variables.keys()
+                    .skip(saved_var_count)
+                    .cloned()
+                    .collect();
+                for key in keys_to_remove {
+                    state.variables.remove(&key);
+                }
+
+                // Position at else for next case
+                state.builder.position_at_end(next_else_bb);
+            }
+
+            // Position at end
+            state.builder.position_at_end(end_bb);
+        }
+        // New Python keyword statements - stub implementations for now
+        Stmt::Assert { condition, message, span: _ } => {
+            // For now, just evaluate the condition and message (no actual assertion)
+            let _cond_val = crate::codegen::expressions::generate_expr(state, condition)?;
+            if let Some(msg) = message {
+                let _ = crate::codegen::expressions::generate_expr(state, msg);
+            }
+            // TODO: Implement actual assertion with runtime panic
+        }
+        Stmt::Delete { targets, span: _ } => {
+            // For now, just evaluate the targets (no actual deletion)
+            for target in targets {
+                let _ = crate::codegen::expressions::generate_expr(state, target)?;
+            }
+            // TODO: Implement actual deletion (decrement ref counts, etc.)
+        }
+        Stmt::Raise { exception, cause, span: _ } => {
+            generate_raise(state, exception.as_deref(), cause.as_deref())?;
+        }
+        Stmt::Try { body, handlers, else_body, finally_body, span: _ } => {
+            generate_try_except(state, body, handlers, else_body.as_deref(), finally_body.as_deref())?;
+        }
+        Stmt::With { items, body, is_async, span: _ } => {
+            if *is_async {
+                generate_async_with(state, items, body)?;
+            } else {
+                generate_sync_with(state, items, body)?;
+            }
+        }
+        Stmt::Yield { value, span: _ } => {
+            // For now, just evaluate the value
+            if let Some(val) = value {
+                let _ = crate::codegen::expressions::generate_expr(state, val)?;
+            }
+            // TODO: Implement generator yield
+        }
+        _ => {}
+    }
+    Ok(())
+}
