@@ -48,8 +48,15 @@ pub fn generate_print_call<'ctx>(
     // Print each argument
     for (i, arg) in args.iter().enumerate() {
         let val = generate_expr(state, arg)?;
+        let arg_type = crate::codegen::expressions::core::infer_type_with_state(state, arg);
 
-        if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 64 {
+        if arg_type == Type::Int {
+            let print_func = state
+                .module
+                .get_function("tagged_int_print")
+                .ok_or_else(|| "tagged_int_print not declared".to_string())?;
+            state.builder.build_call(print_func, &[val.into()], "print_tagged_int").expect("tagged_int_print");
+        } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 64 {
             let print_func = state
                 .module
                 .get_function("vp_print_i64")

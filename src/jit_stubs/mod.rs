@@ -28,6 +28,7 @@ pub mod socket_mod;
 pub mod strings;
 pub mod structs;
 pub mod sys;
+pub mod tagged_int;
 pub mod time_mod;
 pub mod asyncio_mod;
 
@@ -58,5 +59,6 @@ pub use socket_mod::*;
 pub use strings::*;
 pub use structs::*;
 pub use sys::*;
+pub use tagged_int::*;
 pub use time_mod::*;
 pub use asyncio_mod::*;

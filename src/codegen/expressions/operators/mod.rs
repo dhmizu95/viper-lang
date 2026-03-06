@@ -297,7 +297,14 @@ pub fn generate_binop<'ctx>(
     } else if lhs_val.is_float_value() {
         return arithmetic::generate_float_binop(state, lhs_val, rhs_val, op);
     } else {
-        return arithmetic::generate_int_binop(state, lhs_val, rhs_val, op);
+        let left_type = crate::codegen::expressions::core::infer_type_with_state(state, left);
+        let right_type = crate::codegen::expressions::core::infer_type_with_state(state, right);
+
+        if left_type == crate::ast::Type::Int || right_type == crate::ast::Type::Int {
+            return arithmetic::generate_tagged_int_binop(state, lhs_val, rhs_val, op);
+        } else {
+            return arithmetic::generate_int_binop(state, lhs_val, rhs_val, op);
+        }
     }
 }
 
@@ -351,6 +358,12 @@ pub fn generate_unary<'ctx>(
             }
         }
     } else {
+        let op_type = crate::codegen::expressions::core::infer_type_with_state(state, operand);
+
+        if op_type == crate::ast::Type::Int {
+            return arithmetic::generate_tagged_int_unary(state, op, val);
+        }
+
         let int_val = val.into_int_value();
         match op {
             UnaryOp::Neg => Ok(state.builder.build_int_neg(int_val, "neg").expect("neg").into()),

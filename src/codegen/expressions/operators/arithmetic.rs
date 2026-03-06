@@ -1,4 +1,5 @@
 use crate::ast::BinOp;
+use crate::ast::UnaryOp;
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
@@ -168,5 +169,51 @@ pub fn generate_int_binop<'ctx>(
             Ok(result.into())
         }
         _ => Err(format!("Unsupported int operator: {:?}", op)),
+    }
+}
+
+/// Generate tagged integer binary operation
+pub fn generate_tagged_int_binop<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+    op: &BinOp,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    match op {
+        BinOp::Add => crate::codegen::runtime::tagged_int::generate_tagged_int_add(state, lhs, rhs),
+        BinOp::Sub => crate::codegen::runtime::tagged_int::generate_tagged_int_sub(state, lhs, rhs),
+        BinOp::Mul => crate::codegen::runtime::tagged_int::generate_tagged_int_mul(state, lhs, rhs),
+        BinOp::Div | BinOp::FloorDiv => crate::codegen::runtime::tagged_int::generate_tagged_int_div(state, lhs, rhs),
+        BinOp::Mod => crate::codegen::runtime::tagged_int::generate_tagged_int_mod(state, lhs, rhs),
+        BinOp::Eq => crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs, rhs),
+        BinOp::NotEq => {
+            let eq = crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs, rhs)?;
+            Ok(state.builder.build_not(eq.into_int_value(), "neq").expect("not").into())
+        }
+        BinOp::Lt => crate::codegen::runtime::tagged_int::generate_tagged_int_lt(state, lhs, rhs),
+        BinOp::Gt => crate::codegen::runtime::tagged_int::generate_tagged_int_gt(state, lhs, rhs),
+        BinOp::LtEq => {
+            let gt = crate::codegen::runtime::tagged_int::generate_tagged_int_gt(state, lhs, rhs)?;
+            Ok(state.builder.build_not(gt.into_int_value(), "lte").expect("not").into())
+        }
+        BinOp::GtEq => {
+            let lt = crate::codegen::runtime::tagged_int::generate_tagged_int_lt(state, lhs, rhs)?;
+            Ok(state.builder.build_not(lt.into_int_value(), "gte").expect("not").into())
+        }
+        BinOp::Pow => crate::codegen::runtime::tagged_int::generate_tagged_int_pow(state, lhs, rhs),
+        _ => Err(format!("Unsupported tagged int operator: {:?}", op)),
+    }
+}
+
+/// Generate tagged integer unary operation
+pub fn generate_tagged_int_unary<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    op: &UnaryOp,
+    operand: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    match op {
+        UnaryOp::Neg => crate::codegen::runtime::tagged_int::generate_tagged_int_neg(state, operand),
+        UnaryOp::Pos => Ok(operand),
+        _ => Err(format!("Unsupported tagged int unary operator: {:?}", op)),
     }
 }

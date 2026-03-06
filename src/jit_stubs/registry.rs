@@ -539,6 +539,53 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         );
     }
 
+    // Tagged Int runtime functions
+    if let Some(func) = module.get_function("tagged_int_add") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_add as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_sub") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_sub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_mul") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_mul as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_div") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_div as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_mod") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_mod as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_pow") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_pow as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_neg") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_neg as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_eq") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_eq as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_lt") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_lt as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_gt") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_gt as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_cmp") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_cmp as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_from_i64") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_from_i64 as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_to_str") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_to_str as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_print") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_print as *const () as usize);
+    }
+    if let Some(func) = module.get_function("tagged_int_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_free as *const () as usize);
+    }
+
     if let Some(func) = module.get_function("vp_math_sqrt") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_math_sqrt_stub as *const () as usize);

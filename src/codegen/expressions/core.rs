@@ -93,7 +93,7 @@ pub fn generate_tuple<'ctx>(
 
 pub fn infer_expr_type(expr: &Expr) -> Type {
     match expr {
-        Expr::Int(_, _) => Type::I64,
+        Expr::Int(_, _) => Type::Int,
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
@@ -138,13 +138,18 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         }
         Expr::Tuple { elements, .. } => Type::Tuple(elements.iter().map(infer_expr_type).collect()),
         Expr::Dict { .. } => Type::Var("dict".to_string()),
-        Expr::BinOp { op: _, left, right, .. } => {
+        Expr::BinOp { op, left, right, .. } => {
+            if matches!(op, crate::ast::BinOp::Eq | crate::ast::BinOp::NotEq | crate::ast::BinOp::Lt | crate::ast::BinOp::Gt | crate::ast::BinOp::LtEq | crate::ast::BinOp::GtEq) {
+                return Type::Bool;
+            }
             let lt = infer_expr_type(left);
             let rt = infer_expr_type(right);
             if lt == Type::BigInt || rt == Type::BigInt {
                 Type::BigInt
             } else if lt == Type::F64 || rt == Type::F64 {
                 Type::F64
+            } else if lt == Type::Int || rt == Type::Int {
+                Type::Int
             } else {
                 Type::I64
             }
@@ -163,13 +168,96 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
     }
 }
 
+pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
+    match expr {
+        Expr::Int(_, _) => Type::Int,
+        Expr::Float(_, _) => Type::F64,
+        Expr::Bool(_, _) => Type::Bool,
+        Expr::Str(_, _) => Type::Str,
+        Expr::Bytes(_, _) => Type::Bytes,
+        Expr::BigInt(_, _) => Type::BigInt,
+        Expr::None(_) => Type::None,
+        Expr::Ident(name, _) => state.var_types.get(name).cloned().unwrap_or(Type::Infer),
+        Expr::Call { func, args, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                if name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
+                    return Type::BigInt;
+                }
+                if name == "str" {
+                    return Type::Str;
+                }
+                if name == "print" || name == "len" || name == "range" {
+                    return if name == "len" { Type::I64 } else { Type::None };
+                }
+                let arg_types: Vec<Type> = args.iter().map(|a| infer_type_with_state(state, a)).collect();
+                Type::Fn(arg_types, Box::new(Type::Infer))
+            } else {
+                Type::Infer
+            }
+        }
+        Expr::List { elements, .. } => {
+            if let Some(first) = elements.first() {
+                Type::List(Box::new(infer_type_with_state(state, first)))
+            } else {
+                Type::List(Box::new(Type::Infer))
+            }
+        }
+        Expr::Array { elements, size, .. } => {
+            if let Some(first) = elements.first() {
+                Type::Array(Box::new(infer_type_with_state(state, first)), size.unwrap_or(0))
+            } else {
+                Type::Array(Box::new(Type::Infer), size.unwrap_or(0))
+            }
+        }
+        Expr::Tuple { elements, .. } => Type::Tuple(elements.iter().map(|e| infer_type_with_state(state, e)).collect()),
+        Expr::Dict { .. } => Type::Var("dict".to_string()),
+        Expr::BinOp { op, left, right, .. } => {
+            if matches!(op, crate::ast::BinOp::Eq | crate::ast::BinOp::NotEq | crate::ast::BinOp::Lt | crate::ast::BinOp::Gt | crate::ast::BinOp::LtEq | crate::ast::BinOp::GtEq | crate::ast::BinOp::And | crate::ast::BinOp::Or) {
+                return Type::Bool;
+            }
+            let lt = infer_type_with_state(state, left);
+            let rt = infer_type_with_state(state, right);
+            if lt == Type::BigInt || rt == Type::BigInt {
+                Type::BigInt
+            } else if lt == Type::F64 || rt == Type::F64 {
+                Type::F64
+            } else if lt == Type::Int || rt == Type::Int {
+                Type::Int
+            } else {
+                Type::I64
+            }
+        }
+        Expr::UnaryOp { op: _, operand, .. } => infer_type_with_state(state, operand),
+        Expr::AssignmentExpr { value, .. } => infer_type_with_state(state, value),
+        _ => Type::Infer,
+    }
+}
+
 /// Generate code for an expression
 pub fn generate_expr<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     expr: &Expr,
 ) -> Result<BasicValueEnum<'ctx>, String> {
     match expr {
-        Expr::Int(n, _) => Ok(state.ir_builder.i64_const(*n).into()),
+        Expr::Int(n, _) => {
+            let val = *n;
+            if val >= (-(1 << 62)) && val < (1 << 62) {
+                // Fits in small int (i63)
+                Ok(state.ir_builder.i64_const(val << 1).into())
+            } else {
+                // Must promote to BigInt pointer at runtime
+                let func = state
+                    .module
+                    .get_function("tagged_int_from_i64")
+                    .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
+                let const_val = state.ir_builder.i64_const(val);
+                let result = state
+                    .ir_builder
+                    .build_call(state.builder, func, &[const_val.into()], "tagged_int_const")
+                    .unwrap();
+                Ok(result.into())
+            }
+        }
         Expr::Float(n, _) => Ok(state.ir_builder.f64_const(*n).into()),
         Expr::Bool(b, _) => Ok(state.ir_builder.bool_const(*b).into()),
         Expr::None(_) => Ok(state.ir_builder.i64_const(0).into()),

@@ -35,6 +35,9 @@ pub fn declare_tagged_int_functions<'ctx>(
     // tagged_int_mod
     module.add_function("tagged_int_mod", tagged_op_type, None);
     
+    // tagged_int_pow
+    module.add_function("tagged_int_pow", tagged_op_type, None);
+    
     // tagged_int_neg (unary)
     let tagged_unary_type = i64_type.fn_type(&[i64_type.into()], false);
     module.add_function("tagged_int_neg", tagged_unary_type, None);
@@ -141,6 +144,30 @@ pub fn generate_tagged_int_mul<'ctx>(
             "tagged_mul",
         )
         .expect("tagged_int_mul call");
+
+    Ok(result.into())
+}
+
+/// Generate tagged integer exponentiation
+pub fn generate_tagged_int_pow<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let func = state
+        .module
+        .get_function("tagged_int_pow")
+        .ok_or_else(|| "tagged_int_pow not declared".to_string())?;
+
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            func,
+            &[lhs.into(), rhs.into()],
+            "tagged_pow",
+        )
+        .expect("tagged_int_pow call");
 
     Ok(result.into())
 }

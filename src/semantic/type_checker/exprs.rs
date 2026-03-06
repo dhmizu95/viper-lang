@@ -41,8 +41,8 @@ impl TypeChecker {
                         BinOp::Mul => {
                             // List repetition: List * int or int * List is allowed
                             let is_list_repeat = match (&lt, &rt) {
-                                (Type::List(_), Type::I64) => true,
-                                (Type::I64, Type::List(_)) => true,
+                                (Type::List(_), Type::I64) | (Type::List(_), Type::Int) => true,
+                                (Type::I64, Type::List(_)) | (Type::Int, Type::List(_)) => true,
                                 _ => false,
                             };
                             if !is_list_repeat {
@@ -227,9 +227,9 @@ impl TypeChecker {
                             }
                         }
                         _ => {
-                            if it != Type::I64 {
+                            if it != Type::I64 && it != Type::Int {
                                 self.errors.push(TypeError::new(
-                                    format!("Index must be i64, got {}", it),
+                                    format!("Index must be i64 or int, got {}", it),
                                     *span,
                                 ));
                             }

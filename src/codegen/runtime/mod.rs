@@ -13,6 +13,7 @@ pub mod bigint;
 pub mod exceptions;
 pub mod closure_cells;
 pub mod tuples;
+pub mod tagged_int;
 
 pub use print::declare_print_functions;
 pub use lists::declare_list_functions;
@@ -24,6 +25,7 @@ pub use bigint::declare_bigint_functions;
 pub use exceptions::declare_exception_functions;
 pub use closure_cells::declare_closure_cell_functions;
 pub use tuples::declare_tuple_functions;
+pub use tagged_int::declare_tagged_int_functions;
 
 /// Declare all runtime library functions
 pub fn declare_runtime_functions<'ctx>(
@@ -42,6 +44,7 @@ pub fn declare_runtime_functions<'ctx>(
     declare_exception_functions(context, module)?;
     declare_closure_cell_functions(context, module)?;
     declare_tuple_functions(context, module)?;
+    declare_tagged_int_functions(context, module)?;
     Ok(())
 }
 
