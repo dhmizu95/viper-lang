@@ -1,230 +1,14 @@
-//! Main code generator that translates AST to LLVM IR
+//! Function declaration and definition methods
 
-use crate::ast::{Expr, Module, Stmt, Type};
-use crate::utils::mangle_function_name;
-use inkwell::context::Context;
-use inkwell::values::{BasicValue, FunctionValue, GlobalValue};
-use std::collections::{HashMap, HashSet};
+use crate::ast::{Expr, Stmt, Type};
 
-use crate::codegen::builder::IRBuilder;
-use crate::codegen::types::TypeMapper;
-use crate::codegen::variables::{LoopContext, VarInfo, VarType};
-use crate::semantic::escape_analysis::EscapeAnalyzer;
-use crate::semantic::closure_analysis::ClosureAnalyzer;
+use crate::codegen::core::context::CodeGen;
+use crate::codegen::variables::{VarInfo, VarType};
 use crate::utils::mangling::mangle_function_name_with_closure;
 
-/// Main code generator that translates AST to LLVM IR
-pub struct CodeGen<'ctx> {
-    context: &'ctx Context,
-    module: inkwell::module::Module<'ctx>,
-    builder: inkwell::builder::Builder<'ctx>,
-    ir_builder: IRBuilder<'ctx>,
-    type_mapper: TypeMapper<'ctx>,
-    variables: HashMap<String, VarInfo<'ctx>>,
-    functions: HashMap<String, FunctionValue<'ctx>>,
-    global_constants: HashMap<String, GlobalValue<'ctx>>,
-    loop_stack: Vec<LoopContext<'ctx>>,
-    list_vars: HashSet<String>,
-    dict_vars: HashSet<String>,
-    bool_list_vars: HashSet<String>,
-    bigint_vars: HashSet<String>,
-    var_types: HashMap<String, Type>,
-    /// Functions that contain BigInt variables (need special optimization handling)
-    bigint_functions: HashSet<String>,
-    escape_analyzer: EscapeAnalyzer,
-    closure_analyzer: ClosureAnalyzer,
-    /// Variables that are captured by nested functions
-    closure_cells: HashMap<String, crate::codegen::state::ClosureCellInfo<'ctx>>,
-    current_function: Option<String>,
-    current_class: Option<String>,  // Current class context for super() and methods
-    in_classmethod: bool,  // True when generating code for a @classmethod
-}
-
 impl<'ctx> CodeGen<'ctx> {
-    pub fn new(context: &'ctx Context, module_name: &str) -> Self {
-        let module = context.create_module(module_name);
-        let builder = context.create_builder();
-        let ir_builder = IRBuilder::new(context, &module);
-        let type_mapper = TypeMapper::new(context);
-
-        Self {
-            context,
-            module,
-            builder,
-            ir_builder,
-            type_mapper,
-            variables: HashMap::new(),
-            functions: HashMap::new(),
-            global_constants: HashMap::new(),
-            loop_stack: Vec::new(),
-            list_vars: HashSet::new(),
-            dict_vars: HashSet::new(),
-            bool_list_vars: HashSet::new(),
-            bigint_vars: HashSet::new(),
-            var_types: HashMap::new(),
-            bigint_functions: HashSet::new(),
-            escape_analyzer: EscapeAnalyzer::new(),
-            closure_analyzer: ClosureAnalyzer::new(),
-            closure_cells: HashMap::new(),
-            current_function: None,
-            current_class: None,
-            in_classmethod: false,
-        }
-    }
-
-    /// Generate code for a complete module
-    pub fn generate(&mut self, module: &Module) -> Result<(), String> {
-        // Run escape analysis first
-        self.escape_analyzer.analyze_module(module);
-
-        // Run closure analysis to identify captured variables
-        self.closure_analyzer.analyze_module(module);
-
-        // Initialize class registry for OOP
-        crate::codegen::oop::init_class_registry();
-
-        // Declare runtime functions first
-        crate::codegen::runtime::declare_runtime_functions(self.context, &self.module)?;
-
-        // Generate __name__ builtin constant
-        // For the main module, use "__main__"; for imported modules, use the module name
-        self.generate_name_builtin()?;
-
-        // First pass: declare all functions (including class methods and nested functions)
-        self.declare_all_functions(&module.statements)?;
-
-        // Generate class definitions (defines class methods)
-        self.generate_classes(&module.statements)?;
-
-        // Second pass: Process module-level constants and variables
-        // Module-level assignments create immutable constants by default (Python UPPER_CASE convention)
-        // Note: Complex types (tuples, lists, dicts, arrays) cannot be global initializers
-        // and will be handled as regular statements in viper_init
-        for stmt in &module.statements {
-            match stmt {
-                Stmt::Const { name, value, .. } => {
-                    // Only simple types can be global constants
-                    if !Self::is_simple_initializer_expr(value) {
-                        continue; // Will be handled as regular statement in viper_init
-                    }
-                    // Create a true constant (explicit const keyword)
-                    // Note: We use set_constant(false) to allow runtime access,
-                    // immutability is enforced by the type checker
-                    let val = crate::codegen::expressions::generate_expr(
-                        &mut crate::codegen::state::CodeGenState::new(
-                            self.context,
-                            &self.module,
-                            &self.builder,
-                            &self.ir_builder,
-                            &mut self.variables,
-                            &self.functions,
-                            &mut self.global_constants,
-                            &mut self.loop_stack,
-                            &mut self.list_vars,
-                            &mut self.dict_vars,
-                            &mut self.bool_list_vars,
-                            &mut self.bigint_vars,
-                            &mut self.var_types,
-                        ),
-                        value,
-                    )?;
-                    let ty = val.get_type();
-                    let global = self.module.add_global(ty, None, name);
-                    global.set_constant(false); // Mutable at LLVM level (type checker enforces)
-                    global.set_initializer(&val);
-                    global.set_unnamed_addr(false);
-                    self.global_constants.insert(name.clone(), global);
-                }
-                Stmt::Assign { target, value, .. } => {
-                    // Module-level assignment creates an immutable constant by default
-                    // This follows Python UPPER_CASE convention for constants
-                    // Note: We use set_constant(false) to allow 'global' to work,
-                    // immutability is enforced by the type checker
-                    if let Expr::Ident(name, _) = target.as_ref() {
-                        // Only simple types can be global initializers
-                        if !Self::is_simple_initializer_expr(value) {
-                            continue; // Will be handled as regular statement in viper_init
-                        }
-                        let val = crate::codegen::expressions::generate_expr(
-                            &mut crate::codegen::state::CodeGenState::new(
-                                self.context,
-                                &self.module,
-                                &self.builder,
-                                &self.ir_builder,
-                                &mut self.variables,
-                                &self.functions,
-                                &mut self.global_constants,
-                                &mut self.loop_stack,
-                                &mut self.list_vars,
-                                &mut self.dict_vars,
-                                &mut self.bool_list_vars,
-                                &mut self.bigint_vars,
-                                &mut self.var_types,
-                            ),
-                            value,
-                        )?;
-                        let ty = val.get_type();
-                        let global = self.module.add_global(ty, None, name);
-                        global.set_constant(false); // Mutable at LLVM level (type checker enforces)
-                        global.set_initializer(&val);
-                        global.set_unnamed_addr(false);
-                        self.global_constants.insert(name.clone(), global);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        // Third pass: define all functions (including nested ones)
-        self.define_all_functions(&module.statements)?;
-
-        // Collect top-level statements (non-function statements)
-        let mut top_level_stmts = Vec::new();
-        for stmt in &module.statements {
-            match stmt {
-                Stmt::Function { .. } | Stmt::Extern { .. } => {}
-                _ => {
-                    let is_constant_assign = match stmt {
-                        Stmt::Assign { target, value, .. } => {
-                            if let Expr::Ident(name, _) = target.as_ref() {
-                                self.global_constants.contains_key(name)
-                                    && matches!(
-                                        value.as_ref(),
-                                        Expr::Int(..)
-                                            | Expr::Float(..)
-                                            | Expr::Str(..)
-                                            | Expr::Bool(..)
-                                            | Expr::None(..)
-                                    )
-                            } else {
-                                false
-                            }
-                        }
-                        _ => false,
-                    };
-
-                    if !is_constant_assign {
-                        let is_type_or_extern_decl = matches!(
-                            stmt,
-                            Stmt::Class { .. } | Stmt::Struct { .. } | Stmt::Extern { .. }
-                        );
-
-                        if !is_type_or_extern_decl {
-                            top_level_stmts.push(stmt.clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Generate main handling top-level statements
-        self.generate_main_with_statements(&top_level_stmts)?;
-
-        Ok(())
-    }
-
     /// Define all functions recursively (including nested functions)
-    fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub(crate) fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
             if let Stmt::Function { name, params, return_type, body, .. } = stmt {
@@ -268,7 +52,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Define a function (generate body)
-    fn define_function(
+    pub(crate) fn define_function(
         &mut self,
         mangled_name: &str,
         original_name: &str,
@@ -498,7 +282,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Generate main function handling top-level statements
-    fn generate_main_with_statements(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub(crate) fn generate_main_with_statements(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         let main_type = self.context.i64_type().fn_type(&[], false);
 
         // Check if user defined main and save it
@@ -537,7 +321,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Generate module-level statements (calls to main() will be redirected to __user_main)
         for stmt in stmts {
-            crate::codegen::statements::generate_stmt_with_escape(
+            crate::codegen::statements::generate_stmt(
                 self.context,
                 &self.module,
                 &self.builder,
@@ -552,9 +336,6 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.bigint_vars,
                 &mut self.var_types,
                 stmt,
-                &mut self.escape_analyzer,
-                "__module_level__",
-                None,  // No class context for module-level code
             )?;
         }
 
@@ -581,7 +362,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Declare all functions recursively (including nested functions)
-    fn declare_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub(crate) fn declare_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         for stmt in stmts {
             match stmt {
                 Stmt::Function { name, params, return_type, body, .. } => {
@@ -612,6 +393,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Stmt::Extern { name, params, return_type, .. } => {
                     let param_types: Vec<Type> =
                         params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect();
+                    use crate::utils::mangle_function_name;
                     let mangled_name = mangle_function_name(name, &param_types);
                     crate::codegen::functions::declare_function(
                         self.context,
@@ -652,7 +434,7 @@ impl<'ctx> CodeGen<'ctx> {
                         if let Stmt::Function { name: method_name, params, return_type, .. } = stmt {
                             // Use simple mangled name format for methods
                             let mangled_name = format!("__method_{}_{}", class_name, method_name);
-                            
+
                             // For instance methods, self should be a pointer type
                             // We need to create modified params with self as pointer
                             let mut method_params = params.clone();
@@ -664,7 +446,7 @@ impl<'ctx> CodeGen<'ctx> {
                                     method_params[0].type_ann = Some(Type::Class(class_name.clone()));
                                 }
                             }
-                            
+
                             // Just create a forward declaration without body-based name mangling
                             crate::codegen::functions::declare_function_simple(
                                 self.context,
@@ -725,10 +507,10 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Generate ARC cleanup code for local variables at function exit
-    fn generate_arc_cleanup(&mut self, function_name: &str) {
+    pub(crate) fn generate_arc_cleanup(&mut self, function_name: &str) {
         // Find variables that need cleanup
         let vars_needing_cleanup = self.escape_analyzer.get_vars_needing_cleanup(function_name);
-        
+
         // OPTIMIZATION 3: Batch Release - Group releases by thread-local vs shared
         let mut local_vars: Vec<inkwell::values::PointerValue> = Vec::new();
         let mut shared_vars: Vec<inkwell::values::PointerValue> = Vec::new();
@@ -760,7 +542,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let array_type = ptr_type.array_type(local_vars.len() as u32);
                 let array_alloca = self.builder.build_alloca(array_type, "batch_ptrs").unwrap();
-                
+
                 // Store each pointer in the array
                 for (i, ptr) in local_vars.iter().enumerate() {
                     let gep = unsafe {
@@ -773,7 +555,7 @@ impl<'ctx> CodeGen<'ctx> {
                     }.unwrap();
                     self.builder.build_store(gep, *ptr).unwrap();
                 }
-                
+
                 // Call batch release
                 if let Some(batch_func) = self.module.get_function("vp_release_batch_local") {
                     let array_ptr = self.builder.build_pointer_cast(
@@ -804,255 +586,5 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var").unwrap();
             }
         }
-    }
-
-    /// Check if an expression can be used as a simple global initializer
-    /// Complex types (tuples, lists, dicts, arrays) require runtime allocation
-    fn is_simple_initializer_expr(expr: &Expr) -> bool {
-        match expr {
-            Expr::Int(..)
-            | Expr::Float(..)
-            | Expr::Bool(..)
-            | Expr::Str(..)
-            | Expr::Bytes(..)
-            | Expr::None(..) => true,
-            Expr::UnaryOp { operand, .. } => {
-                matches!(operand.as_ref(), Expr::Int(..) | Expr::Float(..))
-            }
-            _ => false,
-        }
-    }
-
-    /// Get the generated LLVM module
-    pub fn module(&self) -> &inkwell::module::Module<'ctx> {
-        &self.module
-    }
-
-    /// Create a global string constant
-    pub fn create_global_string(&mut self, s: &str) -> inkwell::values::PointerValue<'ctx> {
-        let context = self.context;
-        let string_global = self.module.add_global(
-            context.i8_type().array_type((s.len() + 1) as u32),
-            Some(inkwell::AddressSpace::default()),
-            &format!(".str.{}", s.replace(" ", "_").replace("\n", "_n").replace("\"", "_q")),
-        );
-        string_global.set_constant(true);
-        string_global.set_unnamed_addr(true);
-        string_global.set_linkage(inkwell::module::Linkage::Private);
-
-        let init_data: Vec<u8> = s.as_bytes().iter().copied().chain(std::iter::once(0)).collect();
-        let init_array = context.i8_type().const_array(&init_data.iter()
-            .map(|&b| context.i8_type().const_int(b as u64, false))
-            .collect::<Vec<_>>());
-        string_global.set_initializer(&init_array);
-
-        // GlobalValue is already a pointer, cast it
-        string_global.as_basic_value_enum().into_pointer_value()
-    }
-
-    /// Generate code for all class definitions in a module
-    fn generate_classes(&mut self, stmts: &[Stmt]) -> Result<(), String> {
-        // First pass: collect all class metadata
-        for stmt in stmts {
-            if let Stmt::Class { name, bases, body, span: _, decorators: _, fields, methods } = stmt {
-                let metadata = crate::codegen::oop::generate_class_metadata(
-                    name, bases, body, fields, methods
-                )?;
-                crate::codegen::oop::with_class_registry_mut(|reg| {
-                    reg.register_class(metadata);
-                });
-            }
-        }
-
-        // Calculate MRO for all classes
-        crate::codegen::oop::with_class_registry_mut(|reg| {
-            if let Err(e) = crate::codegen::oop::calculate_all_mros(reg) {
-                eprintln!("Warning: Failed to calculate MRO: {}", e);
-            }
-        });
-
-        // Second pass: generate class code and methods
-        for stmt in stmts {
-            if let Stmt::Class { name, bases: _, body, span: _, decorators: _, fields, methods } = stmt {
-                self.generate_class_def(name, body, fields, methods)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Generate code for a single class definition
-    fn generate_class_def(
-        &mut self,
-        name: &str,
-        body: &[Stmt],
-        _fields: &[(String, Option<Type>, bool)],
-        _methods: &[String],
-    ) -> Result<(), String> {
-        // Get class metadata from registry
-        let metadata = crate::codegen::oop::with_class_registry(|reg| {
-            reg.get_class(name).cloned()
-        }).ok_or_else(|| format!("Class metadata not found for '{}'", name))?;
-        
-        let context = self.context;
-        
-        // Create class metadata struct type
-        // ViperClass struct layout:
-        // - name: i8*
-        // - bases: void* (ViperClass**)
-        // - base_count: i64
-        // - methods: void* (ViperMethod*)
-        // - method_count: i64
-        // - instance_size: i64
-        // - init: function pointer (void*)
-        // - dealloc: function pointer (void*)
-        let class_struct_type = context.struct_type(&[
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // name
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // bases
-            context.i64_type().into(),  // base_count
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // methods
-            context.i64_type().into(),  // method_count
-            context.i64_type().into(),  // instance_size
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // init
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // dealloc
-        ], false);
-
-        // Create class metadata global
-        let class_global_name = format!("__viper_class_{}", name);
-        let class_global = self.module.add_global(class_struct_type, None, &class_global_name);
-        class_global.set_constant(false);
-        class_global.set_unnamed_addr(true);
-
-        // Create class name string
-        let name_str = self.create_global_string(name);
-
-        // Create initializer values
-        let null_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
-        let base_count_val = context.i64_type().const_int(0, false);  // Will be updated with inheritance
-        let method_count_val = context.i64_type().const_int(metadata.methods.len() as u64, false);
-        let instance_size_val = context.i64_type().const_int(metadata.instance_size as u64, false);
-        let init_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
-        let dealloc_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
-        
-        // Create initializer for class struct
-        let class_init = class_struct_type.const_named_struct(&[
-            name_str.as_basic_value_enum(),  // name
-            null_ptr.as_basic_value_enum(),  // bases
-            base_count_val.as_basic_value_enum(),  // base_count
-            null_ptr.as_basic_value_enum(),  // methods
-            method_count_val.as_basic_value_enum(),  // method_count
-            instance_size_val.as_basic_value_enum(),  // instance_size
-            init_ptr.as_basic_value_enum(),  // init
-            dealloc_ptr.as_basic_value_enum(),  // dealloc
-        ]);
-        
-        class_global.set_initializer(&class_init);
-        
-        // Generate method functions
-        // Save current class context
-        let saved_class = self.current_class.clone();
-        self.current_class = Some(name.to_string());
-
-        for stmt in body {
-            if let Stmt::Function { name: method_name, params, return_type, body: method_body, decorators, .. } = stmt {
-                // Check for staticmethod and classmethod decorators
-                let is_static = decorators.iter().any(|d| d.name == "staticmethod");
-                let is_class_method = decorators.iter().any(|d| d.name == "classmethod");
-
-                // Generate mangled method name
-                let mangled_name = format!("__method_{}_{}", name, method_name);
-
-                // Set flag for classmethod
-                let saved_classmethod = self.in_classmethod;
-                self.in_classmethod = is_class_method;
-
-                // For static methods, generate as regular function
-                // For instance methods, the first param is 'self'
-                let empty_nonlocal: Vec<String> = Vec::new();
-                if is_static {
-                    // Static method - no self parameter
-                    self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
-                } else {
-                    // Instance method - already has self parameter in AST
-                    self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
-                }
-
-                // Restore classmethod flag
-                self.in_classmethod = saved_classmethod;
-            }
-        }
-
-        // Restore previous class context
-        self.current_class = saved_class;
-        
-        Ok(())
-    }
-
-    /// Generate __name__ builtin constant
-    /// For the main module, use "__main__"; for imported modules, use the module name
-    fn generate_name_builtin(&mut self) -> Result<(), String> {
-        // Create a global pointer variable for __name__ (will be initialized in viper_init)
-        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-        let global = self.module.add_global(ptr_type, None, "__name__");
-        global.set_constant(false);
-        global.set_initializer(&ptr_type.const_null());
-        global.set_unnamed_addr(false);
-        
-        // Store the pointer type for correct loading later
-        self.var_types.insert("__name__".to_string(), crate::ast::Type::Str);
-        
-        // Store in global_constants for lookup
-        self.global_constants.insert("__name__".to_string(), global);
-        
-        Ok(())
-    }
-
-    /// Initialize __name__ builtin in viper_init
-    fn initialize_name_builtin(&mut self) -> Result<(), String> {
-        // For the main module, use "__main__" as the name
-        // This allows if __name__ == "__main__" to work correctly
-        let name_value = "__main__";
-        
-        // Create string constant for __name__
-        let str_val = self.ir_builder.string_const(&self.module, name_value);
-        let create_func = self
-            .module
-            .get_function("vp_str_create")
-            .ok_or_else(|| "vp_str_create not declared".to_string())?;
-        
-        let result = self
-            .ir_builder
-            .build_call(
-                &mut self.builder,
-                create_func,
-                &[str_val.into()],
-                "__name__",
-            )
-            .ok_or_else(|| "Failed to create __name__ string".to_string())?;
-        
-        // Store the result in the __name__ global
-        if let Some(global) = self.global_constants.get("__name__") {
-            self.builder
-                .build_store(global.as_pointer_value(), result)
-                .map_err(|e| format!("Failed to store __name__: {:?}", e))?;
-        }
-        
-        Ok(())
-    }
-
-    /// Get the list of functions containing BigInt variables
-    /// These functions should skip mem2reg optimization
-    pub fn bigint_functions(&self) -> &HashSet<String> {
-        &self.bigint_functions
-    }
-
-    /// Verify the generated code
-    pub fn verify(&self) -> Result<(), String> {
-        self.module.verify().map_err(|e| e.to_string())
-    }
-
-    /// Print the generated IR
-    #[allow(dead_code)]
-    pub fn print_ir(&self) -> String {
-        self.module.to_string().to_string()
     }
 }
