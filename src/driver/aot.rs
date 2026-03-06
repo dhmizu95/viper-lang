@@ -140,13 +140,15 @@ pub fn compile_file_aot(
             vec!["-mtriple=x86_64-pc-linux-gnu", "-mcpu=native", &bc_path, "-o", &opt_bc];
 
         // Build the passes string based on optimization level
+        // -O0: No optimization (debug builds)
         // -O1: Basic optimizations with mem2reg for stack-to-register promotion
-        // -O2: Adds vectorization
-        // -O3: Adds aggressive vectorization and loop optimizations
+        // -O2: Adds vectorization, GVN, and better inlining
+        // -O3: Aggressive vectorization, loop unrolling, and SLP vectorization
         let passes = match opt_level {
-            1 => "default<O1>,mem2reg,instcombine,simplifycfg",
-            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize",
-            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize,loop-unroll",
+            0 => "verify",
+            1 => "default<O1>,mem2reg,instcombine,simplifycfg,licm",
+            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,licm,loop-vectorize,slp-vectorize,inline",
+            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,licm,loop-vectorize,slp-vectorize,inline,loop-unroll,aggressive-instcombine,coro-early,cg-sccp",
             _ => "default<O1>,mem2reg,instcombine,simplifycfg",
         };
 
@@ -398,7 +400,19 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     println!("   [4/5] Running LLVM optimizations...");
     let opt_bc = format!("{}.opt.bc", module_name);
 
-    // Use aggressive optimization passes
+    // Use aggressive optimization passes with comprehensive coverage
+    // Passes are ordered for optimal interaction:
+    // 1. mem2reg: Promote allocas to SSA registers (must be early)
+    // 2. simplifycfg: Clean up control flow
+    // 3. instcombine: Combine instructions
+    // 4. gvn: Global Value Numbering (redundant load elimination)
+    // 5. licm: Loop-invariant code motion
+    // 6. loop-vectorize: Auto-vectorize loops
+    // 7. slp-vectorize: Straight-line code vectorization
+    // 8. inline: Function inlining
+    // 9. loop-unroll: Unroll small loops
+    // 10. coro-early: Early coroutine optimization
+    // 11. cg-sccp: Interprocedural constant propagation
     let opt_status = std::process::Command::new("/usr/lib/llvm-21/bin/opt")
         .args(&[
             "-O3",
@@ -408,14 +422,20 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
             "-o",
             &opt_bc,
             "-mem2reg",
-            "-instcombine",
             "-simplifycfg",
-            "-loop-unroll",
-            "-inline",
+            "-instcombine",
             "-gvn",
             "-licm",
-            "-slp-vectorize",
             "-loop-vectorize",
+            "-slp-vectorize",
+            "-inline",
+            "-loop-unroll",
+            "-aggressive-instcombine",
+            "-coro-early",
+            "-cg-sccp",
+            "-ipsccp",
+            "-memcpyopt",
+            "-sink",
         ])
         .output();
 

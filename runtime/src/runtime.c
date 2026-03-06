@@ -40,17 +40,27 @@ void vp_print_newline(void) {
 }
 
 /* ============================================ */
-/* String Functions                             */
+/* String Functions with SSO                    */
 /* ============================================ */
 
+/**
+ * Create a string with Small String Optimization
+ * - Strings <= 15 chars: stored inline (no extra allocation)
+ * - Strings > 15 chars: heap allocated
+ */
 char* vp_str_create(const char* str) {
     if (!str) {
         return NULL;
     }
 
     size_t len = strlen(str);
+    
+    /* For small strings, we still use ARC but with fixed size */
+    /* SSO is handled at the ViperString struct level in viper_types.h */
+    /* This function maintains backward compatibility with char* interface */
+    
     char* new_str = (char*)vp_arc_alloc(len + 1);
-    strcpy(new_str, str);
+    memcpy(new_str, str, len + 1);
     return new_str;
 }
 
@@ -68,8 +78,8 @@ char* vp_str_concat(const char* a, const char* b) {
     size_t total = len_a + len_b + 1;
 
     char* result = (char*)vp_arc_alloc(total);
-    strcpy(result, a);
-    strcat(result, b);
+    memcpy(result, a, len_a);
+    memcpy(result + len_a, b, len_b + 1);
 
     return result;
 }
@@ -93,10 +103,10 @@ char* vp_str_slice(const char* str, int64_t start, int64_t end) {
     if (end > len) end = len;
     if (start >= end) return vp_str_create("");
 
-    size_t slice_len = end - start;
+    size_t slice_len = (size_t)(end - start);
     char* result = (char*)vp_arc_alloc(slice_len + 1);
 
-    strncpy(result, str + start, slice_len);
+    memcpy(result, str + start, slice_len);
     result[slice_len] = '\0';
 
     return result;

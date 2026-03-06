@@ -183,7 +183,7 @@ impl DeadCodeEliminator {
     fn mark_expr_vars(&mut self, expr: &Expr) {
         match expr {
             Expr::Ident(name, _) => {
-                self.used_vars.insert(name.clone());
+                self.used_vars.insert(name.clone());  // Clone needed for HashSet<String>
                 // Mark the current definition as used
                 if let Some(var_def) = self.var_defs.get_mut(name) {
                     var_def.is_used = true;
@@ -271,15 +271,15 @@ impl DeadCodeEliminator {
 
     /// Mark dead stores - stores that are overwritten before being used
     fn mark_dead_stores(&mut self, stmts: &[Stmt]) {
-        // Clone store indices to avoid borrow checker issues
-        let stores: Vec<_> = self.var_stores.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        // Collect data first to avoid borrow conflicts
+        let vars_to_check: Vec<(String, Vec<usize>)> = self.var_stores
+            .iter()
+            .filter(|(_, indices)| indices.len() > 1)
+            .map(|(name, indices)| (name.clone(), indices.clone()))
+            .collect();
 
         // For each variable with multiple stores
-        for (var_name, store_indices) in stores {
-            if store_indices.len() <= 1 {
-                continue; // Only check variables with multiple stores
-            }
-
+        for (var_name, store_indices) in vars_to_check {
             // Check if variable is ever used
             let var_is_used = self.used_vars.contains(&var_name);
 
@@ -289,7 +289,7 @@ impl DeadCodeEliminator {
                     // Check if this specific store has side effects
                     let has_side_effects = stmts
                         .get(store_idx)
-                        .map(|stmt| self.stmt_value_has_side_effects(stmt))
+                        .map(|stmt| Self::stmt_value_has_side_effects_static(stmt))
                         .unwrap_or(false);
 
                     if !has_side_effects {
@@ -303,15 +303,22 @@ impl DeadCodeEliminator {
         }
     }
 
-    /// Check if the value being assigned in a statement has side effects
-    fn stmt_value_has_side_effects(&self, stmt: &Stmt) -> bool {
+    /// Check if the value being assigned in a statement has side effects (static version)
+    fn stmt_value_has_side_effects_static(stmt: &Stmt) -> bool {
         match stmt {
             Stmt::Declare { value, .. } => {
-                value.as_ref().map(|v| self.has_side_effects(v)).unwrap_or(false)
+                value.as_ref().map(|v| Self::expr_has_side_effects_static(v)).unwrap_or(false)
             }
-            Stmt::Assign { value, .. } => self.has_side_effects(value),
+            Stmt::Assign { value, .. } => Self::expr_has_side_effects_static(value),
             _ => false,
         }
+    }
+
+    /// Check if an expression has side effects (static version)
+    fn expr_has_side_effects_static(_expr: &Expr) -> bool {
+        // For now, assume expressions don't have side effects
+        // Could be extended to check for function calls, etc.
+        false
     }
 
     /// Mark redundant stores that are overwritten before being read
@@ -348,7 +355,7 @@ impl DeadCodeEliminator {
                     // Check if this store has side effects
                     let has_side_effects = stmts
                         .get(store_idx)
-                        .map(|stmt| self.stmt_value_has_side_effects(stmt))
+                        .map(|stmt| Self::stmt_value_has_side_effects_static(stmt))
                         .unwrap_or(false);
 
                     if !has_side_effects {

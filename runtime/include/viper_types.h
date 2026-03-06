@@ -10,21 +10,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-/* ============================================ */
-/* Inline Attributes for Performance            */
-/* ============================================ */
-
-#ifdef __GNUC__
-    #define VIPER_ALWAYS_INLINE static inline __attribute__((always_inline))
-    #define VIPER_NEVER_INLINE __attribute__((noinline))
-    #define VIPER_LIKELY(x) __builtin_expect(!!(x), 1)
-    #define VIPER_UNLIKELY(x) __builtin_expect(!!(x), 0)
-#else
-    #define VIPER_ALWAYS_INLINE static inline
-    #define VIPER_NEVER_INLINE
-    #define VIPER_LIKELY(x) (x)
-    #define VIPER_UNLIKELY(x) (x)
-#endif
+/* Include optimization macros (branch prediction, inlining, etc.) */
+#include "viper_optimize.h"
 
 /* ============================================ */
 /* Viper Value Types - Unified Layout           */
@@ -101,7 +88,7 @@ VIPER_ALWAYS_INLINE int64_t vp_list_len_inline(ViperList* list) {
 }
 
 VIPER_ALWAYS_INLINE int64_t vp_list_get_inline(ViperList* list, int64_t index) {
-    if (VIPER_UNLIKELY(!list || index < 0 || index >= list->length)) {
+    if VIPER_BOUNDS_CHECK_UNLIKELY_FAIL(index, list->length) {
         return 0;
     }
     switch (list->elem_type) {
@@ -115,9 +102,32 @@ VIPER_ALWAYS_INLINE int64_t vp_list_get_inline(ViperList* list, int64_t index) {
 }
 
 VIPER_ALWAYS_INLINE void vp_list_set_inline(ViperList* list, int64_t index, int64_t value) {
-    if (VIPER_UNLIKELY(!list || index < 0 || index >= list->length)) {
+    if VIPER_BOUNDS_CHECK_UNLIKELY_FAIL(index, list->length) {
         return;
     }
+    switch (list->elem_type) {
+        case VIPER_LIST_I64: list->data.data_i64[index] = value; break;
+        case VIPER_LIST_I32: list->data.data_i32[index] = (int32_t)value; break;
+        case VIPER_LIST_I16: list->data.data_i16[index] = (int16_t)value; break;
+        case VIPER_LIST_I8:  list->data.data_i8[index] = (int8_t)value; break;
+        case VIPER_LIST_BOOL: list->data.data_bool[index] = (int8_t)value; break;
+        default: break;
+    }
+}
+
+/* Unchecked versions for hot loops - use only when bounds are guaranteed */
+VIPER_ALWAYS_INLINE int64_t vp_list_get_unchecked(ViperList* list, int64_t index) {
+    switch (list->elem_type) {
+        case VIPER_LIST_I64: return list->data.data_i64[index];
+        case VIPER_LIST_I32: return list->data.data_i32[index];
+        case VIPER_LIST_I16: return list->data.data_i16[index];
+        case VIPER_LIST_I8:  return list->data.data_i8[index];
+        case VIPER_LIST_BOOL: return list->data.data_bool[index];
+        default: return 0;
+    }
+}
+
+VIPER_ALWAYS_INLINE void vp_list_set_unchecked(ViperList* list, int64_t index, int64_t value) {
     switch (list->elem_type) {
         case VIPER_LIST_I64: list->data.data_i64[index] = value; break;
         case VIPER_LIST_I32: list->data.data_i32[index] = (int32_t)value; break;
@@ -153,22 +163,123 @@ VIPER_ALWAYS_INLINE int64_t vp_dict_len_inline(ViperDict* dict) {
 }
 
 /* ============================================ */
-/* String (reference counted) - Unified Layout  */
+/* String (reference counted) with SSO          */
 /* ============================================ */
 
-typedef struct {
-    int64_t ref_count;    /* 0:  Reference count */
-    int64_t length;       /* 8:  String length */
-    char data[];          /* 16: Flexible array member */
-} ViperString;            /* Total: 16 + length + 1 bytes */
+/* Small String Optimization (SSO) threshold */
+#define VIPER_SSO_CAPACITY 15  /* Strings <= 15 chars use inline storage */
 
-/* Inline string accessors */
-VIPER_ALWAYS_INLINE int64_t vp_str_len_inline(ViperString* s) {
-    return s ? s->length : 0;
+/**
+ * ViperString with Small String Optimization
+ * 
+ * Layout for small strings (length <= 15):
+ *   - is_sso: 1 (high bit of length field)
+ *   - length: 7 bits (0-127, but we use 0-15)
+ *   - data: inline storage in union
+ * 
+ * Layout for large strings (length > 15):
+ *   - is_sso: 0
+ *   - length: full 64-bit length
+ *   - data: heap pointer
+ * 
+ * Total size: 24 bytes (same for both small and large)
+ */
+typedef struct ViperString {
+    union {
+        /* Large string (heap-allocated) */
+        struct {
+            int64_t ref_count;      /* 0:  Reference count for ARC */
+            int64_t length;         /* 8:  String length (positive = heap) */
+            char* heap_data;        /* 16: Pointer to heap data */
+        } heap;
+        
+        /* Small string (inline storage, SSO) */
+        struct {
+            int64_t _unused;        /* 0:  Unused (for alignment) */
+            int8_t sso_length;      /* 8:  Length (0-127, stored as-is) */
+            char sso_data[15];      /* 9-23: Inline storage (15 bytes) */
+        } sso;
+    } data;
+} ViperString;            /* Total: 24 bytes */
+
+/* SSO flag: high bit of length indicates heap vs inline */
+#define VIPER_SSO_FLAG 0x80
+
+/* Check if string uses SSO (inline storage) */
+static inline int vp_str_is_sso_inline(ViperString* s) {
+    if (!s) return 0;
+    return (s->data.heap.length & VIPER_SSO_FLAG) != 0;
 }
 
-VIPER_ALWAYS_INLINE const char* vp_str_data_inline(ViperString* s) {
-    return s ? s->data : "";
+/* Get string length (works for both SSO and heap) */
+static inline int64_t vp_str_len_inline(ViperString* s) {
+    if (!s) return 0;
+    if (vp_str_is_sso_inline(s)) {
+        return s->data.sso.sso_length & ~VIPER_SSO_FLAG;
+    }
+    return s->data.heap.length;
+}
+
+/* Get string data pointer (works for both SSO and heap) */
+static inline const char* vp_str_data_inline(ViperString* s) {
+    if (!s) return "";
+    if (vp_str_is_sso_inline(s)) {
+        return s->data.sso.sso_data;
+    }
+    return s->data.heap.heap_data;
+}
+
+/* Create a small string with inline storage */
+static inline ViperString* vp_str_create_sso_small(const char* str, int64_t len) {
+    ViperString* s = (ViperString*)vp_arc_alloc_local(sizeof(ViperString));
+    s->data.heap.ref_count = 1;
+    s->data.heap.length = len | VIPER_SSO_FLAG;  /* Set SSO flag */
+    memcpy(s->data.sso.sso_data, str, (size_t)len);
+    s->data.sso.sso_data[len] = '\0';
+    return s;
+}
+
+/* Create a large string with heap storage */
+static inline ViperString* vp_str_create_heap_large(const char* str, int64_t len) {
+    ViperString* s = (ViperString*)vp_arc_alloc(sizeof(ViperString) + (size_t)len + 1);
+    s->data.heap.ref_count = 1;
+    s->data.heap.length = len;  /* No SSO flag */
+    s->data.heap.heap_data = (char*)((char*)s + sizeof(ViperString));
+    memcpy(s->data.heap.heap_data, str, (size_t)len + 1);
+    return s;
+}
+
+/* Create a ViperString (automatically chooses SSO or heap) */
+static inline ViperString* vp_str_create(const char* str) {
+    if (!str) return NULL;
+    int64_t len = (int64_t)strlen(str);
+    if (len <= VIPER_SSO_CAPACITY) {
+        return vp_str_create_sso_small(str, len);
+    }
+    return vp_str_create_heap_large(str, len);
+}
+
+/* Free a ViperString */
+static inline void vp_str_free(ViperString* s) {
+    if (s) {
+        vp_arc_release(s);
+    }
+}
+
+/* Check if two strings are equal */
+static inline bool vp_str_equals(ViperString* a, ViperString* b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    
+    int64_t len_a = vp_str_len_inline(a);
+    int64_t len_b = vp_str_len_inline(b);
+    
+    if (len_a != len_b) return false;
+    
+    const char* data_a = vp_str_data_inline(a);
+    const char* data_b = vp_str_data_inline(b);
+    
+    return memcmp(data_a, data_b, (size_t)len_a) == 0;
 }
 
 /* ============================================ */
