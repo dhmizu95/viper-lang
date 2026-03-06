@@ -98,7 +98,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::Bytes(_, _) => Type::Bytes,
-        Expr::BigInt(_, _) => Type::BigInt,
+        Expr::BigInt(_, _) => Type::Int,  // BigInt literals are also tagged int
         Expr::None(_) => Type::None,
         Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
@@ -175,7 +175,7 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::Bytes(_, _) => Type::Bytes,
-        Expr::BigInt(_, _) => Type::BigInt,
+        Expr::BigInt(_, _) => Type::Int,  // BigInt literals are also tagged int
         Expr::None(_) => Type::None,
         Expr::Ident(name, _) => state.var_types.get(name).cloned().unwrap_or(Type::Infer),
         Expr::Call { func, args, .. } => {
@@ -241,11 +241,15 @@ pub fn generate_expr<'ctx>(
     match expr {
         Expr::Int(n, _) => {
             let val = *n;
-            if val >= (-(1 << 62)) && val < (1 << 62) {
+            // Check if value fits in i63 (tagged small int range)
+            // i63 range: -(2^62) to 2^62-1
+            const I63_MIN: i64 = i64::MIN >> 2;  // -(2^62)
+            const I63_MAX: i64 = i64::MAX >> 1;  // 2^62-1
+            if val >= I63_MIN && val <= I63_MAX {
                 // Fits in small int (i63)
                 Ok(state.ir_builder.i64_const(val << 1).into())
             } else {
-                // Must promote to BigInt pointer at runtime
+                // Must promote to tagged BigInt at runtime
                 let func = state
                     .module
                     .get_function("tagged_int_from_i64")
@@ -274,17 +278,27 @@ pub fn generate_expr<'ctx>(
             Ok(result)
         }
         Expr::BigInt(s, _) => {
-            // Call vp_bigint_from_str to create a BigInt from string
-            let str_val = state.ir_builder.string_const(state.module, s);
-            let create_func = state
-                .module
-                .get_function("vp_bigint_from_str")
-                .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
-            let result = state
-                .ir_builder
-                .build_call(state.builder, create_func, &[str_val.into()], "bigint_create")
-                .expect("bigint_from_str call");
-            Ok(result.into())
+            // Parse the string to i128 and convert to tagged int
+            let val: i128 = s.parse().unwrap_or(0);
+            // Check if value fits in i63 (tagged small int range)
+            const I63_MIN: i128 = -(1i128 << 62);
+            const I63_MAX: i128 = (1i128 << 62) - 1;
+            if val >= I63_MIN && val <= I63_MAX {
+                // Fits in small int (i63)
+                Ok(state.ir_builder.i64_const((val as i64) << 1).into())
+            } else {
+                // Must promote to tagged BigInt at runtime
+                let func = state
+                    .module
+                    .get_function("tagged_int_from_i64")
+                    .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
+                let const_val = state.ir_builder.i64_const(val as i64);
+                let result = state
+                    .ir_builder
+                    .build_call(state.builder, func, &[const_val.into()], "tagged_int_const")
+                    .unwrap();
+                Ok(result.into())
+            }
         }
         Expr::Bytes(b, _) => {
             let bytes_val = state.ir_builder.bytes_const(state.module, b);

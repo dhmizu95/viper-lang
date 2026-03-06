@@ -50,13 +50,18 @@ pub fn generate_print_call<'ctx>(
         let val = generate_expr(state, arg)?;
         let arg_type = crate::codegen::expressions::core::infer_type_with_state(state, arg);
 
-        if arg_type == Type::Int {
+        // Use tagged_int_print for int types, inferred types, or function calls (which return tagged int)
+        let use_tagged_print = matches!(arg_type, Type::Int | Type::Infer | Type::Fn(..));
+        if use_tagged_print {
             let print_func = state
                 .module
                 .get_function("tagged_int_print")
                 .ok_or_else(|| "tagged_int_print not declared".to_string())?;
             state.builder.build_call(print_func, &[val.into()], "print_tagged_int").expect("tagged_int_print");
         } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 64 {
+            // Check if this might be a tagged int (for variables with inferred type)
+            // Tagged ints are i64 values that could be either small ints or BigInt pointers
+            eprintln!("DEBUG print: calling vp_print_i64 for i64 value");
             let print_func = state
                 .module
                 .get_function("vp_print_i64")

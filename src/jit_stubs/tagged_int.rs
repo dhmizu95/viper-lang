@@ -39,6 +39,38 @@ fn fits_in_i63(val: i64) -> bool {
     val >= -(1 << 62) && val <= ((1 << 62) - 1)
 }
 
+// Check if adding two i63 values would overflow i63
+#[inline(always)]
+fn would_overflow_i63_add(a: i64, b: i64) -> bool {
+    const MAX_I63: i64 = (1 << 62) - 1;
+    const MIN_I63: i64 = -(1 << 62);
+    if b > 0 && a > MAX_I63 - b { return true; }
+    if b < 0 && a < MIN_I63 - b { return true; }
+    false
+}
+
+// Check if multiplying two i63 values would overflow i63
+#[inline(always)]
+fn would_overflow_i63_mul(a: i64, b: i64) -> bool {
+    if a == 0 || b == 0 { return false; }
+    if a == 1 || b == 1 { return false; }
+    const MAX_I63: i64 = (1 << 62) - 1;
+    const MIN_I63: i64 = -(1 << 62);
+    if a > 0 {
+        if b > 0 {
+            return a > MAX_I63 / b;
+        } else {
+            return b < MIN_I63 / a;
+        }
+    } else {
+        if b > 0 {
+            return a < MIN_I63 / b;
+        } else {
+            return b < MAX_I63 / a;
+        }
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn tagged_int_from_i64(val: i64) -> i64 {
     if fits_in_i63(val) {
@@ -58,25 +90,27 @@ pub fn convert_to_bigint_ptr(val: i64) -> *mut c_void {
 }
 
 macro_rules! binary_op {
-    ($name:ident, $small_op:expr, $big_stub:ident) => {
+    ($name:ident, $small_op:expr, $big_stub:ident, $overflow_check:expr) => {
         #[no_mangle]
         pub extern "C" fn $name(lhs: i64, rhs: i64) -> i64 {
             if !is_bigint(lhs) && !is_bigint(rhs) {
                 let l = get_small_int(lhs);
                 let r = get_small_int(rhs);
                 let (res, overflow) = $small_op(l, r);
-                if !overflow && fits_in_i63(res) {
+                let i63_overflow = $overflow_check(l, r);
+                // Check both i64 overflow and i63 range
+                if !overflow && !i63_overflow && fits_in_i63(res) {
                     return make_small_int(res);
                 }
             }
-            
+
             // At least one is BigInt or overflow occurred
             let l_ptr = convert_to_bigint_ptr(lhs);
             let r_ptr = convert_to_bigint_ptr(rhs);
-            
+
             let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
             unsafe { $big_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
-            
+
             // Clean up temporary bigints
             if !is_bigint(lhs) {
                 unsafe { vp_bigint_free_stub(l_ptr as *mut _) };
@@ -84,15 +118,15 @@ macro_rules! binary_op {
             if !is_bigint(rhs) {
                 unsafe { vp_bigint_free_stub(r_ptr as *mut _) };
             }
-            
+
             make_tagged_ptr(res_ptr as *mut c_void)
         }
     };
 }
 
-binary_op!(tagged_int_add, i64::overflowing_add, vp_bigint_add_stub);
-binary_op!(tagged_int_sub, i64::overflowing_sub, vp_bigint_sub_stub);
-binary_op!(tagged_int_mul, i64::overflowing_mul, vp_bigint_mul_stub);
+binary_op!(tagged_int_add, i64::overflowing_add, vp_bigint_add_stub, would_overflow_i63_add);
+binary_op!(tagged_int_sub, i64::overflowing_sub, vp_bigint_sub_stub, would_overflow_i63_add);
+binary_op!(tagged_int_mul, i64::overflowing_mul, vp_bigint_mul_stub, would_overflow_i63_mul);
 
 #[no_mangle]
 pub extern "C" fn tagged_int_div(lhs: i64, rhs: i64) -> i64 {
