@@ -19,10 +19,29 @@ static ViperBigInt* alloc_bigint_for_tagged(void) {
     /* Use malloc directly for standalone usage */
     ViperBigInt* bigint = (ViperBigInt*)malloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;
-    
+
     /* Initialize GMP value */
     mpz_init(bigint->value);
     return bigint;
+}
+
+/**
+ * Try to demote a BigInt value back to SmallInt if it fits
+ * Returns 0 if demotion is not possible, otherwise returns the SmallInt TaggedInt
+ * 
+ * This enables Python-like smooth integer behavior where values automatically
+ * return to efficient SmallInt representation when they fit.
+ */
+static inline TaggedInt try_demote_bigint(mpz_t value) {
+    /* Check if the value fits in a SmallInt (i63) */
+    if (mpz_fits_slong_p(value)) {
+        int64_t small = mpz_get_si(value);
+        /* Double-check bounds to be safe */
+        if (small >= TAGGED_INT_MIN_SMALL && small <= TAGGED_INT_MAX_SMALL) {
+            return tagged_int_from_i64(small);
+        }
+    }
+    return 0;  /* Cannot demote */
 }
 
 /* ============================================ */
@@ -91,6 +110,15 @@ TaggedInt tagged_int_add(TaggedInt a, TaggedInt b) {
                 mpz_add(result->value, a_big->value, b_big->value);
                 free_temp_bigint(a_big);
                 free_temp_bigint(b_big);
+                
+                /* Try to demote result back to SmallInt */
+                TaggedInt demoted = try_demote_bigint(result->value);
+                if (demoted != 0) {
+                    mpz_clear(result->value);
+                    free(result);
+                    return demoted;
+                }
+                
                 return tagged_int_from_bigint(result);
             }
             /* If allocation fails, return truncated result */
@@ -107,6 +135,17 @@ TaggedInt tagged_int_add(TaggedInt a, TaggedInt b) {
 
     if (result) {
         mpz_add(result->value, a_big->value, b_big->value);
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            mpz_clear(result->value);
+            free(result);
+            /* Free temporaries */
+            if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+            if (tagged_int_is_small(b)) free_temp_bigint(b_big);
+            return demoted;
+        }
     }
 
     /* Free temporaries (only the ones we created, not the original BigInts) */
@@ -121,37 +160,58 @@ TaggedInt tagged_int_sub(TaggedInt a, TaggedInt b) {
     if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
         int64_t a_val = tagged_int_get_small(a);
         int64_t b_val = tagged_int_get_small(b);
-        
+
         /* Check for overflow */
         if (would_overflow_sub(a_val, b_val)) {
             /* Promote both to BigInt and subtract */
             ViperBigInt* a_big = tagged_int_to_bigint(a);
             ViperBigInt* b_big = tagged_int_to_bigint(b);
             ViperBigInt* result = alloc_bigint_for_tagged();
-            
+
             if (result) {
                 mpz_sub(result->value, a_big->value, b_big->value);
+                
+                /* Try to demote result back to SmallInt */
+                TaggedInt demoted = try_demote_bigint(result->value);
+                if (demoted != 0) {
+                    mpz_clear(result->value);
+                    free(result);
+                    vp_arc_release(a_big);
+                    vp_arc_release(b_big);
+                    return demoted;
+                }
+                
                 vp_arc_release(a_big);
                 vp_arc_release(b_big);
                 return tagged_int_from_bigint(result);
             }
         }
-        
+
         return tagged_int_from_i64(a_val - b_val);
     }
-    
+
     /* Case 2: At least one BigInt */
     ViperBigInt* a_big = tagged_int_to_bigint(a);
     ViperBigInt* b_big = tagged_int_to_bigint(b);
     ViperBigInt* result = alloc_bigint_for_tagged();
-    
+
     if (result) {
         mpz_sub(result->value, a_big->value, b_big->value);
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            mpz_clear(result->value);
+            free(result);
+            vp_arc_release(a_big);
+            vp_arc_release(b_big);
+            return demoted;
+        }
     }
-    
+
     vp_arc_release(a_big);
     vp_arc_release(b_big);
-    
+
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
 }
 
@@ -160,37 +220,58 @@ TaggedInt tagged_int_mul(TaggedInt a, TaggedInt b) {
     if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
         int64_t a_val = tagged_int_get_small(a);
         int64_t b_val = tagged_int_get_small(b);
-        
+
         /* Check for overflow */
         if (would_overflow_mul(a_val, b_val)) {
             /* Promote both to BigInt and multiply */
             ViperBigInt* a_big = tagged_int_to_bigint(a);
             ViperBigInt* b_big = tagged_int_to_bigint(b);
             ViperBigInt* result = alloc_bigint_for_tagged();
-            
+
             if (result) {
                 mpz_mul(result->value, a_big->value, b_big->value);
+                
+                /* Try to demote result back to SmallInt */
+                TaggedInt demoted = try_demote_bigint(result->value);
+                if (demoted != 0) {
+                    mpz_clear(result->value);
+                    free(result);
+                    vp_arc_release(a_big);
+                    vp_arc_release(b_big);
+                    return demoted;
+                }
+                
                 vp_arc_release(a_big);
                 vp_arc_release(b_big);
                 return tagged_int_from_bigint(result);
             }
         }
-        
+
         return tagged_int_from_i64(a_val * b_val);
     }
-    
+
     /* Case 2: At least one BigInt */
     ViperBigInt* a_big = tagged_int_to_bigint(a);
     ViperBigInt* b_big = tagged_int_to_bigint(b);
     ViperBigInt* result = alloc_bigint_for_tagged();
-    
+
     if (result) {
         mpz_mul(result->value, a_big->value, b_big->value);
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            mpz_clear(result->value);
+            free(result);
+            vp_arc_release(a_big);
+            vp_arc_release(b_big);
+            return demoted;
+        }
     }
-    
+
     vp_arc_release(a_big);
     vp_arc_release(b_big);
-    
+
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
 }
 
@@ -198,7 +279,7 @@ TaggedInt tagged_int_div(TaggedInt a, TaggedInt b) {
     ViperBigInt* a_big = tagged_int_to_bigint(a);
     ViperBigInt* b_big = tagged_int_to_bigint(b);
     ViperBigInt* result = alloc_bigint_for_tagged();
-    
+
     if (result) {
         if (mpz_sgn(b_big->value) == 0) {
             fprintf(stderr, "Error: Division by zero\n");
@@ -206,11 +287,21 @@ TaggedInt tagged_int_div(TaggedInt a, TaggedInt b) {
         } else {
             mpz_tdiv_q(result->value, a_big->value, b_big->value);
         }
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            mpz_clear(result->value);
+            free(result);
+            vp_arc_release(a_big);
+            vp_arc_release(b_big);
+            return demoted;
+        }
     }
-    
+
     vp_arc_release(a_big);
     vp_arc_release(b_big);
-    
+
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
 }
 
@@ -225,6 +316,15 @@ TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b) {
             mpz_set_ui(result->value, 0);
         } else {
             mpz_tdiv_r(result->value, a_big->value, b_big->value);
+        }
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            mpz_clear(result->value);
+            free(result);
+            free_temp_bigint(b_big);
+            return demoted;
         }
     }
 
@@ -287,15 +387,23 @@ TaggedInt tagged_int_neg(TaggedInt a) {
         }
         return tagged_int_from_i64(-val);
     }
-    
+
     /* BigInt case */
     ViperBigInt* a_big = tagged_int_get_bigint(a);
     ViperBigInt* result = alloc_bigint_for_tagged();
-    
+
     if (result) {
         mpz_neg(result->value, a_big->value);
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            mpz_clear(result->value);
+            free(result);
+            return demoted;
+        }
     }
-    
+
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
 }
 
@@ -346,4 +454,89 @@ void tagged_int_free(TaggedInt value) {
         }
     }
     /* Small integers don't need freeing */
+}
+
+/* ============================================ */
+/* Unified Runtime Dispatcher Aliases           */
+/* ============================================ */
+/* These aliases provide a consistent interface for runtime operations */
+
+/**
+ * Unified addition dispatcher
+ * Alias for tagged_int_add - works with both SmallInt and BigInt
+ */
+TaggedInt vp_runtime_add(TaggedInt a, TaggedInt b) {
+    return tagged_int_add(a, b);
+}
+
+/**
+ * Unified subtraction dispatcher
+ * Alias for tagged_int_sub - works with both SmallInt and BigInt
+ */
+TaggedInt vp_runtime_sub(TaggedInt a, TaggedInt b) {
+    return tagged_int_sub(a, b);
+}
+
+/**
+ * Unified multiplication dispatcher
+ * Alias for tagged_int_mul - works with both SmallInt and BigInt
+ */
+TaggedInt vp_runtime_mul(TaggedInt a, TaggedInt b) {
+    return tagged_int_mul(a, b);
+}
+
+/**
+ * Unified division dispatcher
+ * Alias for tagged_int_div - works with both SmallInt and BigInt
+ */
+TaggedInt vp_runtime_div(TaggedInt a, TaggedInt b) {
+    return tagged_int_div(a, b);
+}
+
+/**
+ * Unified modulo dispatcher
+ * Alias for tagged_int_mod - works with both SmallInt and BigInt
+ */
+TaggedInt vp_runtime_mod(TaggedInt a, TaggedInt b) {
+    return tagged_int_mod(a, b);
+}
+
+/**
+ * Unified comparison dispatcher
+ * Alias for tagged_int_cmp - works with both SmallInt and BigInt
+ */
+int vp_runtime_cmp(TaggedInt a, TaggedInt b) {
+    return tagged_int_cmp(a, b);
+}
+
+/**
+ * Unified equality check
+ * Alias for tagged_int_eq - works with both SmallInt and BigInt
+ */
+bool vp_runtime_eq(TaggedInt a, TaggedInt b) {
+    return tagged_int_eq(a, b);
+}
+
+/**
+ * Unified less-than check
+ * Alias for tagged_int_lt - works with both SmallInt and BigInt
+ */
+bool vp_runtime_lt(TaggedInt a, TaggedInt b) {
+    return tagged_int_lt(a, b);
+}
+
+/**
+ * Unified greater-than check
+ * Alias for tagged_int_gt - works with both SmallInt and BigInt
+ */
+bool vp_runtime_gt(TaggedInt a, TaggedInt b) {
+    return tagged_int_gt(a, b);
+}
+
+/**
+ * Unified negation
+ * Alias for tagged_int_neg - works with both SmallInt and BigInt
+ */
+TaggedInt vp_runtime_neg(TaggedInt a) {
+    return tagged_int_neg(a);
 }

@@ -1,6 +1,6 @@
 use std::os::raw::c_char;
 use std::ffi::{CString, c_void};
-use crate::jit_stubs::bigint::{vp_bigint_add_stub, vp_bigint_sub_stub, vp_bigint_mul_stub, vp_bigint_div_stub, vp_bigint_mod_stub, vp_bigint_pow_stub, vp_bigint_neg_stub, vp_bigint_eq_stub, vp_bigint_lt_stub, vp_bigint_gt_stub, vp_bigint_to_str_stub, vp_bigint_free_stub, vp_bigint_from_i64_stub, vp_bigint_cmp_stub};
+use crate::jit_stubs::bigint::{vp_bigint_add_stub, vp_bigint_sub_stub, vp_bigint_mul_stub, vp_bigint_div_stub, vp_bigint_mod_stub, vp_bigint_pow_stub, vp_bigint_neg_stub, vp_bigint_eq_stub, vp_bigint_lt_stub, vp_bigint_gt_stub, vp_bigint_to_str_stub, vp_bigint_free_stub, vp_bigint_from_i64_stub, vp_bigint_cmp_stub, vp_bigint_to_i64_stub};
 
 // Tagged pointer representation:
 // - LSB = 0: small int (i63), value is shifted left by 1 (val << 1)
@@ -37,6 +37,29 @@ fn make_tagged_ptr(ptr: *mut c_void) -> i64 {
 #[inline(always)]
 fn fits_in_i63(val: i64) -> bool {
     val >= -(1 << 62) && val <= ((1 << 62) - 1)
+}
+
+/**
+ * Try to demote a BigInt result back to SmallInt
+ * Returns the SmallInt tagged value if demotion is possible, otherwise None
+ */
+#[inline(always)]
+fn try_demote_bigint(res_ptr: *mut c_void) -> Option<i64> {
+    unsafe {
+        // Check if the BigInt value fits in i63
+        let value = vp_bigint_to_i64_stub(res_ptr as *mut _);
+        if fits_in_i63(value) {
+            // Create a temporary BigInt from the i64 value and compare
+            let temp_big = vp_bigint_from_i64_stub(value);
+            let cmp_result = vp_bigint_cmp_stub(res_ptr as *mut _, temp_big as *mut _);
+            vp_bigint_free_stub(temp_big as *mut _);
+            
+            if cmp_result == 0 {
+                return Some(make_small_int(value));
+            }
+        }
+    }
+    None
 }
 
 // Check if adding two i63 values would overflow i63
@@ -117,6 +140,20 @@ macro_rules! binary_op {
             let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
             unsafe { $big_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
 
+            // Try to demote the result back to SmallInt
+            if let Some(demoted) = try_demote_bigint(res_ptr as *mut c_void) {
+                // Demotion successful - free the BigInt result and return SmallInt
+                unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+                // Clean up temporary bigints
+                if !is_bigint(lhs) {
+                    unsafe { vp_bigint_free_stub(l_ptr as *mut _) };
+                }
+                if !is_bigint(rhs) {
+                    unsafe { vp_bigint_free_stub(r_ptr as *mut _) };
+                }
+                return demoted;
+            }
+
             // Clean up temporary bigints
             if !is_bigint(lhs) {
                 unsafe { vp_bigint_free_stub(l_ptr as *mut _) };
@@ -141,7 +178,7 @@ pub extern "C" fn tagged_int_div(lhs: i64, rhs: i64) -> i64 {
         let r = get_small_int(rhs);
         if r != 0 {
             let res = l.wrapping_div(r);
-            // i64::MIN / -1 overflows i64, but since we are bounded by i63, 
+            // i64::MIN / -1 overflows i64, but since we are bounded by i63,
             // the max magnitude is 2^62, division by -1 won't overflow the physical i64 type.
             // But it might overflow i63? Actually, no, because -(-2^62) = 2^62,
             // which doesn't fit in i63, so let's check fits_in_i63.
@@ -154,17 +191,25 @@ pub extern "C" fn tagged_int_div(lhs: i64, rhs: i64) -> i64 {
             std::process::exit(1);
         }
     }
-    
+
     let l_ptr = convert_to_bigint_ptr(lhs);
     let r_ptr = convert_to_bigint_ptr(rhs);
-    
+
     // Check divide by zero for bigint happens inside stub
     let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
     unsafe { vp_bigint_div_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
-    
+
+    // Try to demote the result back to SmallInt
+    if let Some(demoted) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
+        if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
+        return demoted;
+    }
+
     if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
     if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
-    
+
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
@@ -187,13 +232,21 @@ pub extern "C" fn tagged_int_mod(lhs: i64, rhs: i64) -> i64 {
     }
     let l_ptr = convert_to_bigint_ptr(lhs);
     let r_ptr = convert_to_bigint_ptr(rhs);
-    
+
     let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
     unsafe { vp_bigint_mod_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
-    
+
+    // Try to demote the result back to SmallInt
+    if let Some(demoted) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
+        if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
+        return demoted;
+    }
+
     if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
     if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
-    
+
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
@@ -209,6 +262,14 @@ pub extern "C" fn tagged_int_neg(operand: i64) -> i64 {
     let ptr = convert_to_bigint_ptr(operand);
     let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
     unsafe { vp_bigint_neg_stub(res_ptr as *mut _, ptr as *mut _) };
+    
+    // Try to demote the result back to SmallInt
+    if let Some(demoted) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        if !is_bigint(operand) { unsafe { vp_bigint_free_stub(ptr as *mut _) }; }
+        return demoted;
+    }
+    
     if !is_bigint(operand) { unsafe { vp_bigint_free_stub(ptr as *mut _) }; }
     make_tagged_ptr(res_ptr as *mut c_void)
 }

@@ -1,11 +1,11 @@
 /**
  * Viper Tagged Integer Support
- * 
+ *
  * Provides automatic promotion from small integers to BigInt on overflow.
  * Uses tagged pointer representation:
  * - LSB = 0: Small integer (i63, stored directly in pointer bits)
  * - LSB = 1: BigInt pointer (heap-allocated ViperBigInt)
- * 
+ *
  * This allows Python-like arbitrary precision integers with minimal overhead
  * for small integer operations.
  */
@@ -18,6 +18,19 @@
 #include <stdio.h>
 #include "viper_arc.h"
 #include "gmp_bridge.h"
+
+/* ============================================ */
+/* Branch Prediction Hints                      */
+/* ============================================ */
+
+/* Use GCC/Clang branch prediction hints when available */
+#if defined(__GNUC__) || defined(__clang__)
+    #define VIPER_LIKELY(x)   __builtin_expect(!!(x), 1)
+    #define VIPER_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+    #define VIPER_LIKELY(x)   (x)
+    #define VIPER_UNLIKELY(x) (x)
+#endif
 
 /* ============================================ */
 /* Tagged Integer Representation                */
@@ -209,5 +222,21 @@ void tagged_int_print(TaggedInt value);
  * Free a TaggedInt if it's a BigInt
  */
 void tagged_int_free(TaggedInt value);
+
+/* ============================================ */
+/* Unified Runtime Dispatcher Declarations      */
+/* ============================================ */
+/* These provide a consistent interface for runtime operations */
+
+TaggedInt vp_runtime_add(TaggedInt a, TaggedInt b);
+TaggedInt vp_runtime_sub(TaggedInt a, TaggedInt b);
+TaggedInt vp_runtime_mul(TaggedInt a, TaggedInt b);
+TaggedInt vp_runtime_div(TaggedInt a, TaggedInt b);
+TaggedInt vp_runtime_mod(TaggedInt a, TaggedInt b);
+int vp_runtime_cmp(TaggedInt a, TaggedInt b);
+bool vp_runtime_eq(TaggedInt a, TaggedInt b);
+bool vp_runtime_lt(TaggedInt a, TaggedInt b);
+bool vp_runtime_gt(TaggedInt a, TaggedInt b);
+TaggedInt vp_runtime_neg(TaggedInt a);
 
 #endif /* VIPER_TAGGED_INT_H */
