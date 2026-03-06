@@ -2549,4 +2549,267 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), super::exceptions::viper_exception_to_string as *const () as usize);
     }
+    // ============================================
+    // Phase 1: Stdlib JIT Stubs registered by script
+    // ============================================
+
+    // json module
+    if let Some(func) = module.get_function("vp_json_loads") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::json::vp_json_loads as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_dumps") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::json::vp_json_dumps as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_load_file") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::json::vp_json_load_file as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_dump_file") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::json::vp_json_dump_file as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_json_get_error") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::json::vp_json_get_error as *const () as usize);
+    }
+
+    // collections module
+    if let Some(func) = module.get_function("vp_deque_create") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_append") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_append as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_appendleft") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_appendleft as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_pop") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_pop as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_popleft") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_popleft as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_get") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_len") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_len as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_clear") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_clear as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_rotate") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_rotate as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_reverse") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_reverse as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_remove") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_remove as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_count") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_count as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_contains") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_contains as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_deque_insert") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_deque_insert as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_create") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_add") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_add as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_get") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_set") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_total") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_total as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_len") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_len as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_counter_clear") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_counter_clear as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_create") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_set") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_get") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_contains") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_contains as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_len") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_len as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_clear") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_clear as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_keys") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_keys as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_values") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_values as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_ordered_dict_move_to_end") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_ordered_dict_move_to_end as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_create") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_default_dict_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_default_dict_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_get") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_default_dict_get as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_set") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_default_dict_set as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_default_dict_len") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_default_dict_len as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_create") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_named_tuple_create as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_named_tuple_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_set_field") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_named_tuple_set_field as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_set_value") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_named_tuple_set_value as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_get_value") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_named_tuple_get_value as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_named_tuple_len") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::collections::vp_named_tuple_len as *const () as usize);
+    }
+
+    // re module
+    if let Some(func) = module.get_function("vp_re_compile") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_compile as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_pattern_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_pattern_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_match") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_match as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_search") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_search as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_findall") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_findall as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_split") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_split as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_sub") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_sub as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_fullmatch") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_fullmatch as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_escape") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_escape as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_free") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_match_free as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_start") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_match_start as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_end") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_match_end as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_group") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_match_group as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_match_span") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_match_span as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_ignorecase") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_ignorecase as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_multiline") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_multiline as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_dotall") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_dotall as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_re_verbose") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::re::vp_re_verbose as *const () as usize);
+    }
+
+    // random module
+    if let Some(func) = module.get_function("vp_random_random") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_random as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_randint") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_randint as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_seed") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_seed as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_seed_secure") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_seed_secure as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_choice") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_choice as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_shuffle") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_shuffle as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_uniform") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_uniform as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_gauss") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_gauss as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_normal") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_normal as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_exp") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_exp as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_sample") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_sample as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_bool") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_bool as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_get_state") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_get_state as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_set_state") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_set_state as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_is_initialized") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_is_initialized as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_getrandbits") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_getrandbits as *const () as usize);
+    }
+    if let Some(func) = module.get_function("vp_random_randbytes") {
+        execution_engine.add_global_mapping(&func.as_global_value(), super::random_mod::vp_random_randbytes as *const () as usize);
+    }
 }
