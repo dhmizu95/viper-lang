@@ -110,6 +110,8 @@ pub enum Commands {
         #[arg(short, long, default_value = "docs/generated")]
         output: String,
     },
+    /// Run Viper tests
+    Test(crate::cli::test::TestArgs),
 }
 
 fn parse_pgo_mode(s: &str) -> Result<String, String> {

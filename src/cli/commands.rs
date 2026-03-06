@@ -43,5 +43,8 @@ pub fn execute(args: Args) -> Result<(), String> {
             let args = cli::doc::DocArgs::new(input, output);
             cli::doc::run_doc(&args)
         }
+        Commands::Test(test_args) => {
+            cli::test::run_test_command(&test_args)
+        }
     }
 }
