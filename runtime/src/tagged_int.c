@@ -48,6 +48,27 @@ static inline TaggedInt try_demote_bigint(mpz_t value) {
 /* TaggedInt Core Operations                    */
 /* ============================================ */
 
+/**
+ * Create a TaggedInt from a string representation
+ */
+TaggedInt tagged_int_from_str(const char* str) {
+    if (!str) return tagged_int_from_i64(0);
+    
+    ViperBigInt* bigint = vp_bigint_from_str(str);
+    if (!bigint) return tagged_int_from_i64(0);
+    
+    /* Check if the value fits in SmallInt */
+    if (mpz_fits_slong_p(bigint->value)) {
+        int64_t small_val = mpz_get_si(bigint->value);
+        if (small_val >= TAGGED_INT_MIN_SMALL && small_val <= TAGGED_INT_MAX_SMALL) {
+            vp_arc_release(bigint);
+            return tagged_int_from_i64(small_val);
+        }
+    }
+    
+    return tagged_int_from_bigint(bigint);
+}
+
 TaggedInt tagged_int_promote_to_bigint(TaggedInt value) {
     if (tagged_int_is_bigint(value)) {
         return value;  /* Already BigInt */
@@ -403,6 +424,92 @@ TaggedInt tagged_int_neg(TaggedInt a) {
             return demoted;
         }
     }
+
+    return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
+}
+
+/**
+ * Power operation: base ^ exp
+ * Both operands must be non-negative for BigInt case
+ */
+TaggedInt tagged_int_pow(TaggedInt base, TaggedInt exp) {
+    /* Case 1: Both small integers */
+    if (tagged_int_is_small(base) && tagged_int_is_small(exp)) {
+        int64_t base_val = tagged_int_get_small(base);
+        int64_t exp_val = tagged_int_get_small(exp);
+        
+        /* Check for negative base or exponent */
+        if (base_val < 0 || exp_val < 0) {
+            /* Promote to BigInt for negative values */
+            goto bigint_case;
+        }
+        
+        /* For small exponents, use repeated multiplication */
+        if (exp_val == 0) {
+            return tagged_int_from_i64(1);
+        }
+        if (exp_val == 1) {
+            return base;
+        }
+        if (base_val == 0) {
+            return tagged_int_from_i64(0);
+        }
+        if (base_val == 1) {
+            return tagged_int_from_i64(1);
+        }
+        
+        /* Check if result would overflow */
+        /* Use logarithm to estimate: log(result) = exp * log(base) */
+        /* For simplicity, just promote to BigInt for exp > 1 */
+        /* This is conservative but safe */
+    }
+
+bigint_case:
+    /* Case 2: At least one BigInt or overflow occurred */
+    ViperBigInt* base_big = tagged_int_to_bigint(base);
+    ViperBigInt* exp_big = tagged_int_to_bigint(exp);
+    ViperBigInt* result = alloc_bigint_for_tagged();
+
+    if (result) {
+        /* Check for negative exponent */
+        if (mpz_sgn(exp_big->value) < 0) {
+            fprintf(stderr, "Error: Negative exponent in power operation\n");
+            mpz_set_ui(result->value, 0);
+        } else {
+            /* Use repeated squaring for large exponents */
+            if (mpz_fits_ulong_p(exp_big->value)) {
+                mpz_pow_ui(result->value, base_big->value, mpz_get_ui(exp_big->value));
+            } else {
+                /* For very large exponents, use repeated squaring */
+                mpz_t temp;
+                mpz_init_set_ui(temp, 1);
+                
+                mp_bitcnt_t exp_bits = mpz_sizeinbase(exp_big->value, 2);
+                for (mp_bitcnt_t i = exp_bits; i > 0; i--) {
+                    mpz_mul(temp, temp, temp);
+                    if (mpz_tstbit(exp_big->value, i - 1)) {
+                        mpz_mul(temp, temp, base_big->value);
+                    }
+                }
+                
+                mpz_set(result->value, temp);
+                mpz_clear(temp);
+            }
+        }
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            mpz_clear(result->value);
+            free(result);
+            vp_arc_release(base_big);
+            vp_arc_release(exp_big);
+            return demoted;
+        }
+    }
+
+    vp_arc_release(base_big);
+    vp_arc_release(exp_big);
 
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
 }

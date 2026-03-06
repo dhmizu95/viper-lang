@@ -81,6 +81,9 @@ pub extern "C" fn vp_bigint_mul_stub(result: *mut c_void, a: *mut c_void, b: *mu
     unsafe { vp_bigint_mul_c(result, a, b) }
 }
 pub extern "C" fn vp_bigint_div_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    if result.is_null() || a.is_null() || b.is_null() {
+        return;
+    }
     unsafe { vp_bigint_div_c(result, a, b) }
 }
 pub extern "C" fn vp_bigint_mod_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {

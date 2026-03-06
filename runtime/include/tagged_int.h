@@ -154,6 +154,11 @@ static inline bool would_overflow_mul(int64_t a, int64_t b) {
 TaggedInt tagged_int_promote_to_bigint(TaggedInt value);
 
 /**
+ * Create a TaggedInt from a string representation
+ */
+TaggedInt tagged_int_from_str(const char* str);
+
+/**
  * Convert a TaggedInt to BigInt (may allocate if small int)
  */
 ViperBigInt* tagged_int_to_bigint(TaggedInt value);
@@ -182,6 +187,11 @@ TaggedInt tagged_int_div(TaggedInt a, TaggedInt b);
  * Modulo of two TaggedInts
  */
 TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b);
+
+/**
+ * Power operation: base ^ exp
+ */
+TaggedInt tagged_int_pow(TaggedInt base, TaggedInt exp);
 
 /**
  * Compare two TaggedInts (returns -1, 0, or 1)
