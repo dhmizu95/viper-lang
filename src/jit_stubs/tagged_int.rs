@@ -353,13 +353,16 @@ pub extern "C" fn tagged_int_to_str(val: i64) -> *mut c_char {
 
 #[no_mangle]
 pub extern "C" fn tagged_int_print(val: i64) {
-    let s_ptr = tagged_int_to_str(val);
-    unsafe {
-        let c_str = std::ffi::CStr::from_ptr(s_ptr);
-        print!("{}", c_str.to_str().unwrap());
-        // Since we created the string, we might need to free it. 
-        // vp_bigint_to_str_stub returns a malloc'd string, so does CString::into_raw.
-        libc::free(s_ptr as *mut libc::c_void);
+    if !is_bigint(val) {
+        let v = get_small_int(val);
+        print!("{}", v);
+    } else {
+        let s_ptr = unsafe { vp_bigint_to_str_stub(extract_ptr(val) as *mut _, 10) as *mut std::ffi::c_char };
+        unsafe {
+            let c_str = std::ffi::CStr::from_ptr(s_ptr);
+            print!("{}", c_str.to_str().unwrap());
+            libc::free(s_ptr as *mut libc::c_void);
+        }
     }
 }
 

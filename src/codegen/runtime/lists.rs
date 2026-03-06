@@ -18,6 +18,9 @@ pub fn declare_list_functions<'ctx>(
     let list_create_cap_type = ptr_type.fn_type(&[i64_type.into()], false);
     module.add_function("vp_list_create_with_capacity", list_create_cap_type, None);
 
+    let list_init_stack_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into(), context.i32_type().into()], false);
+    module.add_function("vp_list_init_stack", list_init_stack_type, None);
+
     let list_append_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     let list_append = module.add_function("vp_list_append", list_append_type, None);
     // Add alwaysinline hint for better performance on hot path

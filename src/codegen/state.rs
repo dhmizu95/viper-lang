@@ -45,6 +45,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub captured_vars: HashSet<String>,
     /// Closure cells passed from enclosing function (for nested functions)
     pub closure_cells: HashMap<String, ClosureCellInfo<'ctx>>,
+    pub current_assignment_target: Option<String>,
 }
 
 impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
@@ -85,6 +86,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             in_classmethod: false,
             captured_vars: HashSet::new(),
             closure_cells: HashMap::new(),
+            current_assignment_target: None,
         }
     }
 
@@ -128,6 +130,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             in_classmethod: false,
             captured_vars: HashSet::new(),
             closure_cells: HashMap::new(),
+            current_assignment_target: None,
         }
     }
 
@@ -172,6 +175,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             in_classmethod: false,
             captured_vars: HashSet::new(),
             closure_cells: HashMap::new(),
+            current_assignment_target: None,
         }
     }
 

@@ -36,6 +36,10 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_list_create_stub as *const () as usize);
     }
+    if let Some(func) = module.get_function("vp_list_init_stack") {
+        execution_engine
+            .add_global_mapping(&func.as_global_value(), vp_list_init_stack_stub as *const () as usize);
+    }
     if let Some(func) = module.get_function("vp_list_append") {
         execution_engine
             .add_global_mapping(&func.as_global_value(), vp_list_append_stub as *const () as usize);

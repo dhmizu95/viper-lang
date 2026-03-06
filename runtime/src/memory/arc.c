@@ -171,13 +171,15 @@ void vp_arc_release(void* ptr) {
         }
 
         /* Free the memory */
-        if (VP_IS_POOLED(header)) {
-            ensure_pool_initialized();
-            if (arc_pool) {
-                vp_pool_free(arc_pool, header);
+        if (!VP_IS_STACK(header)) {
+            if (VP_IS_POOLED(header)) {
+                ensure_pool_initialized();
+                if (arc_pool) {
+                    vp_pool_free(arc_pool, header);
+                }
+            } else {
+                free(header);
             }
-        } else {
-            free(header);
         }
     }
 }
@@ -197,13 +199,15 @@ void vp_arc_release_local(void* ptr) {
         }
 
         /* Free the memory */
-        if (VP_IS_POOLED(header)) {
-            ensure_pool_initialized();
-            if (arc_pool) {
-                vp_pool_free(arc_pool, header);
+        if (!VP_IS_STACK(header)) {
+            if (VP_IS_POOLED(header)) {
+                ensure_pool_initialized();
+                if (arc_pool) {
+                    vp_pool_free(arc_pool, header);
+                }
+            } else {
+                free(header);
             }
-        } else {
-            free(header);
         }
     }
 }

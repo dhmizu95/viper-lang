@@ -27,12 +27,86 @@ pub fn generate_list<'ctx>(
         ("vp_list_create", "vp_list_append")
     };
 
-    let list_func = state
-        .module
-        .get_function(list_func_name)
-        .ok_or_else(|| format!("{} not declared", list_func_name))?;
+    let can_stack_allocate = if let Some(target) = &state.current_assignment_target {
+        state.can_stack_allocate(target)
+    } else {
+        false
+    };
 
-    let list_val = state.ir_builder.build_call(state.builder, list_func, &[], "new_list").unwrap();
+    // Note: To simplify, we only stack allocate non-bool lists, as bool lists have bit packing
+    let list_val = if can_stack_allocate && elements.len() <= 16 && !is_bool_list {
+        let capacity = std::cmp::max(elements.len(), 4);
+        let list_bytes = 24 + 40; // \`ViperHeader\` + \`ViperList\`
+        let data_bytes = 24 + capacity * 8; // \`ViperHeader\` + array elements
+
+        let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let entry_block = func.get_first_basic_block().unwrap();
+        let old_pos = state.builder.get_insert_block();
+        match entry_block.get_first_instruction() {
+            Some(first_instr) => state.builder.position_before(&first_instr),
+            None => state.builder.position_at_end(entry_block),
+        }
+
+        let i64_type = state.context.i64_type();
+        let list_alloca = state.builder.build_array_alloca(
+            i64_type,
+            i64_type.const_int(((list_bytes + 7) / 8) as u64, false),
+            "stack_list_alloc"
+        ).unwrap();
+        let data_alloca = state.builder.build_array_alloca(
+            i64_type,
+            i64_type.const_int(((data_bytes + 7) / 8) as u64, false),
+            "stack_data_alloc"
+        ).unwrap();
+
+        if let Some(pos) = old_pos {
+            state.builder.position_at_end(pos);
+        }
+
+        let i8_type = state.context.i8_type();
+        let list_ptr = unsafe {
+            state.builder.build_in_bounds_gep(
+                i8_type,
+                list_alloca,
+                &[i64_type.const_int(24, false)],
+                "stack_list_ptr" // Skip ViperHeader
+            )
+        }.unwrap();
+        let data_ptr = unsafe {
+            state.builder.build_in_bounds_gep(
+                i8_type,
+                data_alloca,
+                &[i64_type.const_int(24, false)],
+                "stack_data_ptr" // Skip ViperHeader
+            )
+        }.unwrap();
+
+        let init_func = state.module.get_function("vp_list_init_stack")
+            .ok_or_else(|| "vp_list_init_stack not declared".to_string())?;
+
+        let elem_type_val = if is_float_list { 1 } else { 0 };
+
+        let init_call = state.ir_builder.build_call(
+            state.builder,
+            init_func,
+            &[
+                list_ptr.into(),
+                data_ptr.into(),
+                i64_type.const_int(capacity as u64, false).into(),
+                state.context.i32_type().const_int(elem_type_val as u64, false).into()
+            ],
+            "stack_list_init"
+        ).unwrap();
+
+        init_call 
+    } else {
+        let list_func = state
+            .module
+            .get_function(list_func_name)
+            .ok_or_else(|| format!("{} not declared", list_func_name))?;
+
+        state.ir_builder.build_call(state.builder, list_func, &[], "new_list").unwrap()
+    };
 
     let append_func = state
         .module

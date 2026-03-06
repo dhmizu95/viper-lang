@@ -580,8 +580,7 @@ char* tagged_int_to_str(TaggedInt value) {
 
     /* Free the temporary bigint we created (if any) */
     if (is_temp) {
-        mpz_clear(bigint->value);
-        free(bigint);
+        free_temp_bigint(bigint);
     }
 
     return str;

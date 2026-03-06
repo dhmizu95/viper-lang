@@ -5,6 +5,19 @@ pub extern "C" fn vp_list_create_stub() -> *mut std::ffi::c_void {
     Box::into_raw(list) as *mut std::ffi::c_void
 }
 
+pub extern "C" fn vp_list_init_stack_stub(
+    _list_ptr: *mut std::ffi::c_void,
+    _data_ptr: *mut std::ffi::c_void,
+    _capacity: i64,
+    elem_type: i32,
+) -> *mut std::ffi::c_void {
+    if elem_type == 1 {
+        vp_list_create_f64_stub()
+    } else {
+        vp_list_create_stub()
+    }
+}
+
 pub extern "C" fn vp_list_append_stub(list: *mut std::ffi::c_void, val: i64) {
     if list.is_null() {
         return;

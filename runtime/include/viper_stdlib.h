@@ -56,6 +56,7 @@ int64_t vp_ref_count(void* ptr);
 /* Generic list functions (i64) - for backward compatibility */
 ViperList* vp_list_create(void);
 ViperList* vp_list_create_with_capacity(int64_t cap);
+ViperList* vp_list_init_stack(void* list_ptr, void* data_ptr, int64_t capacity, int elem_type);
 void vp_list_free(ViperList* list);
 void vp_list_grow(ViperList* list);  /* Exposed for inline codegen */
 void vp_list_reserve(ViperList* list, int64_t capacity);  /* Pre-allocate capacity */

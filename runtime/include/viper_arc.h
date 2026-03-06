@@ -36,6 +36,7 @@
 #define VIPER_ARC_FLAG_SHARED 0x01
 #define VIPER_ARC_FLAG_POOL   0x02
 #define VIPER_ARC_FLAG_LOCAL  0x04
+#define VIPER_ARC_FLAG_STACK  0x08
 
 #ifndef VIPER_POOL_MAX_SIZE
 #define VIPER_POOL_MAX_SIZE 256
@@ -205,6 +206,12 @@ int64_t vp_ref_count(void* ptr);
 
 /* Mark object as pooled */
 #define VP_MARK_POOLED(header) do { (header)->flags |= VIPER_ARC_FLAG_POOL; } while (0)
+
+/* Check if object is stack allocated */
+#define VP_IS_STACK(header) ((header)->flags & VIPER_ARC_FLAG_STACK)
+
+/* Mark object as stack allocated */
+#define VP_MARK_STACK(header) do { (header)->flags |= VIPER_ARC_FLAG_STACK; } while (0)
 
 /* Get atomic ref count (for shared objects) */
 #define VP_GET_ATOMIC_REF(header) (&(header)->ref_count_atomic)

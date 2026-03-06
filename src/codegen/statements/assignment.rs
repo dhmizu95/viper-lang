@@ -49,11 +49,13 @@ pub(crate) fn generate_assign<'ctx>(
         // Stack allocation code disabled for JIT testing
         // The vp_list_bool_repeat path should work without stack allocation
 
+        state.current_assignment_target = Some(name.clone());
         let val = if handled_custom {
             custom_val.unwrap()
         } else {
             crate::codegen::expressions::generate_expr(state, value)?
         };
+        state.current_assignment_target = None;
 
         // Check if this is a global variable assignment
         // If the variable exists in global_constants but not in local variables,

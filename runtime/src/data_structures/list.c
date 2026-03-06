@@ -100,6 +100,34 @@ void vp_list_free(ViperList* list) {
     vp_arc_release(list);
 }
 
+ViperList* vp_list_init_stack(void* list_ptr, void* data_ptr, int64_t capacity, int elem_type) {
+    if (!list_ptr || !data_ptr) return NULL;
+    
+    // Initialize the list header (stack allocated)
+    ViperHeader* list_header = VP_GET_HEADER(list_ptr);
+    list_header->ref_count = 1;         // Local objects use non-atomic ref count
+    list_header->destructor = (void (*)(void*)) vp_list_destroy;
+    list_header->flags = VIPER_ARC_FLAG_STACK | VIPER_ARC_FLAG_LOCAL;
+    list_header->ref_count_atomic = 1;  // set both union parts safely
+    
+    // Initialize the data array header (stack allocated)
+    ViperHeader* data_header = VP_GET_HEADER(data_ptr);
+    data_header->ref_count = 1;
+    data_header->destructor = NULL;     // Array data has no nested destructors
+    data_header->flags = VIPER_ARC_FLAG_STACK | VIPER_ARC_FLAG_LOCAL;
+    data_header->ref_count_atomic = 1;
+    
+    // Initialize the ViperList structure
+    ViperList* list = (ViperList*)list_ptr;
+    list->ref_count = 1; // Legacy field
+    list->length = 0;
+    list->capacity = capacity;
+    list->elem_type = (ViperListType)elem_type;
+    list->data.data_generic = data_ptr;
+    
+    return list;
+}
+
 /* Reserve capacity - pre-allocate memory for efficient append */
 void vp_list_reserve(ViperList* list, int64_t capacity) {
     if (!list) {
