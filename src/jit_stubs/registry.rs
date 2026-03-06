@@ -576,6 +576,9 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
     if let Some(func) = module.get_function("tagged_int_from_i64") {
         execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_from_i64 as *const () as usize);
     }
+    if let Some(func) = module.get_function("tagged_int_from_str") {
+        execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_from_str as *const () as usize);
+    }
     if let Some(func) = module.get_function("tagged_int_to_str") {
         execution_engine.add_global_mapping(&func.as_global_value(), tagged_int_to_str as *const () as usize);
     }

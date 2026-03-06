@@ -1,0 +1,8 @@
+x = 100000000000000000000000000000
+y = 5
+print(x == y)
+print(y == x)
+print(x > y)
+print(x < y)
+print(y > x)
+print(y < x)

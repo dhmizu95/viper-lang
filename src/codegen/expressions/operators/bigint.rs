@@ -5,33 +5,8 @@ use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
 /// Check if an expression is a BigInt expression
-pub fn is_bigint_expr<'a, 'ctx>(expr: &Expr, state: &CodeGenState<'a, 'ctx>) -> bool {
-    match expr {
-        Expr::BigInt(..) => true,
-        Expr::Ident(name, _) => state.is_bigint(name),
-        Expr::BinOp { left, right, .. } => {
-            is_bigint_expr(left, state) || is_bigint_expr(right, state)
-        }
-        Expr::Call { func, .. } => {
-            if let Expr::Ident(name, _) = func.as_ref() {
-                // Check for built-in BigInt functions (case insensitive for constructor)
-                // int() now returns arbitrary precision int (BigInt internally)
-                // abs() and pow() also return BigInt when given BigInt arguments
-                name == "bigint" || name == "BigInt" || name == "int" || name == "abs" || name == "pow"
-                    || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint"
-                    || name == "min_bigint" || name == "max_bigint" || name == "is_zero_bigint"
-                    || name == "is_negative_bigint" || name == "sign_bigint" || name == "bit_length_bigint"
-            } else {
-                false
-            }
-        }
-        Expr::UnaryOp { operand, .. } => is_bigint_expr(operand, state),
-        Expr::AssignmentExpr { value, .. } => is_bigint_expr(value, state),
-        Expr::Conditional { then_expr, else_expr, .. } => {
-            is_bigint_expr(then_expr, state) || is_bigint_expr(else_expr, state)
-        }
-        _ => false,
-    }
+pub fn is_bigint_expr<'a, 'ctx>(_expr: &Expr, _state: &CodeGenState<'a, 'ctx>) -> bool {
+    false // BigInts now use the tagged_int operations instead
 }
 
 /// Generate BigInt binary operation

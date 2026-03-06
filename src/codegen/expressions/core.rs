@@ -278,24 +278,25 @@ pub fn generate_expr<'ctx>(
             Ok(result)
         }
         Expr::BigInt(s, _) => {
-            // Parse the string to i128 and convert to tagged int
-            let val: i128 = s.parse().unwrap_or(0);
             // Check if value fits in i63 (tagged small int range)
             const I63_MIN: i128 = -(1i128 << 62);
             const I63_MAX: i128 = (1i128 << 62) - 1;
-            if val >= I63_MIN && val <= I63_MAX {
+            let fits_small = s.parse::<i128>().map(|val| val >= I63_MIN && val <= I63_MAX).unwrap_or(false);
+
+            if fits_small {
                 // Fits in small int (i63)
-                Ok(state.ir_builder.i64_const((val as i64) << 1).into())
+                let val = s.parse::<i128>().unwrap() as i64;
+                Ok(state.ir_builder.i64_const(val << 1).into())
             } else {
                 // Must promote to tagged BigInt at runtime
                 let func = state
                     .module
-                    .get_function("tagged_int_from_i64")
-                    .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
-                let const_val = state.ir_builder.i64_const(val as i64);
+                    .get_function("tagged_int_from_str")
+                    .ok_or_else(|| "tagged_int_from_str not declared".to_string())?;
+                let str_val = state.ir_builder.string_const(state.module, s);
                 let result = state
                     .ir_builder
-                    .build_call(state.builder, func, &[const_val.into()], "tagged_int_const")
+                    .build_call(state.builder, func, &[str_val.into()], "tagged_int_const")
                     .unwrap();
                 Ok(result.into())
             }

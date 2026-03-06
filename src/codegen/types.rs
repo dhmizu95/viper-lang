@@ -54,7 +54,7 @@ impl<'ctx> TypeMapper<'ctx> {
     /// Convert Viper Type to LLVM type
     pub fn llvm_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
         match ty {
-            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => self.context.i64_type().into(),
+            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::BigInt => self.context.i64_type().into(),
             Type::F32 | Type::F64 => self.context.f64_type().into(),
             Type::Bool => self.context.bool_type().into(),
             Type::Str
@@ -64,8 +64,7 @@ impl<'ctx> TypeMapper<'ctx> {
             | Type::List(_)
             | Type::Dict(_, _)
             | Type::Fn(_, _)
-            | Type::Optional(_)
-            | Type::BigInt => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            | Type::Optional(_) => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             Type::Tuple(types) => {
                 // Tuples are represented as structs in LLVM
                 let field_types: Vec<BasicTypeEnum<'ctx>> =
@@ -103,7 +102,7 @@ impl<'ctx> TypeMapper<'ctx> {
     /// Get LLVM type for function return
     pub fn llvm_return_type(&self, return_type: &Option<Type>) -> Option<BasicTypeEnum<'ctx>> {
         match return_type {
-            Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) | Some(Type::Int) => {
+            Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) | Some(Type::Int) | Some(Type::BigInt) => {
                 Some(self.context.i64_type().into())
             }
             Some(Type::F32) | Some(Type::F64) => Some(self.context.f64_type().into()),
@@ -113,8 +112,7 @@ impl<'ctx> TypeMapper<'ctx> {
             | Some(Type::WaitGroup)
             | Some(Type::List(_))
             | Some(Type::Dict(_, _))
-            | Some(Type::Optional(_))
-            | Some(Type::BigInt) => {
+            | Some(Type::Optional(_)) => {
                 Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
             }
             Some(Type::Tuple(types)) => {

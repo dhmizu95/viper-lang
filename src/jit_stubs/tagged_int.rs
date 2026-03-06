@@ -81,6 +81,12 @@ pub extern "C" fn tagged_int_from_i64(val: i64) -> i64 {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn tagged_int_from_str(s: *const i8) -> i64 {
+    let ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_str_stub(s) };
+    make_tagged_ptr(ptr as *mut c_void)
+}
+
 pub fn convert_to_bigint_ptr(val: i64) -> *mut c_void {
     if is_bigint(val) {
         extract_ptr(val)
