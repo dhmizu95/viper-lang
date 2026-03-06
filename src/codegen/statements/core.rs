@@ -736,11 +736,27 @@ fn generate_sync_with<'ctx>(
             let var_alloca = state.builder.build_alloca(var_type, var_name).expect("alloca");
             state.builder.build_store(var_alloca, enter_result).expect("store");
 
+            let ast_type = if enter_result.is_int_value() {
+                if enter_result.into_int_value().get_type().get_bit_width() == 1 {
+                    state.var_types.insert(var_name.clone(), Type::Bool);
+                    VarType::Bool
+                } else {
+                    state.var_types.insert(var_name.clone(), Type::Int);
+                    VarType::Int
+                }
+            } else if enter_result.is_float_value() {
+                state.var_types.insert(var_name.clone(), Type::F64);
+                VarType::Float
+            } else {
+                state.var_types.insert(var_name.clone(), Type::Infer);
+                VarType::Pointer
+            };
+
             state.variables.insert(
                 var_name.clone(),
                 VarInfo {
                     storage: crate::codegen::variables::VarStorage::Stack(var_alloca),
-                    var_type: VarType::Pointer,
+                    var_type: ast_type,
                     class_name: None,
                     closure_value_ptr: None,
                 },
@@ -882,9 +898,9 @@ fn call_method_on_object<'ctx>(
         &format!("context_{}_call", method_name.trim_matches('_')),
     );
 
-    // Return appropriate default value based on return type
+    // Return the result directly if it exists, otherwise return a default
     if let Some(call_result) = result {
-        Ok(call_result.into())
+        Ok(call_result)
     } else {
         // Return appropriate default based on method return type
         match return_type {

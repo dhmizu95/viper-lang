@@ -229,7 +229,40 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
         }
         Expr::UnaryOp { op: _, operand, .. } => infer_type_with_state(state, operand),
         Expr::AssignmentExpr { value, .. } => infer_type_with_state(state, value),
-        _ => Type::Infer,
+        Expr::Attribute { obj, attr, .. } => {
+            // Try to infer object type to find attribute/method return type
+            let obj_type = infer_type_with_state(state, obj);
+            if let crate::ast::Type::Instance(class_name) | crate::ast::Type::Class(class_name) = obj_type {
+                return crate::codegen::oop::with_class_registry(|registry| {
+                    if let Some(metadata) = registry.get_class(&class_name) {
+                        if let Some(method) = metadata.get_method_mro(attr, registry) {
+                            return method.return_type.clone();
+                        }
+                    }
+                    crate::ast::Type::Infer
+                });
+            }
+            crate::ast::Type::Infer
+        }
+        _ => {
+            // Handle method call return type if possible
+            if let Expr::Call { func, .. } = expr {
+                if let Expr::Attribute { obj, attr, .. } = func.as_ref() {
+                    let obj_type = infer_type_with_state(state, obj);
+                    if let crate::ast::Type::Instance(class_name) | crate::ast::Type::Class(class_name) = obj_type {
+                        return crate::codegen::oop::with_class_registry(|registry| {
+                            if let Some(metadata) = registry.get_class(&class_name) {
+                                if let Some(method) = metadata.get_method_mro(attr, registry) {
+                                    return method.return_type.clone();
+                                }
+                            }
+                            crate::ast::Type::Infer
+                        });
+                    }
+                }
+            }
+            crate::ast::Type::Infer
+        }
     }
 }
 

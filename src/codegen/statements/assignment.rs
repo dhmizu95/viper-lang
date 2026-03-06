@@ -354,6 +354,11 @@ pub(crate) fn generate_assign<'ctx>(
                 None
             };
 
+            // If this is a class instance, store Instance type so registry lookups work later
+            if let Some(ref cn) = class_name {
+                state.var_types.insert(name.clone(), Type::Instance(cn.clone()));
+            }
+
             // Always use stack allocation (alloca) for new variables.
             // This is critical for correctness across loop basic blocks:
             // SSA register values are frozen in the block they are defined in,

@@ -369,6 +369,11 @@ pub fn class_exists(name: &str) -> bool {
     with_class_registry(|r| r.contains(name))
 }
 
+/// Get class metadata from registry
+pub fn get_class_metadata(name: &str) -> Option<ClassMetadata> {
+    with_class_registry(|r| r.get_class(name).cloned())
+}
+
 /// Generate class metadata from a class definition statement
 pub fn generate_class_metadata(
     name: &str,
@@ -629,9 +634,10 @@ pub fn generate_attribute_access<'ctx>(
             }
 
             // Check if it's a property
-            if let Some(method) = metadata.get_method(attr_name) {
+            let mro_method = with_class_registry(|r| metadata.get_method_mro(attr_name, r).cloned());
+            if let Some(method) = mro_method {
                 if method.is_property {
-                    return generate_property_getter(state, obj_ptr, method);
+                    return generate_property_getter(state, obj_ptr, &method);
                 }
             }
         }
@@ -692,7 +698,12 @@ fn generate_property_getter<'ctx>(
             "property_get",
         );
         
-        Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
+        // If property returns a pointer (BigInt), return it directly.
+        // If it returns an i64, it might be a tagged integer.
+        match result {
+            Some(val) => Ok(val),
+            None => Ok(state.context.i64_type().const_int(0, false).into()),
+        }
     } else {
         Err(format!("Property getter '{}' not found", method.name))
     }
@@ -719,14 +730,15 @@ pub fn generate_user_method_call<'ctx>(
 
     if let Some(class_name) = class_name {
         if let Some(metadata) = with_class_registry(|r| r.get_class(&class_name).cloned()) {
-            if let Some(method) = metadata.get_method(method_name) {
+            let mro_method = with_class_registry(|r| metadata.get_method_mro(method_name, r).cloned());
+            if let Some(method) = mro_method {
                 if method.is_static {
-                    return generate_static_method_call(state, method, args);
+                    return generate_static_method_call(state, &method, args);
                 }
                 if method.is_class_method {
-                    return generate_class_method_call(state, &class_name, method, args);
+                    return generate_class_method_call(state, &class_name, &method, args);
                 }
-                return generate_instance_method_call(state, obj_ptr, method, args);
+                return generate_instance_method_call(state, obj_ptr, &method, args);
             }
         }
     }
@@ -783,7 +795,10 @@ fn generate_instance_method_call<'ctx>(
             &format!("call_{}", method.name),
         );
         
-        Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
+        match result {
+            Some(val) => Ok(val),
+            None => Ok(state.context.i64_type().const_int(0, false).into()),
+        }
     } else {
         Err(format!("Method '{}' not found", method.name))
     }
