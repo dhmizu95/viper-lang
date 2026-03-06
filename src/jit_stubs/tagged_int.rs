@@ -46,17 +46,24 @@ fn fits_in_i63(val: i64) -> bool {
 #[inline(always)]
 fn try_demote_bigint(res_ptr: *mut c_void) -> Option<i64> {
     unsafe {
-        // Check if the BigInt value fits in i63
+        // Get the i64 value from the BigInt
         let value = vp_bigint_to_i64_stub(res_ptr as *mut _);
-        if fits_in_i63(value) {
-            // Create a temporary BigInt from the i64 value and compare
-            let temp_big = vp_bigint_from_i64_stub(value);
-            let cmp_result = vp_bigint_cmp_stub(res_ptr as *mut _, temp_big as *mut _);
-            vp_bigint_free_stub(temp_big as *mut _);
-            
-            if cmp_result == 0 {
-                return Some(make_small_int(value));
-            }
+        
+        // Check if the value fits in i63 range
+        if !fits_in_i63(value) {
+            return None;
+        }
+        
+        // Create a temporary BigInt from the i64 value
+        let temp_big = vp_bigint_from_i64_stub(value);
+        
+        // Compare the original BigInt with the temporary one
+        // If they're equal, the value can be safely demoted
+        let cmp_result = vp_bigint_cmp_stub(res_ptr as *mut _, temp_big as *mut _);
+        vp_bigint_free_stub(temp_big as *mut _);
+        
+        if cmp_result == 0 {
+            return Some(make_small_int(value));
         }
     }
     None

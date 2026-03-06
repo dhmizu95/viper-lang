@@ -390,6 +390,7 @@ void vp_bigint_rshift_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 bool vp_bigint_eq_c(ViperBigInt* a, ViperBigInt* b);
 bool vp_bigint_lt_c(ViperBigInt* a, ViperBigInt* b);
 bool vp_bigint_gt_c(ViperBigInt* a, ViperBigInt* b);
+int vp_bigint_cmp_c(ViperBigInt* a, ViperBigInt* b);
 
 void vp_bigint_min_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);
 void vp_bigint_max_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b);

@@ -186,23 +186,48 @@ void vp_bigint_divmod(ViperBigInt* quotient, ViperBigInt* remainder,
 
 void vp_bigint_pow(ViperBigInt* result, ViperBigInt* base, ViperBigInt* exp) {
     if (!result || !base || !exp) return;
-    
+
     /* Check for negative exponent */
     if (mpz_sgn(exp->value) < 0) {
         fprintf(stderr, "Error: Negative exponent in BigInt power\n");
         mpz_set_ui(result->value, 0);
         return;
     }
-    
+
+    /* Check if base is zero */
+    if (mpz_sgn(base->value) == 0) {
+        mpz_set_ui(result->value, 0);
+        return;
+    }
+
+    /* Check if exponent is zero */
+    if (mpz_sgn(exp->value) == 0) {
+        mpz_set_ui(result->value, 1);
+        return;
+    }
+
     /* Convert exponent to unsigned long if possible */
     if (mpz_fits_ulong_p(exp->value)) {
         mpz_pow_ui(result->value, base->value, mpz_get_ui(exp->value));
     } else {
-        /* Use mpz_powm for large exponents (mod 0 = no modulus) */
-        mpz_t temp_mod;
-        mpz_init_set_ui(temp_mod, 0);
-        mpz_powm(result->value, base->value, exp->value, temp_mod);
-        mpz_clear(temp_mod);
+        /* For very large exponents, use repeated squaring */
+        /* GMP doesn't have a direct mpz_pow function for large exponents */
+        
+        mpz_t temp;
+        mpz_init_set_ui(temp, 1);  /* Start with 1 */
+        
+        mp_bitcnt_t exp_bits = mpz_sizeinbase(exp->value, 2);
+        
+        /* For each bit in the exponent (from highest to lowest) */
+        for (mp_bitcnt_t i = exp_bits; i > 0; i--) {
+            mpz_mul(temp, temp, temp);  /* Square */
+            if (mpz_tstbit(exp->value, i - 1)) {
+                mpz_mul(temp, temp, base->value);  /* Multiply by base if bit is set */
+            }
+        }
+        
+        mpz_set(result->value, temp);
+        mpz_clear(temp);
     }
 }
 
@@ -622,6 +647,10 @@ bool vp_bigint_lt_c(ViperBigInt* a, ViperBigInt* b) {
 
 bool vp_bigint_gt_c(ViperBigInt* a, ViperBigInt* b) {
     return vp_bigint_gt(a, b);
+}
+
+int vp_bigint_cmp_c(ViperBigInt* a, ViperBigInt* b) {
+    return vp_bigint_cmp(a, b);
 }
 
 void vp_bigint_min_c(ViperBigInt* result, ViperBigInt* a, ViperBigInt* b) {

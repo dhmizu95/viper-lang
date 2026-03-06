@@ -47,6 +47,7 @@ extern "C" {
     pub fn vp_bigint_eq_c(a: *mut c_void, b: *mut c_void) -> bool;
     pub fn vp_bigint_lt_c(a: *mut c_void, b: *mut c_void) -> bool;
     pub fn vp_bigint_gt_c(a: *mut c_void, b: *mut c_void) -> bool;
+    pub fn vp_bigint_cmp_c(a: *mut c_void, b: *mut c_void) -> i32;
 
     // Boolean checks
     pub fn vp_bigint_is_zero(bigint: *mut c_void) -> bool;
@@ -125,18 +126,12 @@ pub extern "C" fn vp_bigint_perm_stub(result: *mut c_void, n: *mut c_void, k: *m
     unsafe { vp_bigint_perm_c(result, n, k) }
 }
 pub extern "C" fn vp_bigint_cmp_stub(a: *mut c_void, b: *mut c_void) -> i32 {
-    // Use the C library comparison function
-    unsafe {
-        // mpz_cmp returns -1 if a < b, 0 if a == b, 1 if a > b
-        // We need to call the actual GMP comparison through the C bridge
-        // For now, use a simple approach: convert both to i64 and compare
-        // This works for small values that fit in i64
-        let a_val = vp_bigint_to_i64(a);
-        let b_val = vp_bigint_to_i64(b);
-        if a_val < b_val { -1 }
-        else if a_val > b_val { 1 }
-        else { 0 }
+    // Use the C library comparison function for accurate comparison
+    // This handles arbitrary precision integers correctly
+    extern "C" {
+        fn vp_bigint_cmp_c(a: *mut c_void, b: *mut c_void) -> i32;
     }
+    unsafe { vp_bigint_cmp_c(a, b) }
 }
 pub extern "C" fn vp_bigint_eq_stub(a: *mut c_void, b: *mut c_void) -> bool {
     unsafe { vp_bigint_eq_c(a, b) }
@@ -162,6 +157,7 @@ pub extern "C" fn vp_bigint_to_str_stub(bigint: *mut c_void, base: i32) -> *cons
 pub extern "C" fn vp_bigint_to_i64_stub(bigint: *mut c_void) -> i64 {
     unsafe { vp_bigint_to_i64(bigint) }
 }
+
 pub extern "C" fn vp_bigint_free_stub(_bigint: *mut c_void) {
     // Placeholder - memory managed by ARC
 }
