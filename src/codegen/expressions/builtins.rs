@@ -61,7 +61,6 @@ pub fn generate_print_call<'ctx>(
         } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 64 {
             // Check if this might be a tagged int (for variables with inferred type)
             // Tagged ints are i64 values that could be either small ints or BigInt pointers
-            eprintln!("DEBUG print: calling vp_print_i64 for i64 value");
             let print_func = state
                 .module
                 .get_function("vp_print_i64")
@@ -542,17 +541,24 @@ pub fn generate_str_call<'ctx>(
 
     let arg = &args[0];
 
-    // Check if argument is BigInt type
-    let arg_type = crate::codegen::expressions::core::infer_expr_type(arg);
+    // Check if argument is BigInt type (use state-aware inference)
+    let arg_type = crate::codegen::expressions::core::infer_type_with_state(state, arg);
     if arg_type == Type::BigInt {
         return generate_bigint_to_str(state, args);
     }
-    
-    // Also check if it's an identifier that holds a BigInt
-    if let Expr::Ident(name, _) = arg {
-        if state.is_bigint(name) {
-            return generate_bigint_to_str(state, args);
+
+    // Check if argument is int type (which uses tagged int representation)
+    // Tagged ints may be BigInt at runtime if they exceeded i63 range
+    // Also handle function calls which return tagged int (Type::Fn)
+    if arg_type == Type::Int || matches!(arg_type, Type::Fn(..)) {
+        // FIX: Check actual value type - local BigInt vars are pointers, not tagged ints
+        let arg_val = generate_expr(state, arg)?;
+        if arg_val.is_pointer_value() {
+            // This is a BigInt stored in a local variable - use BigInt to_str
+            return generate_bigint_to_str_direct(state, arg_val);
         }
+        // Otherwise it's a tagged int - use tagged_int_to_str
+        return generate_tagged_int_to_str_val(state, arg_val);
     }
 
     let arg_val = generate_expr(state, arg)?;
@@ -576,6 +582,77 @@ pub fn generate_str_call<'ctx>(
         .expect("str conversion call");
 
     Ok(result.into())
+}
+
+/// Generate str() for tagged int - handles both small ints and BigInt
+fn generate_tagged_int_to_str<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.len() != 1 {
+        return Err(format!("str() takes exactly 1 argument, got {}", args.len()));
+    }
+
+    let tagged_val = generate_expr(state, &args[0])?;
+
+    // Call tagged_int_to_str which handles both small ints and BigInt
+    let to_str_func = state
+        .module
+        .get_function("tagged_int_to_str")
+        .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
+
+    let str_val = state
+        .ir_builder
+        .build_call(state.builder, to_str_func, &[tagged_val.into()], "tagged_to_str")
+        .expect("tagged_int_to_str call");
+
+    Ok(str_val)
+}
+
+/// Generate str() for tagged int value (already generated)
+fn generate_tagged_int_to_str_val<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    tagged_val: inkwell::values::BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Call tagged_int_to_str which handles both small ints and BigInt
+    let to_str_func = state
+        .module
+        .get_function("tagged_int_to_str")
+        .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
+
+    let str_val = state
+        .ir_builder
+        .build_call(state.builder, to_str_func, &[tagged_val.into()], "tagged_to_str")
+        .expect("tagged_int_to_str call");
+
+    Ok(str_val)
+}
+
+/// Generate str() for BigInt pointer value (local variable)
+fn generate_bigint_to_str_direct<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    bigint_ptr: inkwell::values::BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Call vp_bigint_to_str(bigint_ptr, 10) - base 10
+    let to_str_func = state
+        .module
+        .get_function("vp_bigint_to_str")
+        .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+
+    let str_val = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            to_str_func,
+            &[
+                bigint_ptr.into(),
+                state.context.i32_type().const_int(10, false).into(),
+            ],
+            "bigint_to_str",
+        )
+        .expect("vp_bigint_to_str call");
+
+    Ok(str_val)
 }
 
 /// Generate math builtin function calls (abs only - others are in stdlib)

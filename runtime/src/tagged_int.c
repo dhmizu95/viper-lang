@@ -304,15 +304,26 @@ TaggedInt tagged_int_neg(TaggedInt a) {
 /* ============================================ */
 
 char* tagged_int_to_str(TaggedInt value) {
-    ViperBigInt* bigint = tagged_int_to_bigint(value);
+    bool is_temp = false;
+    ViperBigInt* bigint;
+    
+    if (tagged_int_is_bigint(value)) {
+        bigint = tagged_int_get_bigint(value);
+    } else {
+        bigint = tagged_int_to_bigint(value);
+        is_temp = true;
+    }
+    
     if (!bigint) return NULL;
 
     char* str = mpz_get_str(NULL, 10, bigint->value);
-    
-    /* Free the temporary bigint we created */
-    mpz_clear(bigint->value);
-    free(bigint);
-    
+
+    /* Free the temporary bigint we created (if any) */
+    if (is_temp) {
+        mpz_clear(bigint->value);
+        free(bigint);
+    }
+
     return str;
 }
 

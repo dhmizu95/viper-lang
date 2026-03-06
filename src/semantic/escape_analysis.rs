@@ -65,6 +65,12 @@ pub struct VariableEscapeInfo {
     pub definition_line: usize,
     /// Whether this variable holds a reference type (needs ARC)
     pub is_reference_type: bool,
+    /// Whether this variable can be moved (single assignment, no other uses)
+    pub is_movable: bool,
+    /// Whether this variable has been used (for move detection)
+    pub has_been_used: bool,
+    /// Whether this variable is a temporary (result of expression)
+    pub is_temporary: bool,
 }
 
 impl VariableEscapeInfo {
@@ -75,6 +81,9 @@ impl VariableEscapeInfo {
             is_mutable,
             definition_line,
             is_reference_type: false,
+            is_movable: true,  // Assume movable until proven otherwise
+            has_been_used: false,
+            is_temporary: false,
         }
     }
 
@@ -87,6 +96,22 @@ impl VariableEscapeInfo {
     /// Check if this variable needs ARC operations
     pub fn needs_arc(&self) -> bool {
         self.is_reference_type && !self.escape_state.can_stack_allocate()
+    }
+
+    /// Check if this variable can be moved (no retain/release needed)
+    pub fn can_move(&self) -> bool {
+        self.is_movable && !self.has_been_used && self.is_reference_type
+    }
+
+    /// Mark variable as used (prevents future moves)
+    pub fn mark_used(&mut self) {
+        self.has_been_used = true;
+        self.is_movable = false;
+    }
+
+    /// Mark variable as non-movable (multiple assignments)
+    pub fn mark_non_movable(&mut self) {
+        self.is_movable = false;
     }
 }
 
@@ -101,6 +126,10 @@ pub struct FunctionEscapeContext {
     pub return_escapes: bool,
     /// Variables that need ARC cleanup at function exit
     pub vars_needing_cleanup: HashSet<String>,
+    /// Variables that can use move semantics (no retain/release)
+    pub movable_vars: HashSet<String>,
+    /// Temporaries that can be batch-released at exit
+    pub temporaries: Vec<String>,
 }
 
 impl FunctionEscapeContext {
@@ -110,6 +139,8 @@ impl FunctionEscapeContext {
             escaping_params: HashSet::new(),
             return_escapes: false,
             vars_needing_cleanup: HashSet::new(),
+            movable_vars: HashSet::new(),
+            temporaries: Vec::new(),
         }
     }
 }
@@ -615,6 +646,57 @@ impl EscapeAnalyzer {
                 }
             }
         }
+    }
+
+    /// Check if a variable can use move semantics (skip retain/release)
+    pub fn can_move(&self, function_name: &str, var_name: &str) -> bool {
+        self.get_variable_escape_info(function_name, var_name)
+            .map(|info| info.can_move())
+            .unwrap_or(false)
+    }
+
+    /// Mark a variable as used (prevents move semantics)
+    pub fn mark_variable_used(&mut self, function_name: &str, var_name: &str) {
+        if let Some(ctx) = self.function_contexts.get_mut(function_name) {
+            if let Some(var_info) = ctx.variables.get_mut(var_name) {
+                var_info.mark_used();
+            }
+        }
+    }
+
+    /// Mark a variable as non-movable (multiple assignments)
+    pub fn mark_variable_non_movable(&mut self, function_name: &str, var_name: &str) {
+        if let Some(ctx) = self.function_contexts.get_mut(function_name) {
+            if let Some(var_info) = ctx.variables.get_mut(var_name) {
+                var_info.mark_non_movable();
+            }
+        }
+    }
+
+    /// Register a temporary variable for batch release
+    pub fn register_temporary(&mut self, function_name: &str, var_name: String) {
+        if let Some(ctx) = self.function_contexts.get_mut(function_name) {
+            ctx.temporaries.push(var_name);
+        }
+    }
+
+    /// Get all temporaries for batch release
+    pub fn get_temporaries(&self, function_name: &str) -> Vec<&String> {
+        self.function_contexts
+            .get(function_name)
+            .map(|ctx| ctx.temporaries.iter().collect())
+            .unwrap_or_default()
+    }
+
+    /// Check if ARC elision is safe (variable doesn't escape and is single-use)
+    pub fn can_elide_arc(&self, function_name: &str, var_name: &str) -> bool {
+        self.get_variable_escape_info(function_name, var_name)
+            .map(|info| {
+                info.is_reference_type 
+                    && info.escape_state.can_stack_allocate()
+                    && !info.has_been_used
+            })
+            .unwrap_or(false)
     }
 }
 
