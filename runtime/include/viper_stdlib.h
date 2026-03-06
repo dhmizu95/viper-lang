@@ -36,6 +36,23 @@ int64_t vp_ref_count(void* ptr);
 /* List Functions                               */
 /* ============================================ */
 
+/* Memory Prefetching Macros
+ * Use in sequential list loops to hide memory latency.
+ * VP_LIST_PREFETCH_SEQ(list, i, stride) prefetches stride elements ahead.
+ * Requires GCC/Clang (no-op on MSVC). */
+#ifdef __GNUC__
+#  define VP_PREFETCH_READ(addr)           __builtin_prefetch((addr), 0, 1)
+#  define VP_LIST_PREFETCH_SEQ(list, i, stride) \
+     do { \
+         int64_t _pf_idx = (i) + (stride); \
+         if (__builtin_expect(_pf_idx < (list)->length, 1)) \
+             __builtin_prefetch(&(list)->data.data_i64[_pf_idx], 0, 1); \
+     } while (0)
+#else
+#  define VP_PREFETCH_READ(addr)           ((void)(addr))
+#  define VP_LIST_PREFETCH_SEQ(list, i, stride) ((void)0)
+#endif
+
 /* Generic list functions (i64) - for backward compatibility */
 ViperList* vp_list_create(void);
 ViperList* vp_list_create_with_capacity(int64_t cap);
@@ -163,6 +180,12 @@ bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value)
 /* ============================================ */
 
 char* vp_str_create(const char* str);
+/* Intern a compile-time string literal — returns a canonical pointer for the
+ * same content.  Interned strings are never freed (they live for the lifetime
+ * of the process).  Dynamic strings must still use vp_str_create/vp_str_free. */
+char* vp_str_intern(const char* str);
+/* Release all interned strings (call at program exit if desired). */
+void  vp_str_intern_cleanup(void);
 void vp_str_free(char* str);
 char* vp_str_concat(const char* a, const char* b);
 int64_t vp_str_len(const char* str);

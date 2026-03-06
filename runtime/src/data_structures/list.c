@@ -217,6 +217,7 @@ bool vp_list_contains(ViperList* list, int64_t value) {
     if (!list) return false;
 
     for (int64_t i = 0; i < list->length; i++) {
+        VP_LIST_PREFETCH_SEQ(list, i, 8);
         if (list->data.data_i64[i] == value) {
             return true;
         }
@@ -324,6 +325,7 @@ int64_t vp_list_index(ViperList* list, int64_t value) {
     if (!list) return -1;
 
     for (int64_t i = 0; i < list->length; i++) {
+        VP_LIST_PREFETCH_SEQ(list, i, 8);
         if (list->data.data_i64[i] == value) {
             return i;
         }
@@ -341,6 +343,7 @@ int64_t vp_list_count(ViperList* list, int64_t value) {
 
     int64_t count = 0;
     for (int64_t i = 0; i < list->length; i++) {
+        VP_LIST_PREFETCH_SEQ(list, i, 8);
         if (list->data.data_i64[i] == value) {
             count++;
         }

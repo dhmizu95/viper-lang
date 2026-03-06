@@ -54,6 +54,98 @@ char* vp_str_create(const char* str) {
     return new_str;
 }
 
+/* ============================================ */
+/* String Interning                             */
+/* ============================================ */
+
+/* Open-addressing intern table with FNV-1a hashing.
+ * Slots: 0 = empty, non-NULL = occupied.
+ * The table is sized to a power-of-two and doubles on load factor > 0.75. */
+
+#define INTERN_INITIAL_CAP 256
+
+typedef struct {
+    const char** slots;   /* permanent C-string storage */
+    size_t       cap;
+    size_t       count;
+} InternTable;
+
+static InternTable g_intern_table = { NULL, 0, 0 };
+
+/* FNV-1a hash (matches vp_hash_str used elsewhere). */
+static uint64_t intern_hash(const char* s) {
+    uint64_t h = 14695981039346656037ULL;
+    while (*s) { h ^= (uint8_t)*s++; h *= 1099511628211ULL; }
+    return h;
+}
+
+static void intern_table_ensure_init(void) {
+    if (g_intern_table.slots) return;
+    g_intern_table.cap   = INTERN_INITIAL_CAP;
+    g_intern_table.count = 0;
+    g_intern_table.slots = (const char**)calloc(INTERN_INITIAL_CAP, sizeof(char*));
+}
+
+/* Grow when load factor exceeds 0.75 */
+static void intern_table_grow(void) {
+    size_t old_cap   = g_intern_table.cap;
+    const char** old = g_intern_table.slots;
+    size_t new_cap   = old_cap * 2;
+    const char** fresh = (const char**)calloc(new_cap, sizeof(char*));
+
+    for (size_t i = 0; i < old_cap; i++) {
+        if (!old[i]) continue;
+        uint64_t h   = intern_hash(old[i]);
+        size_t   idx = (size_t)(h & (new_cap - 1));
+        while (fresh[idx]) idx = (idx + 1) & (new_cap - 1);
+        fresh[idx] = old[i];
+    }
+    free(old);
+    g_intern_table.slots = fresh;
+    g_intern_table.cap   = new_cap;
+}
+
+char* vp_str_intern(const char* str) {
+    if (!str) return NULL;
+    intern_table_ensure_init();
+
+    /* Grow before insert if load > 75 % */
+    if (g_intern_table.count * 4 >= g_intern_table.cap * 3)
+        intern_table_grow();
+
+    uint64_t h   = intern_hash(str);
+    size_t   cap = g_intern_table.cap;
+    size_t   idx = (size_t)(h & (cap - 1));
+
+    while (g_intern_table.slots[idx]) {
+        if (strcmp(g_intern_table.slots[idx], str) == 0)
+            return (char*)g_intern_table.slots[idx];  /* cache hit */
+        idx = (idx + 1) & (cap - 1);
+    }
+
+    /* Miss: allocate a permanent copy (plain malloc — never freed). */
+    size_t len = strlen(str);
+    char* copy = (char*)malloc(len + 1);
+    strcpy(copy, str);
+    g_intern_table.slots[idx] = copy;
+    g_intern_table.count++;
+    return copy;
+}
+
+void vp_str_intern_cleanup(void) {
+    if (!g_intern_table.slots) return;
+    for (size_t i = 0; i < g_intern_table.cap; i++) {
+        if (g_intern_table.slots[i]) {
+            free((void*)g_intern_table.slots[i]);
+            g_intern_table.slots[i] = NULL;
+        }
+    }
+    free(g_intern_table.slots);
+    g_intern_table.slots = NULL;
+    g_intern_table.cap   = 0;
+    g_intern_table.count = 0;
+}
+
 void vp_str_free(char* str) {
     if (str) {
         vp_arc_release(str);

@@ -88,6 +88,14 @@ pub fn compile_file_aot(
         )
     })?;
 
+    // AST-level loop-invariant code motion
+    if opt_level >= 1 {
+        println!("   [2.3/4] Loop-Invariant Code Motion (LICM)...");
+        let mut licm = crate::semantic::licm::LicmPass::new();
+        licm.optimize(&mut ast);
+        println!("   ✓ LICM complete");
+    }
+
     // Apply Dead Code Elimination optimization
     if opt_level >= 1 {
         println!("   [2.5/4] Running DCE optimization...");
@@ -141,12 +149,12 @@ pub fn compile_file_aot(
 
         // Build the passes string based on optimization level
         // -O1: Basic optimizations with mem2reg for stack-to-register promotion
-        // -O2: Adds vectorization
-        // -O3: Adds aggressive vectorization and loop optimizations
+        // -O2: Adds vectorization, LICM, SLP vectorizer, and inlining
+        // -O3: Adds aggressive vectorization, loop unrolling, and aggressive instcombine
         let passes = match opt_level {
-            1 => "default<O1>,mem2reg,instcombine,simplifycfg",
-            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize",
-            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize,loop-unroll",
+            1 => "default<O1>,mem2reg,instcombine,simplifycfg,inline",
+            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize,licm,slp-vectorizer,inline",
+            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize,loop-unroll,licm,slp-vectorizer,inline,aggressive-instcombine",
             _ => "default<O1>,mem2reg,instcombine,simplifycfg",
         };
 
@@ -398,24 +406,16 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     println!("   [4/5] Running LLVM optimizations...");
     let opt_bc = format!("{}.opt.bc", module_name);
 
-    // Use aggressive optimization passes
+    // Use aggressive optimization passes (new pass manager syntax for llvm-21)
     let opt_status = std::process::Command::new("/usr/lib/llvm-21/bin/opt")
         .args(&[
-            "-O3",
             "-mtriple=x86_64-pc-linux-gnu",
             "-mcpu=native",
             &bc_path,
             "-o",
             &opt_bc,
-            "-mem2reg",
-            "-instcombine",
-            "-simplifycfg",
-            "-loop-unroll",
-            "-inline",
-            "-gvn",
-            "-licm",
-            "-slp-vectorize",
-            "-loop-vectorize",
+            "--passes",
+            "default<O3>,mem2reg,instcombine,simplifycfg,gvn,loop-vectorize,loop-unroll,licm,slp-vectorizer,inline,aggressive-instcombine",
         ])
         .output();
 
@@ -434,7 +434,7 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     println!("   [5/5] Emitting object code...");
     if Path::new(&opt_bc).exists() {
         let obj_path = format!("{}_vp.o", module_name);
-        let llc_status = std::process::Command::new("/usr/lib/llvm-20/bin/llc")
+        let llc_status = std::process::Command::new("/usr/lib/llvm-21/bin/llc")
             .args(&[
                 "-O3",
                 "-mtriple=x86_64-pc-linux-gnu",
