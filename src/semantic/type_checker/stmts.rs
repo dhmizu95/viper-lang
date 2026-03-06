@@ -309,7 +309,25 @@ impl TypeChecker {
 
                 // Save current return type and set new one
                 let old_return_type = self.current_return_type.clone();
-                self.current_return_type = return_type.clone();
+                
+                // FIX: If no return type annotation, infer from return statements
+                let mut inferred_return_type = return_type.clone();
+                if inferred_return_type.is_none() {
+                    // Look for return statements to infer return type
+                    for stmt in body {
+                        if let Stmt::Return { value: Some(val), .. } = stmt {
+                            let val_type = self.check_expr(val);
+                            if let Some(vt) = val_type {
+                                if vt != Type::Infer && vt != Type::None {
+                                    inferred_return_type = Some(vt);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                self.current_return_type = inferred_return_type.clone();
 
                 // Add parameters to scope
                 for param in params {
@@ -331,7 +349,7 @@ impl TypeChecker {
                 }
 
                 // Check return type consistency
-                self.check_return_consistency(body, return_type);
+                self.check_return_consistency(body, &inferred_return_type);
 
                 // Restore previous return type
                 self.current_return_type = old_return_type;

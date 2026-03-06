@@ -551,7 +551,14 @@ pub fn generate_str_call<'ctx>(
     // Tagged ints may be BigInt at runtime if they exceeded i63 range
     // Also handle function calls which return tagged int (Type::Fn)
     if arg_type == Type::Int || matches!(arg_type, Type::Fn(..)) {
-        return generate_tagged_int_to_str(state, args);
+        // FIX: Check actual value type - local BigInt vars are pointers, not tagged ints
+        let arg_val = generate_expr(state, arg)?;
+        if arg_val.is_pointer_value() {
+            // This is a BigInt stored in a local variable - use BigInt to_str
+            return generate_bigint_to_str_direct(state, arg_val);
+        }
+        // Otherwise it's a tagged int - use tagged_int_to_str
+        return generate_tagged_int_to_str_val(state, arg_val);
     }
 
     let arg_val = generate_expr(state, arg)?;
@@ -598,6 +605,52 @@ fn generate_tagged_int_to_str<'ctx>(
         .ir_builder
         .build_call(state.builder, to_str_func, &[tagged_val.into()], "tagged_to_str")
         .expect("tagged_int_to_str call");
+
+    Ok(str_val)
+}
+
+/// Generate str() for tagged int value (already generated)
+fn generate_tagged_int_to_str_val<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    tagged_val: inkwell::values::BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Call tagged_int_to_str which handles both small ints and BigInt
+    let to_str_func = state
+        .module
+        .get_function("tagged_int_to_str")
+        .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
+
+    let str_val = state
+        .ir_builder
+        .build_call(state.builder, to_str_func, &[tagged_val.into()], "tagged_to_str")
+        .expect("tagged_int_to_str call");
+
+    Ok(str_val)
+}
+
+/// Generate str() for BigInt pointer value (local variable)
+fn generate_bigint_to_str_direct<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    bigint_ptr: inkwell::values::BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Call vp_bigint_to_str(bigint_ptr, 10) - base 10
+    let to_str_func = state
+        .module
+        .get_function("vp_bigint_to_str")
+        .ok_or_else(|| "vp_bigint_to_str not declared".to_string())?;
+
+    let str_val = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            to_str_func,
+            &[
+                bigint_ptr.into(),
+                state.context.i32_type().const_int(10, false).into(),
+            ],
+            "bigint_to_str",
+        )
+        .expect("vp_bigint_to_str call");
 
     Ok(str_val)
 }
