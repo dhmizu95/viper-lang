@@ -47,6 +47,8 @@ extern "C" {
     pub fn vp_bigint_eq_c(a: *mut c_void, b: *mut c_void) -> bool;
     pub fn vp_bigint_lt_c(a: *mut c_void, b: *mut c_void) -> bool;
     pub fn vp_bigint_gt_c(a: *mut c_void, b: *mut c_void) -> bool;
+    /// Tri-state compare: returns negative if a < b, 0 if a == b, positive if a > b
+    pub fn vp_bigint_cmp_c(a: *mut c_void, b: *mut c_void) -> i32;
 
     // Boolean checks
     pub fn vp_bigint_is_zero(bigint: *mut c_void) -> bool;
@@ -124,9 +126,8 @@ pub extern "C" fn vp_bigint_comb_stub(result: *mut c_void, n: *mut c_void, k: *m
 pub extern "C" fn vp_bigint_perm_stub(result: *mut c_void, n: *mut c_void, k: *mut c_void) {
     unsafe { vp_bigint_perm_c(result, n, k) }
 }
-pub extern "C" fn vp_bigint_cmp_stub(_a: *mut c_void, _b: *mut c_void) -> i32 {
-    // Placeholder - not fully implemented
-    0
+pub extern "C" fn vp_bigint_cmp_stub(a: *mut c_void, b: *mut c_void) -> i32 {
+    unsafe { vp_bigint_cmp_c(a, b) }
 }
 pub extern "C" fn vp_bigint_eq_stub(a: *mut c_void, b: *mut c_void) -> bool {
     unsafe { vp_bigint_eq_c(a, b) }
@@ -134,16 +135,16 @@ pub extern "C" fn vp_bigint_eq_stub(a: *mut c_void, b: *mut c_void) -> bool {
 pub extern "C" fn vp_bigint_lt_stub(a: *mut c_void, b: *mut c_void) -> bool {
     unsafe { vp_bigint_lt_c(a, b) }
 }
-pub extern "C" fn vp_bigint_le_stub(_a: *mut c_void, _b: *mut c_void) -> bool {
-    // Placeholder - not fully implemented
-    false
+pub extern "C" fn vp_bigint_le_stub(a: *mut c_void, b: *mut c_void) -> bool {
+    // a <= b  ⟺  !(a > b)
+    unsafe { !vp_bigint_gt_c(a, b) }
 }
 pub extern "C" fn vp_bigint_gt_stub(a: *mut c_void, b: *mut c_void) -> bool {
     unsafe { vp_bigint_gt_c(a, b) }
 }
-pub extern "C" fn vp_bigint_ge_stub(_a: *mut c_void, _b: *mut c_void) -> bool {
-    // Placeholder - not fully implemented
-    false
+pub extern "C" fn vp_bigint_ge_stub(a: *mut c_void, b: *mut c_void) -> bool {
+    // a >= b  ⟺  !(a < b)
+    unsafe { !vp_bigint_lt_c(a, b) }
 }
 pub extern "C" fn vp_bigint_to_str_stub(bigint: *mut c_void, base: i32) -> *const i8 {
     unsafe { vp_bigint_to_str_c(bigint, base) }

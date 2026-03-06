@@ -61,6 +61,10 @@ pub fn declare_tagged_int_functions<'ctx>(
     // Utility functions
     // tagged_int_from_i64
     module.add_function("tagged_int_from_i64", tagged_unary_type, None);
+
+    // tagged_int_from_str: create tagged int from a decimal string (for literals > i64::MAX)
+    let from_str_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("tagged_int_from_str", from_str_type, None);
     
     // tagged_int_to_str returns char*
     let to_str_type = ptr_type.fn_type(&[i64_type.into()], false);

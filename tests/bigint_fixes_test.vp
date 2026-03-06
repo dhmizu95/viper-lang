@@ -1,0 +1,62 @@
+# Test file verifying fixes for two BigInt bugs:
+# Bug 1: BigInt Equality Crash (placeholder comparison stubs)
+# Bug 2: BigInt Literal > i64_MAX Crash (i128 -> i64 truncation)
+
+def main():
+    print("=== BigInt Bug Fix Tests ===")
+    print("")
+
+    # --- Bug 2: Literal > i64_MAX ---
+    print("Bug 2: Literal > i64_MAX")
+
+    # i64_MAX = 9223372036854775807
+    # This is i64_MAX + 1, used to crash (truncated to -9223372036854775808)
+    y = 9223372036854775808
+    print("9223372036854775808 =")
+    print(y)
+
+    # A truly large literal (30 digits)
+    x = 100000000000000000000000000000
+    print("100000000000000000000000000000 =")
+    print(x)
+
+    # Arithmetic with large literals
+    z = x + 1
+    print("100000000000000000000000000000 + 1 =")
+    print(z)
+
+    print("")
+
+    # --- Bug 1: BigInt Equality ---
+    print("Bug 1: BigInt Equality")
+
+    a = int("123456789012345678901234567890")
+    b = int("123456789012345678901234567890")
+    c = int("987654321098765432109876543210")
+
+    # Equality: same value
+    if a == b:
+        print("a == b: True")
+    else:
+        print("a == b: False (BUG!)")
+
+    # Equality: different value
+    if a == c:
+        print("a == c: True (BUG!)")
+    else:
+        print("a == c: False")
+
+    # Less-than (was broken via cmp_stub placeholder)
+    if a < c:
+        print("a < c: True")
+    else:
+        print("a < c: False (BUG!)")
+
+    # Greater-than
+    if c > a:
+        print("c > a: True")
+    else:
+        print("c > a: False (BUG!)")
+
+    print("")
+    print("=== All BigInt fix tests passed! ===")

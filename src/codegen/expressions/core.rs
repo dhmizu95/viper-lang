@@ -284,18 +284,35 @@ pub fn generate_expr<'ctx>(
             const I63_MIN: i128 = -(1i128 << 62);
             const I63_MAX: i128 = (1i128 << 62) - 1;
             if val >= I63_MIN && val <= I63_MAX {
-                // Fits in small int (i63)
+                // Fits in small int (i63): encode directly as a tagged constant (val << 1)
                 Ok(state.ir_builder.i64_const((val as i64) << 1).into())
             } else {
-                // Must promote to tagged BigInt at runtime
+                // Does NOT fit in i64 — must use GMP via string to avoid truncation.
+                // Call tagged_int_from_str(s) which calls vp_bigint_from_str_c and tags the ptr.
                 let func = state
                     .module
-                    .get_function("tagged_int_from_i64")
-                    .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
-                let const_val = state.ir_builder.i64_const(val as i64);
+                    .get_function("tagged_int_from_str")
+                    .ok_or_else(|| "tagged_int_from_str not declared".to_string())?;
+                // Emit the decimal string as a global constant in the LLVM module
+                let str_bytes = s.as_bytes();
+                let str_const = state.context.const_string(str_bytes, true); // null-terminated
+                let global_name = format!("__bigint_lit_{}", s.len());
+                let global = state.module.add_global(str_const.get_type(), None, &global_name);
+                global.set_initializer(&str_const);
+                global.set_constant(true);
+                // Cast the global to ptr for the function argument
+                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                let str_ptr = state
+                    .builder
+                    .build_pointer_cast(
+                        global.as_pointer_value(),
+                        ptr_type,
+                        "bigint_str_ptr",
+                    )
+                    .map_err(|e| format!("ptr cast: {:?}", e))?;
                 let result = state
                     .ir_builder
-                    .build_call(state.builder, func, &[const_val.into()], "tagged_int_const")
+                    .build_call(state.builder, func, &[str_ptr.into()], "tagged_bigint_from_str")
                     .unwrap();
                 Ok(result.into())
             }

@@ -81,6 +81,14 @@ pub extern "C" fn tagged_int_from_i64(val: i64) -> i64 {
     }
 }
 
+/// Create a tagged integer from a decimal string.
+/// Used for BigInt literals > i64::MAX that cannot be represented as a tagged small int.
+#[no_mangle]
+pub extern "C" fn tagged_int_from_str(s: *const c_char) -> i64 {
+    let ptr = vp_bigint_from_str_stub(s);
+    make_tagged_ptr(ptr as *mut c_void)
+}
+
 pub fn convert_to_bigint_ptr(val: i64) -> *mut c_void {
     if is_bigint(val) {
         extract_ptr(val)
