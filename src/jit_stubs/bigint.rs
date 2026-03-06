@@ -57,29 +57,21 @@ extern "C" {
 
 // JIT stub wrappers - these call the C functions
 pub extern "C" fn vp_bigint_from_i64_stub(v: i64) -> *mut c_void {
-    eprintln!("[RUST DEBUG] vp_bigint_from_i64_stub called with v={}", v);
     let result = unsafe { vp_bigint_from_i64_c(v) };
-    eprintln!("[RUST DEBUG] vp_bigint_from_i64_stub returning {:?}", result);
     result
 }
 pub extern "C" fn vp_bigint_from_i64_temp_stub(v: i64) -> *mut c_void {
-    eprintln!("[RUST DEBUG] vp_bigint_from_i64_temp_stub called with v={}", v);
     let result = unsafe { vp_bigint_from_i64_temp(v) };
-    eprintln!("[RUST DEBUG] vp_bigint_from_i64_temp_stub returning {:?}", result);
     result
 }
 pub extern "C" fn vp_bigint_from_str_stub(s: *const i8) -> *mut c_void {
-    eprintln!("[RUST DEBUG] vp_bigint_from_str_stub called");
     unsafe { vp_bigint_from_str_c(s) }
 }
 pub extern "C" fn vp_bigint_add_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
-    eprintln!("[RUST DEBUG] vp_bigint_add_stub: result={:?}, a={:?}, b={:?}", result, a, b);
     if result.is_null() || a.is_null() || b.is_null() {
-        eprintln!("[RUST DEBUG] vp_bigint_add_stub: NULL POINTER DETECTED!");
         return;
     }
     unsafe { vp_bigint_add_c(result, a, b) }
-    eprintln!("[RUST DEBUG] vp_bigint_add_stub completed");
 }
 pub extern "C" fn vp_bigint_sub_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
     unsafe { vp_bigint_sub_c(result, a, b) }
