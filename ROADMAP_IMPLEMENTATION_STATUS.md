@@ -344,11 +344,12 @@ Most modules have C runtime but need:
    - ✅ builtins extensions (iter, next, reversed, sorted, etc.)
    - ✅ Iterator runtime support (vp_iterator_next)
    - ⏳ pathlib wiring (pending - wrapper exists)
-4. **Phase 4:** ✅ ~50% Complete
+4. **Phase 4:** ✅ ~80% Complete
    - ✅ unittest framework (complete)
-   - ⏳ mock framework (pending)
-   - ⏳ debugger (pdb) (pending)
-   - ⏳ code coverage (pending)
+   - ✅ unittest.mock (complete)
+   - ✅ code coverage (complete)
+   - ✅ pdb debugger (complete)
+   - ⏳ pathlib wiring (pending)
 
 ---
 
