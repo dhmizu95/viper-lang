@@ -73,13 +73,12 @@ fn coerce_return_value<'ctx>(
             return Ok(result.into());
         }
         
-        // Handle pointer -> i64 coercion (shouldn't happen normally, but for completeness)
+        // Handle pointer -> i64 coercion (e.g. returning a function pointer when i64 is expected)
         if value_type.is_pointer_type() && expected.is_int_type() {
-            // This would be an error case - returning a pointer where int expected
-            return Err(format!(
-                "Cannot convert pointer to integer in return value. Expected {:?}, got {:?}",
-                expected, value_type
-            ));
+            let int_type = expected.into_int_type();
+            let result = state.builder.build_ptr_to_int(value.into_pointer_value(), int_type, "ptr_to_int")
+                .map_err(|e| format!("ptr_to_int cast failed: {:?}", e))?;
+            return Ok(result.into());
         }
     }
     

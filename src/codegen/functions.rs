@@ -635,6 +635,9 @@ pub fn declare_function<'ctx>(
     };
 
     let mangled_name = mangle_function_name(name, &param_types);
+    if name == "__enter__" || name == "__exit__" {
+        println!("DEBUG: define_function name={}, mangled={}, inferred_rt={:?}, param_types={:?}", name, mangled_name, inferred_return_type, param_types);
+    }
     let func = module.add_function(&mangled_name, fn_type, None);
     functions.insert(mangled_name, func);
 
@@ -716,23 +719,45 @@ pub fn declare_function_simple<'ctx>(
     name: &str,
     params: &[Param],
     return_type: &Option<Type>,
+    body: &Option<Vec<Stmt>>,
 ) -> Result<(), String> {
+    let mut param_types: Vec<(String, Type)> = Vec::new();
+
     // Build LLVM parameter types directly
     let param_llvm_types: Vec<_> = params
         .iter()
         .enumerate()
         .map(|(i, p)| {
             // First parameter named 'self' should be a pointer (instance reference)
+            let ty = if i == 0 && p.name == "self" {
+                p.type_ann.clone().unwrap_or(Type::Instance("".to_string()))
+            } else {
+                p.type_ann.clone().unwrap_or(Type::I64)
+            };
+            param_types.push((p.name.clone(), ty.clone()));
             if i == 0 && p.name == "self" {
                 context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum().into()
             } else {
-                let ty = p.type_ann.clone().unwrap_or(Type::I64);
                 type_mapper.llvm_type(&ty).as_basic_type_enum().into()
             }
         })
         .collect();
 
-    let fn_type = match type_mapper.llvm_return_type(return_type) {
+    let inferred_return_type = if return_type.is_none() {
+        if let Some(body_stmts) = body {
+            infer_return_type_from_body(body_stmts, &param_types)
+        } else {
+            None
+        }
+    } else {
+        return_type.clone()
+    };
+
+    if name.contains("__enter__") {
+        println!("DEBUG declare_function_simple: name={}, inferred_rt={:?}", name, inferred_return_type);
+    }
+
+    let fn_type = match type_mapper.llvm_return_type(&inferred_return_type) {
         Some(return_ty) => return_ty.fn_type(&param_llvm_types, false),
         None => context.void_type().fn_type(&param_llvm_types, false),
     };

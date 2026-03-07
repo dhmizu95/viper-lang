@@ -659,7 +659,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Stmt::Class { name: class_name, body, .. } => {
                     // Declare class methods
                     for stmt in body {
-                        if let Stmt::Function { name: method_name, params, return_type, .. } = stmt {
+                        if let Stmt::Function { name: method_name, params, return_type, body: inner_body, .. } = stmt {
                             // Use simple mangled name format for methods
                             let mangled_name = format!("__method_{}_{}", class_name, method_name);
                             
@@ -684,6 +684,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mangled_name,
                                 &method_params,
                                 return_type,
+                                &Some(inner_body.clone()),
                             )?;
                         }
                     }
@@ -746,6 +747,11 @@ impl<'ctx> CodeGen<'ctx> {
         for var_name in vars_needing_cleanup {
             if let Some(var_info) = self.variables.get(var_name) {
                 if let crate::codegen::variables::VarStorage::Stack(stack_ptr) = &var_info.storage {
+                    // CRITICAL: Only release pointer-typed variables.
+                    // Loading an i64 alloca as ptr_type is UB and causes segfaults.
+                    if var_info.var_type != crate::codegen::variables::VarType::Pointer {
+                        continue;
+                    }
                     // Load the pointer value
                     let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                     let value = self.builder.build_load(ptr_type, *stack_ptr, "load_var").unwrap();
@@ -1000,11 +1006,18 @@ impl<'ctx> CodeGen<'ctx> {
                 // For instance methods, the first param is 'self'
                 let empty_nonlocal: Vec<String> = Vec::new();
                 if is_static {
-                    // Static method - no self parameter
+                    // Static method - no self parameter type injection needed
                     self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
                 } else {
                     // Instance method - already has self parameter in AST
-                    self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
+                    // Inject the current class type for the 'self' parameter to aid inference
+                    let mut typed_params = params.to_vec();
+                    if let Some(first_param) = typed_params.first_mut() {
+                        if first_param.name == "self" && first_param.type_ann.is_none() {
+                            first_param.type_ann = Some(crate::ast::Type::Instance(name.to_string()));
+                        }
+                    }
+                    self.define_function(&mangled_name, method_name, &typed_params, return_type, method_body, &empty_nonlocal)?;
                 }
 
                 // Restore classmethod flag

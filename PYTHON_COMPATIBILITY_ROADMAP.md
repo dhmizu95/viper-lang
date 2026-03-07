@@ -19,7 +19,7 @@
 | Walrus operator (`:=`) | 2 days | High | Parser, semantic analysis |
 | `global` / `nonlocal` | 3 days | High | Symbol table, codegen |
 | Loop `else` clauses | 2 days | Medium | Parser, codegen |
-| Multiple inheritance (C3 MRO) | 5 days | Medium | OOP system |
+| ✅ Multiple inheritance (C3 MRO) | 5 days | Medium | OOP system |
 | Context managers (`with`) | 4 days | High | AST, codegen, runtime |
 | Exception chaining (`raise from`) | 3 days | Medium | Exception system |
 

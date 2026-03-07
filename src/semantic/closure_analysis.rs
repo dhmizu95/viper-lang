@@ -260,6 +260,18 @@ impl ClosureAnalyzer {
         nested_name: &str,
         body: &[Stmt],
     ) {
+        // Collect nonlocal declarations from the nested function body
+        let mut nested_nonlocals: HashSet<String> = HashSet::new();
+        Self::collect_nonlocals_in_body(body, &mut nested_nonlocals);
+
+        // Populate nonlocal_vars in the nested function's ClosureInfo
+        if !nested_nonlocals.is_empty() {
+            let nested_info = self.function_closures.entry(nested_name.to_string()).or_default();
+            for var in &nested_nonlocals {
+                nested_info.nonlocal_vars.insert(var.clone());
+            }
+        }
+
         // Find variables used in nested function that are defined in enclosing function
         let mut used_vars = HashSet::new();
         self.collect_used_vars(body, &mut used_vars);
@@ -268,10 +280,9 @@ impl ClosureAnalyzer {
         for var_name in &used_vars {
             if self.current_func_vars.contains(var_name) {
                 // This variable is captured from the enclosing function
-                // First check mutation and nonlocal status before borrowing
                 let is_mutated = self.is_var_mutated(body, var_name);
-                let is_nonlocal = self.current_nonlocals.contains(var_name);
-                
+                let is_nonlocal = nested_nonlocals.contains(var_name);
+
                 let captured_info = self.captured_vars.entry(var_name.clone()).or_insert_with(|| {
                     CapturedVarInfo {
                         name: var_name.clone(),
@@ -284,6 +295,49 @@ impl ClosureAnalyzer {
                 captured_info.captured_by.insert(nested_name.to_string());
                 captured_info.is_mutated = is_mutated;
                 captured_info.is_nonlocal = is_nonlocal;
+            }
+        }
+    }
+
+    /// Recursively collect all `nonlocal` variable names declared in a body
+    fn collect_nonlocals_in_body(stmts: &[Stmt], nonlocals: &mut HashSet<String>) {
+        for stmt in stmts {
+            match stmt {
+                Stmt::Nonlocal { names, .. } => {
+                    for name in names {
+                        nonlocals.insert(name.clone());
+                    }
+                }
+                Stmt::If { body, elif_blocks, else_body, .. } => {
+                    Self::collect_nonlocals_in_body(body, nonlocals);
+                    for (_, eb) in elif_blocks {
+                        Self::collect_nonlocals_in_body(eb, nonlocals);
+                    }
+                    if let Some(eb) = else_body {
+                        Self::collect_nonlocals_in_body(eb, nonlocals);
+                    }
+                }
+                Stmt::While { body, .. } | Stmt::For { body, .. } => {
+                    Self::collect_nonlocals_in_body(body, nonlocals);
+                }
+                Stmt::Try { body, handlers, else_body, finally_body, .. } => {
+                    Self::collect_nonlocals_in_body(body, nonlocals);
+                    for h in handlers {
+                        Self::collect_nonlocals_in_body(&h.body, nonlocals);
+                    }
+                    if let Some(eb) = else_body {
+                        Self::collect_nonlocals_in_body(eb, nonlocals);
+                    }
+                    if let Some(fb) = finally_body {
+                        Self::collect_nonlocals_in_body(fb, nonlocals);
+                    }
+                }
+                Stmt::With { body, .. } => {
+                    Self::collect_nonlocals_in_body(body, nonlocals);
+                }
+                // Don't recurse into nested functions — their nonlocals are separate
+                Stmt::Function { .. } => {}
+                _ => {}
             }
         }
     }

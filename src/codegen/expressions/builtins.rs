@@ -53,9 +53,11 @@ pub fn generate_print_call<'ctx>(
         // Use tagged_int_print only for actual int types (tagged int representation).
         // For Infer/Fn types, only use tagged_int_print if the value is actually an integer,
         // not if it's a pointer (which could be a str, list, or other reference type).
-        let use_tagged_print = matches!(arg_type, Type::Int);
-        let use_tagged_for_infer = matches!(arg_type, Type::Infer | Type::Fn(..)) && val.is_int_value();
-        if (use_tagged_print || use_tagged_for_infer) && val.is_int_value() {
+        // Also never use tagged_int_print for i1 (bool) values.
+        let is_bool_val = val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1;
+        let use_tagged_print = matches!(arg_type, Type::Int) && !is_bool_val;
+        let use_tagged_for_infer = matches!(arg_type, Type::Infer | Type::Fn(..)) && val.is_int_value() && !is_bool_val;
+        if (use_tagged_print || use_tagged_for_infer) && val.is_int_value() && !is_bool_val {
             let print_func = state
                 .module
                 .get_function("tagged_int_print")

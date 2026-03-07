@@ -836,26 +836,54 @@ fn call_context_exit<'ctx>(
 ) -> Result<(), String> {
     // Context manager must be a pointer (object)
     if !context_val.is_pointer_value() {
-        // For non-object types, nothing to do
         return Ok(());
     }
 
     let context_ptr = context_val.into_pointer_value();
 
-    // Build exception info arguments
-    let i64_type = state.context.i64_type();
-    let exc_type = if has_exception {
-        i64_type.const_int(1, false).into()
-    } else {
-        i64_type.const_int(0, false).into()
+    // Find __exit__ and check its actual LLVM param count (to support both
+    // `def __exit__(self)` and `def __exit__(self, exc_type, exc_val, exc_tb)`)
+    use crate::codegen::oop::with_class_registry;
+    let mangled_name: Option<String> = {
+        let mut name = None;
+        with_class_registry(|reg| {
+            if let Some((_cls, method)) = reg.find_method("__exit__") {
+                name = Some(method.mangled_name.clone());
+            }
+        });
+        name
     };
-    let exc_val = i64_type.const_int(0, false).into();
-    let exc_tb = i64_type.const_int(0, false).into();
 
-    // Call __exit__(exc_type, exc_val, exc_tb)
-    let args = [exc_type, exc_val, exc_tb];
+    let extra_param_count: usize = if let Some(ref mname) = mangled_name {
+        if let Some(func) = state.functions.get(mname).copied() {
+            // Subtract 1 for self
+            (func.count_params() as usize).saturating_sub(1)
+        } else {
+            3 // default: full signature
+        }
+    } else {
+        3 // default: full signature
+    };
+
+    let i64_type = state.context.i64_type();
+    let args: Vec<inkwell::values::BasicMetadataValueEnum<'ctx>> = if extra_param_count >= 3 {
+        // Full Python __exit__(self, exc_type, exc_val, exc_tb)
+        let exc_type_val: inkwell::values::BasicMetadataValueEnum = if has_exception {
+            i64_type.const_int(1, false).into()
+        } else {
+            i64_type.const_int(0, false).into()
+        };
+        vec![
+            exc_type_val,
+            i64_type.const_int(0, false).into(),
+            i64_type.const_int(0, false).into(),
+        ]
+    } else {
+        // Simple __exit__(self) — no extra args
+        vec![]
+    };
+
     call_method_on_object(state, context_ptr, "__exit__", &args)?;
-
     Ok(())
 }
 

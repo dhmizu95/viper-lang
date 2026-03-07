@@ -236,14 +236,14 @@ pub fn generate_for<'ctx>(
                         state.ir_builder.i64_const(0),
                         crate::codegen::expressions::generate_expr(state, &args[0])?
                             .into_int_value(),
-                        state.ir_builder.i64_const(1),
+                        state.ir_builder.i64_const(2), // Tagged step of 1 (1 << 1)
                     ),
                     2 => (
                         crate::codegen::expressions::generate_expr(state, &args[0])?
                             .into_int_value(),
                         crate::codegen::expressions::generate_expr(state, &args[1])?
                             .into_int_value(),
-                        state.ir_builder.i64_const(1),
+                        state.ir_builder.i64_const(2), // Tagged step of 1 (1 << 1)
                     ),
                     _ => (
                         crate::codegen::expressions::generate_expr(state, &args[0])?

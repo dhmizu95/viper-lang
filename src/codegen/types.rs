@@ -139,6 +139,10 @@ impl<'ctx> TypeMapper<'ctx> {
             }
             // Union types use pointer type
             Some(Type::Union(_)) => Some(self.context.ptr_type(inkwell::AddressSpace::default()).into()),
+            // OOP types
+            Some(Type::Class(_)) | Some(Type::Instance(_)) | Some(Type::Method { .. }) | Some(Type::Object) => {
+                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+            }
             _ => Some(self.context.i64_type().into()),
         }
     }

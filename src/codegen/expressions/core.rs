@@ -488,6 +488,15 @@ pub fn generate_expr<'ctx>(
                         }
                     }
                 }
+            } else if let Some(func) = state.functions.get(name).or_else(|| {
+                // Try to find a mangled version of the function (e.g. with params or closure vars)
+                let prefix = format!("{}_", name);
+                state.functions.iter()
+                    .find(|(k, _)| k.starts_with(&prefix))
+                    .map(|(_, f)| f)
+            }) {
+                // If not a variable, check if it's a known function (returning its pointer)
+                Ok(func.as_global_value().as_pointer_value().into())
             } else {
                 Err(format!("Undefined variable: {}", name))
             }

@@ -462,36 +462,42 @@ pub fn generate_call<'ctx>(
 
     // Not a direct named function call or it's a variable reference
     let var_val = generate_expr(state, func).map_err(|e| format!("Call target failed: {}", e))?;
-    if var_val.is_pointer_value() {
-        let arg_values: Vec<_> = args
-            .iter()
-            .map(|a| {
-                generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
-            })
-            .collect::<Result<_, _>>()?;
+    let ptr_val = if var_val.is_pointer_value() {
+        var_val.into_pointer_value()
+    } else if var_val.is_int_value() {
+        // Assume it's a function pointer stored as i64
+        let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+        state.builder.build_int_to_ptr(var_val.into_int_value(), ptr_type, "int_to_func_ptr").expect("int to ptr")
+    } else {
+        return Err(format!("Call target is not a function: {:?}", func));
+    };
 
-        let i64_type = state.context.i64_type();
-        let mut param_types = Vec::new();
-        for _ in args {
-            param_types.push(i64_type.into());
-        }
-        let fn_type = i64_type.fn_type(&param_types, false);
-        let result = state
-            .builder
-            .build_indirect_call(
-                fn_type,
-                var_val.into_pointer_value(),
-                &arg_values,
-                "indirect_call",
-            )
-            .expect("indirect call");
-        match result.try_as_basic_value() {
-            inkwell::values::ValueKind::Basic(basic_val) => return Ok(basic_val),
-            _ => return Ok(state.ir_builder.i64_const(0).into()),
-        }
+    let arg_values: Vec<_> = args
+        .iter()
+        .map(|a| {
+            generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+        })
+        .collect::<Result<_, _>>()?;
+
+    let i64_type = state.context.i64_type();
+    let mut param_types = Vec::new();
+    for _ in args {
+        param_types.push(i64_type.into());
     }
-
-    return Err(format!("Call target is not a function: {:?}", func));
+    let fn_type = i64_type.fn_type(&param_types, false);
+    let result = state
+        .builder
+        .build_indirect_call(
+            fn_type,
+            ptr_val,
+            &arg_values,
+            "indirect_call",
+        )
+        .expect("indirect call");
+    match result.try_as_basic_value() {
+        inkwell::values::ValueKind::Basic(basic_val) => return Ok(basic_val),
+        _ => return Ok(state.ir_builder.i64_const(0).into()),
+    }
 }
 
 /// Helper function to handle BigInt math function routing
