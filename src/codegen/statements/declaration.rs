@@ -216,6 +216,29 @@ pub(crate) fn generate_declare<'ctx>(
             state.builder.build_store(alloca, val).expect("store");
             state.variables.insert(name.to_string(), VarInfo::new_stack(alloca, var_type));
 
+            // If this variable is captured by a nested function, create a closure cell
+            if let Some(closure_analyzer) = state.closure_analyzer {
+                if let Some(func_name) = state.current_function {
+                    if closure_analyzer.needs_closure_cell(func_name, name) {
+                        // Create a closure cell for this captured variable
+                        if let Ok(cell_ptr) = crate::codegen::closure_cells::create_closure_cell(
+                            state.context,
+                            state.module,
+                            state.builder,
+                            alloca,
+                            name,
+                        ) {
+                            // Store the closure cell info
+                            state.closure_cells.insert(name.to_string(), crate::codegen::state::ClosureCellInfo {
+                                cell_ptr,
+                                value_ptr: alloca,
+                                var_type,
+                            });
+                        }
+                    }
+                }
+            }
+
             // Insert ARC retain if this is a reference type that escapes
             // Exception: Fresh BigInt allocations already have ref_count=1
             if is_ref_type && state.needs_arc(name) && !is_fresh_bigint {
@@ -256,21 +279,37 @@ pub(crate) fn generate_nonlocal<'ctx>(
 ) -> Result<(), String> {
     // The 'nonlocal' keyword marks variables as referring to enclosing (non-global) scope
     // This is used in nested functions to modify variables from the outer function
-    // For now, we track these variables so they're looked up in the closure environment
-    // Full implementation requires closure support with cell variables
+    // 
+    // The closure analyzer has already determined which variables are captured and
+    // the function codegen has set up closure_cells for nonlocal variables.
+    // Here we just need to create variable entries that point to those closure cells.
+    
     for name in names {
-        // Mark variable as nonlocal - it should be looked up in the enclosing scope
-        // This is a placeholder - full implementation needs closure support
-        eprintln!("Warning: nonlocal '{}' - closure support is limited", name);
-        
-        // For now, treat nonlocal like global but search enclosing function scope
-        // This will work for simple cases but not full closure semantics
-        if !state.variables.contains_key(name) {
-            // Create a placeholder variable that will be resolved at runtime
-            // This is a simplification - proper implementation needs closure cells
+        // Check if this nonlocal variable has a closure cell from the enclosing function
+        if let Some(cell_info) = state.closure_cells.get(name) {
+            // The closure cell was already set up as a parameter to this function
+            // Create a variable entry that points to the closure cell's value pointer
+            state.variables.insert(
+                name.clone(),
+                VarInfo::new_closure_cell(
+                    cell_info.cell_ptr,
+                    cell_info.var_type,
+                    cell_info.value_ptr,
+                ),
+            );
+        } else {
+            // No closure cell found - this could be an error or the variable
+            // might be in an outer scope that we haven't properly analyzed.
+            // For now, create a placeholder but emit a warning.
+            eprintln!(
+                "Warning: nonlocal '{}' not found in closure cells - may not work correctly",
+                name
+            );
+            
+            // Create a fallback alloca (this won't work correctly but avoids crash)
             let i64_type = state.context.i64_type();
             let alloca = state.builder.build_alloca(i64_type, name)
-                .map_err(|e| format!("Failed to create alloca: {:?}", e))?;
+                .map_err(|e| format!("Failed to create alloca for nonlocal '{}': {:?}", name, e))?;
             state.variables.insert(name.clone(), VarInfo::new_stack(alloca, VarType::Int));
         }
     }

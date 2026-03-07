@@ -363,6 +363,29 @@ pub(crate) fn generate_assign<'ctx>(
                 state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
             }
 
+            // If this variable is captured by a nested function, create a closure cell
+            if let Some(closure_analyzer) = state.closure_analyzer {
+                if let Some(func_name) = state.current_function {
+                    if closure_analyzer.needs_closure_cell(func_name, name) {
+                        // Create a closure cell for this captured variable
+                        if let Ok(cell_ptr) = crate::codegen::closure_cells::create_closure_cell(
+                            state.context,
+                            state.module,
+                            state.builder,
+                            alloca,
+                            name,
+                        ) {
+                            // Store the closure cell info
+                            state.closure_cells.insert(name.to_string(), crate::codegen::state::ClosureCellInfo {
+                                cell_ptr,
+                                value_ptr: alloca,
+                                var_type,
+                            });
+                        }
+                    }
+                }
+            }
+
             // Insert ARC retain if this is a reference type that escapes (but not stack arrays)
             // Exception: BigInt values skip retain to avoid PHI node issues - cleanup at function exit
             if is_ref_type && state.needs_arc(name) && !is_bigint {
