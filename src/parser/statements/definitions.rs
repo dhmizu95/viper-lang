@@ -369,10 +369,12 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
             // Generic type application for user-defined types: MyType[T, U]
             _ => {
                 let type_name = name.clone();
-                parser.advance();
                 
                 // Check for generic application: Type[T, U, ...]
-                if parser.match_token(&TokenKind::LBracket) {
+                let has_generic_args = parser.peek().map_or(false, |t| matches!(t.kind, TokenKind::LBracket));
+                if has_generic_args {
+                    parser.advance(); // Consume the identifier
+                    parser.expect(&TokenKind::LBracket)?; // Consume the bracket
                     let mut type_args = Vec::new();
                     loop {
                         type_args.push(parse_type_annotation(parser)?);
@@ -387,7 +389,7 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
                     });
                 }
                 
-                // Simple type variable or named type
+                // Simple type variable or named type (will be consumed by parser.advance() at the end)
                 Type::Var(type_name)
             }
         },

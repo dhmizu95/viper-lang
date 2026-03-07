@@ -1,12 +1,11 @@
 //! Tagged integer code generation with automatic overflow detection
-//! 
+//!
 //! Tagged integers use the LSB to distinguish small ints from BigInt:
 //! - LSB = 0: Small integer (i63, stored as value << 1)
 //! - LSB = 1: BigInt pointer (pointer | 1)
 
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
-use inkwell::IntPredicate;
 
 /// Declare tagged integer runtime functions
 pub fn declare_tagged_int_functions<'ctx>(

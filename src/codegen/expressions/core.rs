@@ -189,6 +189,13 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 if name == "print" || name == "len" || name == "range" {
                     return if name == "len" { Type::I64 } else { Type::None };
                 }
+                
+                // Check if this is a class instantiation
+                let is_class = crate::codegen::oop::with_class_registry(|r| r.get_class(name).is_some());
+                if is_class {
+                    return Type::Instance(name.to_string());
+                }
+                
                 let arg_types: Vec<Type> = args.iter().map(|a| infer_type_with_state(state, a)).collect();
                 Type::Fn(arg_types, Box::new(Type::Infer))
             } else {
@@ -216,6 +223,31 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 return Type::Bool;
             }
             let lt = infer_type_with_state(state, left);
+            
+            // Check for operator overloading return type
+            if let Type::Instance(ref class_name) | Type::Class(ref class_name) | Type::Var(ref class_name) = lt {
+                eprintln!("BinOp overloading check: lt={:?}, class={:?}", lt, class_name);
+                let method_name = match op {
+                    crate::ast::BinOp::Add => "__add__",
+                    crate::ast::BinOp::Sub => "__sub__",
+                    crate::ast::BinOp::Mul => "__mul__",
+                    crate::ast::BinOp::Div => "__truediv__",
+                    crate::ast::BinOp::Mod => "__mod__",
+                    _ => "",
+                };
+                if !method_name.is_empty() {
+                    let ret_ty = crate::codegen::oop::with_class_registry(|r| {
+                        r.get_class(class_name).and_then(|meta| {
+                            meta.get_method_mro(method_name, r).map(|m| m.return_type.clone())
+                        })
+                    });
+                    if let Some(ty) = ret_ty {
+                        // Return the method's return type if overloaded
+                        return ty;
+                    }
+                }
+            }
+
             let rt = infer_type_with_state(state, right);
             if lt == Type::BigInt || rt == Type::BigInt {
                 Type::BigInt
@@ -517,8 +549,11 @@ pub fn generate_expr<'ctx>(
         Expr::Call { func, args, span } => generate_call(state, func, args, *span),
         Expr::Attribute { obj, attr, span: _ } => {
             // First try user-defined class attribute access
-            if let Ok(result) = crate::codegen::oop::generate_attribute_access(state, obj, attr) {
-                return Ok(result);
+            match crate::codegen::oop::generate_attribute_access(state, obj, attr) {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    eprintln!("WARNING: attribute access failed for attr {}: {}", attr, e);
+                }
             }
             // Fall back to just evaluating the object
             generate_expr(state, obj)

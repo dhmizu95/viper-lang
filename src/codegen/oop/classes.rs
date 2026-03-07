@@ -641,9 +641,10 @@ pub fn generate_attribute_access<'ctx>(
                 }
             }
         }
+        return Err(format!("Unknown attribute '{}' on class '{}'", attr_name, class_name));
     }
 
-    Err(format!("Unknown attribute '{}' on object", attr_name))
+    Err(format!("Cannot determine class type for object to access attribute '{}'", attr_name))
 }
 
 /// Generate field access with offset calculation
@@ -851,7 +852,23 @@ fn infer_class_type<'ctx>(
     match expr {
         Expr::Ident(name, _) => {
             // Look up the variable's class name from the codegen state
-            state.variables.get(name).and_then(|var| var.class_name.clone())
+            if let Some(class_name) = state.variables.get(name).and_then(|var| var.class_name.clone()) {
+                return Some(class_name);
+            }
+            
+            // Fallback to checking type annotations from semantic analysis
+            if let Some(ty) = state.var_types.get(name) {
+                match ty {
+                    crate::ast::Type::Instance(class_name) 
+                    | crate::ast::Type::Class(class_name) 
+                    | crate::ast::Type::Var(class_name) => {
+                        return Some(class_name.clone());
+                    }
+                    _ => {}
+                }
+            }
+            eprintln!("infer_class_type ident: {}, var_types: {:?}", name, state.var_types.get(name));
+            None
         }
         Expr::Call { func, .. } => {
             // If this is ClassName(), return ClassName

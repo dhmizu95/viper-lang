@@ -1,0 +1,6 @@
+def test_walrus():
+    a = 5
+    if (b := a + 2) > 6:
+        print("b is", b)
+
+test_walrus()

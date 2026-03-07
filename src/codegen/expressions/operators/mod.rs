@@ -108,6 +108,50 @@ pub fn generate_binop<'ctx>(
         }
     }
 
+    // Check for operator overloading via dunder methods (__add__, __eq__, etc.)
+    let left_type = crate::codegen::expressions::core::infer_type_with_state(state, left);
+    if let crate::ast::Type::Instance(ref class_name) | crate::ast::Type::Class(ref class_name) = left_type {
+        let method_name = match op {
+            BinOp::Add => "__add__",
+            BinOp::Sub => "__sub__",
+            BinOp::Mul => "__mul__",
+            BinOp::Div => "__truediv__",
+            BinOp::Mod => "__mod__",
+            BinOp::Eq  => "__eq__",
+            BinOp::NotEq => "__ne__",
+            BinOp::Lt  => "__lt__",
+            BinOp::Gt  => "__gt__",
+            BinOp::LtEq => "__le__",
+            BinOp::GtEq => "__ge__",
+            _ => "",
+        };
+        
+        if !method_name.is_empty() {
+            let has_method = crate::codegen::oop::with_class_registry(|registry| {
+                if let Some(metadata) = registry.get_class(class_name) {
+                    metadata.get_method_mro(method_name, registry).is_some()
+                } else {
+                    false
+                }
+            });
+            
+            if has_method {
+                // Generate a call to the method: left.__add__(right)
+                let method_expr = Expr::Attribute {
+                    obj: Box::new(left.clone()),
+                    attr: method_name.to_string(),
+                    span: crate::utils::Span::default(),
+                };
+                let call_expr = Expr::Call {
+                    func: Box::new(method_expr),
+                    args: vec![right.clone()],
+                    span: crate::utils::Span::default(),
+                };
+                return crate::codegen::expressions::core::generate_expr(state, &call_expr);
+            }
+        }
+    }
+
     // Generate both operands for other operations
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;

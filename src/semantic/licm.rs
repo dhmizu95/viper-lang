@@ -1,5 +1,4 @@
 use crate::ast::{Stmt, Module};
-use crate::utils::Span;
 use std::collections::HashSet;
 
 /// AST-level Loop-Invariant Code Motion (LICM) Pass
@@ -100,7 +99,7 @@ impl LicmPass {
         }
     }
 
-    fn hoist_from_loop(body: &mut Vec<Stmt>, hoisted: &mut Vec<Stmt>, counter: &mut usize) {
+    fn hoist_from_loop(body: &mut Vec<Stmt>, _hoisted: &mut Vec<Stmt>, counter: &mut usize) {
         // Collect variables assigned in this loop. Any expression depending on these is NOT invariant.
         let mut loop_assigned = HashSet::new();
         Self::collect_assignments(body, &mut loop_assigned);

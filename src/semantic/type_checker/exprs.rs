@@ -27,8 +27,8 @@ impl TypeChecker {
                             else if let (Type::List(_), Type::List(_)) = (&lt, &rt) {
                                 // List concatenation is valid
                             }
-                            // For other types, require numeric
-                            else if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                            // For other types, require numeric (or objects that might overload operators)
+                            else if (!self.is_numeric(&lt) && !matches!(lt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) || (!self.is_numeric(&rt) && !matches!(rt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) {
                                 self.errors.push(TypeError::new(
                                     format!(
                                         "Arithmetic operators require numeric types, got {} and {}",
@@ -46,8 +46,8 @@ impl TypeChecker {
                                 _ => false,
                             };
                             if !is_list_repeat {
-                                // For other types, require numeric
-                                if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                                // For other types, require numeric (or objects that might overload operators)
+                                if (!self.is_numeric(&lt) && !matches!(lt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) || (!self.is_numeric(&rt) && !matches!(rt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) {
                                     self.errors.push(TypeError::new(
                                         format!(
                                             "Arithmetic operators require numeric types, got {} and {}",
@@ -59,7 +59,7 @@ impl TypeChecker {
                             }
                         }
                         BinOp::Sub | BinOp::Div | BinOp::Mod | BinOp::FloorDiv | BinOp::Pow => {
-                            if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                            if (!self.is_numeric(&lt) && !matches!(lt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) || (!self.is_numeric(&rt) && !matches!(rt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) {
                                 self.errors.push(TypeError::new(
                                     format!(
                                         "Arithmetic operators require numeric types, got {} and {}",
@@ -79,7 +79,7 @@ impl TypeChecker {
                             }
                         }
                         BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => {
-                            if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                            if (!self.is_numeric(&lt) && !matches!(lt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) || (!self.is_numeric(&rt) && !matches!(rt, Type::Instance(_) | Type::Class(_) | Type::Var(_))) {
                                 self.errors.push(TypeError::new(
                                     format!(
                                         "Comparison operators require numeric types, got {} and {}",

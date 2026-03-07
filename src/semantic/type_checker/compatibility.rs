@@ -50,7 +50,7 @@ impl TypeChecker {
 
     /// Check if a type is numeric
     pub(crate) fn is_numeric(&self, t: &Type) -> bool {
-        matches!(t, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::F64 | Type::F32 | Type::BigInt)
+        matches!(t, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::F64 | Type::F32 | Type::BigInt | Type::Infer)
     }
 
     /// Check if two types are compatible

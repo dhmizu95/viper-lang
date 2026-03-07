@@ -2300,12 +2300,8 @@ pub fn generate_divmod_call<'ctx>(
             ptr_type.into(),
         ], false);
         let tuple_val = state.builder.build_alloca(tuple_struct, "divmod_tuple").expect("alloca");
-        let quot_gep = unsafe {
-            state.builder.build_struct_gep(tuple_struct, tuple_val, 0, "quot_gep").expect("quot_gep")
-        };
-        let rem_gep = unsafe {
-            state.builder.build_struct_gep(tuple_struct, tuple_val, 1, "rem_gep").expect("rem_gep")
-        };
+        let quot_gep = state.builder.build_struct_gep(tuple_struct, tuple_val, 0, "quot_gep").expect("quot_gep");
+        let rem_gep = state.builder.build_struct_gep(tuple_struct, tuple_val, 1, "rem_gep").expect("rem_gep");
         state.builder.build_store(quot_gep, quot_ptr).expect("store_quot");
         state.builder.build_store(rem_gep, rem_ptr).expect("store_rem");
         let loaded = state.builder.build_load(tuple_struct, tuple_val, "divmod_result").expect("load_divmod");
