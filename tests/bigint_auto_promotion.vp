@@ -45,7 +45,7 @@ print(large % 10)
 from_big = int("123456789012345678901234567890")
 
 # Test bigint functions
-abs_val = abs_int(neg_large)
+abs_val = abs(neg_large)
 print("abs worked")
 
 # Test with function that explicitly returns bigint

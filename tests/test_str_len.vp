@@ -1,10 +1,10 @@
-# Test str(len(str_int()))
+# Test str(len(str()))
 
 def main():
     print("Start")
     result = int("100")
     print("Created result")
-    s = str_int(result)
+    s = str(result)
     print("Called str_bigint")
     n = len(s)
     print("Called len")

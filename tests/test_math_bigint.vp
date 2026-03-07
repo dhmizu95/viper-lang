@@ -3,7 +3,7 @@
 
 import math
 
-def test_isqrt_int():
+def test_imath.isqrt():
     """Test integer square root with int"""
     print("=== test_isqrt_int ===")
     assert math.isqrt(0) == 0
@@ -16,7 +16,7 @@ def test_isqrt_int():
     assert math.isqrt(10000) == 100
     print("test_isqrt_int: PASSED")
 
-def test_isqrt_int():
+def test_imath.isqrt():
     """Test integer square root with bigint"""
     print("=== test_isqrt_bigint ===")
 
@@ -203,7 +203,7 @@ def test_perm_large():
     assert result > 0
     print("test_perm_large: PASSED")
 
-def test_pow_int():
+def test_pow():
     """Test power with int"""
     print("=== test_pow_int ===")
     assert pow(2, 10) == 1024
@@ -220,7 +220,7 @@ def test_pow_mod_int():
     assert pow(5, 3, 100) == 25
     print("test_pow_mod_int: PASSED")
 
-def test_pow_int():
+def test_pow():
     """Test power with bigint"""
     print("=== test_pow_bigint ===")
     result: int = pow(int("2"), int("100"))
@@ -265,7 +265,7 @@ def test_pow_bigint_mod():
     assert result2 < mod
     print("test_pow_bigint_mod: PASSED")
 
-def test_abs_int():
+def test_abs():
     """Test absolute value with bigint"""
     print("=== test_abs_bigint ===")
     assert abs(int("42")) == int("42")
@@ -345,9 +345,9 @@ def main():
     print("")
 
     # Integer square root
-    test_isqrt_int()
+    test_imath.isqrt()
     print("")
-    test_isqrt_int()
+    test_imath.isqrt()
     print("")
 
     # GCD and LCM
@@ -381,17 +381,17 @@ def main():
     print("")
 
     # Power and modular exponentiation
-    test_pow_int()
+    test_pow()
     print("")
     test_pow_mod_int()
     print("")
-    test_pow_int()
+    test_pow()
     print("")
     test_pow_bigint_mod()
     print("")
 
     # Built-in overloads
-    test_abs_int()
+    test_abs()
     print("")
     test_min_max_int()
     print("")

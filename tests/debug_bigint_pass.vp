@@ -7,12 +7,12 @@ def main():
     
     # Test 1: Pass directly
     print("Test 1 - Direct:")
-    print(str_int(a))
+    print(str(a))
     
     # Test 2: Pass through variable
     print("Test 2 - Through var:")
     b = a
-    print(str_int(b))
+    print(str(b))
     
     # Test 3: str() for comparison
     print("Test 3 - str():")

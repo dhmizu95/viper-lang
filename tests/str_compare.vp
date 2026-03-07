@@ -1,7 +1,7 @@
-# Test str() vs str_int()
+# Test str() vs str()
 
 def main():
-    print("=== str() vs str_int() ===")
+    print("=== str() vs str() ===")
     
     a = int("12345")
     
@@ -9,8 +9,8 @@ def main():
     print("str(a):")
     print(str(a))
     
-    # Test str_int()
-    print("str_int(a):")
-    print(str_int(a))
+    # Test str()
+    print("str(a):")
+    print(str(a))
     
     print("=== Done ===")

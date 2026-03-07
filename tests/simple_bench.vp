@@ -11,7 +11,7 @@ def main():
     while i <= n:
         result = result * i
         i = i + int("1")
-    print("   Result: " + str(len(str_int(result))) + " digits")
+    print("   Result: " + str(len(str(result))) + " digits")
     print()
     
     # Test 2: Fibonacci(1000)
@@ -25,7 +25,7 @@ def main():
         a = b
         b = temp
         i = i + int("1")
-    print("   Result: " + str(len(str_int(a))) + " digits")
+    print("   Result: " + str(len(str(a))) + " digits")
     print()
     
     print("=== Done ===")

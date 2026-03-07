@@ -268,7 +268,7 @@ def main():
     
     # Test abs_bigint
     neg_num = -9876543210
-    abs_num = abs_int(neg_num)
+    abs_num = abs(neg_num)
     expected_abs = 9876543210
     print("abs(-9876543210) = ")
     print(abs_num)

@@ -13,8 +13,8 @@ def main():
     print(n)
     
     # Test str_bigint
-    print("str_int(a) =")
-    s = str_int(a)
+    print("str(a) =")
+    s = str(a)
     print(s)
     
     print("=== Test complete ===")

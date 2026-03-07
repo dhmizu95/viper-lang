@@ -14,13 +14,13 @@ def main():
     print(y)
     
     # Test str_bigint with n-suffix
-    print("str_int(x):")
-    sx = str_int(x)
+    print("str(x):")
+    sx = str(x)
     print(sx)
     
     # Test str_bigint with int()
-    print("str_int(y):")
-    sy = str_int(y)
+    print("str(y):")
+    sy = str(y)
     print(sy)
     
     print("=== Test complete ===")

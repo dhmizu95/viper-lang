@@ -7,11 +7,11 @@ def main():
     
     # Test 1: Direct call in print
     print("Test 1 - Direct:")
-    print(str_int(a))
+    print(str(a))
     
     # Test 2: Assign and print
     print("Test 2 - Assign:")
-    s = str_int(a)
+    s = str(a)
     print("s assigned")
     print(s)
     

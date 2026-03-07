@@ -27,25 +27,25 @@ def main():
     # Small test
     print("fib(10) = ")
     result = fib(10)
-    print(str_int(result))
+    print(str(result))
     print("")
     
     # Medium test
     print("fib(100) = ")
     result = fib(100)
-    print(str_int(result))
+    print(str(result))
     print("")
     
     # Large test
     print("fib(1000) = ")
     result = fib(1000)
-    print(str_int(result))
+    print(str(result))
     print("")
     
     # Very large test
     print("fib(10000) = ")
     result = fib(10000)
-    print(str_int(result))
+    print(str(result))
     print("")
     
     print("=== Test complete ===")

@@ -8,33 +8,33 @@ def main():
     b = int("50")
     
     print("a = ")
-    print(str_int(a))
+    print(str(a))
     print("b = ")
-    print(str_int(b))
+    print(str(b))
     
     # Test 2: Addition
     c = a + b
     print("a + b = ")
-    print(str_int(c))
+    print(str(c))
     
     # Test 3: Subtraction
     d = a - b
     print("a - b = ")
-    print(str_int(d))
+    print(str(d))
     
     # Test 4: Multiplication
     e = a * b
     print("a * b = ")
-    print(str_int(e))
+    print(str(e))
     
     # Test 5: Division
     f = a / b
     print("a / b = ")
-    print(str_int(f))
+    print(str(f))
     
     # Test 6: Modulo
     g = a % b
     print("a % b = ")
-    print(str_int(g))
+    print(str(g))
     
     print("=== Test complete ===")

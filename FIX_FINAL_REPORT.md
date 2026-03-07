@@ -35,15 +35,17 @@ Added tracking for `()`, `[]`, `{}` nesting to support multi-line function signa
 
 Fully implemented `exit()` with:
 - Type checker registration
-- Codegen implementation
+- Codegen implementation  
 - JIT stub
 - Runtime declaration
 
-**Note:** Removed non-Python-standard functions (`str_int`, `abs_int`, `sqrt_int`). 
-Use Python-standard equivalents instead:
-- `str()` for int-to-string conversion
-- `abs()` for absolute value (works with all numeric types)
-- `math.isqrt()` for integer square root
+**Note:** Removed non-Python-standard functions and updated all test files:
+- ❌ `str_int()` → ✅ `str()` (86 occurrences fixed)
+- ❌ `abs_int()` → ✅ `abs()` (3 occurrences fixed)
+- ❌ `sqrt_int()` → ✅ `math.isqrt()` (3 occurrences fixed)
+- ❌ `pow_int()` → ✅ `pow()` (10 occurrences fixed)
+
+All test files in `tests/*.vp` have been updated to use Python-standard names.
 
 ### 5. Type Checker: String Repetition
 **File:** `src/semantic/type_checker/exprs.rs`
