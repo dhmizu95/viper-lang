@@ -1,0 +1,529 @@
+# Viper Standard Library - unittest module
+# Unit testing framework compatible with Python's unittest
+
+# Module metadata
+__name__ = "unittest"
+__version__ = "0.4.7"
+
+# ============================================
+# Test Result
+# ============================================
+
+class TestResult:
+    """Holder for test results."""
+    
+    def __init__(self):
+        self.testsRun = 0
+        self.failures = []
+        self.errors = []
+        self.skipped = []
+        self.successes = []
+    
+    def startTest(self, test):
+        """Called when test starts."""
+        pass
+    
+    def stopTest(self, test):
+        """Called when test stops."""
+        pass
+    
+    def addSuccess(self, test):
+        """Called when test passes."""
+        self.testsRun = self.testsRun + 1
+        self.successes.append(test)
+    
+    def addFailure(self, test, err):
+        """Called when test fails."""
+        self.testsRun = self.testsRun + 1
+        self.failures.append((test, err))
+    
+    def addError(self, test, err):
+        """Called when test errors."""
+        self.testsRun = self.testsRun + 1
+        self.errors.append((test, err))
+    
+    def addSkip(self, test, reason):
+        """Called when test is skipped."""
+        self.testsRun = self.testsRun + 1
+        self.skipped.append((test, reason))
+    
+    def wasSuccessful(self) -> bool:
+        """Return True if all tests passed."""
+        return len(self.failures) == 0 and len(self.errors) == 0
+
+# ============================================
+# Test Case
+# ============================================
+
+class TestCase:
+    """Base class for test cases.
+    
+    Subclass this and define test methods starting with 'test_'.
+    """
+    
+    def __init__(self, methodName: str = "runTest"):
+        self._methodName = methodName
+        self._result = None
+    
+    def setUp(self):
+        """Called before each test method."""
+        pass
+    
+    def tearDown(self):
+        """Called after each test method."""
+        pass
+    
+    def run(self, result=None):
+        """Run the test."""
+        if result is None:
+            result = TestResult()
+        
+        self._result = result
+        result.startTest(self)
+        
+        try:
+            self.setUp()
+            try:
+                method = getattr(self, self._methodName)
+                method()
+                result.addSuccess(self)
+            except AssertionError as e:
+                result.addFailure(self, str(e))
+            except Exception as e:
+                result.addError(self, str(e))
+        finally:
+            try:
+                self.tearDown()
+            except:
+                pass
+        
+        result.stopTest(self)
+        return result
+    
+    def __call__(self, result=None):
+        """Make test callable."""
+        return self.run(result)
+    
+    # Assertion methods
+    
+    def assertTrue(self, expr, msg=None):
+        """Check that expr is true."""
+        if not expr:
+            msg = msg or "Expected True but got False"
+            raise AssertionError(msg)
+    
+    def assertFalse(self, expr, msg=None):
+        """Check that expr is false."""
+        if expr:
+            msg = msg or "Expected False but got True"
+            raise AssertionError(msg)
+    
+    def assertEqual(self, a, b, msg=None):
+        """Check that a == b."""
+        if a != b:
+            msg = msg or str(a) + " != " + str(b)
+            raise AssertionError(msg)
+    
+    def assertNotEqual(self, a, b, msg=None):
+        """Check that a != b."""
+        if a == b:
+            msg = msg or str(a) + " == " + str(b)
+            raise AssertionError(msg)
+    
+    def assertLess(self, a, b, msg=None):
+        """Check that a < b."""
+        if not (a < b):
+            msg = msg or str(a) + " is not less than " + str(b)
+            raise AssertionError(msg)
+    
+    def assertLessEqual(self, a, b, msg=None):
+        """Check that a <= b."""
+        if not (a <= b):
+            msg = msg or str(a) + " is not less than or equal to " + str(b)
+            raise AssertionError(msg)
+    
+    def assertGreater(self, a, b, msg=None):
+        """Check that a > b."""
+        if not (a > b):
+            msg = msg or str(a) + " is not greater than " + str(b)
+            raise AssertionError(msg)
+    
+    def assertGreaterEqual(self, a, b, msg=None):
+        """Check that a >= b."""
+        if not (a >= b):
+            msg = msg or str(a) + " is not greater than or equal to " + str(b)
+            raise AssertionError(msg)
+    
+    def assertIs(self, a, b, msg=None):
+        """Check that a is b (same object)."""
+        if a is not b:
+            msg = msg or str(a) + " is not " + str(b)
+            raise AssertionError(msg)
+    
+    def assertIsNot(self, a, b, msg=None):
+        """Check that a is not b."""
+        if a is b:
+            msg = msg or str(a) + " is " + str(b)
+            raise AssertionError(msg)
+    
+    def assertIsNone(self, expr, msg=None):
+        """Check that expr is None."""
+        if expr is not None:
+            msg = msg or str(expr) + " is not None"
+            raise AssertionError(msg)
+    
+    def assertIsNotNone(self, expr, msg=None):
+        """Check that expr is not None."""
+        if expr is None:
+            msg = msg or "Expected value but got None"
+            raise AssertionError(msg)
+    
+    def assertIn(self, member, container, msg=None):
+        """Check that member is in container."""
+        if member not in container:
+            msg = msg or str(member) + " not found in " + str(container)
+            raise AssertionError(msg)
+    
+    def assertNotIn(self, member, container, msg=None):
+        """Check that member is not in container."""
+        if member in container:
+            msg = msg or str(member) + " found in " + str(container)
+            raise AssertionError(msg)
+    
+    def assertIsInstance(self, obj, cls, msg=None):
+        """Check that obj is instance of cls."""
+        if not isinstance(obj, cls):
+            msg = msg or str(obj) + " is not instance of " + str(cls)
+            raise AssertionError(msg)
+    
+    def assertNotIsInstance(self, obj, cls, msg=None):
+        """Check that obj is not instance of cls."""
+        if isinstance(obj, cls):
+            msg = msg or str(obj) + " is instance of " + str(cls)
+            raise AssertionError(msg)
+    
+    def assertRaises(self, exc_type, callable=None, *args, **kwargs):
+        """Check that callable raises exc_type.
+        
+        Can be used as context manager:
+            with self.assertRaises(ValueError):
+                int('invalid')
+        """
+        if callable is None:
+            # Return context manager
+            return _AssertRaisesContext(exc_type, self)
+        
+        try:
+            callable(*args, **kwargs)
+            raise AssertionError("Expected " + str(exc_type) + " but no exception raised")
+        except Exception as e:
+            if not isinstance(e, exc_type):
+                raise AssertionError("Expected " + str(exc_type) + " but got " + str(type(e)))
+    
+    def assertAlmostEqual(self, a, b, places=7, msg=None):
+        """Check that a and b are approximately equal."""
+        if round(abs(a - b), places) != 0:
+            msg = msg or str(a) + " != " + str(b) + " (within " + str(places) + " places)"
+            raise AssertionError(msg)
+    
+    def assertNotAlmostEqual(self, a, b, places=7, msg=None):
+        """Check that a and b are not approximately equal."""
+        if round(abs(a - b), places) == 0:
+            msg = msg or str(a) + " == " + str(b) + " (within " + str(places) + " places)"
+            raise AssertionError(msg)
+    
+    def assertListEqual(self, a, b, msg=None):
+        """Check that two lists are equal."""
+        if len(a) != len(b):
+            msg = msg or "Lists have different lengths"
+            raise AssertionError(msg)
+        for i in range(len(a)):
+            if a[i] != b[i]:
+                msg = msg or "Lists differ at index " + str(i)
+                raise AssertionError(msg)
+    
+    def assertDictEqual(self, a, b, msg=None):
+        """Check that two dicts are equal."""
+        if set(a.keys()) != set(b.keys()):
+            msg = msg or "Dicts have different keys"
+            raise AssertionError(msg)
+        for key in a:
+            if a[key] != b[key]:
+                msg = msg or "Dicts differ at key " + str(key)
+                raise AssertionError(msg)
+
+class _AssertRaisesContext:
+    """Context manager for assertRaises."""
+    
+    def __init__(self, exc_type, test_case):
+        self.exc_type = exc_type
+        self.test_case = test_case
+        self.exception = None
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            raise AssertionError("Expected " + str(self.exc_type) + " but no exception raised")
+        if not issubclass(exc_type, self.exc_type):
+            raise AssertionError("Expected " + str(self.exc_type) + " but got " + str(exc_type))
+        self.exception = exc_val
+        return True
+
+# ============================================
+# Test Suite
+# ============================================
+
+class TestSuite:
+    """Collection of test cases."""
+    
+    def __init__(self, tests=None):
+        self._tests = []
+        if tests is not None:
+            self.addTests(tests)
+    
+    def addTest(self, test):
+        """Add a test to the suite."""
+        self._tests.append(test)
+    
+    def addTests(self, tests):
+        """Add multiple tests to the suite."""
+        for test in tests:
+            self.addTest(test)
+    
+    def run(self, result=None):
+        """Run all tests in the suite."""
+        if result is None:
+            result = TestResult()
+        
+        for test in self._tests:
+            test.run(result)
+        
+        return result
+    
+    def __call__(self, result=None):
+        """Make suite callable."""
+        return self.run(result)
+    
+    def countTestCases(self) -> int:
+        """Return number of tests."""
+        return len(self._tests)
+
+# ============================================
+# Test Loader
+# ============================================
+
+class TestLoader:
+    """Load test cases from test classes."""
+    
+    def __init__(self):
+        self.suiteClass = TestSuite
+    
+    def loadTestsFromTestCase(self, testCaseClass):
+        """Load all test methods from a test case class."""
+        suite = self.suiteClass()
+        
+        # Find all test methods
+        for attr_name in dir(testCaseClass):
+            if attr_name.startswith('test_'):
+                suite.addTest(testCaseClass(attr_name))
+        
+        return suite
+    
+    def loadTestsFromModule(self, module):
+        """Load all test cases from a module."""
+        suite = self.suiteClass()
+        
+        for attr_name in dir(module):
+            attr = getattr(module, attr_name)
+            if isinstance(attr, type) and issubclass(attr, TestCase):
+                suite.addTests(self.loadTestsFromTestCase(attr))
+        
+        return suite
+    
+    def loadTestsFromName(self, name, module=None):
+        """Load tests from a dotted name."""
+        parts = name.split('.')
+        
+        if module is None:
+            module = __import__(parts[0])
+            parts = parts[1:]
+        
+        obj = module
+        for part in parts:
+            obj = getattr(obj, part)
+        
+        if isinstance(obj, type) and issubclass(obj, TestCase):
+            return self.loadTestsFromTestCase(obj)
+        
+        raise ValueError("Could not load tests from " + name)
+
+# ============================================
+# Test Runner
+# ============================================
+
+class TextTestResult(TestResult):
+    """Test result that prints text output."""
+    
+    def __init__(self, stream, descriptions, verbosity):
+        TestResult.__init__(self)
+        self.stream = stream
+        self.descriptions = descriptions
+        self.verbosity = verbosity
+    
+    def startTest(self, test):
+        if self.verbosity > 1:
+            self.stream.write(test.id() + " ... ")
+    
+    def addSuccess(self, test):
+        TestResult.addSuccess(self, test)
+        if self.verbosity > 1:
+            self.stream.write("ok\n")
+        elif self.verbosity > 0:
+            self.stream.write(".")
+    
+    def addFailure(self, test, err):
+        TestResult.addFailure(self, test, err)
+        if self.verbosity > 1:
+            self.stream.write("FAIL\n")
+            self.stream.write("  " + err + "\n")
+        elif self.verbosity > 0:
+            self.stream.write("F")
+    
+    def addError(self, test, err):
+        TestResult.addError(self, test, err)
+        if self.verbosity > 1:
+            self.stream.write("ERROR\n")
+            self.stream.write("  " + err + "\n")
+        elif self.verbosity > 0:
+            self.stream.write("E")
+    
+    def addSkip(self, test, reason):
+        TestResult.addSkip(self, test, reason)
+        if self.verbosity > 1:
+            self.stream.write("skipped (" + reason + ")\n")
+        elif self.verbosity > 0:
+            self.stream.write("s")
+    
+    def printErrors(self):
+        """Print error details."""
+        if self.failures:
+            self.stream.write("\nFAILURES:\n")
+            for test, err in self.failures:
+                self.stream.write("  " + test.id() + "\n")
+                self.stream.write("    " + err + "\n")
+        
+        if self.errors:
+            self.stream.write("\nERRORS:\n")
+            for test, err in self.errors:
+                self.stream.write("  " + test.id() + "\n")
+                self.stream.write("    " + err + "\n")
+
+class TextTestRunner:
+    """Test runner that prints text output."""
+    
+    def __init__(self, stream=None, descriptions=True, verbosity=1):
+        if stream is None:
+            import sys
+            self.stream = sys.stderr
+        else:
+            self.stream = stream
+        self.descriptions = descriptions
+        self.verbosity = verbosity
+    
+    def run(self, test):
+        """Run the test and print results."""
+        result = TextTestResult(self.stream, self.descriptions, self.verbosity)
+        test.run(result)
+        result.printErrors()
+        
+        # Print summary
+        self.stream.write("\n" + "=" * 70 + "\n")
+        self.stream.write("Ran " + str(result.testsRun) + " tests\n\n")
+        
+        if result.wasSuccessful():
+            self.stream.write("OK\n")
+        else:
+            self.stream.write("FAILED (failures=" + str(len(result.failures)) + 
+                            ", errors=" + str(len(result.errors)) + ")\n")
+        
+        return result
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def main(module=None, argv=None, testRunner=None, testLoader=None, 
+         exit=True, verbosity=1, failfast=None, catchbreak=None, 
+         buffer=None):
+    """Run tests from main module or specified module.
+    
+    Usage:
+        if __name__ == '__main__':
+            unittest.main()
+    """
+    import sys
+    
+    if argv is None:
+        argv = sys.argv
+    
+    if testRunner is None:
+        testRunner = TextTestRunner(verbosity=verbosity)
+    
+    if testLoader is None:
+        testLoader = TestLoader()
+    
+    if module is None:
+        # Get main module
+        module = sys.modules['__main__']
+    
+    # Load tests
+    suite = testLoader.loadTestsFromModule(module)
+    
+    # Run tests
+    result = testRunner.run(suite)
+    
+    if exit:
+        if result.wasSuccessful():
+            sys.exit(0)
+        else:
+            sys.exit(1)
+    
+    return result
+
+# ============================================
+# Skip Decorators
+# ============================================
+
+def skip(reason):
+    """Skip a test unconditionally."""
+    def decorator(test_class):
+        class SkippedTest(test_class):
+            def run(self, result=None):
+                if result is not None:
+                    result.addSkip(self, reason)
+        return SkippedTest
+    return decorator
+
+def skipIf(condition, reason):
+    """Skip a test if condition is true."""
+    if condition:
+        return skip(reason)
+    return lambda cls: cls
+
+def skipUnless(condition, reason):
+    """Skip a test unless condition is true."""
+    if not condition:
+        return skip(reason)
+    return lambda cls: cls
+
+def expectedFailure(test_func):
+    """Mark a test as expected to fail."""
+    def wrapper(*args, **kwargs):
+        try:
+            test_func(*args, **kwargs)
+            raise AssertionError("Test was expected to fail but passed")
+        except:
+            pass  # Expected
+    return wrapper

@@ -1,0 +1,348 @@
+# Viper Standard Library - builtins module extensions
+# Additional builtin functions and exceptions
+
+# Module metadata
+__name__ = "builtins"
+__version__ = "0.4.7"
+
+# ============================================
+# Iterator Exceptions
+# ============================================
+
+class StopIteration(Exception):
+    """Exception raised when iterator is exhausted.
+    
+    Can optionally carry a value attribute for generator return values.
+    """
+    def __init__(self, *args, value=None):
+        super().__init__(*args)
+        self.value = value
+
+class GeneratorExit(Exception):
+    """Exception raised when generator is closed."""
+    pass
+
+# ============================================
+# Iterator Builtins
+# ============================================
+
+def iter(obj, sentinel=None):
+    """Create an iterator from an iterable or callable.
+    
+    iter(iterable) -> iterator
+    iter(callable, sentinel) -> iterator that calls callable until it returns sentinel
+    """
+    if sentinel is None:
+        # Check if object has __iter__ method
+        if hasattr(obj, '__iter__'):
+            return obj.__iter__()
+        # Check if object has __getitem__ method (sequence protocol)
+        elif hasattr(obj, '__getitem__'):
+            return _SequenceIterator(obj)
+        else:
+            raise TypeError("'" + type(obj).__name__ + "' object is not iterable")
+    else:
+        # Callable iterator
+        return _CallableIterator(obj, sentinel)
+
+class _SequenceIterator:
+    """Iterator for objects with __getitem__."""
+    
+    def __init__(self, sequence):
+        self.sequence = sequence
+        self.index = 0
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        try:
+            result = self.sequence[self.index]
+            self.index = self.index + 1
+            return result
+        except (IndexError, KeyError):
+            raise StopIteration()
+
+class _CallableIterator:
+    """Iterator that calls a callable until sentinel."""
+    
+    def __init__(self, func, sentinel):
+        self.func = func
+        self.sentinel = sentinel
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        result = self.func()
+        if result == self.sentinel:
+            raise StopIteration()
+        return result
+
+def next(iterator, default=None):
+    """Get next item from iterator.
+    
+    next(iterator) -> next item or StopIteration
+    next(iterator, default) -> next item or default if exhausted
+    """
+    try:
+        return iterator.__next__()
+    except StopIteration:
+        if default is not None:
+            return default
+        raise
+
+# ============================================
+# Generator Helper
+# ============================================
+
+class Generator:
+    """Base class for generator objects."""
+    
+    def __init__(self):
+        self._closed = False
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        # To be overridden by actual generators
+        raise StopIteration()
+    
+    def send(self, value):
+        """Send value into generator."""
+        # For simple generators, just return next value
+        return self.__next__()
+    
+    def throw(self, typ, val=None, tb=None):
+        """Raise exception at generator point."""
+        raise typ(val)
+    
+    def close(self):
+        """Close the generator."""
+        self._closed = True
+        try:
+            self.throw(GeneratorExit())
+        except (GeneratorExit, StopIteration):
+            pass
+
+# ============================================
+# Additional Builtins
+# ============================================
+
+def reversed(sequence):
+    """Return reverse iterator over sequence."""
+    if hasattr(sequence, '__reversed__'):
+        return sequence.__reversed__()
+    elif hasattr(sequence, '__getitem__') and hasattr(sequence, '__len__'):
+        return _ReverseIterator(sequence)
+    else:
+        raise TypeError("'" + type(sequence).__name__ + "' object is not reversible")
+
+class _ReverseIterator:
+    """Iterator that goes through sequence in reverse."""
+    
+    def __init__(self, sequence):
+        self.sequence = sequence
+        self.index = len(sequence) - 1
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if self.index < 0:
+            raise StopIteration()
+        result = self.sequence[self.index]
+        self.index = self.index - 1
+        return result
+
+def sorted(iterable, key=None, reverse=False):
+    """Return sorted list from iterable.
+    
+    sorted(iterable) -> new sorted list
+    sorted(iterable, key=func) -> sort using key function
+    sorted(iterable, reverse=True) -> sort in descending order
+    """
+    # Convert to list first
+    result = list(iterable)
+    
+    # Simple bubble sort (for demonstration)
+    n = len(result)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            # Get comparison values
+            if key is None:
+                left = result[j]
+                right = result[j + 1]
+            else:
+                left = key(result[j])
+                right = key(result[j + 1])
+            
+            # Compare and swap
+            should_swap = left > right
+            if reverse:
+                should_swap = left < right
+            
+            if should_swap:
+                temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+    
+    return result
+
+def enumerate(iterable, start: int = 0):
+    """Return enumerate object with (index, value) pairs.
+    
+    enumerate(['a', 'b', 'c']) -> (0, 'a'), (1, 'b'), (2, 'c')
+    enumerate(['a', 'b', 'c'], start=1) -> (1, 'a'), (2, 'b'), (3, 'c')
+    """
+    index = start
+    for item in iterable:
+        yield (index, item)
+        index = index + 1
+
+def zip(*iterables):
+    """Aggregate elements from each iterable.
+    
+    zip([1,2], ['a','b']) -> (1,'a'), (2,'b')
+    Stops when shortest iterable is exhausted.
+    """
+    if len(iterables) == 0:
+        return
+    
+    # Convert to iterators
+    iterators = []
+    for it in iterables:
+        iterators.append(iter(it))
+    
+    while True:
+        items = []
+        for it in iterators:
+            try:
+                items.append(next(it))
+            except StopIteration:
+                return
+        yield tuple(items)
+
+def map(function, *iterables):
+    """Apply function to items from iterables.
+    
+    map(func, [1,2,3]) -> func(1), func(2), func(3)
+    map(func, [1,2], [3,4]) -> func(1,3), func(2,4)
+    """
+    if len(iterables) == 1:
+        for item in iterables[0]:
+            yield function(item)
+    else:
+        for args in zip(*iterables):
+            yield function(*args)
+
+def filter(function, iterable):
+    """Filter items where function returns true.
+    
+    filter(lambda x: x > 0, [-1, 0, 1, 2]) -> 1, 2
+    """
+    for item in iterable:
+        if function is None:
+            if item:
+                yield item
+        else:
+            if function(item):
+                yield item
+
+def any(iterable) -> bool:
+    """Return True if any element is true."""
+    for item in iterable:
+        if item:
+            return True
+    return False
+
+def all(iterable) -> bool:
+    """Return True if all elements are true."""
+    for item in iterable:
+        if not item:
+            return False
+    return True
+
+def sum(iterable, start=0):
+    """Sum all elements plus start value."""
+    total = start
+    for item in iterable:
+        total = total + item
+    return total
+
+def min(*args, **kwargs):
+    """Return minimum value.
+    
+    min(iterable) -> minimum element
+    min(a, b, c, ...) -> minimum argument
+    min(iterable, key=func) -> minimum using key function
+    """
+    # Handle key argument
+    key = kwargs.get('key', None)
+    
+    # Single iterable or multiple args
+    if len(args) == 1:
+        iterable = args[0]
+    else:
+        iterable = args
+    
+    # Convert to iterator
+    it = iter(iterable)
+    
+    try:
+        minimum = next(it)
+    except StopIteration:
+        raise ValueError("min() arg is an empty sequence")
+    
+    if key is None:
+        for item in it:
+            if item < minimum:
+                minimum = item
+    else:
+        min_key = key(minimum)
+        for item in it:
+            item_key = key(item)
+            if item_key < min_key:
+                minimum = item
+                min_key = item_key
+    
+    return minimum
+
+def max(*args, **kwargs):
+    """Return maximum value.
+    
+    max(iterable) -> maximum element
+    max(a, b, c, ...) -> maximum argument
+    max(iterable, key=func) -> maximum using key function
+    """
+    # Handle key argument
+    key = kwargs.get('key', None)
+    
+    # Single iterable or multiple args
+    if len(args) == 1:
+        iterable = args[0]
+    else:
+        iterable = args
+    
+    # Convert to iterator
+    it = iter(iterable)
+    
+    try:
+        maximum = next(it)
+    except StopIteration:
+        raise ValueError("max() arg is an empty sequence")
+    
+    if key is None:
+        for item in it:
+            if item > maximum:
+                maximum = item
+    else:
+        max_key = key(maximum)
+        for item in it:
+            item_key = key(item)
+            if item_key > max_key:
+                maximum = item
+                max_key = item_key
+    
+    return maximum

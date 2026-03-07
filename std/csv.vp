@@ -1,0 +1,260 @@
+# Viper Standard Library - csv module
+# CSV file reading and writing
+
+# Module metadata
+__name__ = "csv"
+__version__ = "0.4.7"
+
+# ============================================
+# Constants
+# ============================================
+
+QUOTE_MINIMAL = 0
+QUOTE_ALL = 1
+QUOTE_NONNUMERIC = 2
+QUOTE_NONE = 3
+
+# ============================================
+# Reader
+# ============================================
+
+class reader:
+    """CSV reader that iterates over rows.
+    
+    reader(file_object, dialect='excel', **kwargs)
+    """
+    
+    def __init__(self, f, delimiter=',', quotechar='"', quoting=QUOTE_MINIMAL):
+        self.f = f
+        self.delimiter = delimiter
+        self.quotechar = quotechar
+        self.quoting = quoting
+        self._line_num = 0
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        line = self.f.readline()
+        if line is None or len(line) == 0:
+            raise StopIteration()
+        
+        self._line_num = self._line_num + 1
+        return self._parse_line(line)
+    
+    def _parse_line(self, line):
+        """Parse a single CSV line into fields."""
+        fields = []
+        current_field = ""
+        in_quotes = False
+        i = 0
+        
+        while i < len(line):
+            c = line[i]
+            
+            if in_quotes:
+                if c == self.quotechar:
+                    # Check for escaped quote
+                    if i + 1 < len(line) and line[i + 1] == self.quotechar:
+                        current_field = current_field + c
+                        i = i + 1
+                    else:
+                        in_quotes = False
+                else:
+                    current_field = current_field + c
+            else:
+                if c == self.quotechar:
+                    in_quotes = True
+                elif c == self.delimiter:
+                    fields.append(current_field)
+                    current_field = ""
+                elif c == '\n' or c == '\r':
+                    # End of line
+                    if len(current_field) > 0 or len(fields) > 0:
+                        fields.append(current_field)
+                    break
+                else:
+                    current_field = current_field + c
+            
+            i = i + 1
+        
+        # Handle last field
+        if len(current_field) > 0 or len(fields) > 0:
+            fields.append(current_field)
+        
+        return fields
+    
+    def next(self):
+        """Get next row (Python 2 compatibility)."""
+        return self.__next__()
+
+class DictReader:
+    """CSV reader that returns dictionaries.
+    
+    DictReader(file_object, fieldnames=None, **kwargs)
+    """
+    
+    def __init__(self, f, fieldnames=None, delimiter=',', quotechar='"'):
+        self.reader = reader(f, delimiter, quotechar)
+        self.fieldnames = fieldnames
+        self._fieldnames_read = False
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        row = next(self.reader)
+        
+        # Read fieldnames from first row if not provided
+        if self.fieldnames is None:
+            if not self._fieldnames_read:
+                self.fieldnames = row
+                self._fieldnames_read = True
+                return self.__next__()
+            else:
+                raise StopIteration()
+        
+        # Create dictionary
+        result = {}
+        for i, field in enumerate(self.fieldnames):
+            if i < len(row):
+                result[field] = row[i]
+            else:
+                result[field] = None
+        
+        return result
+    
+    def next(self):
+        """Get next row (Python 2 compatibility)."""
+        return self.__next__()
+
+# ============================================
+# Writer
+# ============================================
+
+class writer:
+    """CSV writer that writes rows.
+    
+    writer(file_object, dialect='excel', **kwargs)
+    """
+    
+    def __init__(self, f, delimiter=',', quotechar='"', quoting=QUOTE_MINIMAL):
+        self.f = f
+        self.delimiter = delimiter
+        self.quotechar = quotechar
+        self.quoting = quoting
+    
+    def writerow(self, row):
+        """Write a single row."""
+        line = self._format_row(row)
+        self.f.write(line)
+    
+    def writerows(self, rows):
+        """Write multiple rows."""
+        for row in rows:
+            self.writerow(row)
+    
+    def _format_row(self, row):
+        """Format a row as CSV string."""
+        fields = []
+        
+        for item in row:
+            field = str(item)
+            
+            # Check if quoting is needed
+            needs_quoting = (
+                self.delimiter in field or
+                self.quotechar in field or
+                '\n' in field or
+                '\r' in field
+            )
+            
+            if self.quoting == QUOTE_ALL:
+                needs_quoting = True
+            elif self.quoting == QUOTE_NONE:
+                needs_quoting = False
+            
+            if needs_quoting:
+                # Escape quotes
+                field = field.replace(self.quotechar, self.quotechar + self.quotechar)
+                field = self.quotechar + field + self.quotechar
+            
+            fields.append(field)
+        
+        return self.delimiter.join(fields) + '\n'
+
+class DictWriter:
+    """CSV writer that writes dictionaries.
+    
+    DictWriter(file_object, fieldnames, **kwargs)
+    """
+    
+    def __init__(self, f, fieldnames, delimiter=',', quotechar='"'):
+        self.writer = writer(f, delimiter, quotechar)
+        self.fieldnames = fieldnames
+    
+    def writeheader(self):
+        """Write header row."""
+        self.writerow(self.fieldnames)
+    
+    def writerow(self, row):
+        """Write a dictionary as a row."""
+        values = []
+        for field in self.fieldnames:
+            if field in row:
+                values.append(row[field])
+            else:
+                values.append('')
+        self.writer.writerow(values)
+    
+    def writerows(self, rows):
+        """Write multiple dictionaries."""
+        for row in rows:
+            self.writerow(row)
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def read_csv(filepath, delimiter=','):
+    """Read entire CSV file into list of rows."""
+    f = open(filepath, 'r')
+    try:
+        r = reader(f, delimiter)
+        result = []
+        for row in r:
+            result.append(row)
+        return result
+    finally:
+        f.close()
+
+def write_csv(filepath, data, delimiter=','):
+    """Write list of rows to CSV file."""
+    f = open(filepath, 'w')
+    try:
+        w = writer(f, delimiter)
+        w.writerows(data)
+    finally:
+        f.close()
+
+def read_csv_dict(filepath, fieldnames=None, delimiter=','):
+    """Read CSV file into list of dictionaries."""
+    f = open(filepath, 'r')
+    try:
+        r = DictReader(f, fieldnames, delimiter)
+        result = []
+        for row in r:
+            result.append(row)
+        return result
+    finally:
+        f.close()
+
+def write_csv_dict(filepath, data, fieldnames, delimiter=','):
+    """Write list of dictionaries to CSV file."""
+    f = open(filepath, 'w')
+    try:
+        w = DictWriter(f, fieldnames, delimiter)
+        w.writeheader()
+        w.writerows(data)
+    finally:
+        f.close()

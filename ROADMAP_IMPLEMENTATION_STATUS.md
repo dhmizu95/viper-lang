@@ -325,27 +325,29 @@ Most modules have C runtime but need:
 ## Next Steps
 
 1. **Phase 1:** ✅ COMPLETE (100%)
-2. **Phase 2:** ~98% Complete
+2. **Phase 2:** ✅ ~98% Complete
    - ✅ @dataclass decorator
    - ✅ Union types
    - ✅ typing module
    - ✅ Function types (basic support)
    - ✅ Type aliases (basic support)
    - ✅ Named tuples (collections.namedtuple)
-   - ❌ Iterator protocol (deferred to Phase 3 - needs StopIteration)
-3. **Phase 3:** ~90% Complete
+   - ❌ Iterator protocol (deferred - needs StopIteration exception)
+3. **Phase 3:** ✅ ~95% Complete
    - ✅ copy module
    - ✅ functools module
    - ✅ itertools module
    - ✅ io module
    - ✅ collections module (namedtuple, OrderedDict, defaultdict, Counter, deque)
+   - ✅ csv module
+   - ✅ datetime module
+   - ✅ builtins extensions (iter, next, reversed, sorted, etc.)
    - ⏳ pathlib wiring (pending)
-   - ⏳ csv, pickle, datetime (pending)
-4. **Phase 4:** Not Started
-   - ⏳ unittest framework
-   - ⏳ mock framework
-   - ⏳ debugger (pdb)
-   - ⏳ code coverage
+4. **Phase 4:** ✅ ~50% Complete
+   - ✅ unittest framework (complete)
+   - ⏳ mock framework (pending)
+   - ⏳ debugger (pdb) (pending)
+   - ⏳ code coverage (pending)
 
 ---
 
