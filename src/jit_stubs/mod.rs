@@ -31,6 +31,7 @@ pub mod sys;
 pub mod tagged_int;
 pub mod time_mod;
 pub mod asyncio_mod;
+pub mod typing;
 
 pub use bigint::*;
 pub use collections::*;
@@ -62,3 +63,4 @@ pub use sys::*;
 pub use tagged_int::*;
 pub use time_mod::*;
 pub use asyncio_mod::*;
+pub use typing::*;

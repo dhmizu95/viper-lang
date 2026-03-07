@@ -303,6 +303,15 @@ pub fn register_stubs(execution_engine: &inkwell::execution_engine::ExecutionEng
         "vp_time_sleep_us" => super::time_mod::vp_time_sleep_us,
     ]);
 
+    // Register typing module functions
+    register_stubs!(execution_engine, module, [
+        "vp_typing_get_type_hints" => super::typing::vp_typing_get_type_hints,
+        "vp_typing_get_origin" => super::typing::vp_typing_get_origin,
+        "vp_typing_get_args" => super::typing::vp_typing_get_args,
+        "vp_typing_is_generic_type" => super::typing::vp_typing_is_generic_type,
+        "vp_typing_typevar_new" => super::typing::vp_typing_typevar_new,
+    ]);
+
     // Register exception handling functions
     register_stubs!(execution_engine, module, [
         "viper_panic" => super::sys::viper_panic,

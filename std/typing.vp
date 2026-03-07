@@ -1,0 +1,202 @@
+# Viper Standard Library - typing module
+# Type hints and generic type support
+
+# Module metadata
+__name__ = "typing"
+__version__ = "0.4.7"
+
+# ============================================
+# Type Variables
+# ============================================
+
+class TypeVar:
+    """Type variable for generic type definitions."""
+    
+    def __init__(self, name: str, bound=None, covariant: bool = False, contravariant: bool = False):
+        self.name = name
+        self.bound = bound
+        self.covariant = covariant
+        self.contravariant = contravariant
+    
+    def __repr__(self) -> str:
+        return "~" + self.name
+
+# Common type variables
+T = TypeVar('T')
+U = TypeVar('U')
+V = TypeVar('V')
+KT = TypeVar('KT')  # Key type
+VT = TypeVar('VT')  # Value type
+T_co = TypeVar('T_co', covariant=True)  # Covariant type variable
+T_contra = TypeVar('T_contra', contravariant=True)  # Contravariant type variable
+
+# ============================================
+# Generic Types
+# ============================================
+
+class Generic:
+    """Base class for generic types."""
+    pass
+
+# ============================================
+# Container Types
+# ============================================
+
+class List:
+    """Generic list type."""
+    pass
+
+class Dict:
+    """Generic dictionary type."""
+    pass
+
+class Set:
+    """Generic set type."""
+    pass
+
+class Tuple:
+    """Generic tuple type."""
+    pass
+
+# ============================================
+# Special Types
+# ============================================
+
+class Any:
+    """Special type indicating any type."""
+    pass
+
+class NoReturn:
+    """Special type indicating function never returns."""
+    pass
+
+class NoneType:
+    """Type of None."""
+    pass
+
+# ============================================
+# Union and Optional
+# ============================================
+
+class Union:
+    """Union type - value can be one of several types."""
+    pass
+
+def Optional(type_):
+    """Optional type - equivalent to Union[type_, None]."""
+    return Union
+
+# ============================================
+# Callable
+# ============================================
+
+class Callable:
+    """Callable type - function signature."""
+    pass
+
+# ============================================
+# Type Qualifiers
+# ============================================
+
+class Final:
+    """Final qualifier - value cannot be reassigned."""
+    pass
+
+class ClassVar:
+    """Class variable qualifier."""
+    pass
+
+# ============================================
+# Runtime Type Functions
+# ============================================
+
+def get_type_hints(obj):
+    """Get type hints for an object."""
+    # Implemented in runtime
+    return {}
+
+def get_origin(tp):
+    """Get the unparameterized origin of a generic type."""
+    # Implemented in runtime
+    return None
+
+def get_args(tp):
+    """Get type arguments of a generic type."""
+    # Implemented in runtime
+    return ()
+
+def is_generic_type(tp) -> bool:
+    """Check if a type is a generic type."""
+    # Implemented in runtime
+    return False
+
+# ============================================
+# Protocols (Structural Subtyping)
+# ============================================
+
+class Protocol:
+    """Base class for protocol definitions."""
+    pass
+
+class SupportsInt(Protocol):
+    """Protocol for objects that can be converted to int."""
+    def __int__(self) -> int:
+        pass
+
+class SupportsFloat(Protocol):
+    """Protocol for objects that can be converted to float."""
+    def __float__(self) -> float:
+        pass
+
+class SupportsStr(Protocol):
+    """Protocol for objects that can be converted to str."""
+    def __str__(self) -> str:
+        pass
+
+class SupportsIndex(Protocol):
+    """Protocol for objects that can be used as indices."""
+    def __index__(self) -> int:
+        pass
+
+# ============================================
+# Abstract Base Classes
+# ============================================
+
+class Iterable(Protocol):
+    """Protocol for iterable objects."""
+    def __iter__(self):
+        pass
+
+class Iterator(Iterable, Protocol):
+    """Protocol for iterator objects."""
+    def __next__(self):
+        pass
+
+class Sequence(Iterable, Protocol):
+    """Protocol for sequence objects."""
+    def __len__(self) -> int:
+        pass
+    def __getitem__(self, index: int):
+        pass
+
+class Mapping(Iterable, Protocol):
+    """Protocol for mapping objects."""
+    def __len__(self) -> int:
+        pass
+    def __getitem__(self, key):
+        pass
+    def __contains__(self, key) -> bool:
+        pass
+    def keys(self):
+        pass
+    def values(self):
+        pass
+    def items(self):
+        pass
+
+class MutableMapping(Mapping, Protocol):
+    """Protocol for mutable mapping objects."""
+    def __setitem__(self, key, value):
+        pass
+    def __delitem__(self, key):
+        pass

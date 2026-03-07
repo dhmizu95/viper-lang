@@ -1,0 +1,67 @@
+# Test typing module and generic types
+
+from typing import List, Dict, Optional, TypeVar, Generic
+
+# Type variables
+T = TypeVar('T')
+U = TypeVar('U')
+
+# Test generic class
+class Container(Generic[T]):
+    def __init__(self, item: T):
+        self.item = item
+    
+    def get(self) -> T:
+        return self.item
+    
+    def set(self, item: T):
+        self.item = item
+
+# Test function with generic types
+def process_list(items: List[int]) -> List[str]:
+    result = []
+    for item in items:
+        result.append(str(item))
+    return result
+
+def merge_dicts(d1: Dict[str, int], d2: Dict[str, int]) -> Dict[str, int]:
+    result = {}
+    for key in d1:
+        result[key] = d1[key]
+    for key in d2:
+        result[key] = d2[key]
+    return result
+
+def get_optional(value: Optional[str]) -> str:
+    if value is None:
+        return "default"
+    return value
+
+def main():
+    print("Testing typing module...")
+    
+    # Test Container generic class
+    int_container = Container(42)
+    print("int_container.get():", int_container.get())
+    
+    str_container = Container("hello")
+    print("str_container.get():", str_container.get())
+    
+    # Test process_list
+    numbers = [1, 2, 3, 4, 5]
+    strings = process_list(numbers)
+    print("process_list([1,2,3,4,5]):", strings)
+    
+    # Test merge_dicts
+    d1 = {"a": 1, "b": 2}
+    d2 = {"c": 3, "d": 4}
+    merged = merge_dicts(d1, d2)
+    print("merge_dicts:", merged)
+    
+    # Test get_optional
+    val1 = get_optional("hello")
+    val2 = get_optional(None)
+    print("get_optional('hello'):", val1)
+    print("get_optional(None):", val2)
+    
+    print("Typing module tests complete!")
