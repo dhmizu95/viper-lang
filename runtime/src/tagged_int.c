@@ -74,20 +74,46 @@ static inline TaggedInt try_demote_bigint(mpz_t value) {
  */
 TaggedInt tagged_int_from_str(const char* str) {
     if (!str) return tagged_int_from_i64(0);
-    
+
     ViperBigInt* bigint = alloc_bigint_for_tagged();
     if (!bigint) return tagged_int_from_i64(0);
-    
+
+    /* Parse string into BigInt */
+    int base = 10;
+    const char* actual_str = str;
+
+    if (str[0] == '0' && str[1] != '\0') {
+        if (str[1] == 'x' || str[1] == 'X') {
+            base = 16;
+            actual_str = str + 2;
+        } else if (str[1] == 'o' || str[1] == 'O') {
+            base = 8;
+            actual_str = str + 2;
+        } else if (str[1] == 'b' || str[1] == 'B') {
+            base = 2;
+            actual_str = str + 2;
+        } else if (str[1] >= '0' && str[1] <= '7') {
+            base = 8;
+            actual_str = str + 1;
+        }
+    }
+
+    if (mpz_set_str(bigint->value, actual_str, base) != 0) {
+        mpz_clear(bigint->value);
+        free(bigint);
+        return tagged_int_from_i64(0);
+    }
+
     /* Check if the value fits in SmallInt */
     if (mpz_fits_slong_p(bigint->value)) {
         int64_t small_val = mpz_get_si(bigint->value);
         if (small_val >= TAGGED_INT_MIN_SMALL && small_val <= TAGGED_INT_MAX_SMALL) {
             mpz_clear(bigint->value);
-        free(bigint);
+            free(bigint);
             return tagged_int_from_i64(small_val);
         }
     }
-    
+
     return tagged_int_from_bigint(bigint);
 }
 
@@ -600,10 +626,10 @@ void tagged_int_print(TaggedInt value) {
 void tagged_int_free(TaggedInt value) {
     if (tagged_int_is_bigint(value)) {
         ViperBigInt* bigint = tagged_int_get_bigint(value);
-        /* Use ARC release for proper memory management */
+        /* Free non-ARC allocated BigInt */
         if (bigint != NULL) {
             mpz_clear(bigint->value);
-        free(bigint);
+            free(bigint);
         }
     }
     /* Small integers don't need freeing */

@@ -159,9 +159,10 @@ void vp_dict_iter_free(ViperDictIter* iter);
 bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value);
 
 /* ============================================ */
-/* String Functions                             */
+/* String Functions - CONFLICTS WITH viper_types.h */
 /* ============================================ */
 
+/*
 char* vp_str_create(const char* str);
 void vp_str_free(char* str);
 char* vp_str_concat(const char* a, const char* b);
@@ -177,6 +178,7 @@ char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub);
 // String format and conversion
 char* vp_str_format(const char* format_str, const char** args_array, int64_t arg_count);
 char* vp_str_from_bool(bool val);
+*/
 
 /* ============================================ */
 /* Bytes Functions                              */

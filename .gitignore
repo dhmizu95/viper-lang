@@ -16,6 +16,7 @@
 *_bin
 *_vp_bin
 *.ll
+*.d
 
 # Generated source files
 # *.c
@@ -46,7 +47,7 @@ benchmark/**/Cargo.lock
 
 # Runtime build artifacts
 runtime/libviper.a
-runtime/obj/*.o
+runtime/obj/
 
 # Vendored libraries (GMP is bundled)
 !vendor/gmp/**/*
