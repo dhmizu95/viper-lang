@@ -19,6 +19,7 @@ pub mod re;
 pub mod random;
 pub mod logging;
 pub mod typing;
+pub mod iterator;
 
 pub use print::declare_print_functions;
 pub use lists::declare_list_functions;
@@ -36,6 +37,7 @@ pub use re::declare_re_functions;
 pub use random::declare_random_functions;
 pub use logging::declare_logging_functions;
 pub use typing::declare_typing_functions;
+pub use iterator::declare_iterator_functions;
 
 /// Declare all runtime library functions
 pub fn declare_runtime_functions<'ctx>(
@@ -60,6 +62,7 @@ pub fn declare_runtime_functions<'ctx>(
     declare_random_functions(context, module)?;
     declare_logging_functions(context, module)?;
     declare_typing_functions(context, module)?;
+    declare_iterator_functions(context, module)?;
     Ok(())
 }
 

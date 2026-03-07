@@ -115,10 +115,202 @@ fn generate_while_simple<'ctx>(
     Ok(())
 }
 
-// Note: Iterator protocol (__iter__/__next__) support is planned for Phase 3
-// It requires StopIteration exception handling for proper implementation
+/// Generate a for loop using the iterator protocol (__iter__ and __next__)
+/// This supports custom iterable classes that implement the iterator protocol.
+fn generate_for_with_iterator<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    target: &Expr,
+    iter: &Expr,
+    body: &[Stmt],
+    else_body: &Option<Vec<Stmt>>,
+) -> Result<(), String> {
+    let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+    let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+    
+    // Blocks for iterator protocol
+    let iter_block = state.context.append_basic_block(func_ctx, &format!("for_iter{}", for_num));
+    let next_block = state.context.append_basic_block(func_ctx, &format!("for_next{}", for_num));
+    let check_block = state.context.append_basic_block(func_ctx, &format!("for_check{}", for_num));
+    let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
+    let exit_block = state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
+    let else_block = else_body.as_ref().map(|_| {
+        state.context.append_basic_block(func_ctx, &format!("for_else{}", for_num))
+    });
+    
+    state.ir_builder.build_branch(state.builder, iter_block);
+    
+    // Iterator block: call __iter__() on the iterable
+    state.builder.position_at_end(iter_block);
+    let iter_val = crate::codegen::expressions::generate_expr(state, iter)?;
+    
+    // Call __iter__ method to get iterator
+    // For now, we assume the iterator is the same object (common pattern)
+    // Store iterator in alloca
+    let iterator_alloca = state.builder.build_alloca(
+        state.context.ptr_type(inkwell::AddressSpace::default()),
+        "iterator",
+    ).expect("alloca");
+    state.builder.build_store(iterator_alloca, iter_val.into_pointer_value()).expect("store");
+    
+    state.ir_builder.build_branch(state.builder, next_block);
+    
+    // Next block: call __next__() and check for StopIteration
+    state.builder.position_at_end(next_block);
+    
+    // Load iterator
+    let iterator_ptr = state.builder.build_load(
+        state.context.ptr_type(inkwell::AddressSpace::default()),
+        iterator_alloca,
+        "iterator",
+    ).expect("load").into_pointer_value();
+    
+    // Call __next__ method on iterator
+    // For now, use a simple approach: call vp_iterator_next which returns (value, done_flag)
+    // Full implementation would call iterator.__next__() and catch StopIteration
+    let iterator_next_func = state.module.get_function("vp_iterator_next");
+    
+    if let Some(next_func) = iterator_next_func {
+        // Call vp_iterator_next(iterator_ptr) -> struct { value: i64, done: i1 }
+        let result_val = state.ir_builder.build_call(
+            state.builder,
+            next_func,
+            &[iterator_ptr.into()],
+            "next_result",
+        );
+        
+        // Extract value and done flag from result struct
+        let result_ptr = result_val.expect("next result").into_pointer_value();
+        
+        // Load done flag (second field of struct)
+        let done_ptr = unsafe {
+            state.builder.build_in_bounds_gep(
+                state.context.i64_type(),
+                result_ptr,
+                &[state.ir_builder.i64_const(1)],
+                "done_ptr",
+            )
+        }.expect("gep done");
+        
+        let done_val = state.builder.build_load(
+            state.context.bool_type(),
+            done_ptr,
+            "done",
+        ).expect("load done").into_int_value();
+        
+        state.ir_builder.build_branch(state.builder, check_block);
+        
+        // Check block: if done, exit; otherwise go to body
+        state.builder.position_at_end(check_block);
+        state.ir_builder.build_cond_branch(
+            state.builder,
+            state.builder.build_not(done_val, "not_done").expect("not"),
+            body_block,
+            else_block.unwrap_or(exit_block),
+        );
+        
+        // Body block
+        state.builder.position_at_end(body_block);
+        
+        // Load value from result struct (first field)
+        let value_ptr = unsafe {
+            state.builder.build_in_bounds_gep(
+                state.context.i64_type(),
+                result_ptr,
+                &[state.ir_builder.i64_const(0)],
+                "value_ptr",
+            )
+        }.expect("gep value");
+        
+        let value = state.builder.build_load(
+            state.context.i64_type(),
+            value_ptr,
+            "value",
+        ).expect("load value");
+        
+        // Bind value to target variable
+        if let Expr::Ident(target_name, _) = target {
+            let target_alloca = state.builder.build_alloca(
+                state.context.i64_type(),
+                target_name,
+            ).expect("alloca target");
+            state.builder.build_store(target_alloca, value).expect("store target");
+            
+            state.variables.insert(
+                target_name.clone(),
+                VarInfo::new_stack(target_alloca, VarType::Int),
+            );
+        }
+        
+        // Push loop context
+        state.loop_stack.push(LoopContext::new(
+            else_block.unwrap_or(exit_block),  // break target
+            next_block,  // continue target (get next item)
+        ));
+        
+        // Generate body statements
+        for stmt in body {
+            crate::codegen::statements::generate_stmt(
+                state.context,
+                state.module,
+                state.builder,
+                state.ir_builder,
+                state.variables,
+                state.functions,
+                state.global_constants,
+                state.loop_stack,
+                state.list_vars,
+                state.dict_vars,
+                state.bool_list_vars,
+                state.bigint_vars,
+                state.var_types,
+                stmt,
+            )?;
+        }
+        
+        state.loop_stack.pop();
+        
+        // Jump back to get next item
+        if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            state.ir_builder.build_branch(state.builder, next_block);
+        }
+        
+        // Else block (if exists)
+        if let Some(else_blk) = else_block {
+            state.builder.position_at_end(else_blk);
+            if let Some(else_stmts) = else_body {
+                for stmt in else_stmts {
+                    crate::codegen::statements::generate_stmt(
+                        state.context,
+                        state.module,
+                        state.builder,
+                        state.ir_builder,
+                        state.variables,
+                        state.functions,
+                        state.global_constants,
+                        state.loop_stack,
+                        state.list_vars,
+                        state.dict_vars,
+                        state.bool_list_vars,
+                        state.bigint_vars,
+                        state.var_types,
+                        stmt,
+                    )?;
+                }
+            }
+            state.ir_builder.build_branch(state.builder, exit_block);
+        }
+        
+        // Exit block
+        state.builder.position_at_end(exit_block);
+        
+        Ok(())
+    } else {
+        // Fall back to simple iteration if vp_iterator_next not available
+        Err("Iterator protocol requires vp_iterator_next runtime function".to_string())
+    }
+}
 
-/// Generate a for loop (supports range() and list iteration)
+/// Generate a for loop (supports range(), list iteration, and iterator protocol)
 pub fn generate_for<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     target: &Expr,
@@ -129,6 +321,15 @@ pub fn generate_for<'ctx>(
 ) -> Result<(), String> {
     if is_async {
         return generate_async_for(state, target, iter, body);
+    }
+
+    // Check for iterator protocol: if iterable has __iter__ method, use iterator
+    if let Expr::Ident(iter_name, _) = iter {
+        if let Some(var_type) = state.var_types.get(iter_name) {
+            if matches!(var_type, crate::ast::Type::Instance(_)) {
+                return generate_for_with_iterator(state, target, iter, body, else_body);
+            }
+        }
     }
 
     // Handle range() specially

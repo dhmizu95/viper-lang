@@ -312,6 +312,11 @@ pub fn register_stubs(execution_engine: &inkwell::execution_engine::ExecutionEng
         "vp_typing_typevar_new" => super::typing::vp_typing_typevar_new,
     ]);
 
+    // Register iterator functions
+    register_stubs!(execution_engine, module, [
+        "vp_iterator_next" => super::iterator::vp_iterator_next,
+    ]);
+
     // Register exception handling functions
     register_stubs!(execution_engine, module, [
         "viper_panic" => super::sys::viper_panic,
