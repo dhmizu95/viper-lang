@@ -192,7 +192,7 @@ impl TypeChecker {
                                 crate::semantic::symbol_table::BuiltinSignature::Range => Some(Type::List(Box::new(Type::I64))),
                                 crate::semantic::symbol_table::BuiltinSignature::Len => Some(Type::I64),
                                 crate::semantic::symbol_table::BuiltinSignature::Str => Some(Type::Str),
-                                crate::semantic::symbol_table::BuiltinSignature::Int => Some(Type::I64),
+                                crate::semantic::symbol_table::BuiltinSignature::Int => Some(Type::Int),  // Python-style: int() returns arbitrary precision tagged int
                                 crate::semantic::symbol_table::BuiltinSignature::Float => Some(Type::F64),
                                 crate::semantic::symbol_table::BuiltinSignature::Bool => Some(Type::Bool),
                                 // Program control

@@ -115,7 +115,7 @@ def test_bigint_large():
     # 2^1000
     two = int("2")
     exp = int("1000")
-    result = pow(two, exp)
+    result = two ** exp
     print("2^1000 = ")
     print(str(result))
 

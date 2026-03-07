@@ -183,6 +183,9 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 if name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
                     return Type::BigInt;
                 }
+                if name == "int" {
+                    return Type::Int;
+                }
                 if name == "str" {
                     return Type::Str;
                 }

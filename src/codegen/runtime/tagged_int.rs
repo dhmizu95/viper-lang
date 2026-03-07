@@ -36,6 +36,12 @@ pub fn declare_tagged_int_functions<'ctx>(
     
     // tagged_int_pow
     module.add_function("tagged_int_pow", tagged_op_type, None);
+
+    // tagged_int_lshift
+    module.add_function("tagged_int_lshift", tagged_op_type, None);
+
+    // tagged_int_rshift
+    module.add_function("tagged_int_rshift", tagged_op_type, None);
     
     // tagged_int_neg (unary)
     let tagged_unary_type = i64_type.fn_type(&[i64_type.into()], false);
@@ -171,6 +177,54 @@ pub fn generate_tagged_int_pow<'ctx>(
             "tagged_pow",
         )
         .expect("tagged_int_pow call");
+
+    Ok(result.into())
+}
+
+/// Generate tagged integer left shift
+pub fn generate_tagged_int_lshift<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let func = state
+        .module
+        .get_function("tagged_int_lshift")
+        .ok_or_else(|| "tagged_int_lshift not declared".to_string())?;
+
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            func,
+            &[lhs.into(), rhs.into()],
+            "tagged_lshift",
+        )
+        .expect("tagged_int_lshift call");
+
+    Ok(result.into())
+}
+
+/// Generate tagged integer right shift
+pub fn generate_tagged_int_rshift<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let func = state
+        .module
+        .get_function("tagged_int_rshift")
+        .ok_or_else(|| "tagged_int_rshift not declared".to_string())?;
+
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            func,
+            &[lhs.into(), rhs.into()],
+            "tagged_rshift",
+        )
+        .expect("tagged_int_rshift call");
 
     Ok(result.into())
 }

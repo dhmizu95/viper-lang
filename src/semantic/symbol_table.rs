@@ -65,6 +65,8 @@ pub enum BuiltinSignature {
     Hash,
     // Program control
     Exit,     // exit(code) -> None
+    // Type conversion
+    Bytes,    // bytes() -> bytes
     // Type introspection
     IsInstance,  // isinstance(obj, Type) -> bool
     // Result type constructors (generic)
@@ -191,6 +193,8 @@ impl Symbol {
                 BuiltinSignature::Hash => Some(Type::I64),
                 // Program control
                 BuiltinSignature::Exit => Some(Type::None),
+                // Type conversion
+                BuiltinSignature::Bytes => Some(Type::Bytes),
                 // Type introspection
                 BuiltinSignature::IsInstance => Some(Type::Bool),  // isinstance(obj, Type) -> bool
                 // Result constructors - return type inferred from context
@@ -311,6 +315,8 @@ impl SymbolTable {
             ("hash", SymbolKind::Builtin { signature: BuiltinSignature::Hash }),
             // Program control
             ("exit", SymbolKind::Builtin { signature: BuiltinSignature::Exit }),
+            // Type conversion
+            ("bytes", SymbolKind::Builtin { signature: BuiltinSignature::Bytes }),
             // Type introspection
             ("isinstance", SymbolKind::Builtin { signature: BuiltinSignature::IsInstance }),
             // Result constructors (generic - type inferred from usage)

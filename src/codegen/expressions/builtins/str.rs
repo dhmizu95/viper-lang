@@ -49,20 +49,20 @@ pub fn generate_type_convert<'ctx>(
             }
         }
         "int" => {
-            // Convert to int (Python-style: arbitrary precision)
+            // Convert to int (Python-style: arbitrary precision using tagged ints)
             if arg_val.is_int_value() {
-                // Already an i64, convert to BigInt for arbitrary precision
+                // Already an i64, convert to tagged int
                 let from_i64_func = state
                     .module
-                    .get_function("vp_bigint_from_i64")
-                    .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+                    .get_function("tagged_int_from_i64")
+                    .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
                 let result = state
                     .ir_builder
                     .build_call(state.builder, from_i64_func, &[arg_val.into()], "int_from_i64")
                     .unwrap();
                 Ok(result)
             } else if arg_val.is_float_value() {
-                // Float to int: first convert to i64, then to BigInt
+                // Float to int: first convert to i64, then to tagged int
                 let float_val = arg_val.into_float_value();
                 let int_val = state
                     .builder
@@ -70,24 +70,24 @@ pub fn generate_type_convert<'ctx>(
                     .expect("float to int conversion");
                 let from_i64_func = state
                     .module
-                    .get_function("vp_bigint_from_i64")
-                    .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
+                    .get_function("tagged_int_from_i64")
+                    .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
                 let result = state
                     .ir_builder
                     .build_call(state.builder, from_i64_func, &[int_val.into()], "int_from_float")
                     .unwrap();
                 Ok(result)
             } else if arg_val.is_pointer_value() {
-                // String to int (arbitrary precision)
-                let str_to_bigint = state
+                // String to int (arbitrary precision) using tagged int
+                let str_to_int = state
                     .module
-                    .get_function("vp_bigint_from_str")
-                    .ok_or_else(|| "vp_bigint_from_str not declared".to_string())?;
+                    .get_function("tagged_int_from_str")
+                    .ok_or_else(|| "tagged_int_from_str not declared".to_string())?;
                 let result = state
                     .ir_builder
-                    .build_call(state.builder, str_to_bigint, &[arg_val.into()], "str_to_int")
+                    .build_call(state.builder, str_to_int, &[arg_val.into()], "str_to_int")
                     .unwrap();
-                Ok(result.into_pointer_value().into())
+                Ok(result)
             } else {
                 Err("Cannot convert to int".to_string())
             }
@@ -269,4 +269,43 @@ fn generate_bigint_to_str_direct<'ctx>(
         .expect("vp_bigint_to_str call");
 
     Ok(str_val)
+}
+
+/// Generate bytes() call
+pub fn generate_bytes_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // bytes() with no args returns empty bytes
+    if args.is_empty() {
+        let bytes_func = state
+            .module
+            .get_function("vp_bytes_create")
+            .ok_or_else(|| "vp_bytes_create not declared".to_string())?;
+        
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                bytes_func,
+                &[
+                    state.context.ptr_type(inkwell::AddressSpace::default()).const_null().into(),
+                    state.context.i64_type().const_zero().into(),
+                ],
+                "bytes_result",
+            )
+            .expect("bytes call");
+        
+        return Ok(result.into());
+    }
+    
+    // bytes(arg) - convert argument to bytes
+    if args.len() != 1 {
+        return Err(format!("bytes() takes at most 1 argument, got {}", args.len()));
+    }
+    
+    let arg_val = generate_expr(state, &args[0])?;
+    
+    // For now, just return the argument as bytes (simplified)
+    Ok(arg_val)
 }

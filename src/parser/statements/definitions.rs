@@ -349,16 +349,43 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
                 return Ok(Type::Chan(Box::new(elem_type)));
             }
             // Python-style aliases
-            "int" => Type::Int,   // Python int -> auto-promoting tagged integer
-            "float" => Type::F64, // Python float -> Viper f64
+            "int" => {
+                parser.advance();
+                return Ok(Type::Int);
+            }
+            "float" => {
+                parser.advance();
+                return Ok(Type::F64);
+            }
             // Viper native types
-            "i8" => Type::I8,
-            "i16" => Type::I16,
-            "i32" => Type::I32,
-            "f32" => Type::F32,
-            "bool" => Type::Bool,
-            "str" => Type::Str,
-            "bytes" => Type::Bytes,
+            "i8" => {
+                parser.advance();
+                return Ok(Type::I8);
+            }
+            "i16" => {
+                parser.advance();
+                return Ok(Type::I16);
+            }
+            "i32" => {
+                parser.advance();
+                return Ok(Type::I32);
+            }
+            "f32" => {
+                parser.advance();
+                return Ok(Type::F32);
+            }
+            "bool" => {
+                parser.advance();
+                return Ok(Type::Bool);
+            }
+            "str" => {
+                parser.advance();
+                return Ok(Type::Str);
+            }
+            "bytes" => {
+                parser.advance();
+                return Ok(Type::Bytes);
+            }
             "WaitGroup" => {
                 parser.advance();
                 return Ok(Type::WaitGroup);

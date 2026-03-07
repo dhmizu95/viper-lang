@@ -179,28 +179,55 @@ pub fn generate_tagged_int_binop<'ctx>(
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
 ) -> Result<BasicValueEnum<'ctx>, String> {
+    // Promote i64 values to tagged ints if needed
+    let lhs_tagged = if lhs.is_int_value() {
+        lhs
+    } else if lhs.is_pointer_value() {
+        // This is a BigInt pointer, need to tag it (pointer | 1)
+        let ptr_val = lhs.into_pointer_value();
+        let intptr = state.builder.build_ptr_to_int(ptr_val, state.context.i64_type(), "ptr_to_int").expect("ptr_to_int");
+        let tagged = state.builder.build_or(intptr, state.context.i64_type().const_int(1, false), "tagged_ptr").expect("tag");
+        tagged.into()
+    } else {
+        return Err(format!("Cannot convert {:?} to tagged int", lhs.get_type()));
+    };
+
+    let rhs_tagged = if rhs.is_int_value() {
+        rhs
+    } else if rhs.is_pointer_value() {
+        // This is a BigInt pointer, need to tag it (pointer | 1)
+        let ptr_val = rhs.into_pointer_value();
+        let intptr = state.builder.build_ptr_to_int(ptr_val, state.context.i64_type(), "ptr_to_int").expect("ptr_to_int");
+        let tagged = state.builder.build_or(intptr, state.context.i64_type().const_int(1, false), "tagged_ptr").expect("tag");
+        tagged.into()
+    } else {
+        return Err(format!("Cannot convert {:?} to tagged int", rhs.get_type()));
+    };
+
     match op {
-        BinOp::Add => crate::codegen::runtime::tagged_int::generate_tagged_int_add(state, lhs, rhs),
-        BinOp::Sub => crate::codegen::runtime::tagged_int::generate_tagged_int_sub(state, lhs, rhs),
-        BinOp::Mul => crate::codegen::runtime::tagged_int::generate_tagged_int_mul(state, lhs, rhs),
-        BinOp::Div | BinOp::FloorDiv => crate::codegen::runtime::tagged_int::generate_tagged_int_div(state, lhs, rhs),
-        BinOp::Mod => crate::codegen::runtime::tagged_int::generate_tagged_int_mod(state, lhs, rhs),
-        BinOp::Eq => crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs, rhs),
+        BinOp::Add => crate::codegen::runtime::tagged_int::generate_tagged_int_add(state, lhs_tagged, rhs_tagged),
+        BinOp::Sub => crate::codegen::runtime::tagged_int::generate_tagged_int_sub(state, lhs_tagged, rhs_tagged),
+        BinOp::Mul => crate::codegen::runtime::tagged_int::generate_tagged_int_mul(state, lhs_tagged, rhs_tagged),
+        BinOp::Div | BinOp::FloorDiv => crate::codegen::runtime::tagged_int::generate_tagged_int_div(state, lhs_tagged, rhs_tagged),
+        BinOp::Mod => crate::codegen::runtime::tagged_int::generate_tagged_int_mod(state, lhs_tagged, rhs_tagged),
+        BinOp::Eq => crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs_tagged, rhs_tagged),
         BinOp::NotEq => {
-            let eq = crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs, rhs)?;
+            let eq = crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs_tagged, rhs_tagged)?;
             Ok(state.builder.build_not(eq.into_int_value(), "neq").expect("not").into())
         }
-        BinOp::Lt => crate::codegen::runtime::tagged_int::generate_tagged_int_lt(state, lhs, rhs),
-        BinOp::Gt => crate::codegen::runtime::tagged_int::generate_tagged_int_gt(state, lhs, rhs),
+        BinOp::Lt => crate::codegen::runtime::tagged_int::generate_tagged_int_lt(state, lhs_tagged, rhs_tagged),
+        BinOp::Gt => crate::codegen::runtime::tagged_int::generate_tagged_int_gt(state, lhs_tagged, rhs_tagged),
         BinOp::LtEq => {
-            let gt = crate::codegen::runtime::tagged_int::generate_tagged_int_gt(state, lhs, rhs)?;
+            let gt = crate::codegen::runtime::tagged_int::generate_tagged_int_gt(state, lhs_tagged, rhs_tagged)?;
             Ok(state.builder.build_not(gt.into_int_value(), "lte").expect("not").into())
         }
         BinOp::GtEq => {
-            let lt = crate::codegen::runtime::tagged_int::generate_tagged_int_lt(state, lhs, rhs)?;
+            let lt = crate::codegen::runtime::tagged_int::generate_tagged_int_lt(state, lhs_tagged, rhs_tagged)?;
             Ok(state.builder.build_not(lt.into_int_value(), "gte").expect("not").into())
         }
-        BinOp::Pow => crate::codegen::runtime::tagged_int::generate_tagged_int_pow(state, lhs, rhs),
+        BinOp::Pow => crate::codegen::runtime::tagged_int::generate_tagged_int_pow(state, lhs_tagged, rhs_tagged),
+        BinOp::LShift => crate::codegen::runtime::tagged_int::generate_tagged_int_lshift(state, lhs_tagged, rhs_tagged),
+        BinOp::RShift => crate::codegen::runtime::tagged_int::generate_tagged_int_rshift(state, lhs_tagged, rhs_tagged),
         _ => Err(format!("Unsupported tagged int operator: {:?}", op)),
     }
 }

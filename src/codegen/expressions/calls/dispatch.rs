@@ -13,7 +13,7 @@ use crate::codegen::expressions::builtins::print::{generate_print_call, generate
 use crate::codegen::expressions::builtins::len::generate_len_call;
 use crate::codegen::expressions::builtins::math::generate_math_builtin;
 use crate::codegen::expressions::builtins::r#struct::{generate_hash_call, generate_struct_pack, generate_struct_unpack};
-use crate::codegen::expressions::builtins::str::{generate_str_call, generate_type_convert};
+use crate::codegen::expressions::builtins::str::{generate_str_call, generate_type_convert, generate_bytes_call};
 use crate::codegen::expressions::concurrency::{
     generate_chan_create,
     generate_chan_send,
@@ -95,6 +95,10 @@ pub fn generate_call<'ctx>(
 
         if name == "str" {
             return generate_str_call(state, args);
+        }
+
+        if name == "bytes" {
+            return generate_bytes_call(state, args);
         }
 
         // Type conversion functions
