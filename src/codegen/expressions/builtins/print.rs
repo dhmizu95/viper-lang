@@ -15,9 +15,13 @@ fn is_bigint_expr_for_print(expr: &Expr, state: &CodeGenState) -> bool {
         Expr::Ident(name, _) => state.is_bigint(name),
         Expr::Call { func, .. } => {
             if let Expr::Ident(func_name, _) = func.as_ref() {
-                func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint"
-                    || func_name == "pow_bigint" || func_name == "sqrt_bigint"
-                    || func_name == "min_bigint" || func_name == "max_bigint"
+                func_name == "bigint"
+                    || func_name == "BigInt"
+                    || func_name == "abs_bigint"
+                    || func_name == "pow_bigint"
+                    || func_name == "sqrt_bigint"
+                    || func_name == "min_bigint"
+                    || func_name == "max_bigint"
             } else {
                 false
             }
@@ -46,40 +50,12 @@ pub fn generate_print_call<'ctx>(
     // Print each argument
     for (i, arg) in args.iter().enumerate() {
         let val = generate_expr(state, arg)?;
-        let arg_type = crate::codegen::expressions::core::infer_type_with_state(state, arg);
 
-        // Use tagged_int_print for int types, inferred types, or function calls (which return tagged int)
-        let use_tagged_print = matches!(arg_type, Type::Int | Type::Infer | Type::Fn(..));
-        if use_tagged_print {
-            let print_func = state
-                .module
-                .get_function("tagged_int_print")
-                .ok_or_else(|| "tagged_int_print not declared".to_string())?;
-            state.builder.build_call(print_func, &[val.into()], "print_tagged_int").expect("tagged_int_print");
-        } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 64 {
-            // All 64-bit int values in Viper are tagged ints (small int or BigInt pointer)
-            // Always use tagged_int_print to correctly handle both cases
-            let print_func = state
-                .module
-                .get_function("tagged_int_print")
-                .ok_or_else(|| "tagged_int_print not declared".to_string())?;
-            state.builder.build_call(print_func, &[val.into()], "print_tagged_int").expect("tagged_int_print");
-        } else if val.is_float_value() {
-            let print_func = state
-                .module
-                .get_function("vp_print_f64")
-                .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
-            state.builder.build_call(print_func, &[val.into()], "print_f64").expect("vp_print_f64");
-        } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
-            let print_func = state
-                .module
-                .get_function("vp_print_bool")
-                .ok_or_else(|| "vp_print_bool not declared".to_string())?;
-            state
-                .builder
-                .build_call(print_func, &[val.into()], "print_bool")
-                .expect("vp_print_bool");
-        } else if val.is_pointer_value() {
+        // IMPORTANT: Check pointer values first before type-based dispatch.
+        // This handles cases like __name__ where type inference returns Type::Infer
+        // but the actual value is a pointer (string).
+        if val.is_pointer_value() {
+            // Pointer value - could be string, list, dict, etc.
             // Check if this is a list - if so, use vp_list_print
             let is_list_arg = match arg {
                 Expr::Ident(name, _) => state.is_list(name),
@@ -123,16 +99,29 @@ pub fn generate_print_call<'ctx>(
                         if func_name == "str_bigint" || func_name == "int_bigint" {
                             false
                         // String methods return strings, not BigInts
-                        } else if func_name == "upper" || func_name == "lower" || func_name == "strip"
-                            || func_name == "capitalize" || func_name == "title" || func_name == "swapcase"
-                            || func_name == "replace" || func_name == "split" || func_name == "join" {
+                        } else if func_name == "upper"
+                            || func_name == "lower"
+                            || func_name == "strip"
+                            || func_name == "capitalize"
+                            || func_name == "title"
+                            || func_name == "swapcase"
+                            || func_name == "replace"
+                            || func_name == "split"
+                            || func_name == "join"
+                        {
                             false
                         } else {
                             // Check for BigInt-returning functions
-                            func_name == "bigint" || func_name == "BigInt" || func_name == "abs_bigint" || func_name == "abs"
-                                || func_name == "pow_bigint" || func_name == "pow"
-                                || func_name == "sqrt_bigint" || func_name == "min_bigint" || func_name == "max_bigint"
-                                || val.is_pointer_value()  // User-defined BigInt function
+                            func_name == "bigint"
+                                || func_name == "BigInt"
+                                || func_name == "abs_bigint"
+                                || func_name == "abs"
+                                || func_name == "pow_bigint"
+                                || func_name == "pow"
+                                || func_name == "sqrt_bigint"
+                                || func_name == "min_bigint"
+                                || func_name == "max_bigint"
+                                || val.is_pointer_value() // User-defined BigInt function
                         }
                     } else {
                         val.is_pointer_value()
@@ -140,17 +129,23 @@ pub fn generate_print_call<'ctx>(
                 }
                 // BinOp with BigInt operands returns a BigInt pointer
                 Expr::BinOp { left, right, op, .. } => {
-                    if matches!(op, crate::ast::BinOp::Add | crate::ast::BinOp::Sub | crate::ast::BinOp::Mul
-                        | crate::ast::BinOp::Div | crate::ast::BinOp::Mod | crate::ast::BinOp::Pow) {
+                    if matches!(
+                        op,
+                        crate::ast::BinOp::Add
+                            | crate::ast::BinOp::Sub
+                            | crate::ast::BinOp::Mul
+                            | crate::ast::BinOp::Div
+                            | crate::ast::BinOp::Mod
+                            | crate::ast::BinOp::Pow
+                    ) {
                         // Check if either operand is BigInt
-                        is_bigint_expr_for_print(left, state) || is_bigint_expr_for_print(right, state)
+                        is_bigint_expr_for_print(left, state)
+                            || is_bigint_expr_for_print(right, state)
                     } else {
                         val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt
                     }
                 }
-                _ => {
-                    val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt
-                }
+                _ => val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt,
             };
 
             if is_bigint_arg {
@@ -163,7 +158,12 @@ pub fn generate_print_call<'ctx>(
                 let base = state.context.i32_type().const_int(10, false);
                 let c_str_val = state
                     .ir_builder
-                    .build_call(state.builder, to_str_func, &[val.into(), base.into()], "c_str_conv")
+                    .build_call(
+                        state.builder,
+                        to_str_func,
+                        &[val.into(), base.into()],
+                        "c_str_conv",
+                    )
                     .expect("vp_bigint_to_str");
 
                 // Convert C string to Viper string
@@ -222,6 +222,33 @@ pub fn generate_print_call<'ctx>(
                     .build_call(print_func, &[val.into()], "print_str")
                     .expect("vp_print_str");
             }
+        } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
+            // Boolean value (1-bit integer)
+            let print_func = state
+                .module
+                .get_function("vp_print_bool")
+                .ok_or_else(|| "vp_print_bool not declared".to_string())?;
+            state
+                .builder
+                .build_call(print_func, &[val.into()], "print_bool")
+                .expect("vp_print_bool");
+        } else if val.is_int_value() {
+            // All int values in Viper are tagged ints (small int or BigInt pointer)
+            // Always use tagged_int_print to correctly handle both cases
+            let print_func = state
+                .module
+                .get_function("tagged_int_print")
+                .ok_or_else(|| "tagged_int_print not declared".to_string())?;
+            state
+                .builder
+                .build_call(print_func, &[val.into()], "print_tagged_int")
+                .expect("tagged_int_print");
+        } else if val.is_float_value() {
+            let print_func = state
+                .module
+                .get_function("vp_print_f64")
+                .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
+            state.builder.build_call(print_func, &[val.into()], "print_f64").expect("vp_print_f64");
         } else {
             return Err(format!("print() does not support type {:?}", val.get_type()));
         }
