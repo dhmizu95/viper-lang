@@ -358,6 +358,7 @@ fn parse_base_type(parser: &mut StatementParser) -> Result<Type, String> {
             "f32" => Type::F32,
             "bool" => Type::Bool,
             "str" => Type::Str,
+            "bytes" => Type::Bytes,
             "WaitGroup" => {
                 parser.advance();
                 return Ok(Type::WaitGroup);
