@@ -1,0 +1,84 @@
+# Test context managers (with statement)
+
+from io import StringIO
+
+def test_with_stringio():
+    """Test with statement using StringIO."""
+    buffer = StringIO()
+    
+    with buffer:
+        buffer.write("Hello, World!")
+        content = buffer.getvalue()
+    
+    if content == "Hello, World!":
+        print("✓ test_with_stringio passed")
+        return True
+    else:
+        print("✗ test_with_stringio failed")
+        return False
+
+def test_with_nested():
+    """Test nested with statements."""
+    buffer1 = StringIO()
+    buffer2 = StringIO()
+    
+    with buffer1:
+        buffer1.write("First")
+        with buffer2:
+            buffer2.write("Second")
+            content2 = buffer2.getvalue()
+        content1 = buffer1.getvalue()
+    
+    if content1 == "First" and content2 == "Second":
+        print("✓ test_with_nested passed")
+        return True
+    return False
+
+def test_with_multiple():
+    """Test multiple context managers."""
+    buffer1 = StringIO()
+    buffer2 = StringIO()
+    
+    # Note: Multiple with on same line may need special syntax
+    with buffer1:
+        buffer1.write("A")
+        with buffer2:
+            buffer2.write("B")
+    
+    if buffer1.getvalue() == "A" and buffer2.getvalue() == "B":
+        print("✓ test_with_multiple passed")
+        return True
+    return False
+
+def main():
+    """Run all context manager tests."""
+    print("Testing context managers...")
+    print("")
+    
+    passed = 0
+    failed = 0
+    
+    if test_with_stringio():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_with_nested():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_with_multiple():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    print("")
+    print("=" * 50)
+    print("Test Summary")
+    print("=" * 50)
+    print("Passed:", passed)
+    print("Failed:", failed)
+    
+    if failed > 0:
+        exit(1)

@@ -1,0 +1,104 @@
+# Test CSV module
+
+import csv
+import os
+
+def test_csv_reader():
+    """Test CSV reader."""
+    temp_path = "/tmp/test_csv_reader.csv"
+    
+    # Write test data
+    f = open(temp_path, 'w')
+    f.write("name,age,city\n")
+    f.write("Alice,30,NYC\n")
+    f.write("Bob,25,LA\n")
+    f.write("Charlie,35,SF\n")
+    f.close()
+    
+    # Read CSV
+    reader = csv.reader(temp_path)
+    rows = reader.read_all()
+    
+    # Check results
+    if len(rows) == 4:
+        print("✓ CSV reader works (", len(rows), "rows)")
+        os.remove(temp_path)
+        return True
+    
+    os.remove(temp_path)
+    return False
+
+def test_csv_dict_reader():
+    """Test CSV DictReader."""
+    temp_path = "/tmp/test_csv_dict.csv"
+    
+    # Write test data
+    f = open(temp_path, 'w')
+    f.write("name,score\n")
+    f.write("Alice,95\n")
+    f.write("Bob,87\n")
+    f.close()
+    
+    # Read as dict
+    reader = csv.DictReader(temp_path)
+    rows = reader.read_all()
+    
+    if len(rows) == 2:
+        print("✓ CSV DictReader works")
+        os.remove(temp_path)
+        return True
+    
+    os.remove(temp_path)
+    return False
+
+def test_csv_writer():
+    """Test CSV writer."""
+    temp_path = "/tmp/test_csv_writer.csv"
+    
+    # Write using writer
+    f = open(temp_path, 'w')
+    writer = csv.writer(f)
+    writer.writerow(["a", "b", "c"])
+    writer.writerow(["1", "2", "3"])
+    f.close()
+    
+    # Verify
+    if os.path_exists(temp_path):
+        print("✓ CSV writer works")
+        os.remove(temp_path)
+        return True
+    
+    return False
+
+def main():
+    """Run all CSV tests."""
+    print("Testing CSV module...")
+    print("")
+    
+    passed = 0
+    failed = 0
+    
+    if test_csv_reader():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_csv_dict_reader():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_csv_writer():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    print("")
+    print("=" * 50)
+    print("Test Summary")
+    print("=" * 50)
+    print("Passed:", passed)
+    print("Failed:", failed)
+    
+    if failed > 0:
+        exit(1)

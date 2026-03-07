@@ -1,0 +1,108 @@
+# Test iterator protocol
+
+class Counter:
+    """Simple counter iterator."""
+    def __init__(self, start: int, end: int):
+        self.start = start
+        self.end = end
+    
+    def __iter__(self):
+        self.current = self.start
+        return self
+    
+    def __next__(self) -> int:
+        if self.current >= self.end:
+            raise StopIteration()
+        result = self.current
+        self.current = self.current + 1
+        return result
+
+class Repeater:
+    """Iterator that repeats a value."""
+    def __init__(self, value, times: int):
+        self.value = value
+        self.times = times
+        self.count = 0
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if self.count >= self.times:
+            raise StopIteration()
+        self.count = self.count + 1
+        return self.value
+
+def test_counter_iterator():
+    """Test Counter iterator with for loop."""
+    result = []
+    for i in Counter(0, 5):
+        result.append(i)
+    
+    if result == [0, 1, 2, 3, 4]:
+        print("✓ Counter iterator works")
+        return True
+    else:
+        print("✗ Counter iterator failed:", result)
+        return False
+
+def test_repeater_iterator():
+    """Test Repeater iterator."""
+    result = []
+    for x in Repeater("x", 3):
+        result.append(x)
+    
+    if result == ["x", "x", "x"]:
+        print("✓ Repeater iterator works")
+        return True
+    return False
+
+def test_iterator_manual():
+    """Test manual iteration with next()."""
+    c = Counter(10, 13)
+    it = iter(c)
+    
+    try:
+        v1 = next(it)
+        v2 = next(it)
+        v3 = next(it)
+        v4 = next(it)  # Should raise StopIteration
+        return False
+    except StopIteration:
+        if v1 == 10 and v2 == 11 and v3 == 12:
+            print("✓ Manual iteration works")
+            return True
+    return False
+
+def main():
+    """Run all iterator tests."""
+    print("Testing iterator protocol...")
+    print("")
+    
+    passed = 0
+    failed = 0
+    
+    if test_counter_iterator():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_repeater_iterator():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_iterator_manual():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    print("")
+    print("=" * 50)
+    print("Test Summary")
+    print("=" * 50)
+    print("Passed:", passed)
+    print("Failed:", failed)
+    
+    if failed > 0:
+        exit(1)

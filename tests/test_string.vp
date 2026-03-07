@@ -1,0 +1,102 @@
+# Test string module
+
+from string import ascii_letters, digits, punctuation, whitespace, Template
+
+def test_ascii_letters():
+    """Test ascii_letters constant."""
+    if len(ascii_letters) == 52:
+        print("✓ ascii_letters constant works (52 chars)")
+        return True
+    return False
+
+def test_digits():
+    """Test digits constant."""
+    if len(digits) == 10 and digits == "0123456789":
+        print("✓ digits constant works")
+        return True
+    return False
+
+def test_punctuation():
+    """Test punctuation constant."""
+    if len(punctuation) > 0:
+        print("✓ punctuation constant works (", len(punctuation), "chars)")
+        return True
+    return False
+
+def test_template_substitute():
+    """Test Template substitution."""
+    t = Template("Hello, $name!")
+    result = t.substitute(name="World")
+    
+    if result == "Hello, World!":
+        print("✓ Template.substitute() works")
+        return True
+    return False
+
+def test_template_safe_substitute():
+    """Test Template safe_substitute."""
+    t = Template("Hello, $name! Welcome, $guest!")
+    result = t.safe_substitute(name="World")
+    
+    if "Hello, World!" in result:
+        print("✓ Template.safe_substitute() works")
+        return True
+    return False
+
+def test_template_identifiers():
+    """Test Template.get_identifiers()."""
+    t = Template("Hello, $name! Your age is $age.")
+    ids = t.get_identifiers()
+    
+    if "name" in ids and "age" in ids:
+        print("✓ Template.get_identifiers() works")
+        return True
+    return False
+
+def main():
+    """Run all string module tests."""
+    print("Testing string module...")
+    print("")
+    
+    passed = 0
+    failed = 0
+    
+    if test_ascii_letters():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_digits():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_punctuation():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_template_substitute():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_template_safe_substitute():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_template_identifiers():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    print("")
+    print("=" * 50)
+    print("Test Summary")
+    print("=" * 50)
+    print("Passed:", passed)
+    print("Failed:", failed)
+    
+    if failed > 0:
+        exit(1)

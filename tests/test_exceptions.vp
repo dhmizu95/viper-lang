@@ -1,0 +1,85 @@
+# Test exception chaining
+
+def test_exception_chaining():
+    """Test raise ... from ... syntax."""
+    try:
+        try:
+            raise ValueError("Original error")
+        except ValueError as e:
+            raise RuntimeError("Wrapped error") from e
+    except RuntimeError as e:
+        print("✓ Exception chaining works")
+        return True
+    return False
+
+def test_exception_basic():
+    """Test basic exception handling."""
+    try:
+        x = 1 / 0
+        return False
+    except ZeroDivisionError:
+        print("✓ Basic exception handling works")
+        return True
+
+def test_exception_else():
+    """Test try/except/else."""
+    try:
+        x = 1 + 1
+    except ZeroDivisionError:
+        return False
+    else:
+        if x == 2:
+            print("✓ try/except/else works")
+            return True
+    return False
+
+def test_exception_finally():
+    """Test try/finally."""
+    cleaned = False
+    try:
+        x = 1
+    finally:
+        cleaned = True
+    
+    if cleaned:
+        print("✓ try/finally works")
+        return True
+    return False
+
+def main():
+    """Run all exception tests."""
+    print("Testing exceptions...")
+    print("")
+    
+    passed = 0
+    failed = 0
+    
+    if test_exception_basic():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_exception_chaining():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_exception_else():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    if test_exception_finally():
+        passed = passed + 1
+    else:
+        failed = failed + 1
+    
+    print("")
+    print("=" * 50)
+    print("Test Summary")
+    print("=" * 50)
+    print("Passed:", passed)
+    print("Failed:", failed)
+    
+    if failed > 0:
+        exit(1)

@@ -1,0 +1,72 @@
+# Test unittest framework
+
+import unittest
+
+class TestExample(unittest.TestCase):
+    """Example test case."""
+    
+    def test_equal(self):
+        """Test assertEqual."""
+        self.assertEqual(1 + 1, 2)
+        print("✓ assertEqual works")
+    
+    def test_true(self):
+        """Test assertTrue."""
+        self.assertTrue(True)
+        print("✓ assertTrue works")
+    
+    def test_false(self):
+        """Test assertFalse."""
+        self.assertFalse(False)
+        print("✓ assertFalse works")
+    
+    def test_in(self):
+        """Test assertIn."""
+        self.assertIn(1, [1, 2, 3])
+        print("✓ assertIn works")
+    
+    def test_not_in(self):
+        """Test assertNotIn."""
+        self.assertNotIn(4, [1, 2, 3])
+        print("✓ assertNotIn works")
+    
+    def test_is_instance(self):
+        """Test assertIsInstance."""
+        self.assertIsInstance(42, int)
+        print("✓ assertIsInstance works")
+    
+    def test_is_none(self):
+        """Test assertIsNone."""
+        self.assertIsNone(None)
+        print("✓ assertIsNone works")
+    
+    def test_is_not_none(self):
+        """Test assertIsNotNone."""
+        self.assertIsNotNone(42)
+        print("✓ assertIsNotNone works")
+    
+    def test_less_than(self):
+        """Test assertLess."""
+        self.assertLess(1, 2)
+        print("✓ assertLess works")
+    
+    def test_greater_than(self):
+        """Test assertGreater."""
+        self.assertGreater(2, 1)
+        print("✓ assertGreater works")
+
+class TestRaises(unittest.TestCase):
+    """Test exception assertions."""
+    
+    def test_raises(self):
+        """Test assertRaises."""
+        with self.assertRaises(ValueError):
+            int("invalid")
+        print("✓ assertRaises works")
+
+def main():
+    """Run all unittest tests."""
+    print("Testing unittest framework...")
+    print("")
+    
+    unittest.main()

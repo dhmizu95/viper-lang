@@ -1,0 +1,61 @@
+# Test coverage tool
+
+from coverage import Coverage
+
+def add(a, b):
+    """Add two numbers."""
+    return a + b
+
+def multiply(a, b):
+    """Multiply two numbers."""
+    return a * b
+
+def subtract(a, b):
+    """Subtract b from a."""
+    return a - b
+
+def divide(a, b):
+    """Divide a by b."""
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+
+def test_covered_functions():
+    """Test functions that should be covered."""
+    result1 = add(2, 3)
+    result2 = multiply(4, 5)
+    result3 = subtract(10, 3)
+    
+    print("add(2, 3) =", result1)
+    print("multiply(4, 5) =", result2)
+    print("subtract(10, 3) =", result3)
+
+def main():
+    """Run code with coverage."""
+    print("Testing coverage tool...")
+    print("")
+    
+    # Create coverage object
+    cov = Coverage(data_file=".test_coverage")
+    
+    # Start collecting
+    cov.start()
+    
+    # Run code
+    test_covered_functions()
+    
+    # Stop collecting
+    cov.stop()
+    
+    # Save data
+    cov.save()
+    
+    # Generate report
+    print("")
+    print("=" * 50)
+    print("Coverage Report")
+    print("=" * 50)
+    cov.report()
+    
+    print("")
+    print("Coverage data saved to .test_coverage")
