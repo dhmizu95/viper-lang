@@ -281,6 +281,7 @@ pub fn register_stubs(execution_engine: &inkwell::execution_engine::ExecutionEng
         "vp_os_path_abspath" => super::os::vp_os_path_abspath,
         "vp_os_path_basename" => super::os::vp_os_path_basename,
         "vp_os_path_dirname" => super::os::vp_os_path_dirname,
+        "vp_os_rmdir" => super::os::vp_os_rmdir,
         "vp_os_rename" => super::os::vp_os_rename,
         "vp_os_copy" => super::os::vp_os_copy,
         "vp_os_get_home" => super::os::vp_os_get_home,

@@ -245,7 +245,7 @@ pub extern "C" fn vp_os_path_dirname(path: *const i8) -> *mut i8 {
     if path.is_null() {
         return std::ptr::null_mut();
     }
-    
+
     unsafe {
         let path_str = std::ffi::CStr::from_ptr(path);
         if let Ok(path_rust) = path_str.to_str() {
@@ -255,6 +255,24 @@ pub extern "C" fn vp_os_path_dirname(path: *const i8) -> *mut i8 {
             c_str.into_raw()
         } else {
             std::ptr::null_mut()
+        }
+    }
+}
+
+pub extern "C" fn vp_os_rmdir(path: *const i8) -> i64 {
+    if path.is_null() {
+        return -1;
+    }
+
+    unsafe {
+        let path_str = std::ffi::CStr::from_ptr(path);
+        if let Ok(path_rust) = path_str.to_str() {
+            match fs::remove_dir(path_rust) {
+                Ok(_) => 0,
+                Err(_) => -1,
+            }
+        } else {
+            -1
         }
     }
 }
