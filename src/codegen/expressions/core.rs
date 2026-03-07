@@ -107,6 +107,10 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
                 if name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
                     return Type::BigInt;
                 }
+                // int() returns tagged int
+                if name == "int" {
+                    return Type::Int;
+                }
                 // str() returns string, not BigInt
                 if name == "str" {
                     return Type::Str;

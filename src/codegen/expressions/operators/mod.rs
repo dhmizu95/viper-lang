@@ -189,19 +189,18 @@ pub fn generate_binop<'ctx>(
     }
 
     // Check for tagged int operations BEFORE generating operands
-    // Tagged ints are represented as pointers but support arithmetic operations
+    // Tagged ints are represented as i64 values (tagged with LSB)
     let left_type = crate::codegen::expressions::core::infer_type_with_state(state, left);
     let right_type = crate::codegen::expressions::core::infer_type_with_state(state, right);
 
+    // Check if either operand is Type::Int (from type annotation or inference)
+    let is_tagged_int = left_type == crate::ast::Type::Int || right_type == crate::ast::Type::Int;
+    
     // Also check if either operand is a call to int() which returns Type::Int
     let is_left_int_call = matches!(left, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "int"));
     let is_right_int_call = matches!(right, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "int"));
 
-    // Check if either operand is an identifier with Type::Int in var_types
-    let is_left_int_var = matches!(left, Expr::Ident(name, _) if state.var_types.get(name).map(|t| *t == crate::ast::Type::Int).unwrap_or(false));
-    let is_right_int_var = matches!(right, Expr::Ident(name, _) if state.var_types.get(name).map(|t| *t == crate::ast::Type::Int).unwrap_or(false));
-
-    if left_type == crate::ast::Type::Int || right_type == crate::ast::Type::Int || is_left_int_call || is_right_int_call || is_left_int_var || is_right_int_var {
+    if is_tagged_int || is_left_int_call || is_right_int_call {
         // Generate operands for tagged int operations
         let lhs_val = generate_expr(state, left)?;
         let rhs_val = generate_expr(state, right)?;

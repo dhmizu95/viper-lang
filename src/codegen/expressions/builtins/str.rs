@@ -164,16 +164,9 @@ pub fn generate_str_call<'ctx>(
     }
 
     // Check if argument is int type (which uses tagged int representation)
-    // Tagged ints may be BigInt at runtime if they exceeded i63 range
-    // Also handle function calls which return tagged int (Type::Fn)
-    if arg_type == Type::Int || matches!(arg_type, Type::Fn(..)) {
-        // FIX: Check actual value type - local BigInt vars are pointers, not tagged ints
+    if arg_type == Type::Int {
         let arg_val = generate_expr(state, arg)?;
-        if arg_val.is_pointer_value() {
-            // This is a BigInt stored in a local variable - use BigInt to_str
-            return generate_bigint_to_str_direct(state, arg_val);
-        }
-        // Otherwise it's a tagged int - use tagged_int_to_str
+        // Tagged ints are always i64 values (tagged with LSB)
         return generate_tagged_int_to_str_val(state, arg_val);
     }
 

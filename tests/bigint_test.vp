@@ -173,3 +173,5 @@ def main():
     print("")
     
     print("=== All tests completed ===")
+
+main()
