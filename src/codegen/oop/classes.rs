@@ -443,8 +443,29 @@ pub fn generate_class_metadata(
 
     metadata.instance_size = current_offset.max(8); // Minimum 8 bytes
 
-    // Note: @dataclass decorator support is planned for future enhancement
-    // Currently we just collect fields from annotated class variables
+    // For @dataclass, generate __init__, __repr__, __eq__ methods
+    if is_dataclass {
+        let instance_fields: Vec<(String, Type)> = metadata.fields.iter()
+            .filter(|f| !f.is_class_var)
+            .map(|f| (f.name.clone(), f.ty.clone()))
+            .collect();
+        
+        // Check if methods already exist
+        let has_init = metadata.methods.iter().any(|m| m.name == "__init__");
+        let has_repr = metadata.methods.iter().any(|m| m.name == "__repr__");
+        let has_eq = metadata.methods.iter().any(|m| m.name == "__eq__");
+        
+        // Generate missing methods
+        if !has_init {
+            generate_dataclass_init_method(&mut metadata.methods, name, &instance_fields);
+        }
+        if !has_repr {
+            generate_dataclass_repr_method(&mut metadata.methods, name, &instance_fields);
+        }
+        if !has_eq {
+            generate_dataclass_eq_method(&mut metadata.methods, name, &instance_fields);
+        }
+    }
 
     // Process methods
     for stmt in body {
@@ -959,4 +980,70 @@ fn store_field<'ctx>(
         .map_err(|e| format!("Failed to store field: {:?}", e))?;
 
     Ok(())
+}
+
+/// Generate __init__ MethodInfo for dataclass
+fn generate_dataclass_init_method(
+    methods: &mut Vec<MethodInfo>,
+    class_name: &str,
+    fields: &[(String, Type)],
+) {
+    // Build params: self + all fields
+    let mut params = vec![("self".to_string(), Type::Instance(class_name.to_string()))];
+    for (field_name, field_type) in fields {
+        params.push((field_name.clone(), field_type.clone()));
+    }
+    
+    methods.push(MethodInfo {
+        name: "__init__".to_string(),
+        mangled_name: format!("__method_{}___init__", class_name),
+        is_static: false,
+        is_class_method: false,
+        is_property: false,
+        is_property_setter: false,
+        property_name: None,
+        params,
+        return_type: Type::None,
+    });
+}
+
+/// Generate __repr__ MethodInfo for dataclass
+fn generate_dataclass_repr_method(
+    methods: &mut Vec<MethodInfo>,
+    class_name: &str,
+    _fields: &[(String, Type)],
+) {
+    methods.push(MethodInfo {
+        name: "__repr__".to_string(),
+        mangled_name: format!("__method_{}___repr__", class_name),
+        is_static: false,
+        is_class_method: false,
+        is_property: false,
+        is_property_setter: false,
+        property_name: None,
+        params: vec![("self".to_string(), Type::Instance(class_name.to_string()))],
+        return_type: Type::Str,
+    });
+}
+
+/// Generate __eq__ MethodInfo for dataclass
+fn generate_dataclass_eq_method(
+    methods: &mut Vec<MethodInfo>,
+    class_name: &str,
+    _fields: &[(String, Type)],
+) {
+    methods.push(MethodInfo {
+        name: "__eq__".to_string(),
+        mangled_name: format!("__method_{}___eq__", class_name),
+        is_static: false,
+        is_class_method: false,
+        is_property: false,
+        is_property_setter: false,
+        property_name: None,
+        params: vec![
+            ("self".to_string(), Type::Instance(class_name.to_string())),
+            ("other".to_string(), Type::Object),
+        ],
+        return_type: Type::Bool,
+    });
 }

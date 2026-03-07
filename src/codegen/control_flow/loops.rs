@@ -115,7 +115,10 @@ fn generate_while_simple<'ctx>(
     Ok(())
 }
 
-/// Generate a for loop (simplified: only handles range() calls)
+// Note: Iterator protocol (__iter__/__next__) support is planned for Phase 3
+// It requires StopIteration exception handling for proper implementation
+
+/// Generate a for loop (supports range() and list iteration)
 pub fn generate_for<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     target: &Expr,
@@ -128,6 +131,7 @@ pub fn generate_for<'ctx>(
         return generate_async_for(state, target, iter, body);
     }
 
+    // Handle range() specially
     if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
