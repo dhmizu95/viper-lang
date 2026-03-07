@@ -325,19 +325,19 @@ Most modules have C runtime but need:
 ## Next Steps
 
 1. **Phase 1:** ✅ COMPLETE (100%)
-2. **Phase 2:** ~80% Complete
+2. **Phase 2:** ~95% Complete
    - ✅ @dataclass decorator
    - ✅ Union types
    - ✅ typing module
-   - ❌ Function types (3 days)
-   - ❌ Type aliases (2 days)
-   - ❌ Named tuples (3 days)
-   - ❌ Iterator protocol (5 days)
+   - ✅ Function types (basic support)
+   - ✅ Type aliases (basic support)
+   - ❌ Named tuples (pending)
+   - ❌ Iterator protocol (deferred to Phase 3)
 3. **Phase 3:** In Progress
    - ✅ copy module
-   - ❌ functools module (3 days)
-   - ❌ itertools module (4 days)
-   - ❌ io module (4 days)
+   - ✅ functools module
+   - ✅ itertools module
+   - ✅ io module
    - ❌ pathlib wiring (2 days)
 
 ---
