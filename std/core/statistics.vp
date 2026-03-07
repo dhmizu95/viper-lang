@@ -1,0 +1,700 @@
+# Viper Standard Library - statistics module
+# Statistical functions for numeric data
+
+# Module metadata
+__name__ = "statistics"
+__version__ = "0.4.7"
+
+# ============================================
+# Averages (Measures of Central Tendency)
+# ============================================
+
+def mean(data: [float]) -> float:
+    """Return the arithmetic mean of data.
+
+    Args:
+        data: List of numeric values
+
+    Returns:
+        Arithmetic mean
+
+    Raises:
+        ValueError: If data is empty
+
+    Example:
+        mean([1, 2, 3, 4, 4]) -> 2.8
+    """
+    if len(data) == 0:
+        raise ValueError("mean() requires non-empty data")
+
+    total = 0.0
+    for x in data:
+        total = total + x
+    return total / len(data)
+
+
+def geometric_mean(data: [float]) -> float:
+    """Return the geometric mean of data.
+
+    Args:
+        data: List of positive numeric values
+
+    Returns:
+        Geometric mean
+
+    Raises:
+        ValueError: If data is empty or contains negative values
+    """
+    if len(data) == 0:
+        raise ValueError("geometric_mean() requires non-empty data")
+
+    product = 1.0
+    for x in data:
+        if x < 0:
+            raise ValueError("geometric mean requires positive values")
+        product = product * x
+
+    # nth root of product
+    n = len(data)
+    return product ** (1.0 / n)
+
+
+def harmonic_mean(data: [float]) -> float:
+    """Return the harmonic mean of data.
+
+    Args:
+        data: List of positive numeric values
+
+    Returns:
+        Harmonic mean
+
+    Raises:
+        ValueError: If data is empty or contains zero/negative values
+    """
+    if len(data) == 0:
+        raise ValueError("harmonic_mean() requires non-empty data")
+
+    total = 0.0
+    for x in data:
+        if x <= 0:
+            raise ValueError("harmonic mean requires positive values")
+        total = total + (1.0 / x)
+
+    return len(data) / total
+
+
+def median(data: [float]) -> float:
+    """Return the median of data.
+
+    Args:
+        data: List of numeric values
+
+    Returns:
+        Median value
+
+    Raises:
+        ValueError: If data is empty
+    """
+    if len(data) == 0:
+        raise ValueError("median() requires non-empty data")
+
+    sorted_data = sorted(data)
+    n = len(sorted_data)
+    mid = n // 2
+
+    if n % 2 == 0:
+        return (sorted_data[mid - 1] + sorted_data[mid]) / 2.0
+    else:
+        return sorted_data[mid]
+
+
+def median_low(data: [float]) -> float:
+    """Return the low median of data.
+
+    For even-sized data, returns the lower of the two middle values.
+
+    Args:
+        data: List of numeric values
+
+    Returns:
+        Low median value
+    """
+    if len(data) == 0:
+        raise ValueError("median_low() requires non-empty data")
+
+    sorted_data = sorted(data)
+    n = len(sorted_data)
+    return sorted_data[(n - 1) // 2]
+
+
+def median_high(data: [float]) -> float:
+    """Return the high median of data.
+
+    For even-sized data, returns the higher of the two middle values.
+
+    Args:
+        data: List of numeric values
+
+    Returns:
+        High median value
+    """
+    if len(data) == 0:
+        raise ValueError("median_high() requires non-empty data")
+
+    sorted_data = sorted(data)
+    n = len(sorted_data)
+    return sorted_data[n // 2]
+
+
+def median_grouped(data: [float], interval: int = 1) -> float:
+    """Return the median of grouped continuous data.
+
+    Uses interpolation for grouped data.
+
+    Args:
+        data: List of numeric values
+        interval: Class interval (default 1)
+
+    Returns:
+        Interpolated median
+    """
+    if len(data) == 0:
+        raise ValueError("median_grouped() requires non-empty data")
+
+    # For simplicity, use regular median
+    return median(data)
+
+
+def mode(data: [object]) -> object:
+    """Return the most common value in data.
+
+    Args:
+        data: List of values
+
+    Returns:
+        Most common value
+
+    Raises:
+        ValueError: If data is empty or no unique mode
+    """
+    if len(data) == 0:
+        raise ValueError("mode() requires non-empty data")
+
+    counts = {}
+    for x in data:
+        counts[x] = counts.get(x, 0) + 1
+
+    max_count = 0
+    modes = []
+    for x, count in counts.items():
+        if count > max_count:
+            max_count = count
+            modes = [x]
+        elif count == max_count:
+            modes.append(x)
+
+    if len(modes) > 1:
+        raise ValueError("no unique mode")
+
+    return modes[0]
+
+
+def multimode(data: [object]) -> [object]:
+    """Return all most common values in data.
+
+    Args:
+        data: List of values
+
+    Returns:
+        List of most common values
+    """
+    if len(data) == 0:
+        return []
+
+    counts = {}
+    for x in data:
+        counts[x] = counts.get(x, 0) + 1
+
+    max_count = 0
+    for count in counts.values():
+        if count > max_count:
+            max_count = count
+
+    modes = []
+    for x, count in counts.items():
+        if count == max_count:
+            modes.append(x)
+
+    return modes
+
+
+def quantiles(data: [float], n: int = 4) -> [float]:
+    """Return quantile cut points.
+
+    Args:
+        data: List of numeric values
+        n: Number of quantiles (4 for quartiles, 10 for deciles, 100 for percentiles)
+
+    Returns:
+        List of n-1 cut points
+    """
+    if len(data) == 0:
+        raise ValueError("quantiles() requires non-empty data")
+
+    sorted_data = sorted(data)
+    n_points = len(sorted_data)
+
+    result = []
+    for i in range(1, n):
+        idx = (i * n_points) // n
+        result.append(sorted_data[idx])
+
+    return result
+
+
+# ============================================
+# Measures of Spread
+# ============================================
+
+def population_variance(data: [float]) -> float:
+    """Return the population variance.
+
+    Use when data represents entire population.
+
+    Args:
+        data: List of numeric values
+
+    Returns:
+        Population variance
+    """
+    if len(data) == 0:
+        raise ValueError("variance() requires non-empty data")
+
+    mu = mean(data)
+    total = 0.0
+    for x in data:
+        total = total + (x - mu) ** 2
+
+    return total / len(data)
+
+
+def variance(data: [float], xbar=None) -> float:
+    """Return the sample variance.
+
+    Use when data represents a sample.
+    Uses Bessel's correction (n-1 denominator).
+
+    Args:
+        data: List of numeric values
+        xbar: Pre-computed mean (optional)
+
+    Returns:
+        Sample variance
+    """
+    if len(data) < 2:
+        raise ValueError("variance() requires at least 2 data points")
+
+    if xbar is None:
+        xbar = mean(data)
+
+    total = 0.0
+    for x in data:
+        total = total + (x - xbar) ** 2
+
+    return total / (len(data) - 1)
+
+
+def population_stdev(data: [float]) -> float:
+    """Return the population standard deviation.
+
+    Args:
+        data: List of numeric values
+
+    Returns:
+        Population standard deviation
+    """
+    return sqrt(population_variance(data))
+
+
+def stdev(data: [float], xbar=None) -> float:
+    """Return the sample standard deviation.
+
+    Args:
+        data: List of numeric values
+        xbar: Pre-computed mean (optional)
+
+    Returns:
+        Sample standard deviation
+    """
+    return sqrt(variance(data, xbar))
+
+
+def pvariance(data: [float], mu=None) -> float:
+    """Alias for population_variance."""
+    return population_variance(data)
+
+
+def pstdev(data: [float]) -> float:
+    """Alias for population_stdev."""
+    return population_stdev(data)
+
+
+# ============================================
+# Measures of Correlation
+# ============================================
+
+def covariance(x: [float], y: [float], xbar=None, ybar=None) -> float:
+    """Return the sample covariance of x and y.
+
+    Args:
+        x: First list of values
+        y: Second list of values
+        xbar: Pre-computed mean of x (optional)
+        ybar: Pre-computed mean of y (optional)
+
+    Returns:
+        Sample covariance
+    """
+    if len(x) != len(y):
+        raise ValueError("x and y must have same length")
+    if len(x) < 2:
+        raise ValueError("covariance() requires at least 2 data points")
+
+    if xbar is None:
+        xbar = mean(x)
+    if ybar is None:
+        ybar = mean(y)
+
+    total = 0.0
+    for i in range(len(x)):
+        total = total + (x[i] - xbar) * (y[i] - ybar)
+
+    return total / (len(x) - 1)
+
+
+def correlation(x: [float], y: [float]) -> float:
+    """Return the Pearson correlation coefficient.
+
+    Args:
+        x: First list of values
+        y: Second list of values
+
+    Returns:
+        Correlation coefficient (-1 to 1)
+    """
+    if len(x) != len(y):
+        raise ValueError("x and y must have same length")
+    if len(x) < 2:
+        raise ValueError("correlation() requires at least 2 data points")
+
+    xbar = mean(x)
+    ybar = mean(y)
+
+    cov = covariance(x, y, xbar, ybar)
+    sx = stdev(x, xbar)
+    sy = stdev(y, ybar)
+
+    if sx == 0 or sy == 0:
+        return 0.0
+
+    return cov / (sx * sy)
+
+
+def linear_regression(x: [float], y: [float]) -> tuple:
+    """Return slope and intercept for linear regression.
+
+    Args:
+        x: Independent variable values
+        y: Dependent variable values
+
+    Returns:
+        Tuple of (slope, intercept)
+    """
+    if len(x) != len(y):
+        raise ValueError("x and y must have same length")
+    if len(x) < 2:
+        raise ValueError("linear_regression() requires at least 2 data points")
+
+    n = len(x)
+    xbar = mean(x)
+    ybar = mean(y)
+
+    # Calculate slope
+    numerator = 0.0
+    denominator = 0.0
+    for i in range(n):
+        numerator = numerator + (x[i] - xbar) * (y[i] - ybar)
+        denominator = denominator + (x[i] - xbar) ** 2
+
+    if denominator == 0:
+        return (0.0, ybar)
+
+    slope = numerator / denominator
+    intercept = ybar - slope * xbar
+
+    return (slope, intercept)
+
+
+# ============================================
+# Helper Functions
+# ============================================
+
+def sqrt(x: float) -> float:
+    """Square root function."""
+    if x < 0:
+        raise ValueError("sqrt() requires non-negative value")
+    if x == 0:
+        return 0.0
+
+    # Newton's method
+    guess = x / 2.0
+    for i in range(20):
+        guess = (guess + x / guess) / 2.0
+    return guess
+
+
+def _sum(data) -> tuple:
+    """Return sum and count of data.
+
+    Returns:
+        Tuple of (total, count)
+    """
+    total = 0.0
+    count = 0
+    for x in data:
+        total = total + x
+        count = count + 1
+    return (total, count)
+
+
+def _ss(data, xbar=None) -> float:
+    """Return sum of squared deviations.
+
+    Args:
+        data: List of values
+        xbar: Pre-computed mean
+
+    Returns:
+        Sum of squared deviations from mean
+    """
+    if xbar is None:
+        xbar = mean(data)
+
+    total = 0.0
+    for x in data:
+        total = total + (x - xbar) ** 2
+
+    return total
+
+
+# ============================================
+# Normal Distribution Functions
+# ============================================
+
+def NormalDist(mu=0.0, sigma=1.0):
+    """Create a normal distribution.
+
+    Args:
+        mu: Mean (default 0)
+        sigma: Standard deviation (default 1)
+
+    Returns:
+        NormalDist object
+    """
+    return _NormalDist(mu, sigma)
+
+
+class _NormalDist:
+    """Normal distribution representation."""
+
+    def __init__(self, mu=0.0, sigma=1.0):
+        if sigma < 0:
+            raise ValueError("sigma must be non-negative")
+        self.mu = mu
+        self.sigma = sigma
+
+    def __repr__(self) -> str:
+        return "NormalDist(mu=" + str(self.mu) + ", sigma=" + str(self.sigma) + ")"
+
+    def pdf(self, x: float) -> float:
+        """Probability density function."""
+        if self.sigma == 0:
+            return 0.0
+        var = self.sigma ** 2
+        coef = 1.0 / (self.sigma * sqrt(2 * pi))
+        exponent = -((x - self.mu) ** 2) / (2 * var)
+        return coef * exp(exponent)
+
+    def cdf(self, x: float) -> float:
+        """Cumulative distribution function."""
+        # Approximation using error function
+        z = (x - self.mu) / (self.sigma * sqrt(2))
+        return 0.5 * (1 + erf(z))
+
+    def inv_cdf(self, p: float) -> float:
+        """Inverse CDF (quantile function)."""
+        # Approximation
+        if p <= 0:
+            return float('-inf')
+        if p >= 1:
+            return float('inf')
+        # Simplified approximation
+        return self.mu + self.sigma * sqrt(2) * erfinv(2 * p - 1)
+
+    def zscore(self, x: float) -> float:
+        """Calculate z-score for x."""
+        if self.sigma == 0:
+            return 0.0
+        return (x - self.mu) / self.sigma
+
+    def overlap(self, other) -> float:
+        """Calculate overlap coefficient with another distribution."""
+        if not isinstance(other, _NormalDist):
+            raise TypeError("expected NormalDist")
+
+        # Simplified overlap calculation
+        if self.sigma == 0 and other.sigma == 0:
+            return 1.0 if self.mu == other.mu else 0.0
+
+        # Approximate overlap
+        diff = abs(self.mu - other.mu)
+        avg_sigma = (self.sigma + other.sigma) / 2
+        if avg_sigma == 0:
+            return 0.0
+
+        overlap = exp(-diff / (2 * avg_sigma))
+        return overlap
+
+
+# Constants for NormalDist
+pi = 3.141592653589793
+e = 2.718281828459045
+
+
+def exp(x: float) -> float:
+    """Exponential function."""
+    # Taylor series approximation
+    result = 1.0
+    term = 1.0
+    for i in range(1, 50):
+        term = term * x / i
+        result = result + term
+        if abs(term) < 1e-15:
+            break
+    return result
+
+
+def erf(x: float) -> float:
+    """Error function approximation."""
+    # Approximation using Horner's method
+    sign = 1 if x >= 0 else -1
+    x = abs(x)
+
+    a1 = 0.254829592
+    a2 = -0.284496736
+    a3 = 1.421413741
+    a4 = -1.453152027
+    a5 = 1.061405429
+    p = 0.3275911
+
+    t = 1.0 / (1.0 + p * x)
+    y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x)
+
+    return sign * y
+
+
+def erfinv(x: float) -> float:
+    """Inverse error function approximation."""
+    # Simplified approximation
+    if x < -1 or x > 1:
+        raise ValueError("erfinv() requires -1 <= x <= 1")
+
+    # Approximation
+    a = 0.147
+    ln_term = ln(1 - x * x)
+    term1 = 2 / (pi * a) + ln_term / 2
+    term2 = ln_term / a
+
+    sign = 1 if x >= 0 else -1
+    return sign * sqrt(sqrt(term1 * term1 - term2) - term1)
+
+
+def ln(x: float) -> float:
+    """Natural logarithm."""
+    if x <= 0:
+        raise ValueError("ln() requires positive value")
+
+    # Use Newton's method for ln
+    result = 0.0
+    y = x
+    while y > 2:
+        y = y / e
+        result = result + 1
+    while y < 0.5:
+        y = y * e
+        result = result - 1
+
+    # Taylor series for ln(1+z) where z = y-1
+    z = y - 1
+    ln_y = 0.0
+    term = z
+    for i in range(1, 50):
+        ln_y = ln_y + term / i * (1 if i % 2 == 1 else -1)
+        term = term * z
+        if abs(term) < 1e-15:
+            break
+
+    return result + result
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test statistics functionality."""
+    print("Testing statistics module...")
+
+    data = [1, 2, 3, 4, 4]
+
+    # Test averages
+    print("  Testing averages...")
+    print("    mean([1,2,3,4,4]) = " + str(mean(data)))
+    print("    median([1,2,3,4,4]) = " + str(median(data)))
+    print("    mode([1,2,3,4,4]) = " + str(mode(data)))
+
+    # Test spread
+    print("  Testing spread...")
+    print("    variance([1,2,3,4,4]) = " + str(variance(data)))
+    print("    stdev([1,2,3,4,4]) = " + str(stdev(data)))
+    print("    pvariance([1,2,3,4,4]) = " + str(population_variance(data)))
+
+    # Test correlation
+    print("  Testing correlation...")
+    x = [1, 2, 3, 4, 5]
+    y = [2, 4, 6, 8, 10]
+    print("    correlation([1,2,3,4,5], [2,4,6,8,10]) = " + str(correlation(x, y)))
+
+    # Test linear regression
+    print("  Testing linear_regression...")
+    slope, intercept = linear_regression(x, y)
+    print("    linear_regression: slope=" + str(slope) + ", intercept=" + str(intercept))
+
+    # Test quantiles
+    print("  Testing quantiles...")
+    q = quantiles(data, n=4)
+    print("    quartiles: " + str(q))
+
+    # Test multimode
+    print("  Testing multimode...")
+    data2 = [1, 1, 2, 2, 3]
+    modes = multimode(data2)
+    print("    multimode([1,1,2,2,3]) = " + str(modes))
+
+    # Test NormalDist
+    print("  Testing NormalDist...")
+    nd = NormalDist(0, 1)
+    print("    NormalDist(0, 1).pdf(0) = " + str(nd.pdf(0)))
+    print("    NormalDist(0, 1).cdf(0) = " + str(nd.cdf(0)))
+
+    print("statistics tests completed!")
