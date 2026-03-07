@@ -325,20 +325,27 @@ Most modules have C runtime but need:
 ## Next Steps
 
 1. **Phase 1:** ✅ COMPLETE (100%)
-2. **Phase 2:** ~95% Complete
+2. **Phase 2:** ~98% Complete
    - ✅ @dataclass decorator
    - ✅ Union types
    - ✅ typing module
    - ✅ Function types (basic support)
    - ✅ Type aliases (basic support)
-   - ❌ Named tuples (pending)
-   - ❌ Iterator protocol (deferred to Phase 3)
-3. **Phase 3:** In Progress
+   - ✅ Named tuples (collections.namedtuple)
+   - ❌ Iterator protocol (deferred to Phase 3 - needs StopIteration)
+3. **Phase 3:** ~90% Complete
    - ✅ copy module
    - ✅ functools module
    - ✅ itertools module
    - ✅ io module
-   - ❌ pathlib wiring (2 days)
+   - ✅ collections module (namedtuple, OrderedDict, defaultdict, Counter, deque)
+   - ⏳ pathlib wiring (pending)
+   - ⏳ csv, pickle, datetime (pending)
+4. **Phase 4:** Not Started
+   - ⏳ unittest framework
+   - ⏳ mock framework
+   - ⏳ debugger (pdb)
+   - ⏳ code coverage
 
 ---
 
