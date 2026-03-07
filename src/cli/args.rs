@@ -110,6 +110,24 @@ pub enum Commands {
         #[arg(short, long, default_value = "docs/generated")]
         output: String,
     },
+    /// Run tests
+    Test {
+        /// Test file or directory to run
+        #[arg(value_name = "FILE", default_value = "tests")]
+        input: String,
+
+        /// Discover tests in directory
+        #[arg(long)]
+        discover: bool,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Filter tests by name pattern
+        #[arg(short, long, value_name = "PATTERN")]
+        filter: Option<String>,
+    },
 }
 
 fn parse_pgo_mode(s: &str) -> Result<String, String> {
