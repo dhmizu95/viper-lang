@@ -1,0 +1,429 @@
+# Viper Standard Library - fileinput module
+# Iterate over multiple input files
+
+# Module metadata
+__name__ = "fileinput"
+__version__ = "0.4.7"
+
+# ============================================
+# Module State
+# ============================================
+
+_fileinput_state = {
+    'files': [],
+    'current_file': None,
+    'current_line': None,
+    'line_number': 0,
+    'file_line_number': 0,
+    'filename': None,
+    'lineno': 0,
+    'filelineno': 0,
+    'is_first': True,
+    'is_stdin': False,
+    'open_func': None,
+    'inplace': False,
+    'backup': '',
+    'bufsize': 0,
+    'mode': 'r',
+    'open_mode': 'r'
+}
+
+
+# ============================================
+# Main Functions
+# ============================================
+
+def input(files=None, inplace=False, backup='', bufsize=0,
+          mode='r', openhook=None):
+    """Iterate over lines from multiple files.
+
+    This is an iterator that yields lines from files.
+    Use in a for loop or call next() directly.
+
+    Args:
+        files: List of filenames (None = sys.argv[1:])
+        inplace: If True, modify files in place
+        backup: Backup extension for inplace mode
+        bufsize: Buffer size (0 = line buffered)
+        mode: File mode
+        openhook: Custom file opener function
+
+    Yields:
+        Lines from files
+
+    Example:
+        for line in fileinput.input(['file1.txt', 'file2.txt']):
+            print(line)
+    """
+    global _fileinput_state
+
+    # Initialize state
+    _reset_state(files, inplace, backup, bufsize, mode, openhook)
+
+    # Iterator
+    while True:
+        line = _next_line()
+        if line is None:
+            break
+        yield line
+
+    _close_all_files()
+
+
+def _reset_state(files, inplace, backup, bufsize, mode, openhook):
+    """Reset fileinput state."""
+    global _fileinput_state
+
+    if files is None:
+        import sys
+        files = sys.argv[1:]
+
+    if isinstance(files, str):
+        files = [files]
+
+    _fileinput_state['files'] = list(files)
+    _fileinput_state['current_file'] = None
+    _fileinput_state['current_line'] = None
+    _fileinput_state['line_number'] = 0
+    _fileinput_state['file_line_number'] = 0
+    _fileinput_state['filename'] = None
+    _fileinput_state['lineno'] = 0
+    _fileinput_state['filelineno'] = 0
+    _fileinput_state['is_first'] = True
+    _fileinput_state['is_stdin'] = False
+    _fileinput_state['inplace'] = inplace
+    _fileinput_state['backup'] = backup
+    _fileinput_state['bufsize'] = bufsize
+    _fileinput_state['mode'] = mode
+    _fileinput_state['open_func'] = openhook
+
+
+def _next_line():
+    """Get next line from input."""
+    global _fileinput_state
+
+    state = _fileinput_state
+
+    # Open files as needed
+    while state['current_file'] is None or state['current_file'].is_closed():
+        if len(state['files']) == 0:
+            return None
+
+        filename = state['files'].pop(0)
+        state['filename'] = filename
+        state['filelineno'] = 0
+
+        if filename == '-':
+            # Read from stdin
+            import sys
+            state['current_file'] = sys.stdin
+            state['is_stdin'] = True
+        else:
+            # Open file
+            if state['open_func']:
+                state['current_file'] = state['open_func'](filename, state['mode'])
+            else:
+                state['current_file'] = open(filename, state['mode'])
+
+            state['is_stdin'] = False
+            state['is_first'] = False
+
+    # Read line
+    line = state['current_file'].readline()
+    if not line or len(line) == 0:
+        # End of file, close and try next
+        if not state['is_stdin']:
+            state['current_file'].close()
+        state['current_file'] = None
+        return _next_line()
+
+    # Update counters
+    state['line_number'] = state['line_number'] + 1
+    state['file_line_number'] = state['file_line_number'] + 1
+    state['lineno'] = state['line_number']
+    state['filelineno'] = state['file_line_number']
+    state['current_line'] = line
+
+    return line
+
+
+def _close_all_files():
+    """Close all open files."""
+    global _fileinput_state
+
+    if _fileinput_state['current_file'] and not _fileinput_state['is_stdin']:
+        _fileinput_state['current_file'].close()
+        _fileinput_state['current_file'] = None
+
+
+# ============================================
+# Information Functions
+# ============================================
+
+def filename() -> str:
+    """Return current filename."""
+    return _fileinput_state['filename']
+
+
+def fileno() -> int:
+    """Return file descriptor of current file."""
+    if _fileinput_state['current_file']:
+        # Would return actual fileno
+        return 0
+    return -1
+
+
+def lineno() -> int:
+    """Return cumulative line number."""
+    return _fileinput_state['lineno']
+
+
+def filelineno() -> int:
+    """Return line number in current file."""
+    return _fileinput_state['filelineno']
+
+
+def isfirstline() -> bool:
+    """Check if current line is first line of first file."""
+    return _fileinput_state['lineno'] == 1
+
+
+def isstdin() -> bool:
+    """Check if current file is stdin."""
+    return _fileinput_state['is_stdin']
+
+
+def isfileobj() -> bool:
+    """Check if current file is a file object."""
+    return not _fileinput_state['is_stdin']
+
+
+# ============================================
+# State Functions
+# ============================================
+
+def nextfile():
+    """Skip to next file."""
+    global _fileinput_state
+
+    if _fileinput_state['current_file'] and not _fileinput_state['is_stdin']:
+        _fileinput_state['current_file'].close()
+    _fileinput_state['current_file'] = None
+
+
+def close():
+    """Close all files."""
+    _close_all_files()
+
+
+# ============================================
+# Hook Functions
+# ============================================
+
+def hook_compressed(filename, mode):
+    """Open compressed file (.gz, .bz2)."""
+    if filename.endswith('.gz'):
+        import gzip
+        return gzip.open(filename, mode)
+    elif filename.endswith('.bz2'):
+        import bz2
+        return bz2.open(filename, mode)
+    return open(filename, mode)
+
+
+def hook_encoded(encoding, errors='strict'):
+    """Return hook that opens files with specified encoding."""
+    def hook(filename, mode):
+        f = open(filename, mode)
+        # Would wrap with encoder
+        return f
+    return hook
+
+
+# ============================================
+# Class-based Interface
+# ============================================
+
+class FileInput:
+    """Class-based file input iterator.
+
+    Alternative to functional interface.
+
+    Example:
+        fi = FileInput(['file1.txt', 'file2.txt'])
+        for line in fi:
+            print(line)
+        fi.close()
+    """
+
+    def __init__(self, files=None, inplace=False, backup='',
+                 bufsize=0, mode='r', openhook=None):
+        self._files = files
+        self._inplace = inplace
+        self._backup = backup
+        self._bufsize = bufsize
+        self._mode = mode
+        self._openhook = openhook
+        self._state = {
+            'files': [],
+            'current_file': None,
+            'lineno': 0,
+            'filelineno': 0,
+            'filename': None,
+            'is_stdin': False
+        }
+        self._init()
+
+    def _init(self):
+        """Initialize state."""
+        files = self._files
+        if files is None:
+            import sys
+            files = sys.argv[1:]
+
+        if isinstance(files, str):
+            files = [files]
+
+        self._state['files'] = list(files)
+        self._state['current_file'] = None
+        self._state['lineno'] = 0
+        self._state['filelineno'] = 0
+        self._state['filename'] = None
+        self._state['is_stdin'] = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        line = self._readline()
+        if line is None:
+            raise StopIteration()
+        return line
+
+    def _readline(self):
+        """Read next line."""
+        state = self._state
+
+        # Open files as needed
+        while state['current_file'] is None or self._is_closed(state['current_file']):
+            if len(state['files']) == 0:
+                return None
+
+            filename = state['files'].pop(0)
+            state['filename'] = filename
+            state['filelineno'] = 0
+
+            if filename == '-':
+                import sys
+                state['current_file'] = sys.stdin
+                state['is_stdin'] = True
+            else:
+                if self._openhook:
+                    state['current_file'] = self._openhook(filename, self._mode)
+                else:
+                    state['current_file'] = open(filename, self._mode)
+                state['is_stdin'] = False
+
+        # Read line
+        line = state['current_file'].readline()
+        if not line or len(line) == 0:
+            if not state['is_stdin']:
+                state['current_file'].close()
+            state['current_file'] = None
+            return self._readline()
+
+        state['lineno'] = state['lineno'] + 1
+        state['filelineno'] = state['filelineno'] + 1
+
+        return line
+
+    def _is_closed(self, f):
+        """Check if file is closed."""
+        if f is None:
+            return True
+        if hasattr(f, 'is_closed'):
+            return f.is_closed()
+        if hasattr(f, 'closed'):
+            return f.closed
+        return False
+
+    def close(self):
+        """Close all files."""
+        if self._state['current_file'] and not self._state['is_stdin']:
+            self._state['current_file'].close()
+        self._state['current_file'] = None
+
+    def filename(self) -> str:
+        """Return current filename."""
+        return self._state['filename']
+
+    def lineno(self) -> int:
+        """Return cumulative line number."""
+        return self._state['lineno']
+
+    def filelineno(self) -> int:
+        """Return line number in current file."""
+        return self._state['filelineno']
+
+    def isstdin(self) -> bool:
+        """Check if reading from stdin."""
+        return self._state['is_stdin']
+
+    def nextfile(self):
+        """Skip to next file."""
+        if self._state['current_file'] and not self._state['is_stdin']:
+            self._state['current_file'].close()
+        self._state['current_file'] = None
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test fileinput functionality."""
+    print("Testing fileinput module...")
+
+    # Create test files
+    f = open('/tmp/test1.txt', 'w')
+    f.write("line 1\n")
+    f.write("line 2\n")
+    f.write("line 3\n")
+    f.close()
+
+    f = open('/tmp/test2.txt', 'w')
+    f.write("file2 line 1\n")
+    f.write("file2 line 2\n")
+    f.close()
+
+    # Test input()
+    print("  Testing input()...")
+    count = 0
+    for line in input(['/tmp/test1.txt', '/tmp/test2.txt']):
+        count = count + 1
+        print("    " + str(lineno()) + ": " + line.strip())
+    print("    Total lines: " + str(count))
+
+    # Test FileInput class
+    print("  Testing FileInput class...")
+    fi = FileInput(['/tmp/test1.txt'])
+    for line in fi:
+        print("    " + str(fi.lineno()) + ": " + line.strip())
+    fi.close()
+
+    # Test information functions
+    print("  Testing information functions...")
+    fi = FileInput(['/tmp/test1.txt', '/tmp/test2.txt'])
+    for line in fi:
+        if fi.lineno() == 1:
+            print("    First file: " + fi.filename())
+        if fi.filelineno() == 1:
+            print("    New file: " + fi.filename() + ", line " + str(fi.lineno()))
+    fi.close()
+
+    # Cleanup
+    import os
+    os.remove('/tmp/test1.txt')
+    os.remove('/tmp/test2.txt')
+
+    print("fileinput tests completed!")

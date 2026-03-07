@@ -1,0 +1,520 @@
+# Viper Standard Library - cmath module
+# Complex number mathematics
+
+# Module metadata
+__name__ = "cmath"
+__version__ = "0.4.7"
+
+import math
+
+# ============================================
+# Constants
+# ============================================
+
+pi = 3.141592653589793
+e = 2.718281828459045
+tau = 6.283185307179586
+inf = float('inf')
+nan = float('nan')
+
+# ============================================
+# Complex Class
+# ============================================
+
+class complex:
+    """Complex number implementation.
+
+    Args:
+        real: Real part (default 0)
+        imag: Imaginary part (default 0)
+
+    Example:
+        z = complex(3, 4)
+        z = complex(1)  # 1 + 0j
+    """
+
+    def __init__(self, real=0, imag=0):
+        self.real = float(real)
+        self.imag = float(imag)
+
+    def __repr__(self) -> str:
+        if self.imag >= 0:
+            return "(" + str(self.real) + "+" + str(self.imag) + "j)"
+        return "(" + str(self.real) + str(self.imag) + "j)"
+
+    def __str__(self) -> str:
+        if self.imag >= 0:
+            return str(self.real) + "+" + str(self.imag) + "j"
+        return str(self.real) + str(self.imag) + "j"
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, complex):
+            return self.real == other.real and self.imag == other.imag
+        if isinstance(other, (int, float)):
+            return self.real == other and self.imag == 0
+        return False
+
+    def __add__(self, other):
+        if isinstance(other, complex):
+            return complex(self.real + other.real, self.imag + other.imag)
+        if isinstance(other, (int, float)):
+            return complex(self.real + other, self.imag)
+        return NotImplemented
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        if isinstance(other, complex):
+            return complex(self.real - other.real, self.imag - other.imag)
+        if isinstance(other, (int, float)):
+            return complex(self.real - other, self.imag)
+        return NotImplemented
+
+    def __rsub__(self, other):
+        if isinstance(other, (int, float)):
+            return complex(other - self.real, -self.imag)
+        return NotImplemented
+
+    def __mul__(self, other):
+        if isinstance(other, complex):
+            # (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+            real = self.real * other.real - self.imag * other.imag
+            imag = self.real * other.imag + self.imag * other.real
+            return complex(real, imag)
+        if isinstance(other, (int, float)):
+            return complex(self.real * other, self.imag * other)
+        return NotImplemented
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __truediv__(self, other):
+        if isinstance(other, complex):
+            # (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c²+d²)
+            denom = other.real * other.real + other.imag * other.imag
+            if denom == 0:
+                raise ZeroDivisionError("Complex division by zero")
+            real = (self.real * other.real + self.imag * other.imag) / denom
+            imag = (self.imag * other.real - self.real * other.imag) / denom
+            return complex(real, imag)
+        if isinstance(other, (int, float)):
+            if other == 0:
+                raise ZeroDivisionError("Division by zero")
+            return complex(self.real / other, self.imag / other)
+        return NotImplemented
+
+    def __rtruediv__(self, other):
+        if isinstance(other, (int, float)):
+            # other / (a+bi) = other * (a-bi) / (a²+b²)
+            denom = self.real * self.real + self.imag * self.imag
+            if denom == 0:
+                raise ZeroDivisionError("Complex division by zero")
+            real = other * self.real / denom
+            imag = -other * self.imag / denom
+            return complex(real, imag)
+        return NotImplemented
+
+    def __pow__(self, other):
+        if isinstance(other, (int, float)):
+            # Use polar form for exponentiation
+            r, phi = polar(self)
+            new_r = pow(r, other)
+            new_phi = phi * other
+            return rect(new_r, new_phi)
+        if isinstance(other, complex):
+            # z^w = e^(w*ln(z))
+            ln_z = log(self)
+            exponent = other * ln_z
+            return exp(exponent)
+        return NotImplemented
+
+    def __rpow__(self, other):
+        if isinstance(other, (int, float)):
+            # a^z = e^(z*ln(a))
+            if other <= 0:
+                raise ValueError("Negative base for complex power")
+            ln_a = math.log(other)
+            exponent = self * ln_a
+            return exp(exponent)
+        return NotImplemented
+
+    def __neg__(self):
+        return complex(-self.real, -self.imag)
+
+    def __pos__(self):
+        return complex(self.real, self.imag)
+
+    def __abs__(self) -> float:
+        return sqrt(self.real * self.real + self.imag * self.imag)
+
+    def __bool__(self) -> bool:
+        return self.real != 0 or self.imag != 0
+
+    def __complex__(self) -> complex:
+        return self
+
+    def conjugate(self) -> complex:
+        """Return complex conjugate."""
+        return complex(self.real, -self.imag)
+
+    @property
+    def imag(self) -> float:
+        return self._imag
+
+    @imag.setter
+    def imag(self, value: float):
+        self._imag = float(value)
+
+    @property
+    def real(self) -> float:
+        return self._real
+
+    @real.setter
+    def real(self, value: float):
+        self._real = float(value)
+
+
+# ============================================
+# Conversions
+# ============================================
+
+def polar(z) -> tuple:
+    """Convert complex to polar coordinates.
+
+    Args:
+        z: Complex number
+
+    Returns:
+        Tuple of (r, phi) where r is modulus and phi is phase
+    """
+    if isinstance(z, complex):
+        r = abs(z)
+        phi = atan2(z.imag, z.real)
+    else:
+        r = abs(z)
+        phi = 0 if z >= 0 else pi
+    return (r, phi)
+
+
+def rect(r, phi) -> complex:
+    """Convert polar to complex.
+
+    Args:
+        r: Modulus (distance from origin)
+        phi: Phase angle in radians
+
+    Returns:
+        Complex number
+    """
+    return complex(r * cos(phi), r * sin(phi))
+
+
+# ============================================
+# Elementary Functions
+# ============================================
+
+def exp(z) -> complex:
+    """Return e raised to the power z.
+
+    e^z = e^x * (cos(y) + i*sin(y)) where z = x + yi
+    """
+    if isinstance(z, complex):
+        exp_real = math.exp(z.real)
+        return complex(exp_real * cos(z.imag), exp_real * sin(z.imag))
+    return complex(math.exp(z), 0)
+
+
+def log(z, base=None) -> complex:
+    """Return logarithm of z.
+
+    Args:
+        z: Complex number
+        base: Base of logarithm (default e)
+    """
+    if isinstance(z, complex):
+        r, phi = polar(z)
+        result = complex(math.log(r), phi)
+    else:
+        result = complex(math.log(z), 0)
+
+    if base is not None:
+        if isinstance(base, complex):
+            result = result / log(base)
+        else:
+            result = result / complex(math.log(base))
+
+    return result
+
+
+def log10(z) -> complex:
+    """Return base-10 logarithm."""
+    return log(z, 10)
+
+
+def sqrt(z) -> complex:
+    """Return square root of z."""
+    if isinstance(z, complex):
+        r, phi = polar(z)
+        sqrt_r = math.sqrt(r)
+        return rect(sqrt_r, phi / 2)
+    if z < 0:
+        return complex(0, math.sqrt(-z))
+    return complex(math.sqrt(z), 0)
+
+
+# ============================================
+# Trigonometric Functions
+# ============================================
+
+def cos(z) -> complex:
+    """Return cosine of z.
+
+    cos(z) = (e^(iz) + e^(-iz)) / 2
+    """
+    if isinstance(z, complex):
+        # cos(x+yi) = cos(x)cosh(y) - i*sin(x)sinh(y)
+        return complex(
+            math.cos(z.real) * math.cosh(z.imag),
+            -math.sin(z.real) * math.sinh(z.imag)
+        )
+    return complex(math.cos(z), 0)
+
+
+def sin(z) -> complex:
+    """Return sine of z.
+
+    sin(z) = (e^(iz) - e^(-iz)) / (2i)
+    """
+    if isinstance(z, complex):
+        # sin(x+yi) = sin(x)cosh(y) + i*cos(x)sinh(y)
+        return complex(
+            math.sin(z.real) * math.cosh(z.imag),
+            math.cos(z.real) * math.sinh(z.imag)
+        )
+    return complex(math.sin(z), 0)
+
+
+def tan(z) -> complex:
+    """Return tangent of z."""
+    c = cos(z)
+    if abs(c) < 1e-15:
+        raise ZeroDivisionError("Complex tangent undefined")
+    return sin(z) / c
+
+
+def acos(z) -> complex:
+    """Return arc cosine of z."""
+    # acos(z) = -i * ln(z + sqrt(z²-1))
+    z2 = z * z
+    sqrt_term = sqrt(z2 - 1)
+    ln_term = log(z + sqrt_term)
+    return complex(0, -1) * ln_term
+
+
+def asin(z) -> complex:
+    """Return arc sine of z."""
+    # asin(z) = -i * ln(iz + sqrt(1-z²))
+    iz = complex(0, 1) * z
+    sqrt_term = sqrt(1 - z * z)
+    ln_term = log(iz + sqrt_term)
+    return complex(0, -1) * ln_term
+
+
+def atan(z) -> complex:
+    """Return arc tangent of z."""
+    # atan(z) = (i/2) * ln((1-iz)/(1+iz))
+    iz = complex(0, 1) * z
+    one_minus_iz = 1 - iz
+    one_plus_iz = 1 + iz
+    ln_term = log(one_minus_iz / one_plus_iz)
+    return complex(0, 0.5) * ln_term
+
+
+# ============================================
+# Hyperbolic Functions
+# ============================================
+
+def cosh(z) -> complex:
+    """Return hyperbolic cosine of z.
+
+    cosh(z) = (e^z + e^(-z)) / 2
+    """
+    if isinstance(z, complex):
+        # cosh(x+yi) = cosh(x)cos(y) + i*sinh(x)sin(y)
+        return complex(
+            math.cosh(z.real) * math.cos(z.imag),
+            math.sinh(z.real) * math.sin(z.imag)
+        )
+    return complex(math.cosh(z), 0)
+
+
+def sinh(z) -> complex:
+    """Return hyperbolic sine of z.
+
+    sinh(z) = (e^z - e^(-z)) / 2
+    """
+    if isinstance(z, complex):
+        # sinh(x+yi) = sinh(x)cos(y) + i*cosh(x)sin(y)
+        return complex(
+            math.sinh(z.real) * math.cos(z.imag),
+            math.cosh(z.real) * math.sin(z.imag)
+        )
+    return complex(math.sinh(z), 0)
+
+
+def tanh(z) -> complex:
+    """Return hyperbolic tangent of z."""
+    c = cosh(z)
+    if abs(c) < 1e-15:
+        raise ZeroDivisionError("Complex hyperbolic tangent undefined")
+    return sinh(z) / c
+
+
+def acosh(z) -> complex:
+    """Return inverse hyperbolic cosine."""
+    # acosh(z) = ln(z + sqrt(z²-1))
+    sqrt_term = sqrt(z * z - 1)
+    return log(z + sqrt_term)
+
+
+def asinh(z) -> complex:
+    """Return inverse hyperbolic sine."""
+    # asinh(z) = ln(z + sqrt(z²+1))
+    sqrt_term = sqrt(z * z + 1)
+    return log(z + sqrt_term)
+
+
+def atanh(z) -> complex:
+    """Return inverse hyperbolic tangent."""
+    # atanh(z) = (1/2) * ln((1+z)/(1-z))
+    if isinstance(z, complex):
+        one_plus_z = 1 + z
+        one_minus_z = 1 - z
+        return complex(0.5, 0) * log(one_plus_z / one_minus_z)
+    if abs(z) >= 1:
+        raise ValueError("atanh domain error")
+    return complex(0.5 * math.log((1 + z) / (1 - z)), 0)
+
+
+# ============================================
+# Classification Functions
+# ============================================
+
+def isfinite(z) -> bool:
+    """Check if z is finite."""
+    if isinstance(z, complex):
+        return math.isfinite(z.real) and math.isfinite(z.imag)
+    return math.isfinite(z)
+
+
+def isinf(z) -> bool:
+    """Check if z is infinite."""
+    if isinstance(z, complex):
+        return math.isinf(z.real) or math.isinf(z.imag)
+    return math.isinf(z)
+
+
+def isnan(z) -> bool:
+    """Check if z is NaN."""
+    if isinstance(z, complex):
+        return math.isnan(z.real) or math.isnan(z.imag)
+    return math.isnan(z)
+
+
+def isclose(a, b, rel_tol=1e-9, abs_tol=0.0) -> bool:
+    """Check if two complex numbers are close."""
+    if isinstance(a, complex):
+        if not isinstance(b, complex):
+            b = complex(b)
+        return (abs(a.real - b.real) <= max(rel_tol * max(abs(a.real), abs(b.real)), abs_tol) and
+                abs(a.imag - b.imag) <= max(rel_tol * max(abs(a.imag), abs(b.imag)), abs_tol))
+    if isinstance(b, complex):
+        return isclose(b, a, rel_tol, abs_tol)
+    return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+
+
+# ============================================
+# Phase and Angle Functions
+# ============================================
+
+def phase(z) -> float:
+    """Return phase (argument) of z in radians."""
+    if isinstance(z, complex):
+        return atan2(z.imag, z.real)
+    return 0 if z >= 0 else pi
+
+
+def atan2(y, x) -> float:
+    """Return atan(y/x) with correct quadrant."""
+    if isinstance(y, complex) or isinstance(x, complex):
+        raise TypeError("atan2 requires real arguments")
+    return math.atan2(y, x)
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test cmath functionality."""
+    print("Testing cmath module...")
+
+    # Test complex creation
+    print("  Testing complex creation...")
+    z1 = complex(3, 4)
+    z2 = complex(1, -2)
+    print("    z1 = " + str(z1))
+    print("    z2 = " + str(z2))
+
+    # Test arithmetic
+    print("  Testing arithmetic...")
+    print("    z1 + z2 = " + str(z1 + z2))
+    print("    z1 - z2 = " + str(z1 - z2))
+    print("    z1 * z2 = " + str(z1 * z2))
+    print("    z1 / z2 = " + str(z1 / z2))
+
+    # Test abs
+    print("  Testing abs...")
+    print("    |z1| = " + str(abs(z1)))
+
+    # Test conjugate
+    print("  Testing conjugate...")
+    print("    conjugate(z1) = " + str(z1.conjugate()))
+
+    # Test polar/rect
+    print("  Testing polar/rect...")
+    r, phi = polar(z1)
+    print("    polar(z1) = (r=" + str(r) + ", phi=" + str(phi) + ")")
+    z1_back = rect(r, phi)
+    print("    rect(r, phi) = " + str(z1_back))
+
+    # Test exp/log
+    print("  Testing exp/log...")
+    e_z1 = exp(z1)
+    print("    exp(z1) = " + str(e_z1))
+    ln_e_z1 = log(e_z1)
+    print("    log(exp(z1)) = " + str(ln_e_z1))
+
+    # Test sqrt
+    print("  Testing sqrt...")
+    print("    sqrt(-1) = " + str(sqrt(-1)))
+    print("    sqrt(z1) = " + str(sqrt(z1)))
+
+    # Test trig functions
+    print("  Testing trig functions...")
+    print("    cos(0) = " + str(cos(0)))
+    print("    sin(pi/2) = " + str(sin(pi / 2)))
+
+    # Test hyperbolic
+    print("  Testing hyperbolic functions...")
+    print("    cosh(0) = " + str(cosh(0)))
+    print("    sinh(0) = " + str(sinh(0)))
+
+    # Test classification
+    print("  Testing classification...")
+    print("    isfinite(z1) = " + str(isfinite(z1)))
+    print("    isinf(inf) = " + str(isinf(inf)))
+    print("    isnan(nan) = " + str(isnan(nan)))
+
+    print("cmath tests completed!")
