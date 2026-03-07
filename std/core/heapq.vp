@@ -1,0 +1,422 @@
+# Viper Standard Library - heapq module
+# Heap queue algorithms (priority queues)
+
+# Module metadata
+__name__ = "heapq"
+__version__ = "0.4.7"
+
+# ============================================
+# Heap Operations
+# ============================================
+
+def heappush(heap: [object], item):
+    """Push item onto heap, maintaining heap invariant.
+
+    Args:
+        heap: List representing heap (modified in place)
+        item: Item to push
+
+    Example:
+        h = []
+        heappush(h, 3)
+        heappush(h, 1)
+        heappush(h, 2)
+        # h is now [1, 3, 2]
+    """
+    heap.append(item)
+    _siftdown(heap, 0, len(heap) - 1)
+
+
+def heappop(heap: [object]) -> object:
+    """Pop smallest item from heap, maintaining heap invariant.
+
+    Args:
+        heap: List representing heap (modified in place)
+
+    Returns:
+        Smallest item from heap
+
+    Raises:
+        IndexError: If heap is empty
+
+    Example:
+        h = [1, 3, 2]
+        item = heappop(h)  # Returns 1
+    """
+    if len(heap) == 0:
+        raise IndexError("pop from empty heap")
+
+    last = heap.pop()
+    if len(heap) > 0:
+        returnitem = heap[0]
+        heap[0] = last
+        _siftup(heap, 0)
+        return returnitem
+    return last
+
+
+def heappushpop(heap: [object], item) -> object:
+    """Push item then pop smallest item.
+
+    More efficient than separate heappush() and heappop().
+
+    Args:
+        heap: List representing heap
+        item: Item to push
+
+    Returns:
+        Smallest item (may be the pushed item)
+    """
+    if len(heap) > 0 and item > heap[0]:
+        returnitem = heap[0]
+        heap[0] = item
+        _siftup(heap, 0)
+        return returnitem
+    return item
+
+
+def heapreplace(heap: [object], item) -> object:
+    """Pop smallest item then push new item.
+
+    More efficient than separate heappop() and heappush().
+    Heap must be non-empty.
+
+    Args:
+        heap: List representing heap
+        item: Item to push
+
+    Returns:
+        Smallest item before push
+
+    Raises:
+        IndexError: If heap is empty
+    """
+    if len(heap) == 0:
+        raise IndexError("heap is empty")
+
+    returnitem = heap[0]
+    heap[0] = item
+    _siftup(heap, 0)
+    return returnitem
+
+
+def heapify(x: [object]):
+    """Transform list into heap in-place.
+
+    Args:
+        x: List to transform (modified in place)
+
+    Example:
+        lst = [3, 1, 4, 1, 5, 9, 2, 6]
+        heapify(lst)
+        # lst is now a valid heap
+    """
+    n = len(x)
+    # Start from last parent and sift down
+    for i in range((n // 2) - 1, -1, -1):
+        _siftup(x, i)
+
+
+# ============================================
+# Internal Functions
+# ============================================
+
+def _siftdown(heap: [object], startpos: int, pos: int):
+    """Sift item up from pos to maintain heap invariant."""
+    newitem = heap[pos]
+
+    while pos > startpos:
+        parentpos = (pos - 1) >> 1  # (pos - 1) // 2
+        parent = heap[parentpos]
+
+        if newitem < parent:
+            heap[pos] = parent
+            pos = parentpos
+        else:
+            break
+
+    heap[pos] = newitem
+
+
+def _siftup(heap: [object], pos: int):
+    """Sift item down from pos to maintain heap invariant."""
+    endpos = len(heap)
+    startpos = pos
+    newitem = heap[pos]
+
+    # Find the smaller child
+    childpos = 2 * pos + 1  # Left child
+
+    while childpos < endpos:
+        rightpos = childpos + 1  # Right child
+
+        # Choose smaller child
+        if rightpos < endpos and heap[childpos] > heap[rightpos]:
+            childpos = rightpos
+
+        # Move smaller child up
+        heap[pos] = heap[childpos]
+        pos = childpos
+        childpos = 2 * pos + 1
+
+    # Place newitem in final position
+    heap[pos] = newitem
+
+    # Sift up from startpos to final position
+    _siftdown(heap, startpos, pos)
+
+
+# ============================================
+# Utility Functions
+# ============================================
+
+def merge(*iterables) -> [object]:
+    """Merge multiple sorted iterables into sorted output.
+
+    Args:
+        *iterables: Sorted iterables to merge
+
+    Returns:
+        List of merged items in sorted order
+
+    Example:
+        merge([1, 3, 5], [2, 4, 6], [0, 7]) -> [0, 1, 2, 3, 4, 5, 6, 7]
+    """
+    result = []
+    heap = []
+
+    # Initialize heap with first item from each iterable
+    for i, it in enumerate(iterables):
+        for item in it:
+            heap.append((item, i))
+
+    heapify(heap)
+
+    while len(heap) > 0:
+        item, _ = heappop(heap)
+        result.append(item)
+
+    return result
+
+
+def nlargest(n: int, iterable, key=None) -> [object]:
+    """Find n largest elements in iterable.
+
+    Args:
+        n: Number of elements to find
+        iterable: Source of elements
+        key: Optional key function
+
+    Returns:
+        List of n largest elements (descending order)
+
+    Example:
+        nlargest(3, [1, 5, 2, 8, 3]) -> [8, 5, 3]
+    """
+    if n <= 0:
+        return []
+
+    result = []
+
+    for item in iterable:
+        if len(result) < n:
+            heappush(result, item if key is None else (key(item), item))
+        else:
+            # Compare with smallest in heap
+            if key is None:
+                if item > result[0]:
+                    heapreplace(result, item)
+            else:
+                if key(item) > result[0][0]:
+                    heapreplace(result, (key(item), item))
+
+    # Sort descending and extract items
+    result.sort(reverse=True)
+
+    if key is None:
+        return result
+    else:
+        return [item for _, item in result]
+
+
+def nsmallest(n: int, iterable, key=None) -> [object]:
+    """Find n smallest elements in iterable.
+
+    Args:
+        n: Number of elements to find
+        iterable: Source of elements
+        key: Optional key function
+
+    Returns:
+        List of n smallest elements (ascending order)
+
+    Example:
+        nsmallest(3, [1, 5, 2, 8, 3]) -> [1, 2, 3]
+    """
+    if n <= 0:
+        return []
+
+    result = []
+
+    for item in iterable:
+        if len(result) < n:
+            # Use negative for max-heap behavior
+            if key is None:
+                heappush(result, (-item, item))
+            else:
+                heappush(result, (-key(item), item))
+        else:
+            # Compare with largest in heap (smallest negative)
+            if key is None:
+                if item < -result[0][0]:
+                    heapreplace(result, (-item, item))
+            else:
+                if key(item) < -result[0][0]:
+                    heapreplace(result, (-key(item), item))
+
+    # Sort ascending and extract items
+    result.sort()
+
+    if key is None:
+        return [item for _, item in result]
+    else:
+        return [item for _, item in result]
+
+
+# ============================================
+# Advanced Functions
+# ============================================
+
+def is_heap(x: [object]) -> bool:
+    """Check if list is a valid heap.
+
+    Args:
+        x: List to check
+
+    Returns:
+        True if x is a valid heap
+    """
+    for i in range(len(x) // 2):
+        left = 2 * i + 1
+        right = 2 * i + 2
+
+        if left < len(x) and x[i] > x[left]:
+            return False
+        if right < len(x) and x[i] > x[right]:
+            return False
+
+    return True
+
+
+def heap_sort(iterable) -> [object]:
+    """Sort iterable using heap sort.
+
+    Args:
+        iterable: Items to sort
+
+    Returns:
+        Sorted list
+    """
+    h = []
+    for item in iterable:
+        heappush(h, item)
+    return [heappop(h) for _ in range(len(h))]
+
+
+# ============================================
+# Key Function Support
+# ============================================
+
+def heappush_key(heap: [object], item, key=None):
+    """Push item onto heap using key function."""
+    if key is None:
+        heappush(heap, item)
+    else:
+        heappush(heap, (key(item), item))
+
+
+def heappop_key(heap: [object], key=None) -> object:
+    """Pop item from heap using key function."""
+    if key is None:
+        return heappop(heap)
+    else:
+        _, item = heappop(heap)
+        return item
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test heapq functionality."""
+    print("Testing heapq module...")
+
+    # Test basic heap operations
+    print("  Testing heappush/heappop...")
+    h = []
+    heappush(h, 3)
+    heappush(h, 1)
+    heappush(h, 4)
+    heappush(h, 1)
+    heappush(h, 5)
+    print("    After pushes: " + str(h))
+    print("    heappop: " + str(heappop(h)))
+    print("    heappop: " + str(heappop(h)))
+    print("    heappop: " + str(heappop(h)))
+
+    # Test heapify
+    print("  Testing heapify...")
+    lst = [3, 1, 4, 1, 5, 9, 2, 6]
+    heapify(lst)
+    print("    heapify([3,1,4,1,5,9,2,6]) = " + str(lst))
+    print("    is_heap: " + str(is_heap(lst)))
+
+    # Test heappushpop
+    print("  Testing heappushpop...")
+    h = [2, 3, 4]
+    result = heappushpop(h, 1)
+    print("    heappushpop([2,3,4], 1) = " + str(result) + ", heap = " + str(h))
+
+    h = [2, 3, 4]
+    result = heappushpop(h, 5)
+    print("    heappushpop([2,3,4], 5) = " + str(result) + ", heap = " + str(h))
+
+    # Test heapreplace
+    print("  Testing heapreplace...")
+    h = [2, 3, 4]
+    result = heapreplace(h, 1)
+    print("    heapreplace([2,3,4], 1) = " + str(result) + ", heap = " + str(h))
+
+    # Test nlargest
+    print("  Testing nlargest...")
+    data = [1, 5, 2, 8, 3, 9, 4]
+    result = nlargest(3, data)
+    print("    nlargest(3, [1,5,2,8,3,9,4]) = " + str(result))
+
+    # Test nsmallest
+    print("  Testing nsmallest...")
+    result = nsmallest(3, data)
+    print("    nsmallest(3, [1,5,2,8,3,9,4]) = " + str(result))
+
+    # Test with key function
+    print("  Testing with key function...")
+    words = ["apple", "banana", "cherry", "date", "elderberry"]
+    result = nlargest(2, words, key=len)
+    print("    nlargest(2, words, key=len) = " + str(result))
+
+    result = nsmallest(2, words, key=len)
+    print("    nsmallest(2, words, key=len) = " + str(result))
+
+    # Test heap_sort
+    print("  Testing heap_sort...")
+    data = [5, 2, 8, 1, 9, 3]
+    sorted_data = heap_sort(data)
+    print("    heap_sort([5,2,8,1,9,3]) = " + str(sorted_data))
+
+    # Test merge
+    print("  Testing merge...")
+    result = merge([1, 3, 5], [2, 4, 6], [0, 7])
+    print("    merge([1,3,5], [2,4,6], [0,7]) = " + str(result))
+
+    print("heapq tests completed!")
