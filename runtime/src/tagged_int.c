@@ -24,14 +24,13 @@ static inline bool fits_in_i63(int64_t value) {
  */
 static ViperBigInt* alloc_bigint_for_tagged(void) {
     /* Use ARC allocation for proper memory management */
-    ViperBigInt* bigint = (ViperBigInt*)vp_arc_alloc(sizeof(ViperBigInt));
+    ViperBigInt* bigint = (ViperBigInt*)malloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;
 
     /* Initialize GMP value */
     mpz_init(bigint->value);
     
     /* Set destructor for ARC cleanup */
-    vp_arc_set_destructor(bigint, (void (*)(void*))vp_bigint_destroy);
     
     return bigint;
 }
@@ -42,7 +41,8 @@ static ViperBigInt* alloc_bigint_for_tagged(void) {
  */
 static void free_bigint_for_tagged(ViperBigInt* bigint) {
     if (bigint) {
-        vp_arc_release(bigint);
+        mpz_clear(bigint->value);
+        free(bigint);
     }
 }
 
@@ -75,14 +75,15 @@ static inline TaggedInt try_demote_bigint(mpz_t value) {
 TaggedInt tagged_int_from_str(const char* str) {
     if (!str) return tagged_int_from_i64(0);
     
-    ViperBigInt* bigint = vp_bigint_from_str(str);
+    ViperBigInt* bigint = alloc_bigint_for_tagged();
     if (!bigint) return tagged_int_from_i64(0);
     
     /* Check if the value fits in SmallInt */
     if (mpz_fits_slong_p(bigint->value)) {
         int64_t small_val = mpz_get_si(bigint->value);
         if (small_val >= TAGGED_INT_MIN_SMALL && small_val <= TAGGED_INT_MAX_SMALL) {
-            vp_arc_release(bigint);
+            mpz_clear(bigint->value);
+        free(bigint);
             return tagged_int_from_i64(small_val);
         }
     }
@@ -130,7 +131,8 @@ ViperBigInt* tagged_int_to_bigint(TaggedInt value) {
  */
 static void free_temp_bigint(ViperBigInt* bigint) {
     if (bigint) {
-        vp_arc_release(bigint);
+        mpz_clear(bigint->value);
+        free(bigint);
     }
 }
 
@@ -600,7 +602,8 @@ void tagged_int_free(TaggedInt value) {
         ViperBigInt* bigint = tagged_int_get_bigint(value);
         /* Use ARC release for proper memory management */
         if (bigint != NULL) {
-            vp_arc_release(bigint);
+            mpz_clear(bigint->value);
+        free(bigint);
         }
     }
     /* Small integers don't need freeing */
