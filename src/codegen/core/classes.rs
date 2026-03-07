@@ -10,9 +10,9 @@ impl<'ctx> CodeGen<'ctx> {
     pub(crate) fn generate_classes(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         // First pass: collect all class metadata
         for stmt in stmts {
-            if let Stmt::Class { name, bases, body, span: _, decorators: _, fields, methods } = stmt {
+            if let Stmt::Class { name, bases, body, span: _, decorators, fields, methods } = stmt {
                 let metadata = crate::codegen::oop::generate_class_metadata(
-                    name, bases, body, fields, methods
+                    name, bases, body, decorators, fields, methods
                 )?;
                 crate::codegen::oop::with_class_registry_mut(|reg| {
                     reg.register_class(metadata);

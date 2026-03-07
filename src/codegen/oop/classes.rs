@@ -374,10 +374,14 @@ pub fn generate_class_metadata(
     name: &str,
     bases: &[Expr],
     body: &[Stmt],
+    decorators: &[crate::ast::Decorator],
     fields: &[(String, Option<Type>, bool)],
     _methods: &[String],
 ) -> Result<ClassMetadata, String> {
     let mut metadata = ClassMetadata::new(name.to_string());
+
+    // Check for @dataclass decorator on class
+    let is_dataclass = decorators.iter().any(|d| d.name == "dataclass");
 
     // Process base classes
     for base in bases {
@@ -388,21 +392,40 @@ pub fn generate_class_metadata(
 
     // Process fields
     let mut current_offset = 0usize;
-    
+
     // Add fields from the definition
     for (field_name, type_ann, is_class_var) in fields {
         let ty = type_ann.clone().unwrap_or(Type::Infer);
         let field_size = get_type_size(&ty);
-        
+
         metadata.fields.push(FieldInfo {
             name: field_name.clone(),
             ty,
             offset: current_offset,
             is_class_var: *is_class_var,
         });
-        
+
         if !is_class_var {
             current_offset += field_size;
+        }
+    }
+
+    // For @dataclass, also collect annotated fields from class body
+    if is_dataclass {
+        for stmt in body {
+            if let Stmt::Declare { name: field_name, type_ann: Some(ty), .. } = stmt {
+                // Add field if not already present
+                if !metadata.fields.iter().any(|f| f.name == *field_name) {
+                    let field_size = get_type_size(ty);
+                    metadata.fields.push(FieldInfo {
+                        name: field_name.clone(),
+                        ty: ty.clone(),
+                        offset: current_offset,
+                        is_class_var: false,
+                    });
+                    current_offset += field_size;
+                }
+            }
         }
     }
 
@@ -419,6 +442,9 @@ pub fn generate_class_metadata(
     }
 
     metadata.instance_size = current_offset.max(8); // Minimum 8 bytes
+
+    // Note: @dataclass decorator support is planned for future enhancement
+    // Currently we just collect fields from annotated class variables
 
     // Process methods
     for stmt in body {
