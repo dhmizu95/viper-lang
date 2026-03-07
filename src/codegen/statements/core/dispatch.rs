@@ -38,6 +38,7 @@ pub fn generate_stmt<'ctx>(
     var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
 ) -> Result<(), String> {
+    let mut closure_cells = HashMap::new();
     let mut state = CodeGenState::new(
         context,
         module,
@@ -52,6 +53,7 @@ pub fn generate_stmt<'ctx>(
         bool_list_vars,
         bigint_vars,
         var_types,
+        &mut closure_cells,
     );
 
     generate_stmt_internal(&mut state, stmt)
@@ -77,6 +79,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     current_function: &str,
     current_class: Option<&str>,
 ) -> Result<(), String> {
+    let mut closure_cells = HashMap::new();
     let mut state = CodeGenState::with_escape_analysis(
         context,
         module,
@@ -93,6 +96,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         var_types,
         escape_analyzer,
         current_function,
+        &mut closure_cells,
     );
     state.current_class = current_class.map(|s| s.to_string());
 
@@ -120,6 +124,10 @@ pub fn generate_stmt_with_closure<'ctx>(
     closure_analyzer: &ClosureAnalyzer,
     current_class: Option<&str>,
 ) -> Result<(), String> {
+    // Create a dummy closure_cells for single-statement generation
+    // This is used for module-level statements where closure cells aren't needed
+    let mut closure_cells = HashMap::new();
+    
     let mut state = CodeGenState::with_closure_analysis(
         context,
         module,
@@ -137,6 +145,7 @@ pub fn generate_stmt_with_closure<'ctx>(
         escape_analyzer,
         current_function,
         closure_analyzer,
+        &mut closure_cells,
     );
     state.current_class = current_class.map(|s| s.to_string());
 

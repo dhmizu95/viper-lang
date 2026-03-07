@@ -295,12 +295,12 @@ impl TypeChecker {
                 self.symbol_table.exit_scope();
             }
             Stmt::Function {
-                name: _,
-                type_params: _,
+                name,
+                type_params,
                 params,
                 return_type,
                 body,
-                span: _,
+                span,
                 is_async: _,
                 decorators: _,
             } => {
@@ -309,7 +309,7 @@ impl TypeChecker {
 
                 // Save current return type and set new one
                 let old_return_type = self.current_return_type.clone();
-                
+
                 // FIX: If no return type annotation, infer from return statements
                 let mut inferred_return_type = return_type.clone();
                 if inferred_return_type.is_none() {
@@ -326,7 +326,7 @@ impl TypeChecker {
                         }
                     }
                 }
-                
+
                 self.current_return_type = inferred_return_type.clone();
 
                 // Add parameters to scope
@@ -343,7 +343,46 @@ impl TypeChecker {
                     }
                 }
 
-                // Check function body
+                // First pass: collect nested function declarations
+                // This allows nested functions to be called within the enclosing function
+                for stmt in body {
+                    if let Stmt::Function { 
+                        name: nested_name, 
+                        params: nested_params, 
+                        return_type: nested_return, 
+                        span: nested_span,
+                        type_params: nested_type_params,
+                        .. 
+                    } = stmt {
+                        // Normalize nested function parameter types
+                        let param_types: Vec<Type> = nested_params.iter()
+                            .map(|p| {
+                                p.type_ann.as_ref()
+                                    .map(|t| self.normalize_type(t))
+                                    .unwrap_or(Type::Infer)
+                            })
+                            .collect();
+                        
+                        // Normalize nested function return type
+                        let normalized_return = nested_return.as_ref()
+                            .map(|t| self.normalize_type(t));
+                        
+                        // Register nested function in current scope
+                        let symbol = Symbol::new_function(
+                            nested_name.clone(),
+                            param_types,
+                            normalized_return,
+                            *nested_span,
+                            self.symbol_table.current_scope_id(),
+                            nested_type_params.clone(),
+                        );
+                        if let Err(e) = self.symbol_table.insert(symbol) {
+                            self.errors.push(TypeError::new(e, *nested_span));
+                        }
+                    }
+                }
+
+                // Second pass: check function body (including nested function bodies)
                 for stmt in body {
                     self.check_stmt(stmt);
                 }

@@ -138,20 +138,24 @@ impl<'ctx> CodeGen<'ctx> {
         if !nonlocal_vars.is_empty() {
             for (i, var_name) in nonlocal_vars.iter().enumerate() {
                 let cell_param = func.get_nth_param((num_regular_params + i) as u32).unwrap();
-                // Store the closure cell pointer
-                self.closure_cells.insert(var_name.clone(), crate::codegen::state::ClosureCellInfo {
-                    cell_ptr: cell_param.into_pointer_value(),
-                    value_ptr: cell_param.into_pointer_value(),
-                    var_type: VarType::Int,
-                });
-                // Create a variable entry that points to the closure cell
+                let cell_ptr = cell_param.into_pointer_value();
+                
+                // Get the value pointer inside the cell
                 let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let value_ptr = crate::codegen::closure_cells::get_closure_cell_value(
                     self.context, &self.module, &self.builder,
-                    cell_param.into_pointer_value(), i64_ptr_type
-                ).unwrap_or(cell_param.into_pointer_value());
+                    cell_ptr, i64_ptr_type
+                ).unwrap_or(cell_ptr);
+                
+                // Store the closure cell pointer and value pointer
+                self.closure_cells.insert(var_name.clone(), crate::codegen::state::ClosureCellInfo {
+                    cell_ptr,
+                    value_ptr,
+                    var_type: VarType::Int,
+                });
+                // Create a variable entry that points to the closure cell
                 self.variables.insert(var_name.clone(), VarInfo::new_closure_cell(
-                    cell_param.into_pointer_value(), VarType::Int, value_ptr
+                    cell_ptr, VarType::Int, value_ptr
                 ));
             }
         }
@@ -160,27 +164,30 @@ impl<'ctx> CodeGen<'ctx> {
         // This is handled in the assignment codegen when it detects a variable is captured
 
         // Generate body using escape analysis and closure analysis
+        // Create a single state for all statements to preserve closure_cells across statements
+        let mut state = crate::codegen::state::CodeGenState::with_closure_analysis(
+            self.context,
+            &self.module,
+            &self.builder,
+            &self.ir_builder,
+            &mut self.variables,
+            &self.functions,
+            &mut self.global_constants,
+            &mut self.loop_stack,
+            &mut self.list_vars,
+            &mut self.dict_vars,
+            &mut self.bool_list_vars,
+            &mut self.bigint_vars,
+            &mut self.var_types,
+            &mut self.escape_analyzer,
+            original_name,
+            &self.closure_analyzer,
+            &mut self.closure_cells,
+        );
+        state.current_class = self.current_class.clone();
+        
         for stmt in body {
-            crate::codegen::statements::generate_stmt_with_closure(
-                self.context,
-                &self.module,
-                &self.builder,
-                &self.ir_builder,
-                &mut self.variables,
-                &self.functions,
-                &mut self.global_constants,
-                &mut self.loop_stack,
-                &mut self.list_vars,
-                &mut self.dict_vars,
-                &mut self.bool_list_vars,
-                &mut self.bigint_vars,
-                &mut self.var_types,
-                stmt,
-                &mut self.escape_analyzer,
-                original_name,
-                &self.closure_analyzer,
-                self.current_class.as_deref(),
-            )?;
+            crate::codegen::statements::generate_stmt_internal(&mut state, stmt)?;
         }
 
         // Mark function as containing BigInt if it has BigInt variables

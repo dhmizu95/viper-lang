@@ -260,9 +260,31 @@ impl ClosureAnalyzer {
         nested_name: &str,
         body: &[Stmt],
     ) {
+        // Collect nonlocal declarations from the nested function
+        let mut nested_nonlocals = HashSet::new();
+        for stmt in body {
+            if let Stmt::Nonlocal { names, .. } = stmt {
+                for name in names {
+                    nested_nonlocals.insert(name.clone());
+                }
+            }
+        }
+        
+        // Store nonlocal vars in the nested function's closure info
+        if let Some(closure_info) = self.function_closures.get_mut(nested_name) {
+            for var_name in &nested_nonlocals {
+                closure_info.nonlocal_vars.insert(var_name.clone());
+            }
+        }
+
         // Find variables used in nested function that are defined in enclosing function
         let mut used_vars = HashSet::new();
         self.collect_used_vars(body, &mut used_vars);
+        
+        // Nonlocal variables are also considered "used" even if only assigned to
+        for var_name in &nested_nonlocals {
+            used_vars.insert(var_name.clone());
+        }
 
         // Check which used variables are from the enclosing scope
         for var_name in &used_vars {
@@ -270,8 +292,8 @@ impl ClosureAnalyzer {
                 // This variable is captured from the enclosing function
                 // First check mutation and nonlocal status before borrowing
                 let is_mutated = self.is_var_mutated(body, var_name);
-                let is_nonlocal = self.current_nonlocals.contains(var_name);
-                
+                let is_nonlocal = nested_nonlocals.contains(var_name);
+
                 let captured_info = self.captured_vars.entry(var_name.clone()).or_insert_with(|| {
                     CapturedVarInfo {
                         name: var_name.clone(),

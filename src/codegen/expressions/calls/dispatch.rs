@@ -380,13 +380,35 @@ pub fn generate_call<'ctx>(
         });
 
         if let Some(func_val) = func_val {
-            let arg_values: Vec<_> = args
+            // Build argument values
+            let mut arg_values: Vec<_> = args
                 .iter()
                 .map(|a| {
                     generate_expr(state, a)
                         .map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
                 })
                 .collect::<Result<_, _>>()?;
+
+            // If this is a nested function call, append closure cells
+            if let Some(closure_analyzer) = state.closure_analyzer {
+                if let Some(current_func) = state.current_function {
+                    // Check if the called function is nested and needs closure cells
+                    let closure_info = closure_analyzer.get_closure_info(name);
+                    if let Some(info) = closure_info {
+                        if info.enclosing_function.is_some() {
+                            // This is a nested function - add closure cell arguments
+                            for var_name in &info.nonlocal_vars {
+                                // Look up the closure cell in current state
+                                if let Some(cell_info) = state.closure_cells.get(var_name) {
+                                    // Convert pointer to BasicValueEnum then to BasicMetadataValueEnum
+                                    let cell_ptr_val: inkwell::values::BasicValueEnum = cell_info.cell_ptr.into();
+                                    arg_values.push(cell_ptr_val.into());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "call");
             return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));

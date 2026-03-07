@@ -44,7 +44,8 @@ pub struct CodeGenState<'a, 'ctx> {
     /// Variables that are captured by nested functions (need closure cells)
     pub captured_vars: HashSet<String>,
     /// Closure cells passed from enclosing function (for nested functions)
-    pub closure_cells: HashMap<String, ClosureCellInfo<'ctx>>,
+    /// This is a mutable reference to share state across statements
+    pub closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
 }
 
 impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
@@ -63,6 +64,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         bool_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
+        closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
     ) -> Self {
         Self {
             context,
@@ -84,7 +86,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_class: None,
             in_classmethod: false,
             captured_vars: HashSet::new(),
-            closure_cells: HashMap::new(),
+            closure_cells,
         }
     }
 
@@ -106,6 +108,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         var_types: &'a mut HashMap<String, Type>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
+        closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
     ) -> Self {
         Self {
             context,
@@ -127,7 +130,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_class: None,
             in_classmethod: false,
             captured_vars: HashSet::new(),
-            closure_cells: HashMap::new(),
+            closure_cells,
         }
     }
 
@@ -150,6 +153,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
         closure_analyzer: &'a ClosureAnalyzer,
+        closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
     ) -> Self {
         Self {
             context,
@@ -171,7 +175,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_class: None,
             in_classmethod: false,
             captured_vars: HashSet::new(),
-            closure_cells: HashMap::new(),
+            closure_cells,
         }
     }
 

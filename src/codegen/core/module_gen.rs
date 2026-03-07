@@ -43,6 +43,7 @@ impl<'ctx> CodeGen<'ctx> {
                     // Create a true constant (explicit const keyword)
                     // Note: We use set_constant(false) to allow runtime access,
                     // immutability is enforced by the type checker
+                    let mut closure_cells = std::collections::HashMap::new();
                     let val = crate::codegen::expressions::generate_expr(
                         &mut crate::codegen::state::CodeGenState::new(
                             self.context,
@@ -58,6 +59,7 @@ impl<'ctx> CodeGen<'ctx> {
                             &mut self.bool_list_vars,
                             &mut self.bigint_vars,
                             &mut self.var_types,
+                            &mut closure_cells,
                         ),
                         value,
                     )?;
@@ -78,6 +80,7 @@ impl<'ctx> CodeGen<'ctx> {
                         if !Self::is_simple_initializer_expr(value) {
                             continue; // Will be handled as regular statement in viper_init
                         }
+                        let mut closure_cells = std::collections::HashMap::new();
                         let val = crate::codegen::expressions::generate_expr(
                             &mut crate::codegen::state::CodeGenState::new(
                                 self.context,
@@ -93,6 +96,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.bool_list_vars,
                                 &mut self.bigint_vars,
                                 &mut self.var_types,
+                                &mut closure_cells,
                             ),
                             value,
                         )?;
