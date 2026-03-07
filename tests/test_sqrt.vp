@@ -1,8 +1,10 @@
+import math
+
 def main():
     a = 1000000000000000000000000
     print("a = ")
     print(a)
-    s = sqrt_int(a)
+    s = math.isqrt(a)
     print("sqrt(a) = ")
     print(s)
 

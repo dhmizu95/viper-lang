@@ -7,6 +7,7 @@ pub fn register_string_stubs(ee: &ExecutionEngine, module: &Module) {
     // String functions
     register_stubs!(ee, module, [
         "vp_str_concat" => super::super::strings::vp_str_concat_stub,
+        "vp_str_repeat" => super::super::strings::vp_str_repeat_stub,
         "vp_str_from_i64" => super::super::strings::vp_str_from_i64_stub,
         "vp_str_from_f64" => super::super::strings::vp_str_from_f64_stub,
         "vp_str_len" => super::super::strings::vp_str_len_stub,
@@ -19,5 +20,6 @@ pub fn register_string_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_str_format" => super::super::strings::vp_str_format_stub,
         "vp_str_equals" => super::super::strings::vp_str_equals_stub,
         "vp_str_compare" => super::super::strings::vp_str_compare_stub,
+        "vp_exit" => super::super::strings::vp_exit_stub,
     ]);
 }

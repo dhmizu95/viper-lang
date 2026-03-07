@@ -106,6 +106,86 @@ pub fn generate_binop<'ctx>(
                 return Ok(result.into());
             }
         }
+        
+        // Handle string * int for string repetition
+        let is_str_left = match left {
+            Expr::Str(_, _) | Expr::FString(_, _) => true,
+            _ => false,
+        };
+        let is_int_right = match right {
+            Expr::Int(_, _) => true,
+            _ => false,
+        };
+        
+        if is_str_left && is_int_right {
+            // Generate the string
+            let str_val = generate_expr(state, left)?;
+            // Generate the count
+            let count_val = generate_expr(state, right)?;
+            let count_int = if count_val.is_int_value() {
+                count_val.into_int_value()
+            } else {
+                return Err("String repetition count must be an integer".to_string());
+            };
+            
+            // Call vp_str_repeat
+            let str_repeat_func = state
+                .module
+                .get_function("vp_str_repeat")
+                .ok_or_else(|| "vp_str_repeat not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    str_repeat_func,
+                    &[str_val.into(), count_int.into()],
+                    "str_repeat",
+                )
+                .expect("str_repeat call");
+            
+            return Ok(result.into());
+        }
+        
+        // Also handle int * str
+        let is_int_left = match left {
+            Expr::Int(_, _) => true,
+            _ => false,
+        };
+        let is_str_right = match right {
+            Expr::Str(_, _) | Expr::FString(_, _) => true,
+            _ => false,
+        };
+        
+        if is_int_left && is_str_right {
+            // Generate the count
+            let count_val = generate_expr(state, left)?;
+            let count_int = if count_val.is_int_value() {
+                count_val.into_int_value()
+            } else {
+                return Err("String repetition count must be an integer".to_string());
+            };
+            // Generate the string
+            let str_val = generate_expr(state, right)?;
+            
+            // Call vp_str_repeat
+            let str_repeat_func = state
+                .module
+                .get_function("vp_str_repeat")
+                .ok_or_else(|| "vp_str_repeat not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    str_repeat_func,
+                    &[count_int.into(), str_val.into()],
+                    "str_repeat",
+                )
+                .expect("str_repeat call");
+            
+            return Ok(result.into());
+        }
     }
 
     // Generate both operands for other operations

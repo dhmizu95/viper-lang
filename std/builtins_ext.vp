@@ -344,50 +344,5 @@ def max(*args, **kwargs):
             if item_key > max_key:
                 maximum = item
                 max_key = item_key
-    
+
     return maximum
-
-# ============================================
-# Number Conversion
-# ============================================
-
-def str_int(s: str, base: int = 10) -> int:
-    """Convert string to integer.
-    
-    str_int('123') -> 123
-    str_int('ff', 16) -> 255
-    """
-    return int(s, base)
-
-# ============================================
-# Math Functions
-# ============================================
-
-def abs_int(n: int) -> int:
-    """Return absolute value of integer.
-    
-    abs_int(-5) -> 5
-    abs_int(5) -> 5
-    """
-    if n < 0:
-        return -n
-    return n
-
-def sqrt_int(n: int) -> int:
-    """Return integer square root.
-    
-    sqrt_int(16) -> 4
-    sqrt_int(20) -> 4 (floor)
-    """
-    if n < 0:
-        raise ValueError("sqrt_int() requires non-negative argument")
-    if n == 0:
-        return 0
-    
-    # Newton's method for integer square root
-    x = n
-    y = (x + 1) // 2
-    while y < x:
-        x = y
-        y = (x + n // x) // 2
-    return x

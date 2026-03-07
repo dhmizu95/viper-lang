@@ -284,3 +284,31 @@ pub fn generate_print_call<'ctx>(
 
     return Ok(state.ir_builder.i64_const(0).into());
 }
+
+/// Generate exit call
+pub fn generate_exit_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Get exit code (default 0)
+    let exit_code = if args.is_empty() {
+        state.ir_builder.i64_const(0)
+    } else {
+        let val = generate_expr(state, &args[0])?;
+        if val.is_int_value() {
+            val.into_int_value()
+        } else {
+            return Err("exit() requires an integer argument".to_string());
+        }
+    };
+
+    // Call vp_exit
+    let exit_func = state
+        .module
+        .get_function("vp_exit")
+        .ok_or_else(|| "vp_exit not declared".to_string())?;
+    
+    state.builder.build_call(exit_func, &[exit_code.into()], "exit").expect("vp_exit");
+
+    return Ok(state.ir_builder.i64_const(0).into());
+}

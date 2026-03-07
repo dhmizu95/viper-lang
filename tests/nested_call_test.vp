@@ -4,9 +4,9 @@ def main():
     print("Start")
     a = int("100")
     print("Created a")
-    
+
     # Test direct call in print
-    print("Direct str_int(a):")
-    print(str_int(a))
-    
+    print("Direct str(a):")
+    print(str(a))
+
     print("Done")

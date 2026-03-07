@@ -35,6 +35,10 @@ pub fn declare_print_functions<'ctx>(
     let str_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_concat", str_concat_type, None);
 
+    // String repetition function
+    let str_repeat_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_str_repeat", str_repeat_type, None);
+
     // String conversion functions
     let str_from_i64_type = ptr_type.fn_type(&[i64_type.into()], false);
     module.add_function("vp_str_from_i64", str_from_i64_type, None);
@@ -101,6 +105,10 @@ pub fn declare_print_functions<'ctx>(
 
     let bytes_print_type = void_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_bytes_print", bytes_print_type, None);
+
+    // Exit function
+    let exit_type = void_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_exit", exit_type, None);
 
     Ok(())
 }

@@ -9,14 +9,12 @@ use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 
-// Import functions from parent module (builtins.rs, collections.rs, concurrency.rs)
-use crate::codegen::expressions::{
-    generate_print_call,
-    generate_len_call,
-    generate_hash_call,
-    generate_str_call,
-    generate_type_convert,
-    generate_math_builtin,
+use crate::codegen::expressions::builtins::print::{generate_print_call, generate_exit_call};
+use crate::codegen::expressions::builtins::len::generate_len_call;
+use crate::codegen::expressions::builtins::math::generate_math_builtin;
+use crate::codegen::expressions::builtins::r#struct::{generate_hash_call, generate_struct_pack, generate_struct_unpack};
+use crate::codegen::expressions::builtins::str::{generate_str_call, generate_type_convert};
+use crate::codegen::expressions::concurrency::{
     generate_chan_create,
     generate_chan_send,
     generate_chan_recv,
@@ -24,14 +22,14 @@ use crate::codegen::expressions::{
     generate_waitgroup_done,
     generate_waitgroup_wait,
     generate_waitgroup_add,
-    generate_struct_pack,
-    generate_struct_unpack,
+};
+use crate::codegen::expressions::collections::{
     generate_list_call,
     generate_tuple_call,
     generate_set_call,
-    generate_dict_call,
-    infer_expr_type,
 };
+use crate::codegen::expressions::calls::methods::generate_dict_call;
+use crate::codegen::expressions::core::infer_expr_type;
 
 /// Generate function/method call
 pub fn generate_call<'ctx>(
@@ -81,6 +79,10 @@ pub fn generate_call<'ctx>(
 
         if name == "print" {
             return generate_print_call(state, args);
+        }
+
+        if name == "exit" {
+            return generate_exit_call(state, args);
         }
 
         if name == "len" {

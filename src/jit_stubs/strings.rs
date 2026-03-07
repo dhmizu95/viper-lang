@@ -22,6 +22,32 @@ pub extern "C" fn vp_str_concat_stub(
     }
 }
 
+/// String repetition stub for JIT
+pub extern "C" fn vp_str_repeat_stub(
+    s: *const std::ffi::c_char,
+    count: i64,
+) -> *const std::ffi::c_char {
+    use std::ffi::CStr;
+
+    if s.is_null() || count <= 0 {
+        if count <= 0 {
+            // Return empty string for count <= 0
+            let c_str = std::ffi::CString::new("").unwrap();
+            return c_str.into_raw();
+        }
+        return std::ptr::null();
+    }
+
+    unsafe {
+        let str = CStr::from_ptr(s).to_string_lossy();
+        let repeated = str.repeat(count as usize);
+
+        // Use CString to ensure proper null-terminated layout
+        let c_str = std::ffi::CString::new(repeated).unwrap();
+        c_str.into_raw()
+    }
+}
+
 /// Convert i64 to string stub for JIT
 pub extern "C" fn vp_str_from_i64_stub(val: i64) -> *const std::ffi::c_char {
     let s = val.to_string();
@@ -207,4 +233,9 @@ pub extern "C" fn vp_str_format_stub(
         let c_str = std::ffi::CString::new(result).unwrap();
         c_str.into_raw()
     }
+}
+
+/// Exit stub for JIT - just exits the process
+pub extern "C" fn vp_exit_stub(code: i64) {
+    std::process::exit(code as i32);
 }
