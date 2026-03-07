@@ -1,0 +1,249 @@
+# Viper Standard Library - string module
+# Common string constants and utilities
+
+# Module metadata
+__name__ = "string"
+__version__ = "0.4.7"
+
+# ============================================
+# String Constants
+# ============================================
+
+# Lowercase ASCII letters
+ascii_lowercase: str = "abcdefghijklmnopqrstuvwxyz"
+
+# Uppercase ASCII letters
+ascii_uppercase: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+# All ASCII letters (lowercase + uppercase)
+ascii_letters: str = ascii_lowercase + ascii_uppercase
+
+# Decimal digits
+digits: str = "0123456789"
+
+# Hexadecimal digits (lowercase + uppercase)
+hexdigits: str = digits + "abcdef" + "ABCDEF"
+
+# Octal digits
+octdigits: str = "01234567"
+
+# Punctuation characters
+punctuation: str = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+
+# Whitespace characters
+whitespace: str = " \t\n\r\x0b\x0c"
+
+# Printable characters (digits + letters + punctuation + whitespace)
+printable: str = digits + ascii_letters + punctuation + whitespace
+
+# ============================================
+# Template Class
+# ============================================
+
+class Template:
+    """Template string substitution.
+    
+    Supports $identifier and ${identifier} syntax.
+    
+    Example:
+        t = Template("Hello, $name!")
+        result = t.substitute(name="World")
+        # Returns: "Hello, World!"
+    """
+    
+    def __init__(self, template: str):
+        self.template = template
+    
+    def substitute(self, mapping=None, **kwargs) -> str:
+        """Substitute variables in template.
+        
+        Raises KeyError for missing variables.
+        """
+        if mapping is None:
+            mapping = {}
+        
+        # Combine mapping and kwargs (kwargs take precedence)
+        subs = {}
+        if mapping is not None:
+            for key in mapping:
+                subs[key] = mapping[key]
+        for key in kwargs:
+            subs[key] = kwargs[key]
+        
+        result = self.template
+        i = 0
+        while i < len(result):
+            if result[i] == '$':
+                if i + 1 < len(result):
+                    if result[i + 1] == '{':
+                        # ${identifier} syntax
+                        end = result.find('}', i + 2)
+                        if end != -1:
+                            identifier = result[i + 2:end]
+                            if identifier not in subs:
+                                raise KeyError(identifier)
+                            result = result[:i] + str(subs[identifier]) + result[end + 1:]
+                            i = i + len(str(subs[identifier]))
+                            continue
+                    elif result[i + 1].isalpha() or result[i + 1] == '_':
+                        # $identifier syntax
+                        j = i + 1
+                        while j < len(result) and (result[j].isalnum() or result[j] == '_'):
+                            j = j + 1
+                        identifier = result[i + 1:j]
+                        if identifier not in subs:
+                            raise KeyError(identifier)
+                        result = result[:i] + str(subs[identifier]) + result[j:]
+                        i = i + len(str(subs[identifier]))
+                        continue
+            i = i + 1
+        
+        return result
+    
+    def safe_substitute(self, mapping=None, **kwargs) -> str:
+        """Substitute variables, leaving missing ones unchanged."""
+        if mapping is None:
+            mapping = {}
+        
+        # Combine mapping and kwargs (kwargs take precedence)
+        subs = {}
+        if mapping is not None:
+            for key in mapping:
+                subs[key] = mapping[key]
+        for key in kwargs:
+            subs[key] = kwargs[key]
+        
+        result = self.template
+        i = 0
+        while i < len(result):
+            if result[i] == '$':
+                if i + 1 < len(result):
+                    if result[i + 1] == '{':
+                        # ${identifier} syntax
+                        end = result.find('}', i + 2)
+                        if end != -1:
+                            identifier = result[i + 2:end]
+                            if identifier in subs:
+                                result = result[:i] + str(subs[identifier]) + result[end + 1:]
+                                i = i + len(str(subs[identifier]))
+                                continue
+                            else:
+                                i = end + 1
+                                continue
+                    elif result[i + 1].isalpha() or result[i + 1] == '_':
+                        # $identifier syntax
+                        j = i + 1
+                        while j < len(result) and (result[j].isalnum() or result[j] == '_'):
+                            j = j + 1
+                        identifier = result[i + 1:j]
+                        if identifier in subs:
+                            result = result[:i] + str(subs[identifier]) + result[j:]
+                            i = i + len(str(subs[identifier]))
+                            continue
+            i = i + 1
+        
+        return result
+    
+    def get_identifiers(self) -> [str]:
+        """Get list of variable identifiers in template."""
+        identifiers = []
+        i = 0
+        while i < len(self.template):
+            if self.template[i] == '$':
+                if i + 1 < len(self.template):
+                    if self.template[i + 1] == '{':
+                        # ${identifier} syntax
+                        end = self.template.find('}', i + 2)
+                        if end != -1:
+                            identifier = self.template[i + 2:end]
+                            if identifier not in identifiers:
+                                identifiers.append(identifier)
+                            i = end + 1
+                            continue
+                    elif self.template[i + 1].isalpha() or self.template[i + 1] == '_':
+                        # $identifier syntax
+                        j = i + 1
+                        while j < len(self.template) and (self.template[j].isalnum() or self.template[j] == '_'):
+                            j = j + 1
+                        identifier = self.template[i + 1:j]
+                        if identifier not in identifiers:
+                            identifiers.append(identifier)
+                        i = j
+                        continue
+            i = i + 1
+        
+        return identifiers
+
+# ============================================
+# Formatter Class
+# ============================================
+
+class Formatter:
+    """String formatter (advanced string formatting)."""
+    
+    def __init__(self):
+        pass
+    
+    def format(self, format_string: str, *args, **kwargs) -> str:
+        """Format string with arguments."""
+        # Simplified implementation - basic {index} and {name} substitution
+        result = format_string
+        i = 0
+        arg_index = 0
+        
+        while i < len(result):
+            if result[i] == '{':
+                end = result.find('}', i + 1)
+                if end != -1:
+                    specifier = result[i + 1:end]
+                    
+                    # Check for index or name
+                    if len(specifier) == 0:
+                        # Empty {} - use positional argument
+                        if arg_index < len(args):
+                            result = result[:i] + str(args[arg_index]) + result[end + 1:]
+                            arg_index = arg_index + 1
+                            i = i + len(str(args[arg_index - 1]))
+                            continue
+                    elif specifier.isdigit():
+                        # {index} - positional argument
+                        idx = int(specifier)
+                        if idx < len(args):
+                            result = result[:i] + str(args[idx]) + result[end + 1:]
+                            i = i + len(str(args[idx]))
+                            continue
+                    elif specifier in kwargs:
+                        # {name} - keyword argument
+                        result = result[:i] + str(kwargs[specifier]) + result[end + 1:]
+                        i = i + len(str(kwargs[specifier]))
+                        continue
+            i = i + 1
+        
+        return result
+    
+    def vformat(self, format_string: str, args, kwargs) -> str:
+        """Format string with pre-packed args/kwargs."""
+        return self.format(format_string, *args, **kwargs)
+
+# ============================================
+# Helper Functions
+# ============================================
+
+def capwords(s: str) -> str:
+    """Capitalize words in string.
+    
+    Splits on whitespace, capitalizes each word, joins with single space.
+    """
+    words = s.split()
+    result = []
+    for word in words:
+        if len(word) > 0:
+            result.append(word[0].upper() + word[1:].lower())
+    return " ".join(result)
+
+# Global formatter instance
+_formatter = Formatter()
+
+def format_string(format_string: str, *args, **kwargs) -> str:
+    """Format string using Formatter."""
+    return _formatter.format(format_string, *args, **kwargs)

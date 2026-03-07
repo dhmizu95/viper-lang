@@ -333,7 +333,7 @@ Most modules have C runtime but need:
    - ✅ Type aliases (basic support)
    - ✅ Named tuples (collections.namedtuple)
    - ✅ Iterator protocol (iter, next, StopIteration, for loop integration)
-3. **Phase 3:** ✅ COMPLETE (~98%)
+3. **Phase 3:** ✅ COMPLETE (~99%)
    - ✅ copy module
    - ✅ functools module
    - ✅ itertools module
@@ -343,13 +343,16 @@ Most modules have C runtime but need:
    - ✅ datetime module
    - ✅ builtins extensions (iter, next, reversed, sorted, etc.)
    - ✅ Iterator runtime support (vp_iterator_next)
-   - ⏳ pathlib wiring (pending - wrapper exists)
-4. **Phase 4:** ✅ ~80% Complete
+   - ✅ string module (constants, Template)
+   - ✅ contextlib module (contextmanager, suppress, redirect_stdout)
+   - ✅ dataclasses module (fields, asdict, replace, make_dataclass)
+   - ⏳ pathlib wiring (minor - wrapper exists)
+4. **Phase 4:** ✅ COMPLETE (~80%)
    - ✅ unittest framework (complete)
    - ✅ unittest.mock (complete)
    - ✅ code coverage (complete)
    - ✅ pdb debugger (complete)
-   - ⏳ pathlib wiring (pending)
+   - ⏳ pathlib wiring (minor)
 
 ---
 
