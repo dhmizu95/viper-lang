@@ -40,9 +40,12 @@ impl TypeChecker {
                         }
                         BinOp::Mul => {
                             // List repetition: List * int or int * List is allowed
+                            // String repetition: Str * int or int * Str is allowed
                             let is_list_repeat = match (&lt, &rt) {
                                 (Type::List(_), Type::I64) | (Type::List(_), Type::Int) => true,
                                 (Type::I64, Type::List(_)) | (Type::Int, Type::List(_)) => true,
+                                (Type::Str, Type::I64) | (Type::Str, Type::Int) => true,
+                                (Type::I64, Type::Str) | (Type::Int, Type::Str) => true,
                                 _ => false,
                             };
                             if !is_list_repeat {
@@ -192,6 +195,8 @@ impl TypeChecker {
                                 crate::semantic::symbol_table::BuiltinSignature::Int => Some(Type::I64),
                                 crate::semantic::symbol_table::BuiltinSignature::Float => Some(Type::F64),
                                 crate::semantic::symbol_table::BuiltinSignature::Bool => Some(Type::Bool),
+                                // Program control
+                                crate::semantic::symbol_table::BuiltinSignature::Exit => Some(Type::None),
                                 // BigInt functions - removed, use int type instead
                                 // BigInt constructor removed
                                 crate::semantic::symbol_table::BuiltinSignature::StrBigint => Some(Type::Str),

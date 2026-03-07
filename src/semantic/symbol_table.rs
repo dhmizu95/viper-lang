@@ -63,6 +63,8 @@ pub enum BuiltinSignature {
     Clear,
     Index,
     Hash,
+    // Program control
+    Exit,     // exit(code) -> None
     // Type introspection
     IsInstance,  // isinstance(obj, Type) -> bool
     // Result type constructors (generic)
@@ -187,6 +189,8 @@ impl Symbol {
                 BuiltinSignature::Clear => Some(Type::None),
                 BuiltinSignature::Index => Some(Type::Infer),
                 BuiltinSignature::Hash => Some(Type::I64),
+                // Program control
+                BuiltinSignature::Exit => Some(Type::None),
                 // Type introspection
                 BuiltinSignature::IsInstance => Some(Type::Bool),  // isinstance(obj, Type) -> bool
                 // Result constructors - return type inferred from context
@@ -305,6 +309,8 @@ impl SymbolTable {
             ("tuple", SymbolKind::Builtin { signature: BuiltinSignature::Tuple }),
             ("set", SymbolKind::Builtin { signature: BuiltinSignature::Set }),
             ("hash", SymbolKind::Builtin { signature: BuiltinSignature::Hash }),
+            // Program control
+            ("exit", SymbolKind::Builtin { signature: BuiltinSignature::Exit }),
             // Type introspection
             ("isinstance", SymbolKind::Builtin { signature: BuiltinSignature::IsInstance }),
             // Result constructors (generic - type inferred from usage)

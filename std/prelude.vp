@@ -6,6 +6,11 @@ def print(value):
     # Implemented as builtin in compiler
     pass
 
+# Exit the program with optional status code
+def exit(code: int = 0):
+    # Implemented as builtin in compiler
+    pass
+
 # Range generator - yields numbers from 0 to n-1
 def range(n: int):
     # Implemented as builtin in compiler

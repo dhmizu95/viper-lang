@@ -12,6 +12,8 @@ pub struct Lexer<'a> {
     start_of_line: bool,
     indent_stack: IndentStack,
     pending_dedents: usize,
+    /// Track nesting inside (), [], {} to ignore indentation in multi-line expressions
+    paren_depth: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -25,6 +27,7 @@ impl<'a> Lexer<'a> {
             start_of_line: true,
             indent_stack: IndentStack::new(),
             pending_dedents: 0,
+            paren_depth: 0,
         }
     }
 
@@ -59,7 +62,8 @@ impl<'a> Lexer<'a> {
             }
 
             // Handle indentation at start of line BEFORE consuming whitespace
-            if self.start_of_line {
+            // Skip indentation handling when inside parentheses/brackets/braces
+            if self.start_of_line && self.paren_depth == 0 {
                 self.start_of_line = false;
 
                 // Count indentation (spaces/tabs at the start of line)
@@ -88,7 +92,14 @@ impl<'a> Lexer<'a> {
                             }
                             self.advance();
                         }
-                        // After comment, we'll see \n which will be handled on next iteration
+                        // Consume the newline after the comment
+                        if let Some(&c) = self.chars.peek() {
+                            if c == '\n' {
+                                self.advance();
+                            }
+                        }
+                        // Reset to handle next line's indentation
+                        self.start_of_line = true;
                         continue 'retry;
                     } else {
                         break;
@@ -174,13 +185,37 @@ impl<'a> Lexer<'a> {
             let c = self.advance();
 
             let kind = match c {
-                // Single-character tokens
-                '(' => TokenKind::LParen,
-                ')' => TokenKind::RParen,
-                '[' => TokenKind::LBracket,
-                ']' => TokenKind::RBracket,
-                '{' => TokenKind::LBrace,
-                '}' => TokenKind::RBrace,
+                // Single-character tokens - track paren depth for multi-line expressions
+                '(' => {
+                    self.paren_depth += 1;
+                    TokenKind::LParen
+                }
+                ')' => {
+                    if self.paren_depth > 0 {
+                        self.paren_depth -= 1;
+                    }
+                    TokenKind::RParen
+                }
+                '[' => {
+                    self.paren_depth += 1;
+                    TokenKind::LBracket
+                }
+                ']' => {
+                    if self.paren_depth > 0 {
+                        self.paren_depth -= 1;
+                    }
+                    TokenKind::RBracket
+                }
+                '{' => {
+                    self.paren_depth += 1;
+                    TokenKind::LBrace
+                }
+                '}' => {
+                    if self.paren_depth > 0 {
+                        self.paren_depth -= 1;
+                    }
+                    TokenKind::RBrace
+                }
                 ',' => TokenKind::Comma,
                 ':' => {
                     if self.peek() == Some('=') {
