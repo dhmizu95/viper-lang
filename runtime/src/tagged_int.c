@@ -613,6 +613,197 @@ bigint_case:
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
 }
 
+/**
+ * Left shift: a << b
+ */
+TaggedInt tagged_int_lshift(TaggedInt a, TaggedInt b) {
+    /* Case 1: Both small integers */
+    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+        int64_t a_val = tagged_int_get_small(a);
+        int64_t b_val = tagged_int_get_small(b);
+        
+        /* Check for negative or too large shift */
+        if (b_val < 0 || b_val > 62) {
+            goto bigint_case;
+        }
+        
+        int64_t result = a_val << b_val;
+        
+        /* Check if result fits in SmallInt */
+        if (result >= TAGGED_INT_MIN_SMALL && result <= TAGGED_INT_MAX_SMALL) {
+            return tagged_int_from_i64(result);
+        }
+    }
+    
+bigint_case:
+    /* Case 2: At least one BigInt */
+    ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
+    ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
+    ViperBigInt* result = alloc_bigint_for_tagged();
+    
+    if (result) {
+        mpz_mul_2exp(result->value, a_big->value, mpz_get_ui(b_big->value));
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            free_bigint_for_tagged(result);
+            return demoted;
+        }
+    }
+    
+    if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+    if (tagged_int_is_small(b)) free_temp_bigint(b_big);
+    
+    return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
+}
+
+/**
+ * Right shift: a >> b
+ */
+TaggedInt tagged_int_rshift(TaggedInt a, TaggedInt b) {
+    /* Case 1: Both small integers */
+    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+        int64_t a_val = tagged_int_get_small(a);
+        int64_t b_val = tagged_int_get_small(b);
+        
+        /* Check for negative shift */
+        if (b_val < 0) {
+            goto bigint_case;
+        }
+        
+        int64_t result = a_val >> b_val;
+        return tagged_int_from_i64(result);
+    }
+    
+bigint_case:
+    /* Case 2: At least one BigInt */
+    ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
+    ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
+    ViperBigInt* result = alloc_bigint_for_tagged();
+    
+    if (result) {
+        mpz_tdiv_q_2exp(result->value, a_big->value, mpz_get_ui(b_big->value));
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            free_bigint_for_tagged(result);
+            return demoted;
+        }
+    }
+    
+    if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+    if (tagged_int_is_small(b)) free_temp_bigint(b_big);
+    
+    return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
+}
+
+/**
+ * Bitwise AND: a & b
+ */
+TaggedInt tagged_int_bitand(TaggedInt a, TaggedInt b) {
+    /* Case 1: Both small integers */
+    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+        int64_t a_val = tagged_int_get_small(a);
+        int64_t b_val = tagged_int_get_small(b);
+        int64_t result = a_val & b_val;
+        return tagged_int_from_i64(result);
+    }
+    
+bigint_case:
+    /* Case 2: At least one BigInt */
+    ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
+    ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
+    ViperBigInt* result = alloc_bigint_for_tagged();
+    
+    if (result) {
+        mpz_and(result->value, a_big->value, b_big->value);
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            free_bigint_for_tagged(result);
+            return demoted;
+        }
+    }
+    
+    if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+    if (tagged_int_is_small(b)) free_temp_bigint(b_big);
+    
+    return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
+}
+
+/**
+ * Bitwise OR: a | b
+ */
+TaggedInt tagged_int_bitor(TaggedInt a, TaggedInt b) {
+    /* Case 1: Both small integers */
+    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+        int64_t a_val = tagged_int_get_small(a);
+        int64_t b_val = tagged_int_get_small(b);
+        int64_t result = a_val | b_val;
+        return tagged_int_from_i64(result);
+    }
+    
+bigint_case:
+    /* Case 2: At least one BigInt */
+    ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
+    ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
+    ViperBigInt* result = alloc_bigint_for_tagged();
+    
+    if (result) {
+        mpz_ior(result->value, a_big->value, b_big->value);
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            free_bigint_for_tagged(result);
+            return demoted;
+        }
+    }
+    
+    if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+    if (tagged_int_is_small(b)) free_temp_bigint(b_big);
+    
+    return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
+}
+
+/**
+ * Bitwise XOR: a ^ b
+ */
+TaggedInt tagged_int_bitxor(TaggedInt a, TaggedInt b) {
+    /* Case 1: Both small integers */
+    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+        int64_t a_val = tagged_int_get_small(a);
+        int64_t b_val = tagged_int_get_small(b);
+        int64_t result = a_val ^ b_val;
+        return tagged_int_from_i64(result);
+    }
+    
+bigint_case:
+    /* Case 2: At least one BigInt */
+    ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
+    ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
+    ViperBigInt* result = alloc_bigint_for_tagged();
+    
+    if (result) {
+        mpz_xor(result->value, a_big->value, b_big->value);
+        
+        /* Try to demote result back to SmallInt */
+        TaggedInt demoted = try_demote_bigint(result->value);
+        if (demoted != 0) {
+            free_bigint_for_tagged(result);
+            return demoted;
+        }
+    }
+    
+    if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+    if (tagged_int_is_small(b)) free_temp_bigint(b_big);
+    
+    return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
+}
+
 /* ============================================ */
 /* Utility Functions                            */
 /* ============================================ */

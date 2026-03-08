@@ -1,7 +1,7 @@
 # Test loop else clauses - simple version
 
 def test_for_else_no_break():
-result = 0
+    result = 0
     for i in range(5):
         result = result + i
     else:
@@ -13,7 +13,7 @@ result = 0
         print("For-else no break test FAILED:", result)
 
 def test_for_else_with_break():
-result = 0
+    result = 0
     for i in range(5):
         if i == 3:
             break
@@ -27,7 +27,7 @@ result = 0
         print("For-else with break test FAILED:", result)
 
 def test_while_else_no_break():
-count = 0
+    count = 0
     while count < 5:
         count = count + 1
     else:
@@ -39,7 +39,7 @@ count = 0
         print("While-else no break test FAILED:", count)
 
 def test_while_else_with_break():
-count = 0
+    count = 0
     while count < 5:
         if count == 3:
             break

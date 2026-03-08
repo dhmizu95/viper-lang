@@ -42,6 +42,15 @@ pub fn declare_tagged_int_functions<'ctx>(
 
     // tagged_int_rshift
     module.add_function("tagged_int_rshift", tagged_op_type, None);
+
+    // tagged_int_bitand
+    module.add_function("tagged_int_bitand", tagged_op_type, None);
+
+    // tagged_int_bitor
+    module.add_function("tagged_int_bitor", tagged_op_type, None);
+
+    // tagged_int_bitxor
+    module.add_function("tagged_int_bitxor", tagged_op_type, None);
     
     // tagged_int_neg (unary)
     let tagged_unary_type = i64_type.fn_type(&[i64_type.into()], false);
@@ -225,6 +234,78 @@ pub fn generate_tagged_int_rshift<'ctx>(
             "tagged_rshift",
         )
         .expect("tagged_int_rshift call");
+
+    Ok(result.into())
+}
+
+/// Generate tagged integer bitwise AND
+pub fn generate_tagged_int_bitand<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let func = state
+        .module
+        .get_function("tagged_int_bitand")
+        .ok_or_else(|| "tagged_int_bitand not declared".to_string())?;
+
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            func,
+            &[lhs.into(), rhs.into()],
+            "tagged_bitand",
+        )
+        .expect("tagged_int_bitand call");
+
+    Ok(result.into())
+}
+
+/// Generate tagged integer bitwise OR
+pub fn generate_tagged_int_bitor<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let func = state
+        .module
+        .get_function("tagged_int_bitor")
+        .ok_or_else(|| "tagged_int_bitor not declared".to_string())?;
+
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            func,
+            &[lhs.into(), rhs.into()],
+            "tagged_bitor",
+        )
+        .expect("tagged_int_bitor call");
+
+    Ok(result.into())
+}
+
+/// Generate tagged integer bitwise XOR
+pub fn generate_tagged_int_bitxor<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    lhs: BasicValueEnum<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let func = state
+        .module
+        .get_function("tagged_int_bitxor")
+        .ok_or_else(|| "tagged_int_bitxor not declared".to_string())?;
+
+    let result = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            func,
+            &[lhs.into(), rhs.into()],
+            "tagged_bitxor",
+        )
+        .expect("tagged_int_bitxor call");
 
     Ok(result.into())
 }

@@ -228,6 +228,9 @@ pub fn generate_tagged_int_binop<'ctx>(
         BinOp::Pow => crate::codegen::runtime::tagged_int::generate_tagged_int_pow(state, lhs_tagged, rhs_tagged),
         BinOp::LShift => crate::codegen::runtime::tagged_int::generate_tagged_int_lshift(state, lhs_tagged, rhs_tagged),
         BinOp::RShift => crate::codegen::runtime::tagged_int::generate_tagged_int_rshift(state, lhs_tagged, rhs_tagged),
+        BinOp::BitAnd => crate::codegen::runtime::tagged_int::generate_tagged_int_bitand(state, lhs_tagged, rhs_tagged),
+        BinOp::BitOr => crate::codegen::runtime::tagged_int::generate_tagged_int_bitor(state, lhs_tagged, rhs_tagged),
+        BinOp::BitXor => crate::codegen::runtime::tagged_int::generate_tagged_int_bitxor(state, lhs_tagged, rhs_tagged),
         _ => Err(format!("Unsupported tagged int operator: {:?}", op)),
     }
 }
