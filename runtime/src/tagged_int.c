@@ -12,6 +12,28 @@
 /* Forward declare ViperString functions we need */
 typedef struct ViperString ViperString;
 
+/* Simple ViperString structure - matches viper_types.h */
+typedef struct {
+    union {
+        struct {
+            int64_t ref_count;
+            int64_t length;
+            char* heap_data;
+        } heap;
+        struct {
+            int64_t _unused;
+            int8_t sso_length;
+            char sso_data[15];
+        } sso;
+    } data;
+} MinimalViperString;
+
+/* Forward declarations for string functions */
+MinimalViperString* vp_str_create(const char* str);
+void vp_str_free(MinimalViperString* s);
+const char* vp_str_data_inline(MinimalViperString* s);
+void vp_print_viper_str(MinimalViperString* val);
+
 /* ============================================ */
 /* Internal Helper Functions                    */
 /* ============================================ */
@@ -596,21 +618,10 @@ bigint_case:
 /* ============================================ */
 
 /**
- * Convert TaggedInt to C string (caller must free with free())
- * 
- * NOTE: This returns a raw char* which works for print() but NOT for str() builtin.
- * The str() builtin expects a ViperString* but this returns char*.
- * 
- * WORKAROUND: Use print(int_value) directly instead of print(str(int_value)).
- * 
- * TODO: To fix str() properly, we need to:
- * 1. Resolve header conflicts between viper_stdlib.h and viper_types.h
- * 2. Implement vp_str_create() that returns ViperString*
- * 3. Convert char* to ViperString* in str() builtin
- * 
- * For now, str() for tagged ints will segfault - this is a known limitation.
+ * Convert TaggedInt to ViperString (for str() builtin)
+ * Returns a properly allocated ViperString* that can be used by print()
  */
-char* tagged_int_to_str(TaggedInt value) {
+void* tagged_int_to_str(TaggedInt value) {
     bool is_temp = false;
     ViperBigInt* bigint;
 
@@ -624,7 +635,18 @@ char* tagged_int_to_str(TaggedInt value) {
     if (!bigint) return NULL;
 
     /* Get string from GMP - mpz_get_str returns malloc'd string */
-    char* result = mpz_get_str(NULL, 10, bigint->value);
+    char* c_str = mpz_get_str(NULL, 10, bigint->value);
+    if (!c_str) {
+        if (is_temp) {
+            mpz_clear(bigint->value);
+            free(bigint);
+        }
+        return NULL;
+    }
+
+    /* Create ViperString from C string */
+    MinimalViperString* result = vp_str_create(c_str);
+    free(c_str);
 
     /* Free the temporary bigint we created (if any) */
     if (is_temp) {
@@ -632,14 +654,15 @@ char* tagged_int_to_str(TaggedInt value) {
         free(bigint);
     }
 
-    return result;
+    return (void*)result;
 }
 
 void tagged_int_print(TaggedInt value) {
-    char* str = tagged_int_to_str(value);
+    MinimalViperString* str = (MinimalViperString*)tagged_int_to_str(value);
     if (str) {
-        printf("%s", str);
-        free(str);
+        const char* c_str = vp_str_data_inline(str);
+        printf("%s", c_str);
+        vp_str_free(str);
     }
 }
 
@@ -658,22 +681,6 @@ void tagged_int_free(TaggedInt value) {
 /* ============================================ */
 /* Minimal String Functions (for str() builtin) */
 /* ============================================ */
-
-/* Simple ViperString structure - matches viper_types.h */
-typedef struct {
-    union {
-        struct {
-            int64_t ref_count;
-            int64_t length;
-            char* heap_data;
-        } heap;
-        struct {
-            int64_t _unused;
-            int8_t sso_length;
-            char sso_data[15];
-        } sso;
-    } data;
-} MinimalViperString;
 
 /* Create a ViperString from C string */
 MinimalViperString* vp_str_create(const char* str) {
@@ -725,6 +732,16 @@ void vp_print_str(const char* val) {
         return;
     }
     printf("%s", val);
+}
+
+/* Print a ViperString (for use by print() builtin with str() result) */
+void vp_print_viper_str(MinimalViperString* val) {
+    if (!val) {
+        printf("(null)");
+        return;
+    }
+    const char* c_str = vp_str_data_inline(val);
+    printf("%s", c_str);
 }
 
 /* ============================================ */

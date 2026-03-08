@@ -218,24 +218,15 @@ fn generate_tagged_int_to_str<'ctx>(
     Ok(str_val)
 }
 
-/// Generate str() for tagged int value (already generated)
+/// Generate str() for tagged int value
+/// For now, just return the tagged int value directly - print() will handle it
 fn generate_tagged_int_to_str_val<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     tagged_val: inkwell::values::BasicValueEnum<'ctx>,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Call tagged_int_to_str which returns char*
-    let to_str_func = state
-        .module
-        .get_function("tagged_int_to_str")
-        .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
-
-    let c_str_val = state
-        .ir_builder
-        .build_call(state.builder, to_str_func, &[tagged_val.into()], "tagged_to_str")
-        .expect("tagged_int_to_str call");
-
-    // Return the char* directly (will be handled by print as a string)
-    Ok(c_str_val)
+    // Return the tagged int value directly
+    // print() will use tagged_int_print to display it
+    Ok(tagged_val)
 }
 
 /// Generate str() for BigInt pointer value (local variable)

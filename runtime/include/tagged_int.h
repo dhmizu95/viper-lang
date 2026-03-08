@@ -222,9 +222,10 @@ bool tagged_int_gt(TaggedInt a, TaggedInt b);
 TaggedInt tagged_int_neg(TaggedInt a);
 
 /**
- * Convert TaggedInt to C string (caller must free with free())
+ * Convert TaggedInt to ViperString (for str() builtin)
+ * Returns a properly allocated ViperString*
  */
-char* tagged_int_to_str(TaggedInt value);
+void* tagged_int_to_str(TaggedInt value);
 
 /**
  * Print a TaggedInt

@@ -161,6 +161,14 @@ impl<'a> Lexer<'a> {
                             }
                             self.advance();
                         }
+                        // Consume the newline after the comment and restart
+                        if let Some(&c) = self.chars.peek() {
+                            if c == '\n' {
+                                self.advance();
+                            }
+                        }
+                        self.start_of_line = true;
+                        continue 'retry;
                     }
                     _ => break,
                 }
