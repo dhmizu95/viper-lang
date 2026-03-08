@@ -77,6 +77,7 @@ pub fn parse_function_def(parser: &mut StatementParser) -> Result<Stmt, String> 
             if !parser.match_token(&TokenKind::Comma) {
                 break;
             }
+            // match_token already consumes the comma
         }
         parser.expect(&TokenKind::RBracket)?;
     }
@@ -91,6 +92,7 @@ pub fn parse_function_def(parser: &mut StatementParser) -> Result<Stmt, String> 
             if !parser.match_token(&TokenKind::Comma) {
                 break;
             }
+            // match_token already consumes the comma
         }
     }
     parser.expect(&TokenKind::RParen)?;
@@ -139,6 +141,7 @@ pub fn parse_extern_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
             if !parser.match_token(&TokenKind::Comma) {
                 break;
             }
+            // match_token already consumes the comma
         }
     }
     parser.expect(&TokenKind::RParen)?;
@@ -172,6 +175,7 @@ pub fn parse_async_function_def(parser: &mut StatementParser) -> Result<Stmt, St
             if !parser.match_token(&TokenKind::Comma) {
                 break;
             }
+            // match_token already consumes the comma
         }
     }
     parser.expect(&TokenKind::RParen)?;
@@ -201,6 +205,14 @@ pub fn parse_async_function_def(parser: &mut StatementParser) -> Result<Stmt, St
 
 pub fn parse_param(parser: &mut StatementParser) -> Result<Param, String> {
     let span = parser.current().span;
+    
+    // Check for *args or **kwargs
+    // Tokenizer creates: * = Star, ** = DoubleStar
+    // match_token consumes the token if it matches
+    let is_kw_variadic = parser.match_token(&TokenKind::DoubleStar);
+    let is_variadic = is_kw_variadic || parser.match_token(&TokenKind::Star);
+    // Note: match_token already consumed the * or **
+    
     let name = parser.expect_ident()?;
 
     let type_ann = if parser.match_token(&TokenKind::Colon) {
@@ -212,7 +224,7 @@ pub fn parse_param(parser: &mut StatementParser) -> Result<Param, String> {
     let default =
         if parser.match_token(&TokenKind::Eq) { Some(parse_expression(parser)?) } else { None };
 
-    Ok(Param { name, type_ann, default, span })
+    Ok(Param { name, type_ann, default, span, is_variadic, is_kw_variadic })
 }
 pub fn parse_type_annotation(parser: &mut StatementParser) -> Result<Type, String> {
     // Parse the base type first

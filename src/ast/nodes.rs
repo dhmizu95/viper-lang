@@ -405,6 +405,8 @@ pub struct Param {
     pub type_ann: Option<Type>,
     pub default: Option<Expr>,
     pub span: Span,
+    pub is_variadic: bool,      // *args
+    pub is_kw_variadic: bool,   // **kwargs
 }
 
 /// Decorator for functions, classes, and methods

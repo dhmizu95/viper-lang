@@ -280,7 +280,14 @@ pub fn parse_from_import(parser: &mut StatementParser) -> Result<Stmt, String> {
     let span = parser.current().span;
     parser.expect(&TokenKind::From)?;
 
-    let module = parser.expect_ident()?;
+    // Parse dotted module name (e.g., unittest.mock)
+    let mut module = parser.expect_ident()?;
+    while parser.match_token(&TokenKind::Dot) {
+        let suffix = parser.expect_ident()?;
+        module.push('.');
+        module.push_str(&suffix);
+    }
+    
     parser.expect(&TokenKind::Import)?;
 
     let mut names = Vec::new();
