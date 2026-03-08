@@ -57,8 +57,17 @@ impl<'a> StatementParser<'a> {
     }
 
     pub(crate) fn expect_ident(&mut self) -> Result<String, String> {
+        // Accept regular identifiers
         if let TokenKind::Ident(name) = &self.current().kind {
             let name = name.clone();
+            self.advance();
+            Ok(name)
+        // Also accept type keywords that can be used as identifiers (e.g., in imports)
+        } else if matches!(self.current().kind, 
+            TokenKind::Optional | TokenKind::Tuple | TokenKind::Result | TokenKind::Class
+        ) {
+            let name = format!("{:?}", self.current().kind);
+            let name = name.trim_start_matches("TokenKind::").to_string();
             self.advance();
             Ok(name)
         } else {
@@ -100,8 +109,51 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
 
     match &token.kind {
         TokenKind::At => {
-            // Decorator - must be followed by a function definition
-            // The decorator parsing is handled inside parse_function_def
+            // Decorator - can be followed by function or class definition
+            // Peek ahead past decorators to see what follows
+            let mut peek_pos = parser.pos;
+            
+            // Skip all @ tokens and their associated names/arguments
+            while peek_pos < parser.tokens.len() {
+                match &parser.tokens[peek_pos].kind {
+                    TokenKind::At => {
+                        peek_pos += 1;
+                        // Skip decorator name and any dotted suffix
+                        while peek_pos < parser.tokens.len() {
+                            match &parser.tokens[peek_pos].kind {
+                                TokenKind::Ident(_) | TokenKind::Dot => peek_pos += 1,
+                                TokenKind::LParen => {
+                                    // Skip parenthesized arguments
+                                    let mut paren_depth = 1;
+                                    peek_pos += 1;
+                                    while peek_pos < parser.tokens.len() && paren_depth > 0 {
+                                        match &parser.tokens[peek_pos].kind {
+                                            TokenKind::LParen => paren_depth += 1,
+                                            TokenKind::RParen => paren_depth -= 1,
+                                            _ => {}
+                                        }
+                                        peek_pos += 1;
+                                    }
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                    TokenKind::Newline => peek_pos += 1,
+                    _ => break,
+                }
+            }
+            
+            // Now check what token follows the decorators
+            if peek_pos < parser.tokens.len() {
+                match &parser.tokens[peek_pos].kind {
+                    TokenKind::Class => return parse_class_def(parser),
+                    TokenKind::Def => return parse_function_def(parser),
+                    _ => {}
+                }
+            }
+            
+            // Default to function def for backward compatibility
             parse_function_def(parser)
         }
         TokenKind::Def => parse_function_def(parser),

@@ -1,12 +1,16 @@
 /**
  * Viper Tagged Integer Implementation
- * 
+ *
  * Provides automatic promotion from small integers to BigInt on overflow.
  */
 
 #include "tagged_int.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
+/* Forward declare ViperString functions we need */
+typedef struct ViperString ViperString;
 
 /* ============================================ */
 /* Internal Helper Functions                    */
@@ -591,20 +595,36 @@ bigint_case:
 /* Utility Functions                            */
 /* ============================================ */
 
+/**
+ * Convert TaggedInt to C string (caller must free with free())
+ * 
+ * NOTE: This returns a raw char* which works for print() but NOT for str() builtin.
+ * The str() builtin expects a ViperString* but this returns char*.
+ * 
+ * WORKAROUND: Use print(int_value) directly instead of print(str(int_value)).
+ * 
+ * TODO: To fix str() properly, we need to:
+ * 1. Resolve header conflicts between viper_stdlib.h and viper_types.h
+ * 2. Implement vp_str_create() that returns ViperString*
+ * 3. Convert char* to ViperString* in str() builtin
+ * 
+ * For now, str() for tagged ints will segfault - this is a known limitation.
+ */
 char* tagged_int_to_str(TaggedInt value) {
     bool is_temp = false;
     ViperBigInt* bigint;
-    
+
     if (tagged_int_is_bigint(value)) {
         bigint = tagged_int_get_bigint(value);
     } else {
         bigint = tagged_int_to_bigint(value);
         is_temp = true;
     }
-    
+
     if (!bigint) return NULL;
 
-    char* str = mpz_get_str(NULL, 10, bigint->value);
+    /* Get string from GMP - mpz_get_str returns malloc'd string */
+    char* result = mpz_get_str(NULL, 10, bigint->value);
 
     /* Free the temporary bigint we created (if any) */
     if (is_temp) {
@@ -612,7 +632,7 @@ char* tagged_int_to_str(TaggedInt value) {
         free(bigint);
     }
 
-    return str;
+    return result;
 }
 
 void tagged_int_print(TaggedInt value) {
@@ -633,6 +653,78 @@ void tagged_int_free(TaggedInt value) {
         }
     }
     /* Small integers don't need freeing */
+}
+
+/* ============================================ */
+/* Minimal String Functions (for str() builtin) */
+/* ============================================ */
+
+/* Simple ViperString structure - matches viper_types.h */
+typedef struct {
+    union {
+        struct {
+            int64_t ref_count;
+            int64_t length;
+            char* heap_data;
+        } heap;
+        struct {
+            int64_t _unused;
+            int8_t sso_length;
+            char sso_data[15];
+        } sso;
+    } data;
+} MinimalViperString;
+
+/* Create a ViperString from C string */
+MinimalViperString* vp_str_create(const char* str) {
+    if (!str) return NULL;
+    
+    int64_t len = (int64_t)strlen(str);
+    MinimalViperString* s = (MinimalViperString*)malloc(sizeof(MinimalViperString));
+    if (!s) return NULL;
+    
+    s->data.heap.ref_count = 1;
+    s->data.heap.length = len;
+    s->data.heap.heap_data = (char*)malloc(len + 1);
+    if (!s->data.heap.heap_data) {
+        free(s);
+        return NULL;
+    }
+    memcpy(s->data.heap.heap_data, str, len + 1);
+    return s;
+}
+
+/* Free a ViperString */
+void vp_str_free(MinimalViperString* s) {
+    if (!s) return;
+    /* Check SSO flag (high bit of length) */
+    if (!(s->data.heap.length & 0x80)) {
+        /* Heap string - free the data */
+        free(s->data.heap.heap_data);
+    }
+    free(s);
+}
+
+/* Get string data from ViperString */
+const char* vp_str_data_inline(MinimalViperString* s) {
+    if (!s) return "";
+    /* Check SSO flag (high bit of length) */
+    if (s->data.heap.length & 0x80) {
+        /* SSO string - length is stored with high bit set */
+        return s->data.sso.sso_data;
+    } else {
+        /* Heap string */
+        return s->data.heap.heap_data;
+    }
+}
+
+/* Print a C string (for use by print() builtin with str() result) */
+void vp_print_str(const char* val) {
+    if (!val) {
+        printf("(null)");
+        return;
+    }
+    printf("%s", val);
 }
 
 /* ============================================ */

@@ -24,10 +24,36 @@ void vp_print_f64(double val) {
 }
 
 void vp_print_str(const char* val) {
-    if (val) {
-        printf("%s", val);
-    } else {
+    if (!val) {
         printf("(null)");
+        return;
+    }
+    
+    /* Check if this is a ViperString* by checking the structure */
+    /* ViperString: ref_count (8 bytes) + length (8 bytes) + data pointer/inline */
+    const int64_t* p = (const int64_t*)val;
+    int64_t ref_count = p[0];
+    int64_t length = p[1];
+    
+    if (ref_count > 0 && ref_count < 10000 && length >= 0) {
+        /* This is a ViperString* */
+        if (length & 0x80) {
+            /* SSO (small string optimization) - data is inline */
+            const char* sso_data = (const char*)(p + 1) + 8;  /* Skip length, get sso_data */
+            int64_t sso_len = length & 0x7F;
+            for (int64_t i = 0; i < sso_len && sso_data[i]; i++) {
+                putchar(sso_data[i]);
+            }
+        } else {
+            /* Heap string - data pointer is at offset 16 */
+            const char* heap_data = *(const char**)&p[2];
+            if (heap_data) {
+                printf("%s", heap_data);
+            }
+        }
+    } else {
+        /* Regular char* */
+        printf("%s", val);
     }
 }
 
@@ -48,7 +74,7 @@ void vp_print_newline(void) {
  * - Strings <= 15 chars: stored inline (no extra allocation)
  * - Strings > 15 chars: heap allocated
  */
-char* vp_str_create(const char* str) {
+// char* vp_str_create(const char* str) {
     if (!str) {
         return NULL;
     }
@@ -64,7 +90,7 @@ char* vp_str_create(const char* str) {
     return new_str;
 }
 
-void vp_str_free(char* str) {
+// void vp_str_free(char* str) {
     if (str) {
         vp_arc_release(str);
     }
@@ -112,7 +138,7 @@ char* vp_str_slice(const char* str, int64_t start, int64_t end) {
     return result;
 }
 
-bool vp_str_equals(const char* a, const char* b) {
+// bool vp_str_equals(const char* a, const char* b) {
     if (!a && !b) return true;
     if (!a || !b) return false;
     return strcmp(a, b) == 0;

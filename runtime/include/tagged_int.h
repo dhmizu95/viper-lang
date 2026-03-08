@@ -19,6 +19,9 @@
 #include "viper_arc.h"
 #include "gmp_bridge.h"
 
+/* Forward declaration - ViperString is defined in viper_types.h */
+typedef struct ViperString ViperString;
+
 /* ============================================ */
 /* Branch Prediction Hints                      */
 /* ============================================ */
@@ -219,7 +222,7 @@ bool tagged_int_gt(TaggedInt a, TaggedInt b);
 TaggedInt tagged_int_neg(TaggedInt a);
 
 /**
- * Convert TaggedInt to string
+ * Convert TaggedInt to C string (caller must free with free())
  */
 char* tagged_int_to_str(TaggedInt value);
 

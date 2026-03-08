@@ -166,23 +166,14 @@ pub fn generate_print_call<'ctx>(
                     )
                     .expect("vp_bigint_to_str");
 
-                // Convert C string to Viper string
-                let str_create_func = state
-                    .module
-                    .get_function("vp_str_create")
-                    .ok_or_else(|| "vp_str_create not declared".to_string())?;
-                let str_val = state
-                    .ir_builder
-                    .build_call(state.builder, str_create_func, &[c_str_val.into()], "str_conv")
-                    .expect("vp_str_create");
-
+                // str() returns char* for tagged ints
                 let print_func = state
                     .module
                     .get_function("vp_print_str")
                     .ok_or_else(|| "vp_print_str not declared".to_string())?;
                 state
                     .builder
-                    .build_call(print_func, &[str_val.into()], "print_bigint_str")
+                    .build_call(print_func, &[c_str_val.into()], "print_bigint_str")
                     .expect("vp_print_str");
             } else if is_bytes_arg {
                 // Print bytes using vp_bytes_print
@@ -215,12 +206,12 @@ pub fn generate_print_call<'ctx>(
             } else {
                 let print_func = state
                     .module
-                    .get_function("vp_print_str")
-                    .ok_or_else(|| "vp_print_str not declared".to_string())?;
+                    .get_function("vp_print_viper_str")
+                    .ok_or_else(|| "vp_print_viper_str not declared".to_string())?;
                 state
                     .builder
                     .build_call(print_func, &[val.into()], "print_str")
-                    .expect("vp_print_str");
+                    .expect("vp_print_viper_str");
             }
         } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
             // Boolean value (1-bit integer)
@@ -257,8 +248,8 @@ pub fn generate_print_call<'ctx>(
         if i < args.len() - 1 {
             let print_func = state
                 .module
-                .get_function("vp_print_str")
-                .ok_or_else(|| "vp_print_str not declared".to_string())?;
+                .get_function("vp_print_viper_str")
+                .ok_or_else(|| "vp_print_viper_str not declared".to_string())?;
             let space_str_const = state.ir_builder.string_const(state.module, " ");
             let create_func = state
                 .module
@@ -271,7 +262,7 @@ pub fn generate_print_call<'ctx>(
             state
                 .builder
                 .build_call(print_func, &[space_val.into()], "print_space")
-                .expect("vp_print_str");
+                .expect("vp_print_viper_str");
         }
     }
 

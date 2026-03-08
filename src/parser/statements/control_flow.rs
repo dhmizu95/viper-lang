@@ -1,6 +1,6 @@
 use super::*;
 use crate::ast::{
-    ExceptHandler, Expr, MatchCase, MatchPattern, SelectCase, SelectCaseKind, Stmt, UnaryOp,
+    ExceptHandler, Expr, MatchCase, MatchPattern, SelectCase, SelectCaseKind, Stmt, Type, UnaryOp,
 };
 use crate::lexer::TokenKind;
 
@@ -153,9 +153,11 @@ pub fn parse_try_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     while parser.match_token(&TokenKind::Except) {
         let handler_span = parser.previous().span;
 
+        // Parse exception type - can be an identifier (Exception class) or type annotation
         let type_ann = if matches!(parser.current().kind, TokenKind::Ident(_)) {
-            let ty = parse_type_annotation(parser)?;
-            Some(ty)
+            // For exception handlers, just capture the type name as a Type::Var
+            let name = parser.expect_ident()?;
+            Some(Type::Var(name))
         } else {
             None
         };
