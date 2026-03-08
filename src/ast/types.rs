@@ -333,7 +333,7 @@ impl std::fmt::Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Str => write!(f, "str"),
             Type::Bytes => write!(f, "bytes"),
-            Type::BigInt => write!(f, "bigint"),
+            Type::BigInt => write!(f, "int"),
             Type::None => write!(f, "None"),
             Type::Int => write!(f, "int"),
             Type::List(t) => write!(f, "[{}]", t),

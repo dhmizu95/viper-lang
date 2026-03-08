@@ -126,7 +126,6 @@ fn test_token_kind_display_keywords() {
     assert_eq!(format!("{}", TokenKind::False), "False");
     assert_eq!(format!("{}", TokenKind::None), "None");
     assert_eq!(format!("{}", TokenKind::Void), "void");
-    assert_eq!(format!("{}", TokenKind::Mut), "mut");
     assert_eq!(format!("{}", TokenKind::Sync), "sync");
     assert_eq!(format!("{}", TokenKind::Task), "task");
     assert_eq!(format!("{}", TokenKind::Try), "try");

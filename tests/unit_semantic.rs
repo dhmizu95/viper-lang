@@ -588,7 +588,7 @@ fn test_symbol_get_type_builtin_int() {
         test_span(),
         0,
     );
-    assert_eq!(symbol.get_type(), Some(Type::I64));
+    assert_eq!(symbol.get_type(), Some(Type::Int));
 }
 
 #[test]

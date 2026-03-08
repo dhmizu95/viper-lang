@@ -8,7 +8,7 @@
 //! - A pointer to the actual value (i64*, f64*, etc.)
 //!
 //! Memory layout:
-//! ```
+//! ```text
 //! %ClosureCell = type { i8* }  // Opaque pointer to value
 //! ```
 //!
