@@ -93,17 +93,18 @@ pub(crate) fn generate_match_pattern<'ctx>(
                 
                 // If there's a binding, extract and bind the value
                 if let Some(binding_name) = binding {
-                    // Extract value field (second field) - stored as i64
+                    // Extract value field (second field) - stored as i64 (tagged int)
                     let value_i64 = state.builder
                         .build_extract_value(result_struct, 1, "value_i64")
                         .map_err(|e| format!("Failed to extract value: {:?}", e))?
                         .into_int_value();
-                    
+
                     // Allocate and store the i64 value
                     let i64_type = state.context.i64_type();
                     let alloca = state.builder.build_alloca(i64_type, binding_name).unwrap();
                     state.builder.build_store(alloca, value_i64).unwrap();
-                    state.variables.insert(binding_name.clone(), VarInfo::new_stack(alloca, VarType::Pointer));
+                    // Tagged int values use VarType::Int for proper handling
+                    state.variables.insert(binding_name.clone(), VarInfo::new_stack(alloca, VarType::Int));
                 }
                 
                 Ok(matches)
