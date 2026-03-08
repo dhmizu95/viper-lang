@@ -237,6 +237,6 @@
  * Alternative formulation for bounds checking
  */
 #define VIPER_BOUNDS_CHECK_UNLIKELY_FAIL(idx, len) \
-    VIPER_UNLIKELY((idx) < 0 || (idx) >= (len))
+    (__builtin_expect(((idx) < 0 || (idx) >= (len)), 0))
 
 #endif /* VIPER_OPTIMIZE_H */

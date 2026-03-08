@@ -13,14 +13,8 @@
 #include "viper_arc.h"
 
 /* ============================================ */
-/* Basic I/O Functions                          */
+/* Basic I/O Functions - Defined later with ViperString* */
 /* ============================================ */
-
-void vp_print_i64(int64_t val);
-void vp_print_f64(double val);
-void vp_print_str(const char* val);
-void vp_print_bool(bool val);
-void vp_print_newline(void);
 
 /* ============================================ */
 /* Memory Management (ARC)                      */
@@ -159,26 +153,26 @@ void vp_dict_iter_free(ViperDictIter* iter);
 bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value);
 
 /* ============================================ */
-/* String Functions - CONFLICTS WITH viper_types.h */
+/* String Functions - Use ViperString* from viper_types.h */
 /* ============================================ */
 
-/*
-char* vp_str_create(const char* str);
-void vp_str_free(char* str);
-char* vp_str_concat(const char* a, const char* b);
-int64_t vp_str_len(const char* str);
-char* vp_str_slice(const char* str, int64_t start, int64_t end);
-bool vp_str_equals(const char* a, const char* b);
-int64_t vp_str_compare(const char* a, const char* b);
-char* vp_str_upper(const char* str);
-char* vp_str_lower(const char* str);
-ViperList* vp_str_split(const char* str, const char* delim);
-char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub);
+/* These functions are defined in viper_types.h as static inline:
+ * - ViperString* vp_str_create(const char* str)
+ * - void vp_str_free(ViperString* s)
+ * - bool vp_str_equals(ViperString* a, ViperString* b)
+ * - int64_t vp_str_len(ViperString* s)
+ * - const char* vp_str_data(ViperString* s)
+ */
 
-// String format and conversion
-char* vp_str_format(const char* format_str, const char** args_array, int64_t arg_count);
-char* vp_str_from_bool(bool val);
-*/
+/* Additional string functions (implemented in runtime.c) */
+ViperString* vp_str_upper(ViperString* str);
+ViperString* vp_str_lower(ViperString* str);
+ViperList* vp_str_split(ViperString* str, ViperString* delim);
+ViperString* vp_str_replace(ViperString* str, ViperString* old_sub, ViperString* new_sub);
+ViperString* vp_str_format(ViperString* format_str, ViperList* args);
+ViperString* vp_str_from_bool(bool val);
+ViperString* vp_str_from_i64(int64_t val);
+ViperString* vp_str_from_f64(double val);
 
 /* ============================================ */
 /* Bytes Functions                              */
@@ -214,8 +208,18 @@ void vp_assert(bool condition, const char* message);
 int64_t vp_hash_i64(int64_t val);
 int64_t vp_hash_f64(double val);
 int64_t vp_hash_bool(bool val);
-int64_t vp_hash_str(const char* str);
+int64_t vp_hash_str(ViperString* str);
 int64_t vp_hash_none(void);
+
+/* Print functions */
+void vp_print_i64(int64_t val);
+void vp_print_f64(double val);
+void vp_print_str(ViperString* str);
+void vp_print_bool(bool val);
+void vp_print_newline(void);
+void vp_print_list(ViperList* list);
+void vp_print_dict(ViperDict* dict);
+void vp_print_bytes(ViperBytes* bytes);
 
 /* Math functions */
 double vp_pow(double base, double exponent);
@@ -247,13 +251,13 @@ int64_t vp_async_context_exit(void* context, int64_t exc_type, int64_t exc_val, 
 /* Type Conversion Functions                    */
 /* ============================================ */
 
-char* vp_str_from_i64(int64_t val);
-char* vp_str_from_f64(double val);
-char* vp_str_from_bool(bool val);
-int64_t vp_i64_from_str(const char* str);
-double vp_f64_from_str(const char* str);
+ViperString* vp_str_from_i64(int64_t val);
+ViperString* vp_str_from_f64(double val);
+ViperString* vp_str_from_bool(bool val);
+int64_t vp_i64_from_str(ViperString* str);
+double vp_f64_from_str(ViperString* str);
 bool vp_bool_from_i64(int64_t val);
 bool vp_bool_from_f64(double val);
-bool vp_bool_from_str(const char* str);
+bool vp_bool_from_str(ViperString* str);
 
 #endif /* VIPER_STDLIB_H */

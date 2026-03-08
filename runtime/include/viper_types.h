@@ -13,6 +13,9 @@
 /* Include optimization macros (branch prediction, inlining, etc.) */
 #include "viper_optimize.h"
 
+/* Include ARC memory management */
+#include "viper_arc.h"
+
 /* ============================================ */
 /* Viper Value Types - Unified Layout           */
 /* ============================================ */

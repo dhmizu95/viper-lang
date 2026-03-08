@@ -9,7 +9,9 @@ pub fn register_io_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_print_i64" => super::super::io::vp_print_i64,
         "vp_print_f64" => super::super::io::vp_print_f64,
         "vp_print_bool" => super::super::io::vp_print_bool,
-        "vp_print_str" => super::super::io::vp_print_str_stub,
+        "vp_print_str" => super::super::io::vp_print_str,
+        "vp_print_viper_str" => super::super::io::vp_print_str,  // Alias for ViperString*
+        "vp_print_cstr" => super::super::io::vp_print_cstr,  // For C string literals
         "vp_print_newline" => super::super::io::vp_print_newline,
     ]);
 }

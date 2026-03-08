@@ -24,6 +24,9 @@ pub fn declare_print_functions<'ctx>(
     // vp_print_viper_str - print ViperString* (for str() builtin)
     module.add_function("vp_print_viper_str", print_str_type, None);
 
+    // vp_print_cstr - print C string literals (char*)
+    module.add_function("vp_print_cstr", print_str_type, None);
+
     let print_bool_type = void_type.fn_type(&[bool_type.into()], false);
     module.add_function("vp_print_bool", print_bool_type, None);
 

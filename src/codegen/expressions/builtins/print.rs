@@ -205,14 +205,25 @@ pub fn generate_print_call<'ctx>(
                     .build_call(print_func, &[val.into()], "print_list")
                     .expect("vp_list_print");
             } else {
-                let print_func = state
-                    .module
-                    .get_function("vp_print_viper_str")
-                    .ok_or_else(|| "vp_print_viper_str not declared".to_string())?;
+                // Check if this is a C string literal (char*) vs ViperString*
+                // C string literals are global constants, ViperString* are allocated
+                let is_cstr = matches!(arg, Expr::Str(_, _) | Expr::FString(_, _));
+                
+                let print_func = if is_cstr {
+                    state
+                        .module
+                        .get_function("vp_print_cstr")
+                        .ok_or_else(|| "vp_print_cstr not declared".to_string())?
+                } else {
+                    state
+                        .module
+                        .get_function("vp_print_viper_str")
+                        .ok_or_else(|| "vp_print_viper_str not declared".to_string())?
+                };
                 state
                     .builder
                     .build_call(print_func, &[val.into()], "print_str")
-                    .expect("vp_print_viper_str");
+                    .expect("print_str");
             }
         } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
             // Boolean value (1-bit integer)

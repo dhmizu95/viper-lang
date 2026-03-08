@@ -23,38 +23,14 @@ void vp_print_f64(double val) {
     printf("%g", val);
 }
 
-void vp_print_str(const char* val) {
+void vp_print_str(ViperString* val) {
     if (!val) {
         printf("(null)");
         return;
     }
-    
-    /* Check if this is a ViperString* by checking the structure */
-    /* ViperString: ref_count (8 bytes) + length (8 bytes) + data pointer/inline */
-    const int64_t* p = (const int64_t*)val;
-    int64_t ref_count = p[0];
-    int64_t length = p[1];
-    
-    if (ref_count > 0 && ref_count < 10000 && length >= 0) {
-        /* This is a ViperString* */
-        if (length & 0x80) {
-            /* SSO (small string optimization) - data is inline */
-            const char* sso_data = (const char*)(p + 1) + 8;  /* Skip length, get sso_data */
-            int64_t sso_len = length & 0x7F;
-            for (int64_t i = 0; i < sso_len && sso_data[i]; i++) {
-                putchar(sso_data[i]);
-            }
-        } else {
-            /* Heap string - data pointer is at offset 16 */
-            const char* heap_data = *(const char**)&p[2];
-            if (heap_data) {
-                printf("%s", heap_data);
-            }
-        }
-    } else {
-        /* Regular char* */
-        printf("%s", val);
-    }
+
+    const char* data = vp_str_data_inline(val);
+    printf("%s", data);
 }
 
 void vp_print_bool(bool val) {
@@ -65,217 +41,220 @@ void vp_print_newline(void) {
     printf("\n");
 }
 
-/* ============================================ */
-/* String Functions with SSO                    */
-/* ============================================ */
+void vp_print_list(ViperList* list) {
+    if (!list) {
+        printf("[]");
+        return;
+    }
+    
+    printf("[");
+    int64_t len = vp_list_len(list);
+    for (int64_t i = 0; i < len; i++) {
+        if (i > 0) printf(", ");
+        printf("%ld", (long)vp_list_get(list, i));
+    }
+    printf("]");
+}
 
-/**
- * Create a string with Small String Optimization
- * - Strings <= 15 chars: stored inline (no extra allocation)
- * - Strings > 15 chars: heap allocated
+void vp_print_dict(ViperDict* dict) {
+    if (!dict) {
+        printf("{}");
+        return;
+    }
+    printf("{...}");  // Simplified dict print
+}
+
+void vp_print_bytes(ViperBytes* bytes) {
+    if (!bytes) {
+        printf("b''");
+        return;
+    }
+    
+    printf("b'");
+    for (int64_t i = 0; i < bytes->len; i++) {
+        printf("\\x%02x", bytes->data[i]);
+    }
+    printf("'");
+}
+
+/* ============================================ */
+/* String Functions - Now defined as static inline in viper_types.h */
+/* ============================================ */
+/* The following functions are now in viper_types.h as static inline:
+ * - vp_str_create()
+ * - vp_str_free()
+ * - vp_str_concat()
+ * - vp_str_len()
+ * - vp_str_slice()
+ * - vp_str_equals()
+ * - vp_str_compare()
  */
-// char* vp_str_create(const char* str) {
-    if (!str) {
-        return NULL;
-    }
-
-    size_t len = strlen(str);
-    
-    /* For small strings, we still use ARC but with fixed size */
-    /* SSO is handled at the ViperString struct level in viper_types.h */
-    /* This function maintains backward compatibility with char* interface */
-    
-    char* new_str = (char*)vp_arc_alloc(len + 1);
-    memcpy(new_str, str, len + 1);
-    return new_str;
-}
-
-// void vp_str_free(char* str) {
-    if (str) {
-        vp_arc_release(str);
-    }
-}
-
-char* vp_str_concat(const char* a, const char* b) {
-    if (!a || !b) return NULL;
-
-    size_t len_a = strlen(a);
-    size_t len_b = strlen(b);
-    size_t total = len_a + len_b + 1;
-
-    char* result = (char*)vp_arc_alloc(total);
-    memcpy(result, a, len_a);
-    memcpy(result + len_a, b, len_b + 1);
-
-    return result;
-}
-
-int64_t vp_str_len(const char* str) {
-    if (!str) return 0;
-    return (int64_t)strlen(str);
-}
-
-char* vp_str_slice(const char* str, int64_t start, int64_t end) {
-    if (!str) return NULL;
-
-    int64_t len = (int64_t)strlen(str);
-
-    /* Handle negative indices */
-    if (start < 0) start = len + start;
-    if (end < 0) end = len + end;
-
-    /* Clamp to valid range */
-    if (start < 0) start = 0;
-    if (end > len) end = len;
-    if (start >= end) return vp_str_create("");
-
-    size_t slice_len = (size_t)(end - start);
-    char* result = (char*)vp_arc_alloc(slice_len + 1);
-
-    memcpy(result, str + start, slice_len);
-    result[slice_len] = '\0';
-
-    return result;
-}
-
-// bool vp_str_equals(const char* a, const char* b) {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-    return strcmp(a, b) == 0;
-}
-
-int64_t vp_str_compare(const char* a, const char* b) {
-    if (!a && !b) return 0;
-    if (!a) return -1;
-    if (!b) return 1;
-    return (int64_t)strcmp(a, b);
-}
 
 /* ============================================ */
 /* String Methods                               */
 /* ============================================ */
 
-char* vp_str_upper(const char* str) {
+ViperString* vp_str_upper(ViperString* str) {
     if (!str) return NULL;
-    size_t len = strlen(str);
-    char* upper = (char*)vp_arc_alloc(len + 1);
-    for (size_t i = 0; i < len; i++) {
-        upper[i] = (char)toupper((unsigned char)str[i]);
+    int64_t len = vp_str_len_inline(str);
+    const char* data = vp_str_data_inline(str);
+    
+    ViperString* result = vp_str_create(data);
+    char* result_data = (char*)vp_str_data_inline(result);
+    for (int64_t i = 0; i < len; i++) {
+        result_data[i] = (char)toupper((unsigned char)data[i]);
     }
-    upper[len] = '\0';
-    return upper;
+    return result;
 }
 
-char* vp_str_lower(const char* str) {
+ViperString* vp_str_lower(ViperString* str) {
     if (!str) return NULL;
-    size_t len = strlen(str);
-    char* lower = (char*)vp_arc_alloc(len + 1);
-    for (size_t i = 0; i < len; i++) {
-        lower[i] = (char)tolower((unsigned char)str[i]);
+    int64_t len = vp_str_len_inline(str);
+    const char* data = vp_str_data_inline(str);
+    
+    ViperString* result = vp_str_create(data);
+    char* result_data = (char*)vp_str_data_inline(result);
+    for (int64_t i = 0; i < len; i++) {
+        result_data[i] = (char)tolower((unsigned char)data[i]);
     }
-    lower[len] = '\0';
-    return lower;
+    return result;
 }
 
-ViperList* vp_str_split(const char* str, const char* delim) {
+ViperList* vp_str_split(ViperString* str, ViperString* delim) {
     ViperList* list = vp_list_create();
     if (!str || !delim) return list;
+
+    const char* str_data = vp_str_data_inline(str);
+    const char* delim_data = vp_str_data_inline(delim);
     
-    char* str_copy = vp_str_create(str); // Mutable copy for strtok
-    char* token = strtok(str_copy, delim);
-    while (token != NULL) {
-        // Here we just append the string directly to the list
-        // Note: vp_list_append appends an i64_t, which causes pointer truncation
-        // Phase 3 list handles i64 array, so storing a pointer needs casting.
+    // Simple split implementation
+    const char* p = str_data;
+    const char* tmp;
+    while ((tmp = strstr(p, delim_data)) != NULL) {
+        size_t len = tmp - p;
+        char* token = (char*)malloc(len + 1);
+        strncpy(token, p, len);
+        token[len] = '\0';
         vp_list_append(list, (int64_t)vp_str_create(token));
-        token = strtok(NULL, delim);
+        free(token);
+        p = tmp + strlen(delim_data);
     }
-    vp_str_free(str_copy);
+    // Add last token
+    vp_list_append(list, (int64_t)vp_str_create(p));
+    
     return list;
 }
 
-char* vp_str_replace(const char* str, const char* old_sub, const char* new_sub) {
+ViperString* vp_str_replace(ViperString* str, ViperString* old_sub, ViperString* new_sub) {
     if (!str || !old_sub || !new_sub) return NULL;
+
+    const char* str_data = vp_str_data_inline(str);
+    const char* old_data = vp_str_data_inline(old_sub);
+    const char* new_data = vp_str_data_inline(new_sub);
     
-    size_t old_len = strlen(old_sub);
-    size_t new_len = strlen(new_sub);
-    
-    if (old_len == 0) return vp_str_create(str);
-    
+    size_t old_len = strlen(old_data);
+    size_t new_len = strlen(new_data);
+
+    if (old_len == 0) return vp_str_create(str_data);
+
     // Count occurrences
-    const char* p = str;
+    const char* p = str_data;
     int count = 0;
-    while ((p = strstr(p, old_sub)) != NULL) {
+    while ((p = strstr(p, old_data)) != NULL) {
         count++;
         p += old_len;
     }
-    
-    size_t res_len = strlen(str) + count * (new_len - old_len);
-    char* result = (char*)vp_arc_alloc(res_len + 1);
-    
-    char* out = result;
-    p = str;
+
+    size_t res_len = strlen(str_data) + count * (new_len - old_len);
+    char* result_data = (char*)malloc(res_len + 1);
+
+    char* out = result_data;
+    p = str_data;
     const char* tmp;
-    while ((tmp = strstr(p, old_sub)) != NULL) {
+    while ((tmp = strstr(p, old_data)) != NULL) {
         size_t len = tmp - p;
         strncpy(out, p, len);
         out += len;
-        strcpy(out, new_sub);
+        strcpy(out, new_data);
         out += new_len;
         p = tmp + old_len;
     }
     strcpy(out, p);
-
+    result_data[res_len] = '\0';
+    
+    ViperString* result = vp_str_create(result_data);
+    free(result_data);
     return result;
 }
 
 // String format: replaces {} placeholders with arguments
-// Args: format_str, args_array (array of char*), arg_count
-char* vp_str_format(const char* format_str, const char** args_array, int64_t arg_count) {
+// Args: format_str, args (ViperList of ViperString*)
+ViperString* vp_str_format(ViperString* format_str, ViperList* args) {
     if (!format_str) return NULL;
+
+    const char* format_data = vp_str_data_inline(format_str);
     
     // Make a copy of the format string to work with
-    char* result = vp_str_create(format_str);
-    if (!result || arg_count == 0 || !args_array) {
+    char* result_data = strdup(format_data);
+    if (!result_data || !args || vp_list_len(args) == 0) {
+        ViperString* result = vp_str_create(result_data);
+        free(result_data);
         return result;
     }
-    
+
     // Replace each {} placeholder with corresponding argument
+    int64_t arg_count = vp_list_len(args);
     for (int64_t i = 0; i < arg_count; i++) {
-        const char* arg = args_array[i];
-        if (!arg) continue;
-        
+        const char* arg_data = vp_str_data_inline((ViperString*)(intptr_t)vp_list_get(args, i));
+        if (!arg_data) continue;
+
         // Find first {} placeholder
-        char* placeholder = strstr(result, "{}");
+        char* placeholder = strstr(result_data, "{}");
         if (!placeholder) break;
         
         // Build new string: before_placeholder + arg + after_placeholder
-        size_t before_len = placeholder - result;
-        size_t arg_len = strlen(arg);
+        size_t before_len = placeholder - result_data;
+        size_t arg_len = strlen(arg_data);
         size_t after_len = strlen(placeholder + 2);
-        
-        char* new_result = (char*)vp_arc_alloc(before_len + arg_len + after_len + 1);
-        
+
+        char* new_result_data = (char*)malloc(before_len + arg_len + after_len + 1);
+
         // Copy before part
-        strncpy(new_result, result, before_len);
-        new_result[before_len] = '\0';
-        
+        strncpy(new_result_data, result_data, before_len);
+        new_result_data[before_len] = '\0';
+
         // Append argument
-        strcat(new_result, arg);
-        
+        strcat(new_result_data, arg_data);
+
         // Append after part
-        strcat(new_result, placeholder + 2);
-        
-        // Note: old result will be freed by ARC when refcount reaches 0
-        result = new_result;
+        strcat(new_result_data, placeholder + 2);
+
+        free(result_data);
+        result_data = new_result_data;
     }
-    
+
+    ViperString* result = vp_str_create(result_data);
+    free(result_data);
     return result;
 }
 
 // Convert bool to string
-char* vp_str_from_bool(bool val) {
+ViperString* vp_str_from_bool(bool val) {
     return vp_str_create(val ? "True" : "False");
+}
+
+// Convert i64 to string
+ViperString* vp_str_from_i64(int64_t val) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%ld", (long)val);
+    return vp_str_create(buffer);
+}
+
+// Convert f64 to string
+ViperString* vp_str_from_f64(double val) {
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%g", val);
+    return vp_str_create(buffer);
 }
 
 /* ============================================ */
@@ -355,14 +334,16 @@ int64_t vp_hash_bool(bool val) {
 }
 
 /* Hash a string using FNV-1a */
-int64_t vp_hash_str(const char* str) {
+int64_t vp_hash_str(ViperString* str) {
     if (!str) return 0;
+
+    const char* data = vp_str_data_inline(str);
+    int64_t len = vp_str_len_inline(str);
     
     uint64_t hash = FNV_OFFSET_BASIS;
-    while (*str) {
-        hash ^= (uint64_t)(*str);
+    for (int64_t i = 0; i < len; i++) {
+        hash ^= (uint64_t)data[i];
         hash *= FNV_PRIME;
-        str++;
     }
     return (int64_t)hash;
 }
@@ -390,32 +371,6 @@ ViperList* vp_builtin_range_list(int64_t end) {
 /* Type Conversion Functions                    */
 /* ============================================ */
 
-/* Convert i64 to string */
-char* vp_str_from_i64(int64_t val) {
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%ld", (long)val);
-    return vp_str_create(buffer);
-}
-
-/* Convert f64 to string */
-char* vp_str_from_f64(double val) {
-    char buffer[64];
-    snprintf(buffer, sizeof(buffer), "%g", val);
-    return vp_str_create(buffer);
-}
-
-/* Convert string to i64 */
-int64_t vp_i64_from_str(const char* str) {
-    if (!str) return 0;
-    return strtoll(str, NULL, 10);
-}
-
-/* Convert string to f64 */
-double vp_f64_from_str(const char* str) {
-    if (!str) return 0.0;
-    return strtod(str, NULL);
-}
-
 /* Convert i64 to bool (non-zero = true) */
 bool vp_bool_from_i64(int64_t val) {
     return val != 0;
@@ -424,13 +379,6 @@ bool vp_bool_from_i64(int64_t val) {
 /* Convert f64 to bool (non-zero = true) */
 bool vp_bool_from_f64(double val) {
     return val != 0.0;
-}
-
-/* Convert string to bool */
-bool vp_bool_from_str(const char* str) {
-    if (!str) return false;
-    return (strcmp(str, "True") == 0 || strcmp(str, "true") == 0 ||
-            strcmp(str, "1") == 0);
 }
 
 /* ============================================ */
