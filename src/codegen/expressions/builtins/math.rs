@@ -27,6 +27,23 @@ pub fn generate_math_builtin<'ctx>(
 
     let arg_val = generate_expr(state, &args[0])?;
 
+    // For integers, use vp_math_abs_i64
+    if arg_val.is_int_value() {
+        let int_val = arg_val.into_int_value();
+        
+        let abs_func = state
+            .module
+            .get_function("vp_math_abs_i64")
+            .ok_or_else(|| "vp_math_abs_i64 not declared".to_string())?;
+        
+        let result = state
+            .ir_builder
+            .build_call(state.builder, abs_func, &[int_val.into()], "abs_result")
+            .ok_or_else(|| "Failed to call vp_math_abs_i64".to_string())?;
+        
+        return Ok(result.into());
+    }
+
     // Convert to float if necessary
     let arg_float = if arg_val.is_float_value() {
         arg_val.into_float_value()

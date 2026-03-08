@@ -17,6 +17,10 @@ pub fn declare_math_functions<'ctx>(
     let abs_type = f64_type.fn_type(&[f64_type.into()], false);
     module.add_function("vp_math_abs", abs_type, None);
 
+    // abs_i64(x) - absolute value for integers
+    let abs_i64_type = i64_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_math_abs_i64", abs_i64_type, None);
+
     // ln(x) - natural logarithm
     let ln_type = f64_type.fn_type(&[f64_type.into()], false);
     module.add_function("vp_math_ln", ln_type, None);
