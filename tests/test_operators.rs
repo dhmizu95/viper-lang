@@ -381,3 +381,28 @@ test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+// Identity Is Not Operator
+#[test]
+fn test_identity_is_not() {
+    let code = r#"
+def test():
+    a = None
+    b = 5
+    print(a is not b)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+// Unary Invert Operator
+#[test]
+fn test_unary_invert() {
+    let code = r#"
+def test():
+    a = ~5
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}

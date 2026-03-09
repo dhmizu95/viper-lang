@@ -61,5 +61,6 @@ pub fn register_core_stubs(ee: &ExecutionEngine, module: &Module) {
         "tagged_int_bitxor" => super::super::tagged_int::tagged_int_bitxor,
         "tagged_int_lshift" => super::super::tagged_int::tagged_int_lshift,
         "tagged_int_rshift" => super::super::tagged_int::tagged_int_rshift,
+        "tagged_int_invert" => super::super::tagged_int::tagged_int_invert,
     ]);
 }

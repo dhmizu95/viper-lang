@@ -530,3 +530,25 @@ pub extern "C" fn tagged_int_rshift(lhs: i64, rhs: i64) -> i64 {
     
     make_tagged_ptr(res_ptr as *mut c_void)
 }
+
+#[no_mangle]
+pub extern "C" fn tagged_int_invert(val: i64) -> i64 {
+    // Small integer - direct bitwise NOT
+    if !is_bigint(val) {
+        let a = get_small_int(val);
+        return make_small_int(!a);
+    }
+    
+    // BigInt - use GMP
+    let ptr = convert_to_bigint_ptr(val);
+    let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
+    unsafe { crate::jit_stubs::bigint::vp_bigint_invert_stub(res_ptr as *mut _, ptr as *mut _) };
+    unsafe { vp_bigint_free_stub(ptr as *mut _) };
+    
+    if let Some(small) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        return small;
+    }
+    
+    make_tagged_ptr(res_ptr as *mut c_void)
+}

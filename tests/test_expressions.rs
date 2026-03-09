@@ -79,7 +79,5 @@ def test():
     print(result)
 test()
 "#;
-    let result = run_viper_code(code);
-    // May have codegen issues
-    let _ = result;
+    assert!(run_viper_code(code).is_ok());
 }

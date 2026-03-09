@@ -783,8 +783,8 @@ impl<'a> Lexer<'a> {
                     self.column -= 1;
                     break;
                 }
-            } else if (c == 'e' || c == 'E') && !is_float {
-                // Scientific notation: 1e10, 1E10, 1e-10, 1e+10
+            } else if c == 'e' || c == 'E' {
+                // Scientific notation: 1e10, 1E10, 1e-10, 1e+10, 2.5e10
                 self.advance();
                 s.push('e');
 

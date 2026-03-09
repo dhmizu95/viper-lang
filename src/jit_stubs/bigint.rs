@@ -177,6 +177,10 @@ pub extern "C" fn vp_bigint_rshift_stub(result: *mut c_void, a: *mut c_void, b: 
     unsafe { vp_bigint_rshift_c(result, a, b) }
 }
 
+pub extern "C" fn vp_bigint_invert_stub(result: *mut c_void, a: *mut c_void) {
+    unsafe { vp_bigint_invert_c(result, a) }
+}
+
 pub extern "C" fn vp_bigint_to_i64_stub(bigint: *mut c_void) -> i64 {
     unsafe { vp_bigint_to_i64(bigint) }
 }

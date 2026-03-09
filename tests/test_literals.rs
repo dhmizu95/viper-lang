@@ -152,3 +152,16 @@ test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+// Float Exponent Notation
+#[test]
+fn test_float_literals_exponent() {
+    let code = r#"
+def test():
+    a = 2.5e10
+    b = 1.0e-5
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}

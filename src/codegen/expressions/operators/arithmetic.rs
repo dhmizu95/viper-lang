@@ -231,6 +231,11 @@ pub fn generate_tagged_int_binop<'ctx>(
         BinOp::BitAnd => crate::codegen::runtime::tagged_int::generate_tagged_int_bitand(state, lhs_tagged, rhs_tagged),
         BinOp::BitOr => crate::codegen::runtime::tagged_int::generate_tagged_int_bitor(state, lhs_tagged, rhs_tagged),
         BinOp::BitXor => crate::codegen::runtime::tagged_int::generate_tagged_int_bitxor(state, lhs_tagged, rhs_tagged),
+        BinOp::Is => crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs_tagged, rhs_tagged),
+        BinOp::IsNot => {
+            let eq = crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs_tagged, rhs_tagged)?;
+            Ok(state.builder.build_not(eq.into_int_value(), "isnot").expect("not").into())
+        }
         _ => Err(format!("Unsupported tagged int operator: {:?}", op)),
     }
 }
@@ -244,6 +249,16 @@ pub fn generate_tagged_int_unary<'ctx>(
     match op {
         UnaryOp::Neg => crate::codegen::runtime::tagged_int::generate_tagged_int_neg(state, operand),
         UnaryOp::Pos => Ok(operand),
+        UnaryOp::Invert => {
+            // For tagged int invert: untag, invert, retag
+            // Note: This handles small integers. BigInt invert would require runtime call.
+            let val = operand.into_int_value();
+            let small_val = state.builder.build_right_shift(val, state.context.i64_type().const_int(1, false), false, "unshift").expect("unshift");
+            let inverted = state.builder.build_xor(small_val, state.context.i64_type().const_all_ones(), "inverted").expect("inverted");
+            let tagged_inverted = state.builder.build_left_shift(inverted, state.context.i64_type().const_int(1, false), "tagged_inverted").expect("tag");
+            
+            Ok(tagged_inverted.into())
+        }
         _ => Err(format!("Unsupported tagged int unary operator: {:?}", op)),
     }
 }
