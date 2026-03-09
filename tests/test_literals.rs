@@ -179,42 +179,99 @@ test()
 }
 
 // ============================================================================
-// KNOWN LIMITATIONS - Tests for features not yet fully implemented
+// F-String and Bytes Literals - Fixed and Working
 // ============================================================================
 
-// The following literal types have known JIT issues:
+#[test]
+fn test_fstring_literals() {
+    let code = r#"
+def test():
+    name = "World"
+    a = f"Hello {name}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
 
-// 1. f-string literals - String concatenation causes segfault
-// Example: f"Hello {name}"
-// Root cause: vp_str_concat runtime function has issues
-// Fix needed: Debug and fix string concatenation in runtime
+#[test]
+fn test_fstring_with_int_interpolation() {
+    let code = r#"
+def test():
+    age = 25
+    a = f"Age: {age}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
 
-// 2. bytes literals - Causes segfault
-// Example: b"bytes"
-// Root cause: bytes_const or vp_bytes_create has issues
-// Fix needed: Debug bytes handling in codegen/runtime
+#[test]
+fn test_fstring_with_multiple_interpolations() {
+    let code = r#"
+def test():
+    name = "Alice"
+    age = 30
+    a = f"My name is {name} and I am {age} years old"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
 
-// These tests should be added once the features are fully implemented:
+#[test]
+fn test_fstring_with_expression() {
+    let code = r#"
+def test():
+    x = 10
+    y = 20
+    a = f"Sum: {x + y}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
 
-// #[test]
-// fn test_fstring_literals() {
-//     let code = r#"
-// def test():
-//     name = "World"
-//     a = f"Hello {name}"
-//     print(a)
-// test()
-// "#;
-//     assert!(run_viper_code(code).is_ok());
-// }
+#[test]
+fn test_bytes_literals() {
+    let code = r#"
+def test():
+    a = b"hello"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
 
-// #[test]
-// fn test_bytes_literals() {
-//     let code = r#"
-// def test():
-//     a = b"hello"
-//     print(a)
-// test()
-// "#;
-//     assert!(run_viper_code(code).is_ok());
-// }
+#[test]
+fn test_bytes_literals_hex() {
+    let code = r#"
+def test():
+    a = b"\x48\x65\x6c\x6c\x6f"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_bytes_literals_empty() {
+    let code = r#"
+def test():
+    a = b""
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_string_concatenation() {
+    let code = r#"
+def test():
+    a = "Hello " + "World"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}

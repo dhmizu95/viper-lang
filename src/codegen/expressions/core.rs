@@ -355,22 +355,26 @@ pub fn generate_expr<'ctx>(
                                 .ir_builder
                                 .build_call(state.builder, str_func, &[elem_val.into()], "elem_to_str")
                                 .unwrap()
+                        } else if elem_val.is_pointer_value() {
+                            // Already a string or other pointer - use directly
+                            elem_val
                         } else {
-                            // For integers and pointers, use appropriate conversion
-                            // Tagged integers need tagged_int_to_str
-                            // String pointers can be used directly
-                            if elem_val.is_pointer_value() {
-                                // Already a string or other pointer - use directly
-                                elem_val
-                            } else {
-                                // Integer - use tagged int to str
-                                let to_str_func = state.module.get_function("tagged_int_to_str")
-                                    .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
-                                state
-                                    .ir_builder
-                                    .build_call(state.builder, to_str_func, &[elem_val.into()], "elem_to_str")
-                                    .unwrap()
-                            }
+                            // Integer - use tagged int to str, which returns char*
+                            // Then convert char* to ViperString*
+                            let to_str_func = state.module.get_function("tagged_int_to_str")
+                                .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
+                            let c_str_val = state
+                                .ir_builder
+                                .build_call(state.builder, to_str_func, &[elem_val.into()], "elem_to_cstr")
+                                .unwrap();
+                            
+                            // Convert C string to ViperString
+                            let str_create_func = state.module.get_function("vp_str_create")
+                                .ok_or_else(|| "vp_str_create not declared".to_string())?;
+                            state
+                                .ir_builder
+                                .build_call(state.builder, str_create_func, &[c_str_val.into()], "elem_to_str")
+                                .unwrap()
                         }
                     }
                 };

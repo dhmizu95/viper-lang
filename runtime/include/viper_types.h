@@ -301,23 +301,39 @@ static inline ViperString* vp_str_concat(ViperString* a, ViperString* b) {
     const char* data_b = vp_str_data_inline(b);
 
     /* Allocate result string with exact size needed */
-    ViperString* result = (ViperString*)vp_arc_alloc(sizeof(ViperString) + (size_t)total_len + 1);
-    if (!result) {
-        return NULL;
-    }
+    ViperString* result;
+    
+    /* Use SSO for small strings, heap for large */
+    if (total_len <= VIPER_SSO_CAPACITY) {
+        /* Small string optimization */
+        result = (ViperString*)vp_arc_alloc_local(sizeof(ViperString));
+        if (!result) {
+            return NULL;
+        }
+        result->data.heap.ref_count = 1;
+        result->data.heap.length = total_len | VIPER_SSO_FLAG;  /* Set SSO flag */
+        memcpy(result->data.sso.sso_data, data_a, (size_t)len_a);
+        memcpy(result->data.sso.sso_data + len_a, data_b, (size_t)len_b);
+        result->data.sso.sso_data[total_len] = '\0';
+    } else {
+        /* Large string - allocate with embedded data */
+        result = (ViperString*)vp_arc_alloc(sizeof(ViperString) + (size_t)total_len + 1);
+        if (!result) {
+            return NULL;
+        }
+        result->data.heap.ref_count = 1;
+        result->data.heap.length = total_len;  /* No SSO flag = heap string */
+        result->data.heap.heap_data = (char*)((char*)result + sizeof(ViperString));
 
-    result->data.heap.ref_count = 1;
-    result->data.heap.length = total_len;
-    result->data.heap.heap_data = (char*)((char*)result + sizeof(ViperString));
-
-    /* Copy data from both strings */
-    if (len_a > 0) {
-        memcpy(result->data.heap.heap_data, data_a, (size_t)len_a);
+        /* Copy data from both strings */
+        if (len_a > 0) {
+            memcpy(result->data.heap.heap_data, data_a, (size_t)len_a);
+        }
+        if (len_b > 0) {
+            memcpy(result->data.heap.heap_data + len_a, data_b, (size_t)len_b);
+        }
+        result->data.heap.heap_data[total_len] = '\0';
     }
-    if (len_b > 0) {
-        memcpy(result->data.heap.heap_data + len_a, data_b, (size_t)len_b);
-    }
-    result->data.heap.heap_data[total_len] = '\0';
 
     return result;
 }
