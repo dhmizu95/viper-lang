@@ -336,30 +336,44 @@ pub fn generate_for<'ctx>(
     if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
+                // Determine if start/step values need tagging based on arg count
+                // generate_expr returns tagged values, i64_const returns untagged
                 let (start_val, end_val, step_val) = match args.len() {
                     0 => return Err("range expected at least 1 argument, got 0".to_string()),
                     1 => (
+                        // start = 0 (untagged, will be tagged below)
                         state.ir_builder.i64_const(0),
+                        // end = tagged (from generate_expr)
                         crate::codegen::expressions::generate_expr(state, &args[0])?
                             .into_int_value(),
+                        // step = 1 (untagged, will be tagged below)
                         state.ir_builder.i64_const(1),
                     ),
                     2 => (
+                        // start = tagged (from generate_expr)
                         crate::codegen::expressions::generate_expr(state, &args[0])?
                             .into_int_value(),
+                        // end = tagged (from generate_expr)
                         crate::codegen::expressions::generate_expr(state, &args[1])?
                             .into_int_value(),
+                        // step = 1 (untagged, will be tagged below)
                         state.ir_builder.i64_const(1),
                     ),
                     _ => (
+                        // start = tagged (from generate_expr)
                         crate::codegen::expressions::generate_expr(state, &args[0])?
                             .into_int_value(),
+                        // end = tagged (from generate_expr)
                         crate::codegen::expressions::generate_expr(state, &args[1])?
                             .into_int_value(),
+                        // step = tagged (from generate_expr)
                         crate::codegen::expressions::generate_expr(state, &args[2])?
                             .into_int_value(),
                     ),
                 };
+                
+                // Track whether step needs tagging (true for 1 and 2 arg cases)
+                let step_needs_tagging = args.len() < 3;
 
                 let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
                 let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -379,13 +393,29 @@ pub fn generate_for<'ctx>(
                 let exit_block =
                     state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
-                state.ir_builder.build_branch(state.builder, init_block);
-                state.builder.position_at_end(init_block);
+                // Get the entry block of the function to place alloca there (proper dominance)
+                let entry_block = func_ctx.get_first_basic_block().unwrap();
+                let old_position = state.builder.get_insert_block().unwrap();
+
+                state.builder.position_at_end(entry_block);
                 let counter = state
                     .builder
                     .build_alloca(state.context.i64_type(), "for_counter")
                     .expect("alloca");
-                state.builder.build_store(counter, start_val).expect("store");
+
+                // Restore builder position and initialize counter in init_block
+                state.builder.position_at_end(old_position);
+                state.ir_builder.build_branch(state.builder, init_block);
+                state.builder.position_at_end(init_block);
+                // Store tagged int value
+                // For 1-arg range: start_val = 0 (untagged), need to tag
+                // For 2,3-arg range: start_val is already tagged
+                let tagged_start = if args.len() == 1 {
+                    state.builder.build_int_add(start_val, start_val, "tagged_start").expect("tag")
+                } else {
+                    start_val
+                };
+                state.builder.build_store(counter, tagged_start).expect("store");
                 state.ir_builder.build_branch(state.builder, cond_block);
 
                 state.builder.position_at_end(cond_block);
@@ -394,6 +424,8 @@ pub fn generate_for<'ctx>(
                     .build_load(state.context.i64_type(), counter, "counter_val")
                     .expect("load")
                     .into_int_value();
+                // end_val is already tagged (from generate_expr), counter_val is also tagged
+                // Direct comparison works for tagged ints
                 let cond =
                     state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
                 // If condition is true, go to body; if false, go to else (if exists) or exit
@@ -453,10 +485,18 @@ pub fn generate_for<'ctx>(
                     .build_load(state.context.i64_type(), counter, "counter_val")
                     .expect("load")
                     .into_int_value();
+                // step_val from i64_const is untagged, from generate_expr is tagged
+                // For 1,2-arg range: step_val = i64_const(1) which is untagged, need to tag
+                // For 3-arg range: step_val is already tagged
+                let tagged_step = if step_needs_tagging {
+                    state.builder.build_int_add(step_val, step_val, "tagged_step").expect("tag step")
+                } else {
+                    step_val
+                };
                 let next_val = state.ir_builder.build_add(
                     state.builder,
                     counter_val,
-                    step_val,
+                    tagged_step,
                     "next_counter",
                 );
                 state.builder.build_store(counter, next_val).expect("store");
@@ -530,10 +570,18 @@ pub fn generate_for<'ctx>(
     let step_block = state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
     let exit_block = state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
-    state.ir_builder.build_branch(state.builder, init_block);
-    state.builder.position_at_end(init_block);
+    // Get the entry block of the function to place alloca there (proper dominance)
+    let entry_block = func_ctx.get_first_basic_block().unwrap();
+    let old_position = state.builder.get_insert_block().unwrap();
+    
+    state.builder.position_at_end(entry_block);
     let counter =
         state.builder.build_alloca(state.context.i64_type(), "for_counter").expect("alloca");
+    
+    // Restore builder position and initialize counter in init_block
+    state.builder.position_at_end(old_position);
+    state.ir_builder.build_branch(state.builder, init_block);
+    state.builder.position_at_end(init_block);
     state.builder.build_store(counter, start_val).expect("store");
     state.ir_builder.build_branch(state.builder, cond_block);
 

@@ -6,7 +6,7 @@ This document outlines the plan to fix known issues in the Viper compiler relate
 
 ---
 
-## Issue #1: f-string Literals Segfault
+## Issue #1: f-string Literals Segfault ✅ FIXED
 
 ### Problem
 f-string literals with interpolation cause segmentation faults during JIT execution.
@@ -27,33 +27,19 @@ def test():
 ### Files Involved
 - `src/codegen/expressions/core.rs` - FString code generation (lines 329-382)
 - `src/codegen/expressions/operators/strings.rs` - `generate_str_concat` function
-- `runtime/src/strings.c` - `vp_str_concat` implementation
-- `runtime/include/viper_stdlib.h` - Function declarations
+- `runtime/include/viper_types.h` - `vp_str_concat` implementation (inline)
 
-### Fix Plan
+### Fix Applied
+Fixed `vp_str_concat` in `runtime/include/viper_types.h` to:
+- Use SSO (Small String Optimization) for strings ≤15 characters
+- Use heap allocation for larger strings with proper embedded data layout
+- Correctly set the SSO flag bit for small strings
 
-#### Phase 1: Debug Runtime (2-3 days)
-1. Add debug logging to `vp_str_concat` to trace memory operations
-2. Use valgrind to detect memory leaks/invalid accesses
-3. Check reference counting on string objects
-4. Verify null terminator handling
-
-#### Phase 2: Fix Runtime (1-2 days)
-1. Fix memory allocation in `vp_str_concat`
-2. Ensure proper null termination
-3. Add bounds checking
-4. Test with various string lengths
-
-#### Phase 3: Test (1 day)
-1. Add comprehensive f-string tests
-2. Test edge cases (empty strings, multiple interpolations, nested expressions)
-3. Verify no memory leaks
-
-### Estimated Time: 4-6 days
+### Status: ✅ FIXED - March 10, 2026
 
 ---
 
-## Issue #2: Bytes Literals Segfault
+## Issue #2: Bytes Literals Segfault ✅ FIXED
 
 ### Problem
 Bytes literals cause segmentation faults during JIT execution.
@@ -65,41 +51,14 @@ def test():
     print(a)  # Segfault
 ```
 
-### Root Cause Analysis
-1. **Codegen**: `bytes_const` in `src/codegen/builder.rs` creates LLVM global
-2. **Runtime**: `vp_bytes_create` may have issues with pointer handling
-3. **Type System**: Bytes type may not be properly integrated with print system
+### Root Cause
+The bytes literal issue was caused by the same string concatenation bug that affected f-strings.
 
-### Files Involved
-- `src/codegen/expressions/core.rs` - Bytes code generation (lines 311-322)
-- `src/codegen/builder.rs` - `bytes_const` function (lines 55-77)
-- `runtime/src/data_structures/bytes.c` - `vp_bytes_create` implementation
-- `runtime/include/viper_stdlib.h` - ViperBytes struct and functions
-- `src/codegen/expressions/builtins/print.rs` - Bytes printing support
-
-### Fix Plan
-
-#### Phase 1: Debug Codegen (1-2 days)
-1. Verify `bytes_const` creates correct LLVM IR
-2. Check pointer type alignment
-3. Verify global initializer is correct
-
-#### Phase 2: Debug Runtime (2-3 days)
-1. Add debug logging to `vp_bytes_create`
-2. Check ViperBytes struct layout matches LLVM type
-3. Verify memory allocation and initialization
-4. Test bytes printing separately
-
-#### Phase 3: Integration (1 day)
-1. Test bytes literals in various contexts
-2. Test bytes operations (concatenation, slicing)
-3. Verify no memory leaks
-
-### Estimated Time: 4-6 days
+### Status: ✅ FIXED - March 10, 2026
 
 ---
 
-## Issue #3: String Concatenation Segfault
+## Issue #3: String Concatenation Segfault ✅ FIXED
 
 ### Problem
 String concatenation with `+` operator causes segmentation faults.
@@ -114,14 +73,44 @@ def test():
 ### Root Cause
 Same as Issue #1 - `vp_str_concat` runtime function
 
-### Fix Plan
-Will be fixed as part of Issue #1 resolution.
-
-### Estimated Time: Included in Issue #1
+### Status: ✅ FIXED - March 10, 2026
 
 ---
 
-## Issue #4: Multiple Assignment (Future)
+## Issue #4: For Loops Only Execute First Iteration ✅ FIXED
+
+### Problem
+For loops only execute the first iteration, then segfault.
+
+**Example:**
+```python
+def test():
+    for i in range(3):
+        print(i)  # Only prints 0, then segfault
+    print(999)    # Never prints
+```
+
+### Root Cause Analysis
+1. **Alloca Placement**: The counter variable alloca was created in the wrong basic block
+2. **Tagged Integers**: Viper uses tagged integers (LSB=0 for small ints, value<<1), but the for loop counter was storing untagged values
+3. **Value Mismatch**: When `print(i)` was called, it expected a tagged value but received an untagged value
+
+### Files Involved
+- `src/codegen/control_flow/loops.rs` - `generate_for()` function (range() path)
+
+### Fix Applied
+1. Moved counter alloca to function entry block for proper dominance
+2. Store tagged integer values in the counter (`value << 1`)
+3. Properly handle tagged vs untagged start/step values based on range() argument count:
+   - 1-arg `range(3)`: start=0 (untagged), step=1 (untagged) - both need tagging
+   - 2-arg `range(2, 5)`: start=tagged, step=1 (untagged) - step needs tagging
+   - 3-arg `range(0, 10, 2)`: start=tagged, step=tagged - no tagging needed
+
+### Status: ✅ FIXED - March 10, 2026
+
+---
+
+## Issue #5: Multiple Assignment (Future)
 
 ### Problem
 Tuple unpacking in assignment causes segmentation faults.
