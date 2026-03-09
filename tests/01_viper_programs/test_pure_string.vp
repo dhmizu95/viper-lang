@@ -1,4 +1,0 @@
-def main() -> int:
-    s = "Hello World"
-    print(s)
-    return 0

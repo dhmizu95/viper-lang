@@ -1,6 +1,0 @@
-def main():
-    x = 5
-    result = "big" if x > 3 else "small"
-    print(result)
-    y = 10 if True else 0
-    print(y)

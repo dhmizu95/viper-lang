@@ -1,6 +1,0 @@
-def test_pow():
-    print("Large ops:")
-    c: int = 2 ** 60
-    print(c)
-
-test_pow()

@@ -1,4 +1,0 @@
-import test_main
-
-print("Imported test_main module")
-print(f"test_main.__name__ = {test_main.__name__}")

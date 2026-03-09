@@ -1,5 +1,0 @@
-extern "C" def llabs(n: int) -> int
-
-def main() -> int:
-    x = llabs(-42)
-    return x

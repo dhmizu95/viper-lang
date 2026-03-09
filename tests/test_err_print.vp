@@ -1,8 +1,0 @@
-# Test printing error value
-
-def get_error() -> Result[int, str]:
-    return Err("Test error message")
-
-result = get_error()
-err = result.unwrap_err()
-print("Error: ", err)

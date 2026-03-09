@@ -1,5 +1,0 @@
-def main() -> int:
-    f = lambda x: x * 2
-    print(f(21))
-    print("\n")
-    return 0

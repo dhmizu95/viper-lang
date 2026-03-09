@@ -1,6 +1,0 @@
-def add_one(x: int) -> int:
-    return x + 1
-
-def main():
-    a = 5 |> add_one
-    print(a)

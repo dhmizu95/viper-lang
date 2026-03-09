@@ -1,7 +1,0 @@
-# Test: Simple function
-def add(a: int, b: int) -> int:
-    return a + b
-
-def main():
-    x = 5
-    print(x)

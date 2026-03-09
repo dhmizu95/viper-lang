@@ -1,7 +1,0 @@
-def main():
-    neg_a = -1000000000000000000000000000000
-    abs_a = abs(neg_a)
-    print("abs(...) = ")
-    print(abs_a)
-
-main()

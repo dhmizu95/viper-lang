@@ -1,3 +1,0 @@
-# Test bin
-b = bin(10)
-print(b)

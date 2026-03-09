@@ -1,9 +1,0 @@
-# Test Python-style if __name__ == "__main__" pattern
-
-def main():
-    print("This code runs when the script is run directly.")
-    print("__name__ =")
-    print(__name__)
-
-if __name__ == "__main__":
-    main()

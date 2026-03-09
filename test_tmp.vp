@@ -1,6 +1,0 @@
-def test_arithmetic():
-    a: int = 1000
-    b: int = 2000
-    print(a + b)
-
-test_arithmetic()

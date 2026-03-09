@@ -1,5 +1,0 @@
-# Test: None value
-def main():
-    nothing = None
-    x = 5
-    print(x)

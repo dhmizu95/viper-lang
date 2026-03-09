@@ -1,8 +1,0 @@
-# Benchmark: Create 1M integer list (fastest - just allocation)
-# Tests pure list creation speed
-
-def main():
-    # Just create the list - fastest method
-    lst = [0] * 1000000
-    
-    print("Created 1M integer list")

@@ -1,5 +1,0 @@
-# Test chr and ord
-c = chr(65)
-print(c)
-o = ord("A")
-print(o)

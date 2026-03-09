@@ -1,7 +1,0 @@
-# Minimal test - just create channel
-
-def main():
-    print("Start")
-    c = chan(10)
-    print("Channel created")
-    print("End")

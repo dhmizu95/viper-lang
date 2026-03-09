@@ -1,9 +1,0 @@
-def main():
-    a = 2
-    print(a)
-    b = 100
-    print(b)
-    p = pow(a, b)
-    print(p)
-
-main()

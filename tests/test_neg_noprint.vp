@@ -1,5 +1,0 @@
-def main():
-    a = 100
-    neg_a = -a
-
-main()

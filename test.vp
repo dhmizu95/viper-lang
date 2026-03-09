@@ -1,4 +1,0 @@
-def get_big():
-    return 100000000000000000000000000000
-
-print(get_big())
