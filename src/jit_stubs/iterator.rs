@@ -12,7 +12,7 @@ pub struct IteratorResult {
 /// Get next item from iterator
 /// Returns struct with value and done flag
 #[no_mangle]
-pub extern "C" fn vp_iterator_next(iterator: *const c_void) -> IteratorResult {
+pub extern "C" fn vp_iterator_next(_iterator: *const c_void) -> IteratorResult {
     // For now, return done=true as placeholder
     // Full implementation would:
     // 1. Cast iterator to actual iterator type

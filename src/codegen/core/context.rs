@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::types::TypeMapper;
-use crate::codegen::variables::{LoopContext, VarInfo, VarType};
+use crate::codegen::variables::{LoopContext, VarInfo};
 use crate::semantic::escape_analysis::EscapeAnalyzer;
 use crate::semantic::closure_analysis::ClosureAnalyzer;
 

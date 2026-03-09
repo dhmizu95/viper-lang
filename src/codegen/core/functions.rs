@@ -567,7 +567,7 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some(batch_func) = self.module.get_function("vp_release_batch_local") {
                     let array_ptr = self.builder.build_pointer_cast(
                         array_alloca,
-                        ptr_type.ptr_type(inkwell::AddressSpace::default()),
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
                         "array_cast"
                     ).unwrap();
                     self.builder.build_call(

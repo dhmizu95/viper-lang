@@ -221,7 +221,7 @@ fn generate_tagged_int_to_str<'ctx>(
 /// Generate str() for tagged int value
 /// For now, just return the tagged int value directly - print() will handle it
 fn generate_tagged_int_to_str_val<'ctx>(
-    state: &mut CodeGenState<'_, 'ctx>,
+    _state: &mut CodeGenState<'_, 'ctx>,
     tagged_val: inkwell::values::BasicValueEnum<'ctx>,
 ) -> Result<BasicValueEnum<'ctx>, String> {
     // Return the tagged int value directly

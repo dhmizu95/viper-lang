@@ -1,12 +1,9 @@
 //! Conversion built-in functions
 
-use super::*;
-
 use crate::ast::Expr;
-
-use inkwell::values::BasicValueEnum;
-
+use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
+use inkwell::values::BasicValueEnum;
 
 /// Generate str_bigint() call - convert BigInt to string
 pub fn generate_bigint_to_str<'ctx>(

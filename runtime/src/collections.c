@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <math.h>
 #include "viper_stdlib.h"
 
 /* ============================================ */
@@ -676,10 +677,12 @@ ViperList* vp_list_from_str(ViperString* str) {
     if (!str) {
         return vp_list_create();
     }
-    
-    ViperList* list = vp_list_create_with_capacity(str->length);
-    for (int64_t i = 0; i < str->length; i++) {
-        vp_list_append(list, (int64_t)str->data[i]);
+
+    int64_t len = vp_str_len_inline(str);
+    const char* data = vp_str_data_inline(str);
+    ViperList* list = vp_list_create_with_capacity(len);
+    for (int64_t i = 0; i < len; i++) {
+        vp_list_append(list, (int64_t)data[i]);
     }
     return list;
 }
@@ -736,12 +739,14 @@ ViperTuple* vp_tuple_from_str(ViperString* str) {
     if (!str) {
         return vp_tuple_create(0);
     }
-    
-    ViperTuple* tuple = vp_tuple_create(str->length);
+
+    int64_t len = vp_str_len_inline(str);
+    const char* data = vp_str_data_inline(str);
+    ViperTuple* tuple = vp_tuple_create(len);
     if (!tuple) return NULL;
-    
-    for (int64_t i = 0; i < str->length; i++) {
-        tuple->elements[i] = (int64_t)str->data[i];
+
+    for (int64_t i = 0; i < len; i++) {
+        tuple->elements[i] = (int64_t)data[i];
     }
     return tuple;
 }
@@ -1012,11 +1017,13 @@ ViperString* vp_repr_f64(double val) {
 ViperString* vp_repr_str(ViperString* str) {
     if (!str) return vp_str_create("None");
     /* Add quotes */
-    char* quoted = malloc(str->length + 3);
+    int64_t len = vp_str_len_inline(str);
+    const char* data = vp_str_data_inline(str);
+    char* quoted = malloc(len + 3);
     quoted[0] = '\'';
-    memcpy(quoted + 1, str->data, str->length);
-    quoted[str->length + 1] = '\'';
-    quoted[str->length + 2] = '\0';
+    memcpy(quoted + 1, data, len);
+    quoted[len + 1] = '\'';
+    quoted[len + 2] = '\0';
     ViperString* result = vp_str_create(quoted);
     free(quoted);
     return result;
@@ -1088,8 +1095,11 @@ ViperString* vp_chr_i64(int64_t n) {
  * ord(s) - Unicode code point of first character
  */
 int64_t vp_ord_str(ViperString* str) {
-    if (!str || str->length == 0) return 0;
-    return (int64_t)(unsigned char)str->data[0];
+    if (!str) return 0;
+    int64_t len = vp_str_len_inline(str);
+    if (len == 0) return 0;
+    const char* data = vp_str_data_inline(str);
+    return (int64_t)(unsigned char)data[0];
 }
 
 /* ============================================ */
@@ -1167,22 +1177,26 @@ int vp_is_callable(void* obj) {
  * input(prompt) - read line from stdin
  */
 ViperString* vp_input(ViperString* prompt) {
-    if (prompt && prompt->length > 0) {
-        printf("%s", prompt->data);
-        fflush(stdout);
+    if (prompt) {
+        int64_t len = vp_str_len_inline(prompt);
+        if (len > 0) {
+            const char* data = vp_str_data_inline(prompt);
+            printf("%s", data);
+            fflush(stdout);
+        }
     }
-    
+
     char buffer[1024];
     if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
         return vp_str_create("");
     }
-    
+
     /* Remove trailing newline */
     size_t len = strlen(buffer);
     if (len > 0 && buffer[len-1] == '\n') {
         buffer[len-1] = '\0';
     }
-    
+
     return vp_str_create(buffer);
 }
 

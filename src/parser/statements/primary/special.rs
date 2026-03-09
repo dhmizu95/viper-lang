@@ -30,7 +30,7 @@ pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> Result<Exp
                 continue;
             } else if paren_params && parser.match_token(&TokenKind::Colon) {
                 // Shorthand syntax: fn(x, y: body)
-                let body = super::parse_expression(parser)?;
+                let body = parse_expression(parser)?;
                 parser.expect(&TokenKind::RParen)?;
                 let merged_span = span.merge(body.span());
                 return Ok(Expr::Lambda {
@@ -50,7 +50,7 @@ pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> Result<Exp
     }
 
     parser.expect(&TokenKind::Colon)?;
-    let body = super::parse_expression(parser)?;
+    let body = parse_expression(parser)?;
     let merged_span = span.merge(body.span());
     Ok(Expr::Lambda {
         params,
@@ -68,7 +68,7 @@ pub fn parse_type_alias(parser: &mut StatementParser) -> Result<Stmt, String> {
 
     parser.expect(&TokenKind::Eq)?;
 
-    let type_def = super::parse_type_annotation(parser)?;
+    let type_def = parse_type_annotation(parser)?;
 
     Ok(Stmt::TypeAlias { name, type_def, span })
 }

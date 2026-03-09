@@ -1,12 +1,9 @@
 //! Lambda expression code generation
 
-use super::*;
-
 use crate::ast::Expr;
-
-use inkwell::values::BasicValueEnum;
-
+use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
+use inkwell::values::BasicValueEnum;
 
 /// Generate lambda expression
 pub fn generate_lambda<'ctx>(

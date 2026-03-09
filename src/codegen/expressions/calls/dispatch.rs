@@ -397,7 +397,7 @@ pub fn generate_call<'ctx>(
 
             // If this is a nested function call, append closure cells
             if let Some(closure_analyzer) = state.closure_analyzer {
-                if let Some(current_func) = state.current_function {
+                if let Some(_current_func) = state.current_function {
                     // Check if the called function is nested and needs closure cells
                     let closure_info = closure_analyzer.get_closure_info(name);
                     if let Some(info) = closure_info {

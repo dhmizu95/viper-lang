@@ -9,7 +9,7 @@ pub fn declare_typing_functions<'ctx>(
     module: &Module<'ctx>,
 ) -> Result<(), String> {
     let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
-    let i64_type = context.i64_type();
+    let _i64_type = context.i64_type();
     let bool_type = context.bool_type();
 
     // get_type_hints(obj) -> dict
