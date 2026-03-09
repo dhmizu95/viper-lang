@@ -22,4 +22,13 @@ pub fn register_string_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_str_compare" => super::super::strings::vp_str_compare_stub,
         "vp_exit" => super::super::strings::vp_exit_stub,
     ]);
+
+    // Bytes functions
+    register_stubs!(ee, module, [
+        "vp_bytes_create" => super::super::strings::vp_bytes_create_stub,
+        "vp_bytes_free" => super::super::strings::vp_bytes_free_stub,
+        "vp_bytes_len" => super::super::strings::vp_bytes_len_stub,
+        "vp_bytes_get" => super::super::strings::vp_bytes_get_stub,
+        "vp_bytes_print" => super::super::strings::vp_bytes_print_stub,
+    ]);
 }

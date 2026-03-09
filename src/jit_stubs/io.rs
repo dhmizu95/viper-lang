@@ -24,29 +24,65 @@ pub extern "C" fn vp_print_newline() {
 // ViperString structure (must match runtime/include/viper_types.h)
 #[repr(C)]
 pub struct ViperString {
-    data: ViperStringData,
+    pub data: ViperStringData,
 }
 
 #[repr(C)]
-union ViperStringData {
-    heap: ViperStringHeap,
-    sso: ViperStringSSO,
+pub union ViperStringData {
+    pub heap: ViperStringHeap,
+    pub sso: ViperStringSSO,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ViperStringHeap {
-    ref_count: i64,
-    length: i64,
-    heap_data: *const u8,
+    pub ref_count: i64,
+    pub length: i64,
+    pub heap_data: *const u8,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ViperStringSSO {
-    _unused: i64,
-    sso_length: i8,
-    sso_data: [u8; 15],
+    pub _unused: i64,
+    pub sso_length: i8,
+    pub sso_data: [u8; 15],
+}
+
+impl ViperString {
+    /// Get the string length (handles SSO flag)
+    pub fn length(&self) -> i64 {
+        let length = unsafe { self.data.heap.length };
+        if length & 0x80 != 0 {
+            length & 0x7F
+        } else {
+            length
+        }
+    }
+
+    /// Get the string data as a slice
+    pub fn as_slice(&self) -> &[u8] {
+        let length = self.length() as usize;
+        if length == 0 {
+            return &[];
+        }
+
+        unsafe {
+            if self.data.heap.length & 0x80 != 0 {
+                // SSO - data is inline
+                let sso_len = length.min(15);
+                &self.data.sso.sso_data[..sso_len]
+            } else {
+                // Heap - data pointer
+                let data_ptr = self.data.heap.heap_data;
+                if data_ptr.is_null() {
+                    &[]
+                } else {
+                    std::slice::from_raw_parts(data_ptr, length)
+                }
+            }
+        }
+    }
 }
 
 pub extern "C" fn vp_print_str(s: *mut ViperString) {

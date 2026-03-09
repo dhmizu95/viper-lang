@@ -275,16 +275,51 @@ static inline void vp_str_free(ViperString* s) {
 static inline bool vp_str_equals(ViperString* a, ViperString* b) {
     if (!a && !b) return true;
     if (!a || !b) return false;
-    
+
     int64_t len_a = vp_str_len_inline(a);
     int64_t len_b = vp_str_len_inline(b);
-    
+
     if (len_a != len_b) return false;
-    
+
     const char* data_a = vp_str_data_inline(a);
     const char* data_b = vp_str_data_inline(b);
-    
+
     return memcmp(data_a, data_b, (size_t)len_a) == 0;
+}
+
+/* Concatenate two strings */
+static inline ViperString* vp_str_concat(ViperString* a, ViperString* b) {
+    if (!a && !b) return NULL;
+    if (!a) return b;
+    if (!b) return a;
+
+    int64_t len_a = vp_str_len_inline(a);
+    int64_t len_b = vp_str_len_inline(b);
+    int64_t total_len = len_a + len_b;
+
+    const char* data_a = vp_str_data_inline(a);
+    const char* data_b = vp_str_data_inline(b);
+
+    /* Allocate result string with exact size needed */
+    ViperString* result = (ViperString*)vp_arc_alloc(sizeof(ViperString) + (size_t)total_len + 1);
+    if (!result) {
+        return NULL;
+    }
+
+    result->data.heap.ref_count = 1;
+    result->data.heap.length = total_len;
+    result->data.heap.heap_data = (char*)((char*)result + sizeof(ViperString));
+
+    /* Copy data from both strings */
+    if (len_a > 0) {
+        memcpy(result->data.heap.heap_data, data_a, (size_t)len_a);
+    }
+    if (len_b > 0) {
+        memcpy(result->data.heap.heap_data + len_a, data_b, (size_t)len_b);
+    }
+    result->data.heap.heap_data[total_len] = '\0';
+
+    return result;
 }
 
 /* ============================================ */

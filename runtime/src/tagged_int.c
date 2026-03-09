@@ -33,6 +33,8 @@ MinimalViperString* vp_str_create(const char* str);
 void vp_str_free(MinimalViperString* s);
 const char* vp_str_data_inline(MinimalViperString* s);
 void vp_print_viper_str(MinimalViperString* val);
+MinimalViperString* vp_str_concat(MinimalViperString* a, MinimalViperString* b);
+MinimalViperString* vp_str_repeat(MinimalViperString* s, int64_t count);
 
 /* ============================================ */
 /* Internal Helper Functions                    */
@@ -933,6 +935,73 @@ void vp_print_viper_str(MinimalViperString* val) {
     }
     const char* c_str = vp_str_data_inline(val);
     printf("%s", c_str);
+}
+
+/* Concatenate two ViperStrings */
+MinimalViperString* vp_str_concat(MinimalViperString* a, MinimalViperString* b) {
+    if (!a && !b) return NULL;
+    if (!a) return b;
+    if (!b) return a;
+
+    const char* data_a = vp_str_data_inline(a);
+    const char* data_b = vp_str_data_inline(b);
+    int64_t len_a = (int64_t)strlen(data_a);
+    int64_t len_b = (int64_t)strlen(data_b);
+    int64_t total_len = len_a + len_b;
+
+    /* Allocate result string */
+    MinimalViperString* result = (MinimalViperString*)malloc(sizeof(MinimalViperString));
+    if (!result) return NULL;
+
+    result->data.heap.ref_count = 1;
+    result->data.heap.length = total_len;
+    result->data.heap.heap_data = (char*)malloc((size_t)total_len + 1);
+    if (!result->data.heap.heap_data) {
+        free(result);
+        return NULL;
+    }
+
+    /* Copy data from both strings */
+    if (len_a > 0) {
+        memcpy(result->data.heap.heap_data, data_a, (size_t)len_a);
+    }
+    if (len_b > 0) {
+        memcpy(result->data.heap.heap_data + len_a, data_b, (size_t)len_b);
+    }
+    result->data.heap.heap_data[total_len] = '\0';
+
+    return result;
+}
+
+/* Repeat a string n times */
+MinimalViperString* vp_str_repeat(MinimalViperString* s, int64_t count) {
+    if (!s || count <= 0) {
+        return vp_str_create("");
+    }
+
+    const char* data = vp_str_data_inline(s);
+    int64_t len = (int64_t)strlen(data);
+    int64_t total_len = len * count;
+
+    /* Allocate result string */
+    MinimalViperString* result = (MinimalViperString*)malloc(sizeof(MinimalViperString));
+    if (!result) return NULL;
+
+    result->data.heap.ref_count = 1;
+    result->data.heap.length = total_len;
+    result->data.heap.heap_data = (char*)malloc((size_t)total_len + 1);
+    if (!result->data.heap.heap_data) {
+        free(result);
+        return NULL;
+    }
+
+    /* Copy the string count times */
+    for (int64_t i = 0; i < count; i++) {
+        memcpy(result->data.heap.heap_data + (i * len), data, (size_t)len);
+    }
+    result->data.heap.heap_data[total_len] = '\0';
+
+    return result;
 }
 
 /* ============================================ */

@@ -1,164 +1,151 @@
-/// String concatenation stub for JIT
-/// Uses CString to ensure proper null-terminated string layout
-pub extern "C" fn vp_str_concat_stub(
-    a: *const std::ffi::c_char,
-    b: *const std::ffi::c_char,
-) -> *const std::ffi::c_char {
-    use std::ffi::CStr;
+//! String JIT stubs - work with ViperString* to match runtime
 
-    if a.is_null() || b.is_null() {
-        return std::ptr::null();
+use crate::jit_stubs::io::ViperString;
+use std::alloc;
+
+/// String concatenation stub for JIT
+/// Takes two ViperString* and returns a new ViperString*
+pub extern "C" fn vp_str_concat_stub(
+    a: *mut ViperString,
+    b: *mut ViperString,
+) -> *mut ViperString {
+    if a.is_null() && b.is_null() {
+        return std::ptr::null_mut();
+    }
+    if a.is_null() {
+        return b;
+    }
+    if b.is_null() {
+        return a;
     }
 
     unsafe {
-        let str_a = CStr::from_ptr(a).to_string_lossy();
-        let str_b = CStr::from_ptr(b).to_string_lossy();
+        let str_a = get_string_data(a);
+        let str_b = get_string_data(b);
         let concatenated = format!("{}{}", str_a, str_b);
-
-        // Use CString to ensure proper null-terminated layout
-        // Leak the CString to keep it alive for JIT execution
-        let c_str = std::ffi::CString::new(concatenated).unwrap();
-        c_str.into_raw()
+        create_viper_string(&concatenated)
     }
 }
 
 /// String repetition stub for JIT
 pub extern "C" fn vp_str_repeat_stub(
-    s: *const std::ffi::c_char,
+    s: *mut ViperString,
     count: i64,
-) -> *const std::ffi::c_char {
-    use std::ffi::CStr;
-
+) -> *mut ViperString {
     if s.is_null() || count <= 0 {
-        if count <= 0 {
-            // Return empty string for count <= 0
-            let c_str = std::ffi::CString::new("").unwrap();
-            return c_str.into_raw();
-        }
-        return std::ptr::null();
+        return create_viper_string("");
     }
 
     unsafe {
-        let str = CStr::from_ptr(s).to_string_lossy();
+        let str = get_string_data(s);
         let repeated = str.repeat(count as usize);
-
-        // Use CString to ensure proper null-terminated layout
-        let c_str = std::ffi::CString::new(repeated).unwrap();
-        c_str.into_raw()
+        create_viper_string(&repeated)
     }
 }
 
 /// Convert i64 to string stub for JIT
-pub extern "C" fn vp_str_from_i64_stub(val: i64) -> *const std::ffi::c_char {
+pub extern "C" fn vp_str_from_i64_stub(val: i64) -> *mut ViperString {
     let s = val.to_string();
-    let c_str = std::ffi::CString::new(s).unwrap();
-    c_str.into_raw()
+    create_viper_string(&s)
 }
 
 /// Convert f64 to string stub for JIT
-pub extern "C" fn vp_str_from_f64_stub(val: f64) -> *const std::ffi::c_char {
+pub extern "C" fn vp_str_from_f64_stub(val: f64) -> *mut ViperString {
     let s = val.to_string();
-    let c_str = std::ffi::CString::new(s).unwrap();
-    c_str.into_raw()
+    create_viper_string(&s)
+}
+
+/// Convert bool to string stub for JIT
+pub extern "C" fn vp_str_from_bool_stub(val: bool) -> *mut ViperString {
+    let s = if val { "True" } else { "False" };
+    create_viper_string(s)
 }
 
 /// Get string length stub for JIT
-pub extern "C" fn vp_str_len_stub(s: *const std::ffi::c_char) -> i64 {
+pub extern "C" fn vp_str_len_stub(s: *mut ViperString) -> i64 {
     if s.is_null() {
         return 0;
     }
+    unsafe { (*s).length() }
+}
+
+pub extern "C" fn vp_str_create_stub(s: *const std::ffi::c_char) -> *mut ViperString {
+    if s.is_null() {
+        return std::ptr::null_mut();
+    }
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(s);
-        c_str.to_str().map(|s| s.len() as i64).unwrap_or(0)
+        if let Ok(rust_str) = c_str.to_str() {
+            create_viper_string(rust_str)
+        } else {
+            std::ptr::null_mut()
+        }
     }
 }
 
-pub extern "C" fn vp_str_create_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
+pub extern "C" fn vp_str_upper_stub(s: *mut ViperString) -> *mut ViperString {
     if s.is_null() {
-        return std::ptr::null();
+        return std::ptr::null_mut();
     }
     unsafe {
-        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
-        let c_str = std::ffi::CString::new(str.into_owned()).unwrap();
-        c_str.into_raw()
+        let str = get_string_data(s);
+        create_viper_string(&str.to_uppercase())
     }
 }
 
-pub extern "C" fn vp_str_upper_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
+pub extern "C" fn vp_str_lower_stub(s: *mut ViperString) -> *mut ViperString {
     if s.is_null() {
-        return std::ptr::null();
+        return std::ptr::null_mut();
     }
     unsafe {
-        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
-        let upper = str.to_uppercase();
-        let c_str = std::ffi::CString::new(upper).unwrap();
-        c_str.into_raw()
-    }
-}
-
-pub extern "C" fn vp_str_lower_stub(s: *const std::ffi::c_char) -> *const std::ffi::c_char {
-    if s.is_null() {
-        return std::ptr::null();
-    }
-    unsafe {
-        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
-        let lower = str.to_lowercase();
-        let c_str = std::ffi::CString::new(lower).unwrap();
-        c_str.into_raw()
+        let str = get_string_data(s);
+        create_viper_string(&str.to_lowercase())
     }
 }
 
 pub extern "C" fn vp_str_split_stub(
-    s: *const std::ffi::c_char,
-    delim_ptr: *const std::ffi::c_char,
+    s: *mut ViperString,
+    delim: *mut ViperString,
 ) -> *mut std::ffi::c_void {
+    use std::ffi::c_void;
+    
     let list = Box::new(Vec::<i64>::new());
-    if s.is_null() || delim_ptr.is_null() {
-        return Box::into_raw(list) as *mut std::ffi::c_void;
+    if s.is_null() || delim.is_null() {
+        return Box::into_raw(list) as *mut c_void;
     }
     unsafe {
-        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
-        let delim = std::ffi::CStr::from_ptr(delim_ptr).to_string_lossy();
+        let str = get_string_data(s);
+        let delim_str = get_string_data(delim);
         let mut list_val = Vec::<i64>::new();
-        for part in str.split(&*delim) {
-            let c_str = std::ffi::CString::new(part).unwrap();
-            list_val.push(c_str.into_raw() as i64);
+        for part in str.split(&*delim_str) {
+            list_val.push(create_viper_string(part) as i64);
         }
         let boxed = Box::new(list_val);
-        Box::into_raw(boxed) as *mut std::ffi::c_void
+        Box::into_raw(boxed) as *mut c_void
     }
 }
 
 pub extern "C" fn vp_str_replace_stub(
-    s: *const std::ffi::c_char,
-    old_sub: *const std::ffi::c_char,
-    new_sub: *const std::ffi::c_char,
-) -> *const std::ffi::c_char {
+    s: *mut ViperString,
+    old_sub: *mut ViperString,
+    new_sub: *mut ViperString,
+) -> *mut ViperString {
     if s.is_null() || old_sub.is_null() || new_sub.is_null() {
-        return std::ptr::null();
+        return std::ptr::null_mut();
     }
     unsafe {
-        let str = std::ffi::CStr::from_ptr(s).to_string_lossy();
-        let old_str = std::ffi::CStr::from_ptr(old_sub).to_string_lossy();
-        let new_str = std::ffi::CStr::from_ptr(new_sub).to_string_lossy();
+        let str = get_string_data(s);
+        let old_str = get_string_data(old_sub);
+        let new_str = get_string_data(new_sub);
         let replaced = str.replace(&*old_str, &*new_str);
-        let c_str = std::ffi::CString::new(replaced).unwrap();
-        c_str.into_raw()
+        create_viper_string(&replaced)
     }
-}
-
-/// Convert bool to string stub for JIT
-pub extern "C" fn vp_str_from_bool_stub(val: bool) -> *const std::ffi::c_char {
-    let s = if val { "True" } else { "False" };
-    let c_str = std::ffi::CString::new(s).unwrap();
-    c_str.into_raw()
 }
 
 /// String equality comparison stub for JIT
-/// Returns true if two strings have equal content
 pub extern "C" fn vp_str_equals_stub(
-    a: *const std::ffi::c_char,
-    b: *const std::ffi::c_char,
+    a: *mut ViperString,
+    b: *mut ViperString,
 ) -> bool {
     if a.is_null() && b.is_null() {
         return true;
@@ -167,17 +154,16 @@ pub extern "C" fn vp_str_equals_stub(
         return false;
     }
     unsafe {
-        let str_a = std::ffi::CStr::from_ptr(a).to_string_lossy();
-        let str_b = std::ffi::CStr::from_ptr(b).to_string_lossy();
+        let str_a = get_string_data(a);
+        let str_b = get_string_data(b);
         str_a == str_b
     }
 }
 
 /// String comparison stub for JIT
-/// Returns -1 if a < b, 0 if a == b, 1 if a > b
 pub extern "C" fn vp_str_compare_stub(
-    a: *const std::ffi::c_char,
-    b: *const std::ffi::c_char,
+    a: *mut ViperString,
+    b: *mut ViperString,
 ) -> i64 {
     if a.is_null() && b.is_null() {
         return 0;
@@ -189,8 +175,8 @@ pub extern "C" fn vp_str_compare_stub(
         return 1;
     }
     unsafe {
-        let str_a = std::ffi::CStr::from_ptr(a).to_string_lossy();
-        let str_b = std::ffi::CStr::from_ptr(b).to_string_lossy();
+        let str_a = get_string_data(a);
+        let str_b = get_string_data(b);
         match str_a.cmp(&str_b) {
             std::cmp::Ordering::Less => -1,
             std::cmp::Ordering::Equal => 0,
@@ -200,42 +186,178 @@ pub extern "C" fn vp_str_compare_stub(
 }
 
 /// String format stub for JIT
-/// Format: vp_str_format(format_str, args_array, arg_count)
-/// args_array points to array of string pointers
 pub extern "C" fn vp_str_format_stub(
-    format_str: *const std::ffi::c_char,
+    format_str: *mut ViperString,
     args_array: *const *const std::ffi::c_char,
     arg_count: i64,
-) -> *const std::ffi::c_char {
-    use std::ffi::CStr;
-
+) -> *mut ViperString {
     if format_str.is_null() {
-        return std::ptr::null();
+        return std::ptr::null_mut();
     }
 
     unsafe {
-        let fmt = CStr::from_ptr(format_str).to_string_lossy();
+        let fmt = get_string_data(format_str);
+        let mut result = fmt.to_string();
         
-        // Count {} placeholders and replace with arguments
-        let mut result = fmt.into_owned();
         if !args_array.is_null() && arg_count > 0 {
             for i in 0..arg_count {
                 let arg_ptr = *args_array.offset(i as isize);
                 if !arg_ptr.is_null() {
-                    let arg_str = CStr::from_ptr(arg_ptr).to_string_lossy();
-                    if let Some(pos) = result.find("{}") {
-                        result.replace_range(pos..pos+2, &arg_str);
+                    if let Ok(arg_str) = std::ffi::CStr::from_ptr(arg_ptr).to_str() {
+                        if let Some(pos) = result.find("{}") {
+                            result.replace_range(pos..pos+2, arg_str);
+                        }
                     }
                 }
             }
         }
+
+        create_viper_string(&result)
+    }
+}
+
+// Helper function to extract string data from ViperString
+unsafe fn get_string_data(s: *mut ViperString) -> String {
+    if s.is_null() {
+        return String::new();
+    }
+    let viper_str = &*s;
+    let slice = viper_str.as_slice();
+    String::from_utf8_lossy(slice).into_owned()
+}
+
+// Helper function to create a new ViperString
+fn create_viper_string(s: &str) -> *mut ViperString {
+    use std::alloc::{alloc, Layout};
+    
+    let len = s.len();
+    let bytes = s.as_bytes();
+    
+    unsafe {
+        // Allocate ViperString structure
+        let layout = Layout::new::<ViperString>();
+        let ptr = alloc(layout) as *mut ViperString;
         
-        let c_str = std::ffi::CString::new(result).unwrap();
-        c_str.into_raw()
+        if len <= 15 {
+            // Use SSO (small string optimization)
+            (*ptr).data.sso._unused = 0;
+            (*ptr).data.sso.sso_length = (len as i8) | (0x80u8 as i8); // Set SSO flag
+            (*ptr).data.sso.sso_data = [0u8; 15];
+            (&mut (*ptr).data.sso.sso_data)[..len].copy_from_slice(bytes);
+        } else {
+            // Use heap allocation
+            let data_layout = Layout::from_size_align(len + 1, 1).unwrap();
+            let data_ptr = alloc(data_layout);
+            
+            (*ptr).data.heap.ref_count = 1;
+            (*ptr).data.heap.length = len as i64;
+            (*ptr).data.heap.heap_data = data_ptr;
+            
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), data_ptr, len);
+            *data_ptr.add(len) = 0; // Null terminator
+        }
+        
+        ptr
     }
 }
 
 /// Exit stub for JIT - just exits the process
 pub extern "C" fn vp_exit_stub(code: i64) {
     std::process::exit(code as i32);
+}
+
+// =============================================================================
+// Bytes JIT Stubs
+// =============================================================================
+
+/// ViperBytes structure (must match runtime/include/viper_stdlib.h)
+#[repr(C)]
+pub struct ViperBytes {
+    data: *mut u8,
+    len: i64,
+    ref_count: i64,
+}
+
+/// Create bytes from raw data
+pub extern "C" fn vp_bytes_create_stub(data: *const u8, len: i64) -> *mut ViperBytes {
+    if len < 0 {
+        return std::ptr::null_mut();
+    }
+
+    unsafe {
+        let mut bytes = Box::new(ViperBytes {
+            data: std::ptr::null_mut(),
+            len,
+            ref_count: 1,
+        });
+
+        if len > 0 && !data.is_null() {
+            let data_ptr = alloc::alloc(std::alloc::Layout::from_size_align(len as usize, 1).unwrap());
+            std::ptr::copy_nonoverlapping(data, data_ptr, len as usize);
+            bytes.data = data_ptr;
+        }
+
+        Box::into_raw(bytes)
+    }
+}
+
+/// Free bytes
+pub extern "C" fn vp_bytes_free_stub(bytes: *mut ViperBytes) {
+    if bytes.is_null() {
+        return;
+    }
+
+    unsafe {
+        let b = Box::from_raw(bytes);
+        if !b.data.is_null() && b.len > 0 {
+            alloc::dealloc(b.data, std::alloc::Layout::from_size_align(b.len as usize, 1).unwrap());
+        }
+    }
+}
+
+/// Get bytes length
+pub extern "C" fn vp_bytes_len_stub(bytes: *mut ViperBytes) -> i64 {
+    if bytes.is_null() {
+        return 0;
+    }
+    unsafe { (*bytes).len }
+}
+
+/// Get byte at index
+pub extern "C" fn vp_bytes_get_stub(bytes: *mut ViperBytes, index: i64) -> u8 {
+    if bytes.is_null() || index < 0 || index >= unsafe { (*bytes).len } {
+        return 0;
+    }
+    unsafe { *(*bytes).data.offset(index as isize) }
+}
+
+/// Print bytes
+pub extern "C" fn vp_bytes_print_stub(bytes: *mut ViperBytes) {
+    use std::io::{self, Write};
+    
+    if bytes.is_null() {
+        print!("None");
+        io::stdout().flush().unwrap();
+        return;
+    }
+
+    unsafe {
+        print!("b\"");
+        let b = &*bytes;
+        if !b.data.is_null() && b.len > 0 {
+            for i in 0..b.len as usize {
+                let byte = *b.data.add(i);
+                if byte >= 32 && byte < 127 {
+                    if byte == b'"' || byte == b'\\' {
+                        print!("\\");
+                    }
+                    print!("{}", byte as char);
+                } else {
+                    print!("\\x{:02x}", byte);
+                }
+            }
+        }
+        print!("\"");
+        io::stdout().flush().unwrap();
+    }
 }
