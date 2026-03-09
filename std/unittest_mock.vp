@@ -1,0 +1,430 @@
+# Viper Standard Library - unittest.mock module
+# Mocking library for testing
+
+# Module metadata
+__name__ = "unittest.mock"
+__version__ = "0.4.7"
+
+# ============================================
+# Mock Class
+# ============================================
+
+class Mock:
+    """Mock object for testing.
+    
+    Mock objects can stand in for real objects in your tests.
+    They track how they were called and can be configured to
+    return specific values or raise exceptions.
+    
+    Example:
+        mock = Mock()
+        mock.return_value = 42
+        result = mock(1, 2, 3)  # Returns 42
+        assert mock.call_count == 1
+    """
+    
+    def __init__(self, spec=None, return_value=None, side_effect=None, 
+                 wraps=None, name=None, spec_set=None, parent=None, 
+                 attach_children=True, new_callable=None):
+        self._spec = spec
+        self._return_value = return_value
+        self._side_effect = side_effect
+        self._wraps = wraps
+        self._name = name
+        self._spec_set = spec_set
+        self._parent = parent
+        self._attach_children = attach_children
+        
+        # Call tracking
+        self.call_count = 0
+        self.call_args = None
+        self.call_args_list = []
+        self.called = False
+        
+        # Method calls tracking
+        self.method_calls = []
+        self.mock_calls = []
+        
+        # Child mocks (for attribute access)
+        self._children = {}
+        
+        # Configure mock
+        if return_value is not None:
+            self.return_value = return_value
+    
+    def __call__(self, *args, **kwargs):
+        """Call the mock."""
+        self.called = True
+        self.call_count = self.call_count + 1
+        self.call_args = (args, kwargs)
+        self.call_args_list.append((args, kwargs))
+        
+        # Track the call
+        call_repr = self._format_call(args, kwargs)
+        self.mock_calls.append(call_repr)
+        if self._parent is not None:
+            self._parent.mock_calls.append(self._name + "." + call_repr)
+        
+        # Handle side_effect
+        if self._side_effect is not None:
+            if callable(self._side_effect):
+                return self._side_effect(*args, **kwargs)
+            elif isinstance(self._side_effect, list) or isinstance(self._side_effect, tuple):
+                if len(self._side_effect) > 0:
+                    result = self._side_effect[0]
+                    self._side_effect = self._side_effect[1:]
+                    if isinstance(result, Exception):
+                        raise result
+                    return result
+                raise StopIteration()
+            elif isinstance(self._side_effect, Exception):
+                raise self._side_effect
+            else:
+                return self._side_effect
+        
+        # Handle wraps
+        if self._wraps is not None:
+            if callable(self._wraps):
+                return self._wraps(*args, **kwargs)
+        
+        # Return return_value or new child mock
+        if hasattr(self, 'return_value'):
+            return self.return_value
+        
+        # Return a new child mock for this call
+        return Mock(parent=self, name="()")
+    
+    def _format_call(self, args, kwargs):
+        """Format a call for tracking."""
+        parts = []
+        for arg in args:
+            parts.append(repr(arg))
+        for key, value in kwargs.items():
+            parts.append(key + "=" + repr(value))
+        return "(" + ", ".join(parts) + ")"
+    
+    def __getattr__(self, name):
+        """Get attribute, creating child mocks as needed."""
+        if name.startswith('_'):
+            # Don't create mocks for private attributes
+            raise AttributeError(name)
+        
+        if name in self._children:
+            return self._children[name]
+        
+        if self._attach_children:
+            # Create a child mock
+            child = Mock(parent=self, name=name)
+            self._children[name] = child
+            return child
+        
+        raise AttributeError(name)
+    
+    def __setattr__(self, name, value):
+        """Set attribute."""
+        if name.startswith('_'):
+            object.__setattr__(self, name, value)
+        else:
+            self._children[name] = value
+    
+    def reset_mock(self, return_value=True, side_effect=True):
+        """Reset the mock's call history."""
+        self.call_count = 0
+        self.called = False
+        self.call_args = None
+        self.call_args_list = []
+        self.method_calls = []
+        self.mock_calls = []
+        
+        if return_value and hasattr(self, 'return_value'):
+            delattr(self, 'return_value')
+        
+        if side_effect and hasattr(self, '_side_effect'):
+            self._side_effect = None
+        
+        # Reset children
+        for child in self._children.values():
+            if isinstance(child, Mock):
+                child.reset_mock()
+    
+    def assert_called(self):
+        """Assert that the mock was called at least once."""
+        if not self.called:
+            raise AssertionError("Expected mock to have been called")
+    
+    def assert_called_once(self):
+        """Assert that the mock was called exactly once."""
+        if self.call_count != 1:
+            raise AssertionError(
+                "Expected mock to have been called once, got " + str(self.call_count)
+            )
+    
+    def assert_called_with(self, *args, **kwargs):
+        """Assert that the mock was called with specific arguments."""
+        expected = (args, kwargs)
+        if self.call_args != expected:
+            raise AssertionError(
+                "Expected call: " + repr(expected) + 
+                " Actual call: " + repr(self.call_args)
+            )
+    
+    def assert_called_once_with(self, *args, **kwargs):
+        """Assert that the mock was called once with specific arguments."""
+        self.assert_called_once()
+        self.assert_called_with(*args, **kwargs)
+    
+    def assert_any_call(self, *args, **kwargs):
+        """Assert that the mock was called with specific arguments at least once."""
+        expected = (args, kwargs)
+        if expected not in self.call_args_list:
+            raise AssertionError(
+                "Expected call " + repr(expected) + " not found in call list"
+            )
+    
+    def assert_has_calls(self, calls, any_order=False):
+        """Assert that the mock was called with the specified calls."""
+        if any_order:
+            for call in calls:
+                if call not in self.call_args_list:
+                    raise AssertionError(
+                        "Expected call " + repr(call) + " not found"
+                    )
+        else:
+            # Check calls in order
+            call_list = self.call_args_list
+            for i, call in enumerate(calls):
+                if i >= len(call_list) or call_list[i] != call:
+                    raise AssertionError(
+                        "Expected calls not found in order"
+                    )
+    
+    def assert_not_called(self):
+        """Assert that the mock was never called."""
+        if self.called:
+            raise AssertionError(
+                "Expected mock to not have been called, but it was"
+            )
+
+# ============================================
+# MagicMock Class
+# ============================================
+
+class MagicMock(Mock):
+    """Mock with default implementations for magic methods.
+    
+    MagicMock is a subclass of Mock that provides default
+    implementations for most magic methods, making it suitable
+    for mocking objects that support operations like indexing,
+    iteration, etc.
+    """
+    
+    def __init__(self, *args, **kwargs):
+        Mock.__init__(self, *args, **kwargs)
+        
+        # Set up default magic method mocks
+        self._setup_magic_methods()
+    
+    def _setup_magic_methods(self):
+        """Set up default magic method implementations."""
+        # Comparison operators
+        self.__eq__ = Mock(return_value=True)
+        self.__ne__ = Mock(return_value=False)
+        self.__lt__ = Mock(return_value=True)
+        self.__le__ = Mock(return_value=True)
+        self.__gt__ = Mock(return_value=False)
+        self.__ge__ = Mock(return_value=False)
+        
+        # Container methods
+        self.__getitem__ = Mock(return_value=Mock())
+        self.__setitem__ = Mock()
+        self.__delitem__ = Mock()
+        self.__contains__ = Mock(return_value=True)
+        self.__len__ = Mock(return_value=0)
+        
+        # Iterator
+        self.__iter__ = Mock(return_value=iter([]))
+        self.__next__ = Mock(side_effect=StopIteration())
+        
+        # Numeric operations
+        self.__add__ = Mock(return_value=0)
+        self.__sub__ = Mock(return_value=0)
+        self.__mul__ = Mock(return_value=0)
+        self.__truediv__ = Mock(return_value=0)
+        self.__floordiv__ = Mock(return_value=0)
+        self.__mod__ = Mock(return_value=0)
+        self.__pow__ = Mock(return_value=1)
+        
+        # Context manager
+        self.__enter__ = Mock(return_value=self)
+        self.__exit__ = Mock(return_value=None)
+
+# ============================================
+# patch Context Manager
+# ============================================
+
+class patch:
+    """Context manager and decorator for patching objects.
+    
+    patch temporarily replaces an object with a mock during a test.
+    
+    Usage as context manager:
+        with patch('module.function') as mock_func:
+            mock_func.return_value = 42
+            result = module.function()
+    
+    Usage as decorator:
+        @patch('module.function')
+        def test_function(mock_func):
+            mock_func.return_value = 42
+            result = module.function()
+    """
+    
+    def __init__(self, target, new=None, spec=None, create=False, 
+                 spec_set=None, autospec=None, new_callable=None, **kwargs):
+        self.target = target
+        self.new = new
+        self.spec = spec
+        self.create = create
+        self.spec_set = spec_set
+        self.autospec = autospec
+        self.new_callable = new_callable
+        self.kwargs = kwargs
+        
+        self._original = None
+        self._mock = None
+    
+    def __enter__(self):
+        """Enter the patch context."""
+        # Create the mock
+        if self.new is not None:
+            self._mock = self.new
+        elif self.new_callable is not None:
+            self._mock = self.new_callable(**self.kwargs)
+        else:
+            self._mock = MagicMock(**self.kwargs)
+        
+        # Save original and patch
+        self._original = self._get_target()
+        self._set_target(self._mock)
+        
+        return self._mock
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the patch context."""
+        # Restore original
+        if self._original is not None:
+            self._set_target(self._original)
+    
+    def _get_target(self):
+        """Get the target object to patch."""
+        # Parse target string (e.g., 'module.submodule.object')
+        parts = self.target.split('.')
+        
+        # Import the module
+        module_name = parts[0]
+        module = __import__(module_name)
+        
+        # Navigate to target
+        obj = module
+        for part in parts[1:-1]:
+            obj = getattr(obj, part)
+        
+        # Get the attribute to patch
+        attr_name = parts[-1]
+        return getattr(obj, attr_name, None)
+    
+    def _set_target(self, value):
+        """Set the target to a new value."""
+        parts = self.target.split('.')
+        
+        # Import the module
+        module_name = parts[0]
+        module = __import__(module_name)
+        
+        # Navigate to target
+        obj = module
+        for part in parts[1:-1]:
+            obj = getattr(obj, part)
+        
+        # Set the attribute
+        attr_name = parts[-1]
+        setattr(obj, attr_name, value)
+    
+    def __call__(self, func):
+        """Use patch as a decorator."""
+        def wrapper(*args, **kwargs):
+            with self as mock:
+                return func(mock, *args, **kwargs)
+        return wrapper
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def create_autospec(spec, spec_set=False, instance=False):
+    """Create a mock with the same spec as the given object.
+    
+    The mock will have the same attributes and methods as the spec,
+    and will raise AttributeError for attributes that don't exist.
+    """
+    # Simplified implementation
+    return Mock(spec=spec, spec_set=spec_set)
+
+def mock_open(mock_data=None):
+    """Create a mock that simulates the open() function.
+    
+    Usage:
+        with patch('module.open', mock_open(read_data='file content')):
+            with open('file.txt') as f:
+                content = f.read()
+    """
+    mock_file = MagicMock()
+    
+    if mock_data is not None:
+        if isinstance(mock_data, str):
+            mock_file.read.return_value = mock_data
+            mock_file.readline.return_value = mock_data
+        elif isinstance(mock_data, list):
+            mock_file.readlines.return_value = mock_data
+    
+    mock_file.__iter__.return_value = iter(mock_file.readlines.return_value if hasattr(mock_file, 'readlines') else [])
+    mock_file.__enter__.return_value = mock_file
+    
+    return MagicMock(return_value=mock_file)
+
+def seal(mock):
+    """Seal a mock to prevent creation of new child mocks.
+    
+    After sealing, accessing non-existent attributes will raise
+    AttributeError instead of creating new mocks.
+    """
+    mock._attach_children = False
+    for child in mock._children.values():
+        if isinstance(child, Mock):
+            seal(child)
+
+# ============================================
+# Sentinel Objects
+# ============================================
+
+class sentinel:
+    """Sentinel objects for testing.
+    
+    Sentinel objects are unique objects that can be used to
+    verify that a specific object was passed or returned.
+    """
+    
+    def __init__(self, name):
+        self.name = name
+    
+    def __repr__(self):
+        return "sentinel." + self.name
+    
+    def __eq__(self, other):
+        return self is other
+    
+    def __hash__(self):
+        return id(self)
+
+# Create common sentinels
+DEFAULT = sentinel('DEFAULT')

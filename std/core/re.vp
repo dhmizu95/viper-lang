@@ -1,0 +1,285 @@
+# Viper Standard Library - re module
+# Regular expression operations
+
+# Module metadata
+__name__ = "re"
+__version__ = "0.4.5"
+
+# ============================================
+# Flags
+# ============================================
+
+I: int = 0x01        # IGNORECASE
+IGNORECASE: int = 0x01
+M: int = 0x02        # MULTILINE
+MULTILINE: int = 0x02
+S: int = 0x04        # DOTALL
+DOTALL: int = 0x04
+X: int = 0x08        # VERBOSE
+VERBOSE: int = 0x08
+A: int = 0x10        # ASCII
+ASCII: int = 0x10
+U: int = 0x20        # UNICODE
+UNICODE: int = 0x20
+
+# ============================================
+# Exceptions
+# ============================================
+
+class RegexError(Exception):
+    """Exception raised when a regex operation fails."""
+    def __init__(self, message: str = ""):
+        self.message = message
+    
+    def __str__(self) -> str:
+        return "RegexError: " + self.message
+
+# ============================================
+# Match Object
+# ============================================
+
+class Match:
+    """Represents a successful match."""
+    
+    def __init__(self):
+        self.string = ""
+        self.start_pos: int = 0
+        self.end_pos: int = 0
+        self.groups_data = {}
+    
+    def group(self, n: int = 0) -> str:
+        """Return the string matched by a group."""
+        # Implemented in runtime
+        return ""
+    
+    def groups(self, default=None) -> (str, ...):
+        """Return a tuple of all captured groups."""
+        # Implemented in runtime
+        return ()
+    
+    def groupdict(self, default=None) -> {str: str}:
+        """Return a dictionary of all named groups."""
+        return self.groups_data
+    
+    def start(self, n: int = 0) -> int:
+        """Return the start index of a group."""
+        # Implemented in runtime
+        return 0
+    
+    def end(self, n: int = 0) -> int:
+        """Return the end index of a group."""
+        # Implemented in runtime
+        return 0
+    
+    def span(self, n: int = 0) -> (int, int):
+        """Return (start, end) tuple for a group."""
+        return (self.start(n), self.end(n))
+    
+    def expand(self, template: str) -> str:
+        """Return the string obtained by doing backreference substitution."""
+        # Implemented in runtime
+        return ""
+    
+    def lastindex(self) -> int:
+        """Return the index of the last matched group."""
+        # Implemented in runtime
+        return 0
+    
+    def lastgroup(self) -> str:
+        """Return the name of the last matched group."""
+        # Implemented in runtime
+        return ""
+    
+    def pos(self) -> int:
+        """Return the position in the string where the search started."""
+        return self.start_pos
+    
+    def endpos(self) -> int:
+        """Return the position in the string where the search ended."""
+        return self.end_pos
+    
+    def __bool__(self) -> bool:
+        return True
+    
+    def __repr__(self) -> str:
+        return "Match object"
+
+# ============================================
+# Pattern Object
+# ============================================
+
+class Pattern:
+    """Compiled regular expression pattern."""
+    
+    def __init__(self, pattern: str = "", flags: int = 0):
+        self.pattern = pattern
+        self.flags = flags
+        self._compiled = None  # Runtime-compiled pattern
+    
+    def match(self, string: str, pos: int = 0, endpos: int = None) -> Match:
+        """Match at the beginning of the string."""
+        # Implemented in runtime
+        return None
+    
+    def search(self, string: str, pos: int = 0, endpos: int = None) -> Match:
+        """Search for a match anywhere in the string."""
+        # Implemented in runtime
+        return None
+    
+    def findall(self, string: str, pos: int = 0, endpos: int = None) -> [str]:
+        """Find all non-overlapping matches."""
+        # Implemented in runtime
+        return []
+    
+    def finditer(self, string: str, pos: int = 0, endpos: int = None):
+        """Find all matches as an iterator."""
+        # Implemented in runtime
+        return []
+    
+    def split(self, string: str, maxsplit: int = 0) -> [str]:
+        """Split string by occurrences of pattern."""
+        # Implemented in runtime
+        return []
+    
+    def sub(self, repl: str, string: str, count: int = 0) -> str:
+        """Replace occurrences of pattern with repl."""
+        # Implemented in runtime
+        return ""
+    
+    def subn(self, repl: str, string: str, count: int = 0) -> (str, int):
+        """Like sub() but return (new_string, number_of_subs_made)."""
+        result = self.sub(repl, string, count)
+        return (result, 0)
+    
+    def fullmatch(self, string: str, pos: int = 0, endpos: int = None) -> Match:
+        """Match the entire string."""
+        # Implemented in runtime
+        return None
+    
+    def __repr__(self) -> str:
+        return "Pattern('" + self.pattern + "')"
+    
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Pattern):
+            return False
+        return self.pattern == other.pattern and self.flags == other.flags
+
+# ============================================
+# Module-level Functions
+# ============================================
+
+def compile(pattern: str, flags: int = 0) -> Pattern:
+    """Compile a regular expression pattern."""
+    # Implemented in runtime
+    return Pattern(pattern, flags)
+
+def match(pattern: str, string: str, flags: int = 0) -> Match:
+    """Match at the beginning of the string."""
+    # Implemented in runtime
+    return None
+
+def search(pattern: str, string: str, flags: int = 0) -> Match:
+    """Search for a match anywhere in the string."""
+    # Implemented in runtime
+    return None
+
+def findall(pattern: str, string: str, flags: int = 0) -> [str]:
+    """Find all non-overlapping matches."""
+    # Implemented in runtime
+    return []
+
+def finditer(pattern: str, string: str, flags: int = 0):
+    """Find all matches as an iterator."""
+    # Implemented in runtime
+    return []
+
+def split(pattern: str, string: str, maxsplit: int = 0, flags: int = 0) -> [str]:
+    """Split string by occurrences of pattern."""
+    # Implemented in runtime
+    return []
+
+def sub(pattern: str, repl: str, string: str, count: int = 0, flags: int = 0) -> str:
+    """Replace occurrences of pattern with repl."""
+    # Implemented in runtime
+    return ""
+
+def subn(pattern: str, repl: str, string: str, count: int = 0, flags: int = 0) -> (str, int):
+    """Like sub() but return (new_string, number_of_subs_made)."""
+    result = sub(pattern, repl, string, count, flags)
+    return (result, 0)
+
+def fullmatch(pattern: str, string: str, flags: int = 0) -> Match:
+    """Match the entire string."""
+    # Implemented in runtime
+    return None
+
+def escape(string: str) -> str:
+    """Escape special characters in a string for regex use."""
+    # Implemented in runtime
+    return ""
+
+def purge():
+    """Clear the regular expression cache."""
+    pass
+
+# ============================================
+# Common Patterns
+# ============================================
+
+# Email pattern
+EMAIL_PATTERN: str = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+
+# URL pattern
+URL_PATTERN: str = r"https?://[^\s]+"
+
+# Phone number pattern (US)
+PHONE_PATTERN: str = r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}"
+
+# Date pattern (YYYY-MM-DD)
+DATE_PATTERN: str = r"\d{4}-\d{2}-\d{2}"
+
+# Integer pattern
+INT_PATTERN: str = r"-?\d+"
+
+# Float pattern
+FLOAT_PATTERN: str = r"-?\d+\.?\d*"
+
+# Word pattern
+WORD_PATTERN: str = r"\b\w+\b"
+
+# Whitespace pattern
+WHITESPACE_PATTERN: str = r"\s+"
+
+# Digit pattern
+DIGIT_PATTERN: str = r"\d+"
+
+# Letter pattern
+LETTER_PATTERN: str = r"[a-zA-Z]+"
+
+# ============================================
+# Utility Functions
+# ============================================
+
+def is_valid(pattern: str) -> bool:
+    """Check if a regex pattern is valid."""
+    try:
+        compile(pattern)
+        return True
+    except RegexError:
+        return False
+
+def test(pattern: str, string: str) -> bool:
+    """Test if pattern matches anywhere in string."""
+    return search(pattern, string) is not None
+
+def match_all(pattern: str, string: str) -> bool:
+    """Test if pattern matches the entire string."""
+    return fullmatch(pattern, string) is not None
+
+def replace(pattern: str, repl: str, string: str) -> str:
+    """Replace all occurrences of pattern with repl."""
+    return sub(pattern, repl, string)
+
+def extract(pattern: str, string: str) -> [str]:
+    """Extract all matches from string."""
+    return findall(pattern, string)

@@ -1,0 +1,363 @@
+# Viper Standard Library - dataclasses module
+# Automatic class generation utilities
+
+# Module metadata
+__name__ = "dataclasses"
+__version__ = "0.4.7"
+
+# ============================================
+# Constants
+# ============================================
+
+# Marker for missing default values
+_MISSING = object()
+
+# ============================================
+# Field Class
+# ============================================
+
+class Field:
+    """Represents a field in a dataclass."""
+    
+    def __init__(self, default=_MISSING, default_factory=_MISSING,
+                 repr=True, hash=None, compare=True, metadata=None):
+        self.default = default
+        self.default_factory = default_factory
+        self.repr = repr
+        self.hash = hash
+        self.compare = compare
+        self.metadata = metadata if metadata is not None else {}
+    
+    def __repr__(self) -> str:
+        parts = []
+        if self.default is not _MISSING:
+            parts.append("default=" + repr(self.default))
+        if self.default_factory is not _MISSING:
+            parts.append("default_factory=" + repr(self.default_factory))
+        if not self.repr:
+            parts.append("repr=False")
+        if self.hash is not None:
+            parts.append("hash=" + repr(self.hash))
+        if not self.compare:
+            parts.append("compare=False")
+        if len(self.metadata) > 0:
+            parts.append("metadata=" + repr(self.metadata))
+        return "Field(" + ", ".join(parts) + ")"
+
+def field(*, default=_MISSING, default_factory=_MISSING, repr=True,
+          hash=None, compare=True, metadata=None) -> Field:
+    """Create a field with custom options.
+    
+    Args:
+        default: Default value for the field
+        default_factory: Callable that returns default value
+        repr: Include in __repr__
+        hash: Include in __hash__
+        compare: Include in comparison methods
+        metadata: Dict for field metadata
+    """
+    return Field(default, default_factory, repr, hash, compare, metadata)
+
+# ============================================
+# Dataclass Decorator
+# ============================================
+
+def dataclass(cls=None, /, *, init=True, repr=True, eq=True,
+              order=False, unsafe_hash=False, frozen=False):
+    """Add generated methods to a class.
+    
+    Args:
+        cls: Class to decorate (optional, for @dataclass())
+        init: Generate __init__
+        repr: Generate __repr__
+        eq: Generate __eq__
+        order: Generate __lt__, __le__, __gt__, __ge__
+        unsafe_hash: Generate __hash__
+        frozen: Make instances immutable
+    
+    Example:
+        @dataclass
+        class Point:
+            x: int
+            y: int
+            z: int = 0
+    """
+    def wrap(cls):
+        # Get field information from class annotations
+        fields = _get_fields(cls)
+        
+        # Generate __init__
+        if init:
+            _add_init(cls, fields, frozen)
+        
+        # Generate __repr__
+        if repr:
+            _add_repr(cls, fields)
+        
+        # Generate __eq__
+        if eq:
+            _add_eq(cls, fields)
+        
+        # Generate comparison methods
+        if order:
+            _add_order(cls, fields)
+        
+        # Generate __hash__
+        if unsafe_hash:
+            _add_hash(cls, fields)
+        elif frozen and not unsafe_hash:
+            _add_hash(cls, fields)
+        
+        # Mark as dataclass
+        cls.__dataclass_fields__ = fields
+        cls.__dataclass_params__ = {
+            'init': init,
+            'repr': repr,
+            'eq': eq,
+            'order': order,
+            'unsafe_hash': unsafe_hash,
+            'frozen': frozen,
+        }
+        
+        return cls
+    
+    if cls is None:
+        return wrap
+    return wrap(cls)
+
+def _get_fields(cls) -> dict:
+    """Extract field information from class."""
+    fields = {}
+    
+    # Get annotations
+    if hasattr(cls, '__annotations__'):
+        annotations = cls.__annotations__
+    else:
+        annotations = {}
+    
+    for name, type_ann in annotations.items():
+        # Check for Field instance as class attribute
+        default = _MISSING
+        default_factory = _MISSING
+        
+        if hasattr(cls, name):
+            value = getattr(cls, name)
+            if isinstance(value, Field):
+                default = value.default
+                default_factory = value.default_factory
+            elif value is not _MISSING:
+                default = value
+        
+        fields[name] = {
+            'name': name,
+            'type': type_ann,
+            'default': default,
+            'default_factory': default_factory,
+        }
+    
+    return fields
+
+def _add_init(cls, fields: dict, frozen: bool):
+    """Add __init__ method to class."""
+    # Build parameter list
+    params = ['self']
+    body_lines = []
+    
+    for name, field in fields.items():
+        params.append(name)
+        body_lines.append("    self." + name + " = " + name)
+    
+    # Create method source
+    param_str = ", ".join(params)
+    body_str = "\n".join(body_lines)
+    
+    # Create and attach method
+    init_code = "def __init__(" + param_str + "):\n" + body_str
+    exec(init_code, cls.__dict__, cls.__dict__)
+
+def _add_repr(cls, fields: dict):
+    """Add __repr__ method to class."""
+    # Build representation parts
+    parts = []
+    for name in fields:
+        parts.append(name + "={" + name + "!r}")
+    
+    format_str = cls.__name__ + "(" + ", ".join(parts) + ")"
+    
+    # Create method
+    def __repr__(self):
+        return format_str.format(**{name: getattr(self, name) for name in fields})
+    
+    cls.__repr__ = __repr__
+
+def _add_eq(cls, fields: dict):
+    """Add __eq__ method to class."""
+    def __eq__(self, other):
+        if not isinstance(other, cls):
+            return False
+        
+        for name in fields:
+            if getattr(self, name) != getattr(other, name):
+                return False
+        
+        return True
+    
+    cls.__eq__ = __eq__
+
+def _add_order(cls, fields: dict):
+    """Add comparison methods to class."""
+    # Get field names as list for ordering
+    field_names = list(fields.keys())
+    
+    def _compare(self, other, op):
+        if not isinstance(other, cls):
+            return NotImplemented
+        
+        for name in field_names:
+            self_val = getattr(self, name)
+            other_val = getattr(other, name)
+            if self_val != other_val:
+                return op(self_val, other_val)
+        
+        return False
+    
+    def __lt__(self, other):
+        return _compare(self, other, lambda a, b: a < b)
+    
+    def __le__(self, other):
+        return _compare(self, other, lambda a, b: a <= b)
+    
+    def __gt__(self, other):
+        return _compare(self, other, lambda a, b: a > b)
+    
+    def __ge__(self, other):
+        return _compare(self, other, lambda a, b: a >= b)
+    
+    cls.__lt__ = __lt__
+    cls.__le__ = __le__
+    cls.__gt__ = __gt__
+    cls.__ge__ = __ge__
+
+def _add_hash(cls, fields: dict):
+    """Add __hash__ method to class."""
+    field_names = list(fields.keys())
+    
+    def __hash__(self):
+        values = tuple(getattr(self, name) for name in field_names)
+        return hash(values)
+    
+    cls.__hash__ = __hash__
+
+# ============================================
+# Helper Functions
+# ============================================
+
+def fields(class_or_instance):
+    """Get tuple of Field objects for a dataclass."""
+    if hasattr(class_or_instance, '__dataclass_fields__'):
+        cls = class_or_instance
+        if not isinstance(class_or_instance, type):
+            cls = type(class_or_instance)
+        return cls.__dataclass_fields__
+    raise TypeError("Not a dataclass")
+
+def asdict(obj) -> dict:
+    """Convert dataclass instance to dictionary."""
+    if not hasattr(obj, '__dataclass_fields__'):
+        raise TypeError("Not a dataclass instance")
+    
+    result = {}
+    for name in obj.__dataclass_fields__:
+        value = getattr(obj, name)
+        # Recursively convert nested dataclasses
+        if hasattr(value, '__dataclass_fields__'):
+            result[name] = asdict(value)
+        else:
+            result[name] = value
+    
+    return result
+
+def astuple(obj) -> tuple:
+    """Convert dataclass instance to tuple."""
+    if not hasattr(obj, '__dataclass_fields__'):
+        raise TypeError("Not a dataclass instance")
+    
+    result = []
+    for name in obj.__dataclass_fields__:
+        value = getattr(obj, name)
+        # Recursively convert nested dataclasses
+        if hasattr(value, '__dataclass_fields__'):
+            result.append(astuple(value))
+        else:
+            result.append(value)
+    
+    return tuple(result)
+
+def replace(obj, /, **changes):
+    """Create new instance with replaced fields."""
+    if not hasattr(obj, '__dataclass_fields__'):
+        raise TypeError("Not a dataclass instance")
+    
+    # Get current values
+    kwargs = asdict(obj)
+    
+    # Apply changes
+    for name, value in changes.items():
+        if name not in obj.__dataclass_fields__:
+            raise TypeError(f"Unknown field: {name}")
+        kwargs[name] = value
+    
+    # Create new instance
+    return type(obj)(**kwargs)
+
+def is_dataclass(obj) -> bool:
+    """Check if object is a dataclass or dataclass instance."""
+    return hasattr(obj, '__dataclass_fields__')
+
+def make_dataclass(cls_name, fields, *, bases=(), namespace=None,
+                   init=True, repr=True, eq=True, order=False,
+                   unsafe_hash=False, frozen=False):
+    """Create a new dataclass dynamically.
+    
+    Args:
+        cls_name: Name for the new class
+        fields: List of (name, type) or (name, type, default) tuples
+        bases: Base classes
+        namespace: Class namespace dict
+        init, repr, eq, order, unsafe_hash, frozen: dataclass options
+    """
+    if namespace is None:
+        namespace = {}
+    
+    # Process fields
+    annotations = {}
+    for field_def in fields:
+        if len(field_def) == 2:
+            name, type_ann = field_def
+            namespace[name] = _MISSING
+        elif len(field_def) == 3:
+            name, type_ann, default = field_def
+            namespace[name] = default
+        else:
+            raise ValueError("Invalid field definition")
+        annotations[name] = type_ann
+    
+    namespace['__annotations__'] = annotations
+    
+    # Create class
+    cls = type(cls_name, bases, namespace)
+    
+    # Apply dataclass decorator
+    return dataclass(cls, init=init, repr=repr, eq=eq, order=order,
+                    unsafe_hash=unsafe_hash, frozen=frozen)
+
+# ============================================
+# Special Markers
+# ============================================
+
+class _MISSING_TYPE:
+    """Marker for missing default values."""
+    def __repr__(self):
+        return "MISSING"
+
+MISSING = _MISSING_TYPE()

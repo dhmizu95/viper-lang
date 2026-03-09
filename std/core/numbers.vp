@@ -1,0 +1,622 @@
+# Viper Standard Library - numbers module
+# Numeric abstract base classes
+
+# Module metadata
+__name__ = "numbers"
+__version__ = "0.4.7"
+
+from abc import ABC, abstractmethod
+
+# ============================================
+# Number ABC
+# ============================================
+
+class Number(ABC):
+    """Abstract base class for all numeric types.
+
+    All numeric types should inherit from this class.
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    def __add__(self, other):
+        pass
+
+    @abstractmethod
+    def __sub__(self, other):
+        pass
+
+    @abstractmethod
+    def __mul__(self, other):
+        pass
+
+    @abstractmethod
+    def __truediv__(self, other):
+        pass
+
+    @abstractmethod
+    def __pow__(self, exponent, modulus=None):
+        pass
+
+    @abstractmethod
+    def __neg__(self):
+        pass
+
+    @abstractmethod
+    def __abs__(self):
+        pass
+
+    @abstractmethod
+    def __eq__(self, other):
+        pass
+
+
+# ============================================
+# Complex ABC
+# ============================================
+
+class Complex(Number):
+    """Abstract base class for complex numbers.
+
+    All complex number types should inherit from this class.
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    def __complex__(self) -> complex:
+        """Convert to complex."""
+        pass
+
+    @abstractmethod
+    def real(self) -> float:
+        """Return real part."""
+        pass
+
+    @abstractmethod
+    def imag(self) -> float:
+        """Return imaginary part."""
+        pass
+
+    @abstractmethod
+    def conjugate(self):
+        """Return complex conjugate."""
+        pass
+
+    def __bool__(self) -> bool:
+        """Check if non-zero."""
+        return self.real() != 0 or self.imag() != 0
+
+    def __add__(self, other):
+        """Add two complex numbers."""
+        if isinstance(other, Complex):
+            return complex(self.real() + other.real(),
+                          self.imag() + other.imag())
+        return NotImplemented
+
+    def __radd__(self, other):
+        """Reverse add."""
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        """Subtract two complex numbers."""
+        if isinstance(other, Complex):
+            return complex(self.real() - other.real(),
+                          self.imag() - other.imag())
+        return NotImplemented
+
+    def __rsub__(self, other):
+        """Reverse subtract."""
+        if isinstance(other, Complex):
+            return complex(other.real() - self.real(),
+                          other.imag() - self.imag())
+        return NotImplemented
+
+    def __mul__(self, other):
+        """Multiply two complex numbers."""
+        if isinstance(other, Complex):
+            # (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+            real = self.real() * other.real() - self.imag() * other.imag()
+            imag = self.real() * other.imag() + self.imag() * other.real()
+            return complex(real, imag)
+        return NotImplemented
+
+    def __rmul__(self, other):
+        """Reverse multiply."""
+        return self.__mul__(other)
+
+    def __truediv__(self, other):
+        """Divide two complex numbers."""
+        if isinstance(other, Complex):
+            # (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c²+d²)
+            denom = other.real() ** 2 + other.imag() ** 2
+            if denom == 0:
+                raise ZeroDivisionError("Complex division by zero")
+            real = (self.real() * other.real() + self.imag() * other.imag()) / denom
+            imag = (self.imag() * other.real() - self.real() * other.imag()) / denom
+            return complex(real, imag)
+        return NotImplemented
+
+    def __rtruediv__(self, other):
+        """Reverse divide."""
+        if isinstance(other, Complex):
+            denom = self.real() ** 2 + self.imag() ** 2
+            if denom == 0:
+                raise ZeroDivisionError("Complex division by zero")
+            real = other.real() * self.real() / denom
+            imag = -other.imag() * self.imag() / denom
+            return complex(real, imag)
+        return NotImplemented
+
+    def __pow__(self, exponent, modulus=None):
+        """Raise to power."""
+        if modulus is not None:
+            raise TypeError("Complex modulus not supported")
+        # Simplified - uses polar form
+        import cmath
+        return cmath.exp(exponent * cmath.log(complex(self.real(), self.imag())))
+
+    def __neg__(self):
+        """Negate complex number."""
+        return complex(-self.real(), -self.imag())
+
+    def __abs__(self) -> float:
+        """Return modulus."""
+        import math
+        return math.sqrt(self.real() ** 2 + self.imag() ** 2)
+
+    def __eq__(self, other):
+        """Check equality."""
+        if isinstance(other, Complex):
+            return self.real() == other.real() and self.imag() == other.imag()
+        if isinstance(other, (int, float)):
+            return self.real() == other and self.imag() == 0
+        return False
+
+
+# ============================================
+# Real ABC
+# ============================================
+
+class Real(Complex):
+    """Abstract base class for real numbers.
+
+    All real number types should inherit from this class.
+    """
+    __slots__ = ()
+
+    def real(self) -> float:
+        """Return real part (self for reals)."""
+        return float(self)
+
+    def imag(self) -> float:
+        """Return imaginary part (0 for reals)."""
+        return 0.0
+
+    def conjugate(self):
+        """Return conjugate (self for reals)."""
+        return float(self)
+
+    def __complex__(self) -> complex:
+        """Convert to complex."""
+        return complex(float(self), 0)
+
+    @abstractmethod
+    def __float__(self) -> float:
+        """Convert to float."""
+        pass
+
+    @abstractmethod
+    def __int__(self) -> int:
+        """Convert to int."""
+        pass
+
+    @abstractmethod
+    def __floor__(self):
+        """Return floor."""
+        pass
+
+    @abstractmethod
+    def __ceil__(self):
+        """Return ceiling."""
+        pass
+
+    @abstractmethod
+    def __round__(self, ndigits=None):
+        """Round to ndigits."""
+        pass
+
+    @abstractmethod
+    def __trunc__(self):
+        """Truncate to integer."""
+        pass
+
+    def __mod__(self, other):
+        """Modulo operation."""
+        if isinstance(other, Real):
+            return float(self) % float(other)
+        return NotImplemented
+
+    def __rmod__(self, other):
+        """Reverse modulo."""
+        if isinstance(other, Real):
+            return float(other) % float(self)
+        return NotImplemented
+
+    def __floordiv__(self, other):
+        """Floor division."""
+        if isinstance(other, Real):
+            return int(float(self) // float(other))
+        return NotImplemented
+
+    def __rfloordiv__(self, other):
+        """Reverse floor division."""
+        if isinstance(other, Real):
+            return int(float(other) // float(self))
+        return NotImplemented
+
+    def __lt__(self, other):
+        """Less than."""
+        if isinstance(other, Real):
+            return float(self) < float(other)
+        return NotImplemented
+
+    def __le__(self, other):
+        """Less than or equal."""
+        if isinstance(other, Real):
+            return float(self) <= float(other)
+        return NotImplemented
+
+    def __gt__(self, other):
+        """Greater than."""
+        if isinstance(other, Real):
+            return float(self) > float(other)
+        return NotImplemented
+
+    def __ge__(self, other):
+        """Greater than or equal."""
+        if isinstance(other, Real):
+            return float(self) >= float(other)
+        return NotImplemented
+
+
+# ============================================
+# Rational ABC
+# ============================================
+
+class Rational(Real):
+    """Abstract base class for rational numbers.
+
+    All rational number types should inherit from this class.
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    def numerator(self) -> int:
+        """Return numerator."""
+        pass
+
+    @abstractmethod
+    def denominator(self) -> int:
+        """Return denominator."""
+        pass
+
+    def __float__(self) -> float:
+        """Convert to float."""
+        return self.numerator() / self.denominator()
+
+    def __int__(self) -> int:
+        """Convert to int."""
+        return self.numerator() // self.denominator()
+
+    def __floor__(self):
+        """Return floor."""
+        import math
+        return math.floor(float(self))
+
+    def __ceil__(self):
+        """Return ceiling."""
+        import math
+        return math.ceil(float(self))
+
+    def __round__(self, ndigits=None):
+        """Round to ndigits."""
+        if ndigits is None:
+            return round(float(self))
+        return round(float(self), ndigits)
+
+    def __trunc__(self):
+        """Truncate to integer."""
+        return int(self)
+
+
+# ============================================
+# Integral ABC
+# ============================================
+
+class Integral(Rational):
+    """Abstract base class for integral numbers (integers).
+
+    All integer types should inherit from this class.
+    """
+    __slots__ = ()
+
+    def numerator(self) -> int:
+        """Return numerator (self for integers)."""
+        return int(self)
+
+    def denominator(self) -> int:
+        """Return denominator (1 for integers)."""
+        return 1
+
+    def __int__(self) -> int:
+        """Convert to int."""
+        pass
+
+    def __float__(self) -> float:
+        """Convert to float."""
+        return float(int(self))
+
+    @abstractmethod
+    def __lshift__(self, other):
+        """Left shift."""
+        pass
+
+    @abstractmethod
+    def __rlshift__(self, other):
+        """Reverse left shift."""
+        pass
+
+    @abstractmethod
+    def __rshift__(self, other):
+        """Right shift."""
+        pass
+
+    @abstractmethod
+    def __rrshift__(self, other):
+        """Reverse right shift."""
+        pass
+
+    @abstractmethod
+    def __and__(self, other):
+        """Bitwise and."""
+        pass
+
+    @abstractmethod
+    def __rand__(self, other):
+        """Reverse bitwise and."""
+        pass
+
+    @abstractmethod
+    def __xor__(self, other):
+        """Bitwise xor."""
+        pass
+
+    @abstractmethod
+    def __rxor__(self, other):
+        """Reverse bitwise xor."""
+        pass
+
+    @abstractmethod
+    def __or__(self, other):
+        """Bitwise or."""
+        pass
+
+    @abstractmethod
+    def __ror__(self, other):
+        """Reverse bitwise or."""
+        pass
+
+    @abstractmethod
+    def __invert__(self):
+        """Bitwise invert."""
+        pass
+
+    def __index__(self) -> int:
+        """Convert to int for indexing."""
+        return int(self)
+
+    def __pow__(self, exponent, modulus=None):
+        """Raise to power."""
+        if modulus is not None:
+            return pow(int(self), int(exponent), int(modulus))
+        return int(self) ** int(exponent)
+
+
+# ============================================
+# Helper Functions
+# ============================================
+
+def is_number(obj) -> bool:
+    """Check if object is a number."""
+    return isinstance(obj, Number)
+
+
+def is_complex(obj) -> bool:
+    """Check if object is a complex number."""
+    return isinstance(obj, Complex)
+
+
+def is_real(obj) -> bool:
+    """Check if object is a real number."""
+    return isinstance(obj, Real)
+
+
+def is_rational(obj) -> bool:
+    """Check if object is a rational number."""
+    return isinstance(obj, Rational)
+
+
+def is_integral(obj) -> bool:
+    """Check if object is an integer."""
+    return isinstance(obj, Integral)
+
+
+def is_finite(obj) -> bool:
+    """Check if number is finite."""
+    if isinstance(obj, (int, float)):
+        import math
+        return math.isfinite(obj)
+    return True
+
+
+def is_infinite(obj) -> bool:
+    """Check if number is infinite."""
+    if isinstance(obj, (int, float)):
+        import math
+        return math.isinf(obj)
+    return False
+
+
+def is_nan(obj) -> bool:
+    """Check if number is NaN."""
+    if isinstance(obj, (int, float)):
+        import math
+        return math.isnan(obj)
+    return False
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test numbers functionality."""
+    print("Testing numbers module...")
+
+    # Test type checking
+    print("  Testing type checking...")
+    print("    is_number(42): " + str(is_number(42)))
+    print("    is_number(3.14): " + str(is_number(3.14)))
+    print("    is_number('text'): " + str(is_number('text')))
+
+    print("    is_integral(42): " + str(is_integral(42)))
+    print("    is_rational(42): " + str(is_rational(42)))
+    print("    is_real(3.14): " + str(is_real(3.14)))
+    print("    is_complex(3+4j): " + str(is_complex(3+4j)))
+
+    # Test Complex ABC
+    print("  Testing Complex ABC...")
+
+    class MyComplex(Complex):
+        def __init__(self, real, imag):
+            self._real = real
+            self._imag = imag
+
+        def real(self):
+            return self._real
+
+        def imag(self):
+            return self._imag
+
+        def conjugate(self):
+            return complex(self._real, -self._imag)
+
+        def __complex__(self):
+            return complex(self._real, self._imag)
+
+        def __eq__(self, other):
+            if isinstance(other, MyComplex):
+                return self._real == other._real and self._imag == other._imag
+            return False
+
+    mc = MyComplex(3, 4)
+    print("    MyComplex(3, 4) + MyComplex(1, 2) = " + str(mc + MyComplex(1, 2)))
+    print("    abs(MyComplex(3, 4)) = " + str(abs(mc)))
+
+    # Test Real ABC
+    print("  Testing Real ABC...")
+
+    class MyFloat(Real):
+        def __init__(self, value):
+            self._value = value
+
+        def __float__(self):
+            return self._value
+
+        def __int__(self):
+            return int(self._value)
+
+        def __floor__(self):
+            import math
+            return math.floor(self._value)
+
+        def __ceil__(self):
+            import math
+            return math.ceil(self._value)
+
+        def __round__(self, ndigits=None):
+            if ndigits is None:
+                return round(self._value)
+            return round(self._value, ndigits)
+
+        def __trunc__(self):
+            return int(self._value)
+
+        def __eq__(self, other):
+            if isinstance(other, MyFloat):
+                return self._value == other._value
+            return False
+
+    mf = MyFloat(3.7)
+    print("    MyFloat(3.7) + MyFloat(1.3) = " + str(mf + MyFloat(1.3)))
+    print("    floor(MyFloat(3.7)) = " + str(mf.__floor__()))
+
+    # Test Integral ABC
+    print("  Testing Integral ABC...")
+
+    class MyInt(Integral):
+        def __init__(self, value):
+            self._value = value
+
+        def __int__(self):
+            return self._value
+
+        def __lshift__(self, other):
+            return self._value << int(other)
+
+        def __rlshift__(self, other):
+            return int(other) << self._value
+
+        def __rshift__(self, other):
+            return self._value >> int(other)
+
+        def __rrshift__(self, other):
+            return int(other) >> self._value
+
+        def __and__(self, other):
+            return self._value & int(other)
+
+        def __rand__(self, other):
+            return int(other) & self._value
+
+        def __xor__(self, other):
+            return self._value ^ int(other)
+
+        def __rxor__(self, other):
+            return int(other) ^ self._value
+
+        def __or__(self, other):
+            return self._value | int(other)
+
+        def __ror__(self, other):
+            return int(other) | self._value
+
+        def __invert__(self):
+            return ~self._value
+
+        def __eq__(self, other):
+            if isinstance(other, MyInt):
+                return self._value == other._value
+            return False
+
+    mi = MyInt(42)
+    print("    MyInt(42) & MyInt(15) = " + str(mi & MyInt(15)))
+    print("    MyInt(42) << 2 = " + str(mi << 2))
+
+    # Test special values
+    print("  Testing special values...")
+    print("    is_finite(42): " + str(is_finite(42)))
+    print("    is_infinite(float('inf')): " + str(is_infinite(float('inf'))))
+    print("    is_nan(float('nan')): " + str(is_nan(float('nan'))))
+
+    print("numbers tests completed!")

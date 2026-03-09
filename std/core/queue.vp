@@ -1,0 +1,490 @@
+# Viper Standard Library - queue module
+# Thread-safe queues for multi-threaded programming
+
+# Module metadata
+__name__ = "queue"
+__version__ = "0.4.7"
+
+# ============================================
+# Exceptions
+# ============================================
+
+class Empty(Exception):
+    """Exception raised when Queue.get() is called on empty queue."""
+    pass
+
+
+class Full(Exception):
+    """Exception raised when Queue.put() is called on full queue."""
+    pass
+
+
+# ============================================
+# Queue Class
+# ============================================
+
+class Queue:
+    """Thread-safe FIFO queue.
+
+    Supports multiple producers and consumers.
+
+    Args:
+        maxsize: Maximum queue size (0 = unlimited)
+
+    Example:
+        q = Queue()
+        q.put(item)
+        item = q.get()
+    """
+
+    def __init__(self, maxsize=0):
+        self.maxsize = maxsize
+        self._queue = []
+        self._lock = None  # Will be created when threading is available
+        self._not_empty = None
+        self._not_full = None
+        self._unfinished_tasks = 0
+        self._shutdown = False
+        self._init_locks()
+
+    def _init_locks(self):
+        """Initialize synchronization primitives."""
+        try:
+            from threading import Lock, Condition
+            self._lock = Lock()
+            self._not_empty = Condition(self._lock)
+            self._not_full = Condition(self._lock)
+        except:
+            # Fallback without threading
+            self._lock = None
+            self._not_empty = None
+            self._not_full = None
+
+    def qsize(self) -> int:
+        """Return approximate size of queue."""
+        with self._lock:
+            return len(self._queue)
+
+    def empty(self) -> bool:
+        """Return True if queue is empty."""
+        with self._lock:
+            return len(self._queue) == 0
+
+    def full(self) -> bool:
+        """Return True if queue is full."""
+        with self._lock:
+            if self.maxsize <= 0:
+                return False
+            return len(self._queue) >= self.maxsize
+
+    def put(self, item, block=True, timeout=None):
+        """Put item into queue.
+
+        Args:
+            item: Item to put
+            block: Wait if queue is full
+            timeout: Maximum wait time
+
+        Raises:
+            Full: If queue is full and block=False
+        """
+        with self._not_full:
+            if self.maxsize > 0:
+                if not block:
+                    if len(self._queue) >= self.maxsize:
+                        raise Full()
+                elif timeout is None:
+                    while len(self._queue) >= self.maxsize:
+                        self._not_full.wait()
+                elif timeout < 0:
+                    raise ValueError("'timeout' must be non-negative")
+                else:
+                    end_time = None
+                    import time
+                    end_time = time.time() + timeout
+                    while len(self._queue) >= self.maxsize:
+                        remaining = end_time - time.time()
+                        if remaining <= 0:
+                            raise Full()
+                        self._not_full.wait(remaining)
+
+            self._queue.append(item)
+            self._unfinished_tasks = self._unfinished_tasks + 1
+            self._not_empty.notify()
+
+    def put_nowait(self, item):
+        """Put item without blocking.
+
+        Equivalent to put(item, block=False).
+        """
+        return self.put(item, block=False)
+
+    def get(self, block=True, timeout=None):
+        """Get item from queue.
+
+        Args:
+            block: Wait if queue is empty
+            timeout: Maximum wait time
+
+        Returns:
+            Item from queue
+
+        Raises:
+            Empty: If queue is empty and block=False
+        """
+        with self._not_empty:
+            if not block:
+                if len(self._queue) == 0:
+                    raise Empty()
+            elif timeout is None:
+                while len(self._queue) == 0:
+                    self._not_empty.wait()
+            elif timeout < 0:
+                raise ValueError("'timeout' must be non-negative")
+            else:
+                end_time = None
+                import time
+                end_time = time.time() + timeout
+                while len(self._queue) == 0:
+                    remaining = end_time - time.time()
+                    if remaining <= 0:
+                        raise Empty()
+                    self._not_empty.wait(remaining)
+
+            item = self._queue.pop(0)
+            self._not_full.notify()
+            return item
+
+    def get_nowait(self):
+        """Get item without blocking.
+
+        Equivalent to get(block=False).
+        """
+        return self.get(block=False)
+
+    def task_done(self):
+        """Indicate that a formerly enqueued task is complete.
+
+        Used by queue consumers. For each get(), a subsequent
+        task_done() tells the queue that processing is complete.
+        """
+        with self._unfinished_lock if hasattr(self, '_unfinished_lock') else self._lock:
+            if self._unfinished_tasks <= 0:
+                raise ValueError("task_done() called too many times")
+            self._unfinished_tasks = self._unfinished_tasks - 1
+            if self._unfinished_tasks == 0:
+                self._all_tasks_done.notify_all()
+
+    def join(self):
+        """Block until all items in queue are processed."""
+        with self._lock:
+            while self._unfinished_tasks > 0:
+                self._all_tasks_done.wait()
+
+    def __len__(self) -> int:
+        return self.qsize()
+
+    def __repr__(self) -> str:
+        return "Queue(maxsize=" + str(self.maxsize) + ", size=" + str(self.qsize()) + ")"
+
+
+# ============================================
+# LifoQueue Class
+# ============================================
+
+class LifoQueue(Queue):
+    """Thread-safe LIFO (stack) queue.
+
+    Last-in, first-out ordering.
+    """
+
+    def _get(self):
+        return self._queue.pop()
+
+    def put(self, item, block=True, timeout=None):
+        """Put item onto stack."""
+        # Use parent's put but append to end
+        with self._not_full:
+            if self.maxsize > 0:
+                if not block:
+                    if len(self._queue) >= self.maxsize:
+                        raise Full()
+                elif timeout is None:
+                    while len(self._queue) >= self.maxsize:
+                        self._not_full.wait()
+                else:
+                    import time
+                    end_time = time.time() + timeout
+                    while len(self._queue) >= self.maxsize:
+                        remaining = end_time - time.time()
+                        if remaining <= 0:
+                            raise Full()
+                        self._not_full.wait(remaining)
+
+            self._queue.append(item)
+            self._unfinished_tasks = self._unfinished_tasks + 1
+            self._not_empty.notify()
+
+    def get(self, block=True, timeout=None):
+        """Get item from stack (LIFO)."""
+        with self._not_empty:
+            if not block:
+                if len(self._queue) == 0:
+                    raise Empty()
+            elif timeout is None:
+                while len(self._queue) == 0:
+                    self._not_empty.wait()
+            else:
+                import time
+                end_time = time.time() + timeout
+                while len(self._queue) == 0:
+                    remaining = end_time - time.time()
+                    if remaining <= 0:
+                        raise Empty()
+                    self._not_empty.wait(remaining)
+
+            item = self._queue.pop()  # Pop from end (LIFO)
+            self._not_full.notify()
+            return item
+
+
+# ============================================
+# PriorityQueue Class
+# ============================================
+
+class PriorityQueue(Queue):
+    """Thread-safe priority queue.
+
+    Items are returned in priority order (lowest first).
+    """
+
+    def put(self, item, block=True, timeout=None):
+        """Put item with priority.
+
+        Item should be (priority, data) tuple.
+        """
+        with self._not_full:
+            if self.maxsize > 0:
+                if not block:
+                    if len(self._queue) >= self.maxsize:
+                        raise Full()
+                elif timeout is None:
+                    while len(self._queue) >= self.maxsize:
+                        self._not_full.wait()
+                else:
+                    import time
+                    end_time = time.time() + timeout
+                    while len(self._queue) >= self.maxsize:
+                        remaining = end_time - time.time()
+                        if remaining <= 0:
+                            raise Full()
+                        self._not_full.wait(remaining)
+
+            self._queue.append(item)
+            self._queue.sort(key=lambda x: x[0] if isinstance(x, tuple) else x)
+            self._unfinished_tasks = self._unfinished_tasks + 1
+            self._not_empty.notify()
+
+    def get(self, block=True, timeout=None):
+        """Get lowest priority item."""
+        with self._not_empty:
+            if not block:
+                if len(self._queue) == 0:
+                    raise Empty()
+            elif timeout is None:
+                while len(self._queue) == 0:
+                    self._not_empty.wait()
+            else:
+                import time
+                end_time = time.time() + timeout
+                while len(self._queue) == 0:
+                    remaining = end_time - time.time()
+                    if remaining <= 0:
+                        raise Empty()
+                    self._not_empty.wait(remaining)
+
+            item = self._queue.pop(0)  # Get first (lowest priority)
+            self._not_full.notify()
+            return item
+
+
+# ============================================
+# SimpleQueue Class
+# ============================================
+
+class SimpleQueue:
+    """Simplified queue for single producer/consumer.
+
+    Faster than Queue but fewer features.
+    """
+
+    def __init__(self):
+        self._queue = []
+        self._lock = None
+        try:
+            from threading import Lock
+            self._lock = Lock()
+        except:
+            pass
+
+    def qsize(self) -> int:
+        """Return queue size."""
+        with self._lock if self._lock else _DummyLock():
+            return len(self._queue)
+
+    def empty(self) -> bool:
+        """Return True if empty."""
+        return self.qsize() == 0
+
+    def put(self, item, block=True):
+        """Put item into queue."""
+        with self._lock if self._lock else _DummyLock():
+            self._queue.append(item)
+
+    def put_nowait(self, item):
+        """Put item without blocking."""
+        self.put(item)
+
+    def get(self, block=True):
+        """Get item from queue."""
+        with self._lock if self._lock else _DummyLock():
+            if len(self._queue) == 0:
+                if not block:
+                    raise Empty()
+                # Simple busy wait for blocking
+                import time
+                while len(self._queue) == 0:
+                    time.sleep(0.001)
+            return self._queue.pop(0)
+
+    def get_nowait(self):
+        """Get item without blocking."""
+        return self.get(block=False)
+
+
+# ============================================
+# Helper Classes
+# ============================================
+
+class _DummyLock:
+    """Dummy lock for non-threaded use."""
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+class _ConditionLock:
+    """Condition variable implementation."""
+
+    def __init__(self, lock):
+        self._lock = lock
+        self._waiters = []
+
+    def wait(self, timeout=None):
+        """Wait for notification."""
+        import time
+        event = Event() if 'Event' in globals() else _DummyEvent()
+        self._waiters.append((event, time.time() + (timeout or 999999)))
+        self._lock.release()
+        event.wait(timeout)
+        self._lock.acquire()
+
+    def notify(self, n=1):
+        """Wake up n waiters."""
+        count = 0
+        for i in range(len(self._waiters) - 1, -1, -1):
+            if count >= n:
+                break
+            event, _ = self._waiters[i]
+            event.set()
+            self._waiters.pop(i)
+            count = count + 1
+
+
+class _DummyEvent:
+    """Dummy event for non-threaded use."""
+
+    def __init__(self):
+        self._flag = False
+
+    def set(self):
+        self._flag = True
+
+    def wait(self, timeout=None):
+        return self._flag
+
+
+# ============================================
+# Module Functions
+# ============================================
+
+def queue_as_list(q: Queue) -> list:
+    """Convert queue to list (for debugging)."""
+    result = []
+    while not q.empty():
+        result.append(q.get_nowait())
+    return result
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test queue functionality."""
+    print("Testing queue module...")
+
+    # Test basic Queue
+    print("  Testing Queue...")
+    q = Queue()
+    q.put(1)
+    q.put(2)
+    q.put(3)
+    print("    Put 1, 2, 3")
+    print("    Size: " + str(q.qsize()))
+    print("    Get: " + str(q.get()))
+    print("    Get: " + str(q.get()))
+    print("    Empty: " + str(q.empty()))
+
+    # Test LifoQueue
+    print("  Testing LifoQueue...")
+    lq = LifoQueue()
+    lq.put(1)
+    lq.put(2)
+    lq.put(3)
+    print("    Put 1, 2, 3")
+    print("    Get (LIFO): " + str(lq.get()))  # Should be 3
+
+    # Test PriorityQueue
+    print("  Testing PriorityQueue...")
+    pq = PriorityQueue()
+    pq.put((3, "low"))
+    pq.put((1, "high"))
+    pq.put((2, "medium"))
+    print("    Put (3,'low'), (1,'high'), (2,'medium')")
+    item = pq.get()
+    print("    Get (priority): " + str(item))  # Should be (1, "high")
+
+    # Test maxsize
+    print("  Testing maxsize...")
+    fq = Queue(maxsize=2)
+    fq.put(1)
+    fq.put(2)
+    print("    Full: " + str(fq.full()))
+    try:
+        fq.put_nowait(3)
+    except Full:
+        print("    Full exception caught (expected)")
+
+    # Test Empty exception
+    print("  Testing Empty exception...")
+    eq = Queue()
+    try:
+        eq.get_nowait()
+    except Empty:
+        print("    Empty exception caught (expected)")
+
+    print("queue tests completed!")

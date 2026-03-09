@@ -1,0 +1,428 @@
+# Viper Standard Library - pathlib module
+# Object-oriented filesystem paths
+
+# Module metadata
+__name__ = "pathlib"
+__version__ = "0.4.5"
+
+from os import sep, getcwd, chdir, listdir, mkdir, makedirs, remove
+from os import path_exists, path_isfile, path_isdir, path_getsize
+from os import path_abspath, path_basename, path_dirname
+
+# ============================================
+# Path Class
+# ============================================
+
+class Path:
+    """Pure Viper implementation of pathlib.Path"""
+    
+    def __init__(self, *args):
+        """Create a path from path components."""
+        if len(args) == 0:
+            self._path = getcwd()
+        elif len(args) == 1:
+            self._path = args[0]
+        else:
+            # Join multiple components
+            self._path = args[0]
+            for arg in args[1:]:
+                self._path = self._join(self._path, arg)
+    
+    def _join(self, a: str, b: str) -> str:
+        """Join two path components."""
+        if len(b) == 0:
+            return a
+        if len(a) == 0 or b[0] == '/':
+            return b
+        if a[len(a) - 1] == '/':
+            return a + b
+        return a + "/" + b
+    
+    # ============================================
+    # String operators
+    # ============================================
+    
+    def __str__(self) -> str:
+        return self._path
+    
+    def __repr__(self) -> str:
+        return "Path('" + self._path + "')"
+    
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Path):
+            return False
+        return self._path == other._path
+    
+    def __hash__(self) -> int:
+        return hash(self._path)
+    
+    def __truediv__(self, other):
+        """Join paths using / operator."""
+        if isinstance(other, Path):
+            return Path(self._path, other._path)
+        return Path(self._path, str(other))
+    
+    def __fspath__(self) -> str:
+        return self._path
+    
+    # ============================================
+    # Properties
+    # ============================================
+    
+    def anchor(self) -> str:
+        """Return the anchor of the path (e.g., '/' on Unix)."""
+        if len(self._path) > 0 and self._path[0] == '/':
+            return "/"
+        return ""
+    
+    def drive(self) -> str:
+        """Return the drive letter (empty on Unix)."""
+        return ""
+    
+    def root(self) -> str:
+        """Return the root of the path."""
+        return self.anchor()
+    
+    def name(self) -> str:
+        """Return the final component of the path."""
+        return path_basename(self._path)
+    
+    def suffix(self) -> str:
+        """Return the file extension."""
+        name = self.name()
+        dot_pos = -1
+        for i in range(len(name) - 1, -1, -1):
+            if name[i] == '.':
+                dot_pos = i
+                break
+        if dot_pos > 0:
+            return name[dot_pos:]
+        return ""
+    
+    def suffixes(self) -> [str]:
+        """Return a list of all file extensions."""
+        name = self.name()
+        result = []
+        i = len(name) - 1
+        while i >= 0:
+            if name[i] == '.':
+                result.insert(0, name[i:])
+            i -= 1
+        return result
+    
+    def stem(self) -> str:
+        """Return the filename without suffix."""
+        name = self.name()
+        dot_pos = -1
+        for i in range(len(name) - 1, -1, -1):
+            if name[i] == '.':
+                dot_pos = i
+                break
+        if dot_pos > 0:
+            return name[:dot_pos]
+        return name
+    
+    def parent(self):
+        """Return the parent directory."""
+        return Path(path_dirname(self._path))
+    
+    def parents(self) -> [Path]:
+        """Return a list of parent directories."""
+        result = []
+        p = self.parent()
+        while str(p) != p._path:
+            result.append(p)
+            p = p.parent()
+        return result
+    
+    def parts(self) -> [str]:
+        """Return the path components as a tuple."""
+        if self._path == "/":
+            return ["/"]
+        
+        result = []
+        path = self._path
+        while len(path) > 0:
+            head = path_dirname(path)
+            tail = path_basename(path)
+            if head == path:
+                if len(tail) > 0:
+                    result.insert(0, tail)
+                break
+            if len(tail) > 0:
+                result.insert(0, tail)
+            path = head
+        return result
+    
+    # ============================================
+    # Path operations
+    # ============================================
+    
+    def is_absolute(self) -> bool:
+        """Return True if the path is absolute."""
+        return len(self._path) > 0 and self._path[0] == '/'
+    
+    def is_relative_to(self, other) -> bool:
+        """Return True if the path is relative to other."""
+        other_str = str(other) if isinstance(other, Path) else other
+        return self._path.startswith(other_str)
+    
+    def relative_to(self, other):
+        """Return the path relative to other."""
+        other_str = str(other) if isinstance(other, Path) else other
+        if not self._path.startswith(other_str):
+            raise ValueError("Path is not relative to " + other_str)
+        
+        rel = self._path[len(other_str):]
+        if len(rel) > 0 and rel[0] == '/':
+            rel = rel[1:]
+        return Path(rel)
+    
+    def resolve(self, strict: bool = False):
+        """Return the absolute path, resolving symlinks."""
+        return Path(path_abspath(self._path))
+    
+    def absolute(self):
+        """Return the absolute path."""
+        return Path(path_abspath(self._path))
+    
+    # ============================================
+    # Existence tests
+    # ============================================
+    
+    def exists(self) -> bool:
+        """Return True if the path exists."""
+        return path_exists(self._path)
+    
+    def is_file(self) -> bool:
+        """Return True if the path is a file."""
+        return path_isfile(self._path)
+    
+    def is_dir(self) -> bool:
+        """Return True if the path is a directory."""
+        return path_isdir(self._path)
+    
+    def is_symlink(self) -> bool:
+        """Return True if the path is a symlink."""
+        # Simplified - would need os.readlink
+        return False
+    
+    def is_block_device(self) -> bool:
+        return False
+    
+    def is_char_device(self) -> bool:
+        return False
+    
+    def is_fifo(self) -> bool:
+        return False
+    
+    def is_socket(self) -> bool:
+        return False
+    
+    # ============================================
+    # Directory operations
+    # ============================================
+    
+    def mkdir(self, mode: int = 0o755, parents: bool = False, exist_ok: bool = False):
+        """Create a directory."""
+        if parents:
+            makedirs(self._path, mode, exist_ok)
+        else:
+            mkdir(self._path, mode)
+    
+    def rmdir(self):
+        """Remove an empty directory."""
+        from os import rmdir
+        rmdir(self._path)
+    
+    def iterdir(self) -> [Path]:
+        """Iterate over directory contents."""
+        names = listdir(self._path)
+        result = []
+        for name in names:
+            result.append(self / name)
+        return result
+    
+    def glob(self, pattern: str) -> [Path]:
+        """Find paths matching pattern."""
+        # Simplified implementation
+        result = []
+        if self.is_dir():
+            for p in self.iterdir():
+                if pattern == "*":
+                    result.append(p)
+                elif p.name() == pattern:
+                    result.append(p)
+        return result
+    
+    def rglob(self, pattern: str) -> [Path]:
+        """Find paths matching pattern recursively."""
+        # Simplified implementation
+        return self.glob(pattern)
+    
+    # ============================================
+    # File operations
+    # ============================================
+    
+    def read_bytes(self) -> [int]:
+        """Read file contents as bytes."""
+        # Would need os.open/read
+        return []
+    
+    def read_text(self, encoding: str = "utf-8") -> str:
+        """Read file contents as text."""
+        # Would need file I/O
+        return ""
+    
+    def write_bytes(self, data: [int]):
+        """Write bytes to file."""
+        # Would need file I/O
+        pass
+    
+    def write_text(self, data: str, encoding: str = "utf-8"):
+        """Write text to file."""
+        # Would need file I/O
+        pass
+    
+    def touch(self, mode: int = 0o666, exist_ok: bool = True):
+        """Create a file or update its timestamp."""
+        # Would need os.utime
+        if not self.exists():
+            self.write_text("")
+    
+    def unlink(self, missing_ok: bool = False):
+        """Remove the file."""
+        if self.exists():
+            remove(self._path)
+        elif not missing_ok:
+            raise FileNotFoundError(str(self._path))
+    
+    def rename(self, target):
+        """Rename the file/directory."""
+        from os import rename
+        target_str = str(target) if isinstance(target, Path) else target
+        rename(self._path, target_str)
+    
+    def replace(self, target):
+        """Replace the file/directory."""
+        self.rename(target)
+    
+    def copy(self, target):
+        """Copy the file."""
+        from os import copy
+        target_str = str(target) if isinstance(target, Path) else target
+        copy(self._path, target_str)
+    
+    def move(self, target):
+        """Move the file/directory."""
+        self.rename(target)
+    
+    def stat(self):
+        """Return file statistics."""
+        from os import stat
+        return stat(self._path)
+    
+    # ============================================
+    # Path info
+    # ============================================
+    
+    def samefile(self, other) -> bool:
+        """Return True if this path points to the same file as other."""
+        return self._path == (str(other) if isinstance(other, Path) else other)
+    
+    def match(self, pattern: str) -> bool:
+        """Return True if the path matches the pattern."""
+        name = self.name()
+        if pattern == "*":
+            return True
+        return name == pattern
+    
+    def with_name(self, name: str):
+        """Return a new path with the name changed."""
+        return Path(self.parent()._path, name)
+    
+    def with_suffix(self, suffix: str):
+        """Return a new path with the suffix changed."""
+        stem = self.stem()
+        return Path(self.parent()._path, stem + suffix)
+    
+    def with_stem(self, stem: str):
+        """Return a new path with the stem changed."""
+        return Path(self.parent()._path, stem + self.suffix())
+    
+    def joinpath(self, *args):
+        """Join path components."""
+        result = self
+        for arg in args:
+            result = result / arg
+        return result
+    
+    def as_uri(self) -> str:
+        """Return the path as a file:// URI."""
+        return "file://" + self._path
+    
+    # ============================================
+    # Class methods
+    # ============================================
+    
+    @classmethod
+    def cwd(cls):
+        """Return the current working directory as a Path."""
+        return Path(getcwd())
+    
+    @classmethod
+    def home(cls):
+        """Return the home directory as a Path."""
+        from os import get_home
+        return Path(get_home())
+    
+    @classmethod
+    def absolute_root(cls):
+        """Return the root directory."""
+        return Path("/")
+
+# ============================================
+# PurePath (for future implementation)
+# ============================================
+
+class PurePath:
+    """Pure path manipulation without filesystem access."""
+    
+    def __init__(self, *args):
+        self._path = ""
+        if len(args) > 0:
+            self._path = args[0]
+            for arg in args[1:]:
+                self._path = self._join(self._path, arg)
+    
+    def _join(self, a: str, b: str) -> str:
+        if len(b) == 0:
+            return a
+        if len(a) == 0 or b[0] == '/':
+            return b
+        if a[len(a) - 1] == '/':
+            return a + b
+        return a + "/" + b
+    
+    def __str__(self) -> str:
+        return self._path
+    
+    def __repr__(self) -> str:
+        return "PurePath('" + self._path + "')"
+    
+    def __truediv__(self, other):
+        if isinstance(other, PurePath):
+            return PurePath(self._path, other._path)
+        return PurePath(self._path, str(other))
+
+# ============================================
+# Convenience functions
+# ============================================
+
+def Path_new(*args) -> Path:
+    """Create a new Path object."""
+    return Path(*args)
+
+def PurePath_new(*args) -> PurePath:
+    """Create a new PurePath object."""
+    return PurePath(*args)

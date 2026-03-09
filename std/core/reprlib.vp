@@ -1,0 +1,372 @@
+# Viper Standard Library - reprlib module
+# Alternative repr with recursion limiting
+
+# Module metadata
+__name__ = "reprlib"
+__version__ = "0.4.7"
+
+# ============================================
+# Repr Class
+# ============================================
+
+class Repr:
+    """Configurable repr with limits.
+
+    Controls maximum sizes for various types in repr output.
+
+    Attributes:
+        maxlevel: Maximum recursion depth
+        maxdict: Maximum dict entries
+        maxlist: Maximum list items
+        maxtuple: Maximum tuple items
+        maxset: Maximum set items
+        maxfrozenset: Maximum frozenset items
+        maxdeque: Maximum deque items
+        maxarray: Maximum array items
+        maxlong: Maximum digits for long ints
+        maxstring: Maximum string length
+        maxother: Maximum size for other types
+    """
+
+    def __init__(self):
+        self.maxlevel = 6
+        self.maxdict = 4
+        self.maxlist = 6
+        self.maxtuple = 6
+        self.maxset = 6
+        self.maxfrozenset = 6
+        self.maxdeque = 6
+        self.maxarray = 5
+        self.maxlong = 40
+        self.maxstring = 30
+        self.maxother = 30
+
+    def repr(self, obj, level=0) -> str:
+        """Get limited repr of object.
+
+        Args:
+            obj: Object to represent
+            level: Current recursion level
+
+        Returns:
+            String representation
+        """
+        return self._repr(obj, level)
+
+    def _repr(self, obj, level):
+        """Internal repr with level tracking."""
+        # Check recursion depth
+        if level >= self.maxlevel:
+            return "..."
+
+        # Handle different types
+        if isinstance(obj, dict):
+            return self._repr_dict(obj, level)
+        elif isinstance(obj, list):
+            return self._repr_list(obj, level)
+        elif isinstance(obj, tuple):
+            return self._repr_tuple(obj, level)
+        elif isinstance(obj, set):
+            return self._repr_set(obj, level)
+        elif isinstance(obj, frozenset):
+            return self._repr_frozenset(obj, level)
+        elif isinstance(obj, str):
+            return self._repr_string(obj, level)
+        elif isinstance(obj, int):
+            return self._repr_int(obj, level)
+        elif isinstance(obj, float):
+            return self._repr_float(obj, level)
+        elif isinstance(obj, bytes):
+            return self._repr_bytes(obj, level)
+        elif isinstance(obj, bytearray):
+            return self._repr_bytearray(obj, level)
+        elif obj is None:
+            return "None"
+        elif obj is True:
+            return "True"
+        elif obj is False:
+            return "False"
+        else:
+            return self._repr_other(obj, level)
+
+    def _repr_dict(self, d: dict, level) -> str:
+        """Repr for dict."""
+        if len(d) == 0:
+            return "{}"
+
+        items = []
+        count = 0
+        for key in d:
+            if count >= self.maxdict:
+                items.append("...")
+                break
+            key_repr = self._repr(key, level + 1)
+            value_repr = self._repr(d[key], level + 1)
+            items.append(key_repr + ": " + value_repr)
+            count = count + 1
+
+        return "{" + ", ".join(items) + "}"
+
+    def _repr_list(self, lst: list, level) -> str:
+        """Repr for list."""
+        if len(lst) == 0:
+            return "[]"
+
+        items = []
+        count = 0
+        for item in lst:
+            if count >= self.maxlist:
+                items.append("...")
+                break
+            items.append(self._repr(item, level + 1))
+            count = count + 1
+
+        return "[" + ", ".join(items) + "]"
+
+    def _repr_tuple(self, t: tuple, level) -> str:
+        """Repr for tuple."""
+        if len(t) == 0:
+            return "()"
+
+        items = []
+        count = 0
+        for item in t:
+            if count >= self.maxtuple:
+                items.append("...")
+                break
+            items.append(self._repr(item, level + 1))
+            count = count + 1
+
+        if len(t) == 1:
+            return "(" + items[0] + ",)"
+        return "(" + ", ".join(items) + ")"
+
+    def _repr_set(self, s: set, level) -> str:
+        """Repr for set."""
+        if len(s) == 0:
+            return "set()"
+
+        items = []
+        count = 0
+        for item in s:
+            if count >= self.maxset:
+                items.append("...")
+                break
+            items.append(self._repr(item, level + 1))
+            count = count + 1
+
+        return "{" + ", ".join(items) + "}"
+
+    def _repr_frozenset(self, s: frozenset, level) -> str:
+        """Repr for frozenset."""
+        if len(s) == 0:
+            return "frozenset()"
+
+        items = []
+        count = 0
+        for item in s:
+            if count >= self.maxfrozenset:
+                items.append("...")
+                break
+            items.append(self._repr(item, level + 1))
+            count = count + 1
+
+        return "frozenset({" + ", ".join(items) + "})"
+
+    def _repr_string(self, s: str, level) -> str:
+        """Repr for string."""
+        if len(s) <= self.maxstring:
+            return repr(s)
+
+        # Truncate with ellipsis
+        truncated = s[:self.maxstring - 3]
+        return repr(truncated + "...")
+
+    def _repr_int(self, n: int, level) -> str:
+        """Repr for int."""
+        s = str(n)
+        if len(s) <= self.maxlong:
+            return s
+        return s[:self.maxlong - 3] + "..."
+
+    def _repr_float(self, f: float, level) -> str:
+        """Repr for float."""
+        return repr(f)
+
+    def _repr_bytes(self, b: bytes, level) -> str:
+        """Repr for bytes."""
+        if len(b) <= self.maxother:
+            return repr(b)
+        return repr(b[:self.maxother - 3]) + "..."
+
+    def _repr_bytearray(self, b: bytearray, level) -> str:
+        """Repr for bytearray."""
+        if len(b) <= self.maxother:
+            return repr(b)
+        return "bytearray(b'" + str(b[:self.maxother - 3]) + "...')"
+
+    def _repr_other(self, obj, level) -> str:
+        """Repr for other types."""
+        s = repr(obj)
+        if len(s) <= self.maxother:
+            return s
+        return s[:self.maxother - 3] + "..."
+
+
+# ============================================
+# Module-level Repr Instance
+# ============================================
+
+# Default repr instance
+aRepr = Repr()
+
+# Set default limits
+aRepr.maxlevel = 6
+aRepr.maxdict = 4
+aRepr.maxlist = 6
+aRepr.maxtuple = 6
+aRepr.maxset = 6
+aRepr.maxstring = 30
+aRepr.maxother = 30
+
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def repr(obj) -> str:
+    """Get limited repr of object.
+
+    Like built-in repr() but with recursion and size limits.
+
+    Args:
+        obj: Object to represent
+
+    Returns:
+        String representation
+
+    Example:
+        >>> repr({1: {2: {3: {4: {5: {6: {7: 'deep'}}}}}}})
+        '{1: {2: {3: {4: {5: {6: ...}}}}}}'
+    """
+    return aRepr.repr(obj)
+
+
+def repr_dict(d: dict) -> str:
+    """Repr for dict with limits."""
+    return aRepr._repr_dict(d, 0)
+
+
+def repr_list(lst: list) -> str:
+    """Repr for list with limits."""
+    return aRepr._repr_list(lst, 0)
+
+
+def repr_set(s: set) -> str:
+    """Repr for set with limits."""
+    return aRepr._repr_set(s, 0)
+
+
+def repr_string(s: str) -> str:
+    """Repr for string with limits."""
+    return aRepr._repr_string(s, 0)
+
+
+# ============================================
+# Helper Functions
+# ============================================
+
+def recursive_repr(fillvalue='...'):
+    """Decorator for recursive repr in custom classes.
+
+    Args:
+        fillvalue: String to use for recursive references
+
+    Returns:
+        Decorator function
+
+    Example:
+        class MyList(list):
+            @recursive_repr()
+            def __repr__(self):
+                return '[' + ', '.join(map(repr, self)) + ']'
+    """
+    def decorator(func):
+        repr_running = set()
+
+        def wrapper(self):
+            key = id(self)
+            if key in repr_running:
+                return fillvalue
+            repr_running.add(key)
+            try:
+                return func(self)
+            finally:
+                repr_running.discard(key)
+
+        return wrapper
+    return decorator
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test reprlib functionality."""
+    print("Testing reprlib module...")
+
+    # Test basic repr
+    print("  Testing basic repr...")
+    print("    repr([1, 2, 3]) = " + repr([1, 2, 3]))
+    print("    repr({'a': 1}) = " + repr({'a': 1}))
+
+    # Test recursion limiting
+    print("  Testing recursion limiting...")
+    nested = {1: {2: {3: {4: {5: {6: {7: 'deep'}}}}}}}
+    print("    Deep nested dict: " + repr(nested))
+
+    nested_list = [1, [2, [3, [4, [5, [6, [7]]]]]]]
+    print("    Deep nested list: " + repr(nested_list))
+
+    # Test size limiting
+    print("  Testing size limiting...")
+    long_list = list(range(100))
+    print("    Long list: " + repr(long_list))
+
+    long_string = "a" * 100
+    print("    Long string: " + repr(long_string))
+
+    big_dict = {i: i * 2 for i in range(100)}
+    print("    Big dict: " + repr(big_dict))
+
+    # Test custom Repr
+    print("  Testing custom Repr...")
+    custom = Repr()
+    custom.maxlist = 3
+    custom.maxdict = 2
+    print("    Custom list: " + custom.repr([1, 2, 3, 4, 5]))
+    print("    Custom dict: " + custom.repr({1: 1, 2: 2, 3: 3}))
+
+    # Test empty containers
+    print("  Testing empty containers...")
+    print("    repr([]) = " + repr([]))
+    print("    repr({}) = " + repr({}))
+    print("    repr(()) = " + repr(()))
+    print("    repr(set()) = " + repr(set()))
+
+    # Test special values
+    print("  Testing special values...")
+    print("    repr(None) = " + repr(None))
+    print("    repr(True) = " + repr(True))
+    print("    repr(False) = " + repr(False))
+
+    # Test sets
+    print("  Testing sets...")
+    s = {1, 2, 3, 4, 5, 6, 7, 8}
+    print("    Large set: " + repr(s))
+
+    fs = frozenset([1, 2, 3, 4, 5])
+    print("    Frozenset: " + repr(fs))
+
+    print("reprlib tests completed!")

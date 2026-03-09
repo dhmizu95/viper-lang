@@ -1,0 +1,94 @@
+# Viper Standard Library - sys module
+# System-specific parameters and functions
+
+# Module metadata
+__name__ = "sys"
+__version__ = "0.4.5"
+
+# Constants - populated at runtime
+argv: [str] = []  # Command-line arguments
+version: str = "0.4.5"
+platform: str = "linux"
+
+# Exit codes
+EXIT_SUCCESS: int = 0
+EXIT_FAILURE: int = 1
+
+def exit(code: int = 0):
+    """Exit the program with the given status code."""
+    # Implemented in runtime
+    pass
+
+def getpid() -> int:
+    """Get the current process ID."""
+    # Implemented in runtime
+    return 0
+
+def get_platform() -> str:
+    """Get the platform identifier (linux, darwin, windows, etc.)."""
+    # Implemented in runtime
+    return "unknown"
+
+def get_version() -> str:
+    """Get the Viper version string."""
+    return version
+
+def get_sysname() -> str:
+    """Get the system name (uname -s format)."""
+    # Implemented in runtime
+    return "Unknown"
+
+def get_machine() -> str:
+    """Get the machine architecture."""
+    # Implemented in runtime
+    return "unknown"
+
+def getargv() -> [str]:
+    """Get command-line arguments."""
+    return argv
+
+def getenv(name: str) -> str:
+    """Get an environment variable by name."""
+    # Implemented in runtime
+    return ""
+
+def setenv(name: str, value: str, overwrite: bool = True) -> int:
+    """Set an environment variable."""
+    # Implemented in runtime
+    return 0
+
+def unsetenv(name: str) -> int:
+    """Unset/remove an environment variable."""
+    # Implemented in runtime
+    return 0
+
+def getrecursionlimit() -> int:
+    """Get the maximum recursion depth."""
+    return 1000
+
+def setrecursionlimit(limit: int):
+    """Set the maximum recursion depth."""
+    pass
+
+def getsizeof(obj) -> int:
+    """Get the size of an object in bytes."""
+    return 0
+
+def getrefcount(obj) -> int:
+    """Get the reference count of an object."""
+    return 1
+
+# Path separator based on platform
+pathsep: str = ":"  # : on Unix, ; on Windows
+sep: str = "/"
+
+# Standard file descriptors
+stdin = None
+stdout = None
+stderr = None
+
+def _initialize():
+    """Initialize the sys module."""
+    global argv, platform, version
+    # Runtime will populate these values
+    pass

@@ -1,0 +1,461 @@
+# Viper Standard Library - base64 module
+# Base64 encoding and decoding utilities
+
+# Module metadata
+__name__ = "base64"
+__version__ = "0.4.7"
+
+# ============================================
+# Base64 Alphabet
+# ============================================
+
+_standard_alphabet: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+_urlsafe_alphabet: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+# Reverse lookup tables
+_standard_decode: dict = {}
+_urlsafe_decode: dict = {}
+
+# Build decode tables
+for i in range(len(_standard_alphabet)):
+    _standard_decode[_standard_alphabet[i]] = i
+
+for i in range(len(_urlsafe_alphabet)):
+    _urlsafe_decode[_urlsafe_alphabet[i]] = i
+
+
+# ============================================
+# Standard Base64 Encoding
+# ============================================
+
+def b64encode(data: str) -> str:
+    """Encode bytes-like object using standard Base64.
+
+    Args:
+        data: String to encode (treated as bytes)
+
+    Returns:
+        Base64 encoded string
+
+    Example:
+        b64encode("Hello") -> "SGVsbG8="
+    """
+    return _encode_base64(data, _standard_alphabet)
+
+
+def b64decode(data: str) -> str:
+    """Decode Base64 encoded string.
+
+    Args:
+        data: Base64 encoded string
+
+    Returns:
+        Decoded string
+
+    Example:
+        b64decode("SGVsbG8=") -> "Hello"
+    """
+    return _decode_base64(data, _standard_decode)
+
+
+# ============================================
+# URL-Safe Base64 Encoding
+# ============================================
+
+def urlsafe_b64encode(data: str) -> str:
+    """Encode using URL-safe Base64 alphabet.
+
+    Uses '-' instead of '+' and '_' instead of '/'.
+    Safe for use in URLs and filenames.
+
+    Args:
+        data: String to encode
+
+    Returns:
+        URL-safe Base64 encoded string
+    """
+    return _encode_base64(data, _urlsafe_alphabet)
+
+
+def urlsafe_b64decode(data: str) -> str:
+    """Decode URL-safe Base64 encoded string.
+
+    Args:
+        data: URL-safe Base64 encoded string
+
+    Returns:
+        Decoded string
+    """
+    return _decode_base64(data, _urlsafe_decode)
+
+
+# ============================================
+# Base16 (Hexadecimal) Encoding
+# ============================================
+
+def b16encode(data: str) -> str:
+    """Encode using Base16 (hexadecimal).
+
+    Args:
+        data: String to encode
+
+    Returns:
+        Hexadecimal encoded string (uppercase)
+    """
+    result = []
+    for char in data:
+        code = ord(char)
+        result.append("0123456789ABCDEF"[code // 16])
+        result.append("0123456789ABCDEF"[code % 16])
+    return "".join(result)
+
+
+def b16decode(data: str) -> str:
+    """Decode Base16 (hexadecimal) encoded string.
+
+    Args:
+        data: Hexadecimal string
+
+    Returns:
+        Decoded string
+    """
+    # Normalize to uppercase
+    data = data.upper()
+
+    # Remove whitespace
+    data = data.replace(" ", "").replace("\n", "").replace("\r", "").replace("\t", "")
+
+    if len(data) % 2 != 0:
+        raise ValueError("Base16 decode: odd-length string")
+
+    result = []
+    i = 0
+    while i < len(data):
+        high = _hex_char_to_int(data[i])
+        low = _hex_char_to_int(data[i + 1])
+        result.append(chr(high * 16 + low))
+        i = i + 2
+
+    return "".join(result)
+
+
+def _hex_char_to_int(c: str) -> int:
+    """Convert hex character to integer value."""
+    if c >= '0' and c <= '9':
+        return ord(c) - ord('0')
+    elif c >= 'A' and c <= 'F':
+        return ord(c) - ord('A') + 10
+    elif c >= 'a' and c <= 'f':
+        return ord(c) - ord('a') + 10
+    else:
+        raise ValueError("Invalid hex character: " + c)
+
+
+# ============================================
+# Base32 Encoding
+# ============================================
+
+_base32_alphabet: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+_base32_decode: dict = {}
+
+for i in range(len(_base32_alphabet)):
+    _base32_decode[_base32_alphabet[i]] = i
+
+
+def b32encode(data: str) -> str:
+    """Encode using Base32.
+
+    Args:
+        data: String to encode
+
+    Returns:
+        Base32 encoded string
+    """
+    result = []
+    buffer = 0
+    bits_left = 0
+
+    for char in data:
+        buffer = (buffer << 8) | ord(char)
+        bits_left = bits_left + 8
+
+        while bits_left >= 5:
+            bits_left = bits_left - 5
+            idx = (buffer >> bits_left) & 0x1F
+            result.append(_base32_alphabet[idx])
+
+    # Handle remaining bits
+    if bits_left > 0:
+        idx = (buffer << (5 - bits_left)) & 0x1F
+        result.append(_base32_alphabet[idx])
+
+    # Add padding
+    while len(result) % 8 != 0:
+        result.append('=')
+
+    return "".join(result)
+
+
+def b32decode(data: str) -> str:
+    """Decode Base32 encoded string.
+
+    Args:
+        data: Base32 encoded string
+
+    Returns:
+        Decoded string
+    """
+    # Remove padding and whitespace
+    data = data.replace('=', '').replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', '')
+    data = data.upper()
+
+    result = []
+    buffer = 0
+    bits_left = 0
+
+    for char in data:
+        if char not in _base32_decode:
+            raise ValueError("Invalid Base32 character: " + char)
+
+        buffer = (buffer << 5) | _base32_decode[char]
+        bits_left = bits_left + 5
+
+        while bits_left >= 8:
+            bits_left = bits_left - 8
+            byte = (buffer >> bits_left) & 0xFF
+            result.append(chr(byte))
+
+    return "".join(result)
+
+
+# ============================================
+# Internal Helper Functions
+# ============================================
+
+def _encode_base64(data: str, alphabet: str) -> str:
+    """Internal Base64 encoding function.
+
+    Args:
+        data: String to encode
+        alphabet: Base64 alphabet to use
+
+    Returns:
+        Encoded string
+    """
+    if len(data) == 0:
+        return ""
+
+    result = []
+    buffer = 0
+    bits_left = 0
+
+    for char in data:
+        buffer = (buffer << 8) | ord(char)
+        bits_left = bits_left + 8
+
+        while bits_left >= 6:
+            bits_left = bits_left - 6
+            idx = (buffer >> bits_left) & 0x3F
+            result.append(alphabet[idx])
+
+    # Handle remaining bits
+    if bits_left > 0:
+        idx = (buffer << (6 - bits_left)) & 0x3F
+        result.append(alphabet[idx])
+
+    # Add padding to make length multiple of 4
+    while len(result) % 4 != 0:
+        result.append('=')
+
+    return "".join(result)
+
+
+def _decode_base64(data: str, decode_table: dict) -> str:
+    """Internal Base64 decoding function.
+
+    Args:
+        data: Base64 encoded string
+        decode_table: Character to value mapping
+
+    Returns:
+        Decoded string
+    """
+    # Remove padding and whitespace
+    data = data.replace('=', '').replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', '')
+
+    if len(data) == 0:
+        return ""
+
+    result = []
+    buffer = 0
+    bits_left = 0
+
+    for char in data:
+        if char not in decode_table:
+            raise ValueError("Invalid Base64 character: " + char)
+
+        buffer = (buffer << 6) | decode_table[char]
+        bits_left = bits_left + 6
+
+        while bits_left >= 8:
+            bits_left = bits_left - 8
+            byte = (buffer >> bits_left) & 0xFF
+            result.append(chr(byte))
+
+    return "".join(result)
+
+
+# ============================================
+# Alternative Interfaces
+# ============================================
+
+def standard_b64encode(data: str) -> str:
+    """Encode using standard Base64 (alias for b64encode)."""
+    return b64encode(data)
+
+
+def standard_b64decode(data: str) -> str:
+    """Decode standard Base64 (alias for b64decode)."""
+    return b64decode(data)
+
+
+# ============================================
+# Encoding with Line Wrapping
+# ============================================
+
+def encode(data: str) -> str:
+    """Encode with newline every 76 characters (MIME style).
+
+    Args:
+        data: String to encode
+
+    Returns:
+        Base64 encoded string with newlines
+    """
+    encoded = b64encode(data)
+
+    # Insert newlines every 76 characters
+    result = []
+    i = 0
+    while i < len(encoded):
+        result.append(encoded[i:i + 76])
+        i = i + 76
+
+    return "\n".join(result)
+
+
+def decode(data: str) -> str:
+    """Decode Base64 with possible newlines.
+
+    Args:
+        data: Base64 encoded string (may contain newlines)
+
+    Returns:
+        Decoded string
+    """
+    # Remove all whitespace
+    data = data.replace('\n', '').replace('\r', '').replace(' ', '').replace('\t', '')
+    return b64decode(data)
+
+
+# ============================================
+# File Operations
+# ============================================
+
+def encode_file(input_path: str, output_path: str):
+    """Encode file contents to Base64.
+
+    Args:
+        input_path: Path to input file
+        output_path: Path to output file
+    """
+    # Read input file
+    f = open(input_path, 'r')
+    try:
+        content = f.read()
+    finally:
+        f.close()
+
+    # Encode
+    encoded = encode(content)
+
+    # Write output file
+    f = open(output_path, 'w')
+    try:
+        f.write(encoded)
+        f.write('\n')
+    finally:
+        f.close()
+
+
+def decode_file(input_path: str, output_path: str):
+    """Decode Base64 file contents.
+
+    Args:
+        input_path: Path to Base64 encoded file
+        output_path: Path to output file
+    """
+    # Read input file
+    f = open(input_path, 'r')
+    try:
+        content = f.read()
+    finally:
+        f.close()
+
+    # Decode
+    decoded = decode(content)
+
+    # Write output file
+    f = open(output_path, 'w')
+    try:
+        f.write(decoded)
+    finally:
+        f.close()
+
+
+# ============================================
+# Base64 Test/Demo
+# ============================================
+
+def _test():
+    """Test Base64 encoding/decoding."""
+    print("Testing Base64 module...")
+
+    # Test standard encoding
+    test_strings = [
+        "",
+        "f",
+        "fo",
+        "foo",
+        "foob",
+        "fooba",
+        "foobar",
+        "Hello, World!",
+        "The quick brown fox jumps over the lazy dog"
+    ]
+
+    for s in test_strings:
+        encoded = b64encode(s)
+        decoded = b64decode(encoded)
+        status = "OK" if decoded == s else "FAIL"
+        print("  " + status + ": '" + s + "' -> '" + encoded + "' -> '" + decoded + "'")
+
+    # Test URL-safe encoding
+    url_test = "hello+world/test"
+    url_encoded = urlsafe_b64encode(url_test)
+    url_decoded = urlsafe_b64decode(url_encoded)
+    print("  URL-safe: '" + url_test + "' -> '" + url_encoded + "' -> '" + url_decoded + "'")
+
+    # Test hex encoding
+    hex_test = "Hi"
+    hex_encoded = b16encode(hex_test)
+    hex_decoded = b16decode(hex_encoded)
+    print("  Base16: '" + hex_test + "' -> '" + hex_encoded + "' -> '" + hex_decoded + "'")
+
+    # Test Base32
+    b32_test = "Hello"
+    b32_encoded = b32encode(b32_test)
+    b32_decoded = b32decode(b32_encoded)
+    print("  Base32: '" + b32_test + "' -> '" + b32_encoded + "' -> '" + b32_decoded + "'")
+
+    print("Base64 tests completed!")

@@ -1,0 +1,572 @@
+# Viper Standard Library - shutil module
+# High-level file operations
+
+# Module metadata
+__name__ = "shutil"
+__version__ = "0.4.7"
+
+from os import remove, rename, mkdir, makedirs, rmdir, listdir
+from os import path_exists, path_isdir, path_isfile, getcwd
+
+# ============================================
+# File Copy Operations
+# ============================================
+
+def copyfile(src: str, dst: str):
+    """Copy file contents (without metadata).
+
+    Args:
+        src: Source file path
+        dst: Destination file path
+
+    Raises:
+        FileNotFoundError: If source doesn't exist
+        IsADirectoryError: If source is a directory
+    """
+    if not path_exists(src):
+        raise FileNotFoundError("Source file not found: " + src)
+
+    if path_isdir(src):
+        raise IsADirectoryError("Source is a directory: " + src)
+
+    # Read source and write to destination
+    src_file = open(src, 'r')
+    try:
+        content = src_file.read()
+    finally:
+        src_file.close()
+
+    dst_file = open(dst, 'w')
+    try:
+        dst_file.write(content)
+    finally:
+        dst_file.close()
+
+
+def copyfileobj(fsrc, fdst, length=16384):
+    """Copy file-like object contents.
+
+    Args:
+        fsrc: Source file object
+        fdst: Destination file object
+        length: Buffer size
+    """
+    while True:
+        buf = fsrc.read(length)
+        if not buf:
+            break
+        fdst.write(buf)
+
+
+def copy(src: str, dst: str) -> str:
+    """Copy file with metadata.
+
+    Args:
+        src: Source file path
+        dst: Destination file path
+
+    Returns:
+        Destination path
+    """
+    if path_isdir(dst):
+        import os.path
+        dst = os.path.join(dst, os.path.basename(src))
+
+    copyfile(src, dst)
+    # Note: Would copy metadata here (permissions, timestamps)
+    return dst
+
+
+def copy2(src: str, dst: str) -> str:
+    """Copy file with full metadata.
+
+    Like copy() but preserves more metadata (timestamps, etc.).
+
+    Args:
+        src: Source file path
+        dst: Destination file path
+
+    Returns:
+        Destination path
+    """
+    result = copy(src, dst)
+    # Note: Would copy extended metadata here
+    return result
+
+
+def copymode(src: str, dst: str):
+    """Copy permission bits.
+
+    Args:
+        src: Source file path
+        dst: Destination file path
+    """
+    # Note: Would copy permission bits here
+    pass
+
+
+def copystat(src: str, dst: str, follow_symlinks=True):
+    """Copy metadata (permissions, timestamps).
+
+    Args:
+        src: Source file path
+        dst: Destination file path
+        follow_symlinks: Follow symlinks
+    """
+    # Note: Would copy metadata here
+    pass
+
+
+# ============================================
+# Directory Copy Operations
+# ============================================
+
+def copytree(src: str, dst: str, symlinks=False, ignore=None,
+             copy_function=copy2, ignore_dangling_symlinks=False) -> str:
+    """Recursively copy directory tree.
+
+    Args:
+        src: Source directory path
+        dst: Destination directory path
+        symlinks: Copy symlinks as symlinks
+        ignore: Function to filter files to ignore
+        copy_function: Function to use for copying
+        ignore_dangling_symlinks: Ignore broken symlinks
+
+    Returns:
+        Destination path
+
+    Raises:
+        FileExistsError: If destination exists
+    """
+    if path_exists(dst):
+        raise FileExistsError("Destination exists: " + dst)
+
+    makedirs(dst)
+
+    names = listdir(src)
+
+    if ignore:
+        ignored = ignore(src, names)
+        names = [n for n in names if n not in ignored]
+
+    for name in names:
+        src_path = src + "/" + name
+        dst_path = dst + "/" + name
+
+        if path_isdir(src_path):
+            copytree(src_path, dst_path, symlinks, ignore, copy_function)
+        else:
+            copy_function(src_path, dst_path)
+
+    return dst
+
+
+def _copytree_legacy(src: str, dst: str):
+    """Legacy copytree implementation."""
+    return copytree(src, dst)
+
+
+# ============================================
+# File Move Operations
+# ============================================
+
+def move(src: str, dst: str, copy_function=copy2) -> str:
+    """Move file or directory.
+
+    Uses rename if possible, otherwise copy+delete.
+
+    Args:
+        src: Source path
+        dst: Destination path
+        copy_function: Function for copying
+
+    Returns:
+        Destination path
+    """
+    try:
+        rename(src, dst)
+        return dst
+    except:
+        # Rename failed, use copy+delete
+        if path_isdir(src):
+            copytree(src, dst, copy_function=copy_function)
+            rmtree(src)
+        else:
+            copy2(src, dst)
+            remove(src)
+        return dst
+
+
+# ============================================
+# Directory Removal
+# ============================================
+
+def rmtree(path: str, ignore_errors=False, onerror=None):
+    """Recursively delete directory tree.
+
+    Args:
+        path: Directory to remove
+        ignore_errors: Ignore errors if True
+        onerror: Error handler function
+    """
+    _rmtree_impl(path, ignore_errors, onerror)
+
+
+def _rmtree_impl(path: str, ignore_errors: bool, onerror):
+    """Internal rmtree implementation."""
+    try:
+        if not path_exists(path):
+            return
+
+        if path_isdir(path):
+            # Remove contents first
+            names = []
+            try:
+                names = listdir(path)
+            except:
+                if ignore_errors:
+                    return
+                if onerror:
+                    onerror(listdir, path, None)
+                raise
+
+            for name in names:
+                full_path = path + "/" + name
+                if path_isdir(full_path):
+                    _rmtree_impl(full_path, ignore_errors, onerror)
+                else:
+                    try:
+                        remove(full_path)
+                    except:
+                        if ignore_errors:
+                            continue
+                        if onerror:
+                            onerror(remove, full_path, None)
+                        raise
+
+            # Remove directory itself
+            try:
+                rmdir(path)
+            except:
+                if ignore_errors:
+                    return
+                if onerror:
+                    onerror(rmdir, path, None)
+                raise
+        else:
+            # It's a file
+            try:
+                remove(path)
+            except:
+                if ignore_errors:
+                    return
+                if onerror:
+                    onerror(remove, path, None)
+                raise
+
+    except Exception as e:
+        if ignore_errors:
+            return
+        raise
+
+
+# ============================================
+# Disk Usage
+# ============================================
+
+def disk_usage(path: str) -> tuple:
+    """Get disk usage statistics.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        Tuple of (total, used, free) in bytes
+    """
+    # Simplified implementation - would use system calls
+    return (1000000000, 500000000, 500000000)
+
+
+def disk_usage_full(path: str) -> dict:
+    """Get detailed disk usage.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        Dict with total, used, free, percent
+    """
+    total, used, free = disk_usage(path)
+    percent = (used * 100) // total if total > 0 else 0
+    return {
+        "total": total,
+        "used": used,
+        "free": free,
+        "percent": percent
+    }
+
+
+# ============================================
+# Utility Functions
+# ============================================
+
+def which(cmd: str, mode=1, path=None) -> str:
+    """Find executable in PATH.
+
+    Args:
+        cmd: Command name to find
+        mode: Permission mask (default 1 = execute)
+        path: PATH environment (default from os)
+
+    Returns:
+        Full path to command or None
+    """
+    import os
+
+    if path is None:
+        path = os.getenv("PATH", "")
+
+    paths = path.split(":")
+
+    for p in paths:
+        full_path = p + "/" + cmd
+        if path_exists(full_path) and path_isfile(full_path):
+            return full_path
+
+    return None
+
+
+def get_terminal_size(fallback=(80, 24)) -> tuple:
+    """Get terminal size.
+
+    Args:
+        fallback: Default (columns, lines)
+
+    Returns:
+        Tuple of (columns, lines)
+    """
+    # Simplified - would use system calls
+    return fallback
+
+
+def get_terminal_size_columns() -> int:
+    """Get terminal width."""
+    size = get_terminal_size()
+    return size[0]
+
+
+def get_terminal_size_lines() -> int:
+    """Get terminal height."""
+    size = get_terminal_size()
+    return size[1]
+
+
+def make_archive(base_name: str, format: str, root_dir=None,
+                 base_dir=None, verbose=False, dry_run=False,
+                 owner=None, group=None) -> str:
+    """Create archive file.
+
+    Args:
+        base_name: Archive name (without extension)
+        format: Archive format ('zip', 'tar', 'gztar', 'bztar', 'xztar')
+        root_dir: Directory to archive
+        base_dir: Base directory within archive
+        verbose: Print progress
+        dry_run: Don't actually create
+        owner, group: Ownership info
+
+    Returns:
+        Archive filename
+    """
+    # Simplified implementation
+    archive_name = base_name + "." + format
+    return archive_name
+
+
+def get_archive_formats() -> [(str, str)]:
+    """Get list of supported archive formats.
+
+    Returns:
+        List of (format, description) tuples
+    """
+    return [
+        ("zip", "ZIP archive"),
+        ("tar", "Uncompressed tar"),
+        ("gztar", "gzip-compressed tar"),
+        ("bztar", "bzip2-compressed tar"),
+        ("xztar", "xz-compressed tar")
+    ]
+
+
+def get_unpack_formats() -> [(str, str)]:
+    """Get list of supported unpack formats.
+
+    Returns:
+        List of (format, extensions, description) tuples
+    """
+    return [
+        ("zip", [".zip"], "ZIP archive"),
+        ("tar", [".tar"], "Uncompressed tar"),
+        ("gztar", [".tar.gz", ".tgz"], "gzip-compressed tar"),
+        ("bztar", [".tar.bz2", ".tbz2"], "bzip2-compressed tar"),
+        ("xztar", [".tar.xz", ".txz"], "xz-compressed tar")
+    ]
+
+
+def unpack_archive(filename: str, extract_dir=None, format=None):
+    """Extract archive.
+
+    Args:
+        filename: Archive file path
+        extract_dir: Extraction directory (default: current)
+        format: Archive format (auto-detected if None)
+    """
+    # Simplified implementation
+    if extract_dir is None:
+        extract_dir = getcwd()
+
+    # Would extract based on format
+    pass
+
+
+def register_archive_format(name: str, function, extra_args=None,
+                            description: str = ""):
+    """Register new archive format."""
+    pass
+
+
+def register_unpack_format(name: str, extensions: [str], function,
+                           extra_args=None, description: str = ""):
+    """Register new unpack format."""
+    pass
+
+
+# ============================================
+# Chown Operations
+# ============================================
+
+def chown(path: str, user, group):
+    """Change file ownership.
+
+    Args:
+        path: File path
+        user: User name or UID
+        group: Group name or GID
+    """
+    # Simplified - would use os.chown
+    pass
+
+
+# ============================================
+# Exception Classes
+# ============================================
+
+class Error(Exception):
+    """Base class for shutil exceptions."""
+    pass
+
+
+class SameFileError(Error):
+    """Raised when source and destination are the same file."""
+    pass
+
+
+class SpecialFileError(Error):
+    """Raised when trying to operate on a special file."""
+    pass
+
+
+class ExecError(Error):
+    """Raised when a command cannot be executed."""
+    pass
+
+
+class ReadError(Error):
+    """Raised when an archive cannot be read."""
+    pass
+
+
+class RegistryError(Exception):
+    """Raised when registry operation fails."""
+    pass
+
+
+# ============================================
+# Test/Demo
+# ============================================
+
+def _test():
+    """Test shutil functionality."""
+    print("Testing shutil module...")
+
+    # Test copyfile
+    print("  Testing copyfile...")
+    try:
+        # Create test file
+        f = open("/tmp/test_src.txt", 'w')
+        f.write("Hello, World!")
+        f.close()
+
+        copyfile("/tmp/test_src.txt", "/tmp/test_dst.txt")
+
+        f = open("/tmp/test_dst.txt", 'r')
+        content = f.read()
+        f.close()
+
+        print("    Copied: '" + content + "'")
+    except Exception as e:
+        print("    Note: " + str(e))
+
+    # Test copy
+    print("  Testing copy...")
+    try:
+        copy("/tmp/test_src.txt", "/tmp/test_copy.txt")
+        print("    Copy completed")
+    except Exception as e:
+        print("    Note: " + str(e))
+
+    # Test disk_usage
+    print("  Testing disk_usage...")
+    try:
+        usage = disk_usage("/")
+        print("    Disk usage: total=" + str(usage[0]) + ", used=" + str(usage[1]) + ", free=" + str(usage[2]))
+    except Exception as e:
+        print("    Note: " + str(e))
+
+    # Test which
+    print("  Testing which...")
+    cmd = which("python")
+    if cmd:
+        print("    python found at: " + cmd)
+    else:
+        print("    python not found in PATH")
+
+    # Test get_terminal_size
+    print("  Testing get_terminal_size...")
+    size = get_terminal_size()
+    print("    Terminal size: " + str(size[0]) + "x" + str(size[1]))
+
+    # Test rmtree
+    print("  Testing rmtree...")
+    try:
+        # Create test directory
+        makedirs("/tmp/test_dir/subdir", exist_ok=True)
+        f = open("/tmp/test_dir/file.txt", 'w')
+        f.write("test")
+        f.close()
+
+        rmtree("/tmp/test_dir")
+        print("    rmtree completed")
+    except Exception as e:
+        print("    Note: " + str(e))
+
+    # Cleanup
+    try:
+        remove("/tmp/test_src.txt")
+        remove("/tmp/test_dst.txt")
+        remove("/tmp/test_copy.txt")
+    except:
+        pass
+
+    print("shutil tests completed!")

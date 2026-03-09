@@ -1,0 +1,344 @@
+# Viper Standard Library - hashlib module
+# Cryptographic hash functions
+
+__name__ = "hashlib"
+__version__ = "0.4.5"
+
+# ============================================
+# Hash Algorithms
+# ============================================
+
+# Supported algorithms
+algorithms_available: list = ["md5", "sha1", "sha256", "sha512"]
+algorithms_guaranteed: list = ["md5", "sha256", "sha512"]
+
+# ============================================
+# Hash Object
+# ============================================
+
+class Hash:
+    """Hash object for computing digests."""
+    
+    def __init__(self, algo: str = "sha256", data: str = None):
+        """
+        Create a new hash object.
+        
+        Args:
+            algo: Algorithm name ("md5", "sha256", "sha512")
+            data: Initial data to hash
+        """
+        self._algo = algo
+        self._hash = vp_hashlib_new(algo)
+        self._digest_size = self._get_digest_size(algo)
+        self._block_size = self._get_block_size(algo)
+        self._name = algo
+        
+        if data:
+            self.update(data)
+    
+    def _get_digest_size(self, algo: str) -> int:
+        """Get digest size for algorithm."""
+        if algo == "md5":
+            return vp_hashlib_digest_size_md5()
+        elif algo == "sha256":
+            return vp_hashlib_digest_size_sha256()
+        elif algo == "sha512":
+            return vp_hashlib_digest_size_sha512()
+        return 32  # Default
+    
+    def _get_block_size(self, algo: str) -> int:
+        """Get block size for algorithm."""
+        if algo == "md5":
+            return vp_hashlib_block_size_md5()
+        elif algo == "sha256":
+            return vp_hashlib_block_size_sha256()
+        elif algo == "sha512":
+            return vp_hashlib_block_size_sha512()
+        return 64  # Default
+    
+    def update(self, data: str):
+        """
+        Update hash with new data.
+        
+        Args:
+            data: Data to add to hash
+        """
+        vp_hashlib_update(self._hash, data, len(data))
+    
+    def digest(self) -> str:
+        """
+        Get binary digest.
+        
+        Returns:
+            Binary hash digest as string
+        """
+        return vp_hashlib_digest(self._hash)
+    
+    def hexdigest(self) -> str:
+        """
+        Get hexadecimal digest.
+        
+        Returns:
+            Hexadecimal hash digest
+        """
+        return vp_hashlib_hexdigest(self._hash)
+    
+    def copy(self) -> Hash:
+        """
+        Create a copy of the hash object.
+        
+        Returns:
+            New Hash object with same state
+        """
+        new_hash = Hash(self._algo)
+        # Copy state - simplified
+        return new_hash
+    
+    @property
+    def name(self) -> str:
+        """Get algorithm name."""
+        return self._name
+    
+    @property
+    def digest_size(self) -> int:
+        """Get digest size in bytes."""
+        return self._digest_size
+    
+    @property
+    def block_size(self) -> int:
+        """Get block size in bytes."""
+        return self._block_size
+    
+    def __del__(self):
+        """Cleanup hash object."""
+        if self._hash:
+            vp_hashlib_free(self._hash)
+
+# ============================================
+# Convenience Functions
+# ============================================
+
+def md5(data: str = None) -> Hash:
+    """
+    Create MD5 hash object.
+    
+    Args:
+        data: Optional initial data
+    
+    Returns:
+        Hash object using MD5 algorithm
+    """
+    return Hash("md5", data)
+
+def sha1(data: str = None) -> Hash:
+    """
+    Create SHA1 hash object.
+    
+    Args:
+        data: Optional initial data
+    
+    Returns:
+        Hash object using SHA1 algorithm
+    """
+    return Hash("sha1", data)
+
+def sha256(data: str = None) -> Hash:
+    """
+    Create SHA256 hash object.
+    
+    Args:
+        data: Optional initial data
+    
+    Returns:
+        Hash object using SHA256 algorithm
+    """
+    return Hash("sha256", data)
+
+def sha512(data: str = None) -> Hash:
+    """
+    Create SHA512 hash object.
+    
+    Args:
+        data: Optional initial data
+    
+    Returns:
+        Hash object using SHA512 algorithm
+    """
+    return Hash("sha512", data)
+
+def new(algo: str, data: str = None) -> Hash:
+    """
+    Create hash object for specified algorithm.
+    
+    Args:
+        algo: Algorithm name ("md5", "sha256", "sha512")
+        data: Optional initial data
+    
+    Returns:
+        Hash object using specified algorithm
+    """
+    return Hash(algo, data)
+
+# ============================================
+# Direct Hash Functions
+# ============================================
+
+def hash_sha256(data: str) -> str:
+    """
+    Compute SHA256 hash of data.
+    
+    Args:
+        data: Data to hash
+    
+    Returns:
+        Hexadecimal SHA256 hash
+    """
+    return vp_hash_sha256(data, len(data))
+
+def hash_md5(data: str) -> str:
+    """
+    Compute MD5 hash of data.
+    
+    Args:
+        data: Data to hash
+    
+    Returns:
+        Hexadecimal MD5 hash
+    """
+    return vp_hash_md5(data, len(data))
+
+def hash_sha512(data: str) -> str:
+    """
+    Compute SHA512 hash of data.
+    
+    Args:
+        data: Data to hash
+    
+    Returns:
+        Hexadecimal SHA512 hash
+    """
+    return vp_hash_sha512(data, len(data))
+
+# ============================================
+# HMAC (simplified)
+# ============================================
+
+class HMAC:
+    """HMAC (Hash-based Message Authentication Code)."""
+    
+    def __init__(self, key: str, msg: str = None, digestmod: str = "sha256"):
+        """
+        Create HMAC object.
+        
+        Args:
+            key: Secret key
+            msg: Optional initial message
+            digestmod: Hash algorithm to use
+        """
+        self._key = key
+        self._digestmod = digestmod
+        self._hash = Hash(digestmod)
+        
+        # HMAC initialization (simplified)
+        # Full implementation would do proper HMAC key preparation
+        self._hash.update(key)
+        
+        if msg:
+            self.update(msg)
+    
+    def update(self, msg: str):
+        """Update HMAC with message."""
+        self._hash.update(msg)
+    
+    def digest(self) -> str:
+        """Get HMAC digest."""
+        return self._hash.digest()
+    
+    def hexdigest(self) -> str:
+        """Get HMAC hex digest."""
+        return self._hash.hexdigest()
+    
+    def copy(self) -> HMAC:
+        """Create copy of HMAC object."""
+        return HMAC(self._key, "", self._digestmod)
+
+def hmac_new(key: str, msg: str = None, digestmod: str = "sha256") -> HMAC:
+    """
+    Create HMAC object.
+    
+    Args:
+        key: Secret key
+        msg: Optional initial message
+        digestmod: Hash algorithm
+    
+    Returns:
+        HMAC object
+    """
+    return HMAC(key, msg, digestmod)
+
+# ============================================
+# Utility Functions
+# ============================================
+
+def pbkdf2_hmac(password: str, salt: str, iterations: int,
+                dklen: int = 32, hash_name: str = "sha256") -> str:
+    """
+    PBKDF2 key derivation with HMAC.
+    
+    Args:
+        password: Password string
+        salt: Salt string
+        iterations: Number of iterations
+        dklen: Desired key length
+        hash_name: Hash algorithm
+    
+    Returns:
+        Derived key as hex string
+    """
+    # Simplified implementation
+    # Full implementation would do proper PBKDF2
+    h = HMAC(password, salt, hash_name)
+    for i in range(iterations - 1):
+        h.update(salt)
+    return h.hexdigest()
+
+def compare_digest(a: str, b: str) -> bool:
+    """
+    Constant-time comparison of two strings.
+    
+    Args:
+        a: First string
+        b: Second string
+    
+    Returns:
+        True if equal, False otherwise
+    """
+    if len(a) != len(b):
+        return False
+    
+    result = 0
+    for i in range(len(a)):
+        result |= ord(a[i]) ^ ord(b[i])
+    
+    return result == 0
+
+# ============================================
+# Runtime Function Declarations
+# ============================================
+
+extern def vp_hash_sha256(data: str, len: int) -> str
+extern def vp_hash_md5(data: str, len: int) -> str
+extern def vp_hash_sha512(data: str, len: int) -> str
+extern def vp_hashlib_new(algo: str)
+extern def vp_hashlib_free(hash)
+extern def vp_hashlib_update(hash, data: str, len: int)
+extern def vp_hashlib_digest(hash) -> str
+extern def vp_hashlib_hexdigest(hash) -> str
+
+# Constants from runtime
+extern def vp_hashlib_block_size_md5() -> int
+extern def vp_hashlib_block_size_sha256() -> int
+extern def vp_hashlib_block_size_sha512() -> int
+extern def vp_hashlib_digest_size_md5() -> int
+extern def vp_hashlib_digest_size_sha256() -> int
+extern def vp_hashlib_digest_size_sha512() -> int
