@@ -30,17 +30,17 @@ pub fn generate_math_builtin<'ctx>(
     // For integers, use vp_math_abs_i64
     if arg_val.is_int_value() {
         let int_val = arg_val.into_int_value();
-        
+
         let abs_func = state
             .module
             .get_function("vp_math_abs_i64")
             .ok_or_else(|| "vp_math_abs_i64 not declared".to_string())?;
-        
+
         let result = state
             .ir_builder
             .build_call(state.builder, abs_func, &[int_val.into()], "abs_result")
             .ok_or_else(|| "Failed to call vp_math_abs_i64".to_string())?;
-        
+
         return Ok(result.into());
     }
 
@@ -68,4 +68,101 @@ pub fn generate_math_builtin<'ctx>(
     let result =
         state.ir_builder.build_call(state.builder, math_func, &[arg_float.into()], "math_result");
     Ok(result.unwrap_or(state.ir_builder.f64_const(0.0).into()))
+}
+
+/// Generate math module function calls (math.sqrt, math.sin, etc.)
+pub fn generate_math_float_func<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    name: &str,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'ctx>, String> {
+    if args.is_empty() {
+        return Err(format!("{}() requires at least 1 argument", name));
+    }
+
+    // Get the first argument and convert to float
+    let arg_val = generate_expr(state, &args[0])?;
+    let arg_float = if arg_val.is_float_value() {
+        arg_val.into_float_value()
+    } else if arg_val.is_int_value() {
+        state
+            .builder
+            .build_signed_int_to_float(arg_val.into_int_value(), state.context.f64_type(), "int_to_float")
+            .expect("int to float conversion")
+    } else {
+        return Err(format!("{}() requires numeric argument", name));
+    };
+
+    // Handle special cases
+    let result = match name {
+        "sqrt" => {
+            let func = state.module.get_function("vp_math_sqrt")
+                .ok_or_else(|| "vp_math_sqrt not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "sqrt_result")
+        }
+        "ln" => {
+            let func = state.module.get_function("vp_math_ln")
+                .ok_or_else(|| "vp_math_ln not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "ln_result")
+        }
+        "log" | "log10" => {
+            let func = state.module.get_function("vp_math_log10")
+                .ok_or_else(|| "vp_math_log10 not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "log10_result")
+        }
+        "log2" => {
+            let func = state.module.get_function("vp_math_log2")
+                .ok_or_else(|| "vp_math_log2 not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "log2_result")
+        }
+        "exp" => {
+            let func = state.module.get_function("vp_math_exp")
+                .ok_or_else(|| "vp_math_exp not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "exp_result")
+        }
+        "sin" => {
+            let func = state.module.get_function("vp_math_sin")
+                .ok_or_else(|| "vp_math_sin not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "sin_result")
+        }
+        "cos" => {
+            let func = state.module.get_function("vp_math_cos")
+                .ok_or_else(|| "vp_math_cos not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "cos_result")
+        }
+        "tan" => {
+            let func = state.module.get_function("vp_math_tan")
+                .ok_or_else(|| "vp_math_tan not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "tan_result")
+        }
+        "floor" => {
+            let func = state.module.get_function("vp_math_floor")
+                .ok_or_else(|| "vp_math_floor not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "floor_result")
+        }
+        "ceil" => {
+            let func = state.module.get_function("vp_math_ceil")
+                .ok_or_else(|| "vp_math_ceil not declared".to_string())?;
+            state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "ceil_result")
+        }
+        _ => {
+            return Err(format!("Unknown math function: {}", name));
+        }
+    };
+
+    Ok(result.unwrap_or(state.ir_builder.f64_const(0.0).into()))
+}
+
+/// Generate math constant access (math.pi, math.e, etc.)
+pub fn generate_math_constant<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    name: &str,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    let value = match name {
+        "pi" => std::f64::consts::PI,
+        "e" => std::f64::consts::E,
+        "tau" => std::f64::consts::TAU,
+        _ => return Err(format!("Unknown math constant: {}", name)),
+    };
+    Ok(state.ir_builder.f64_const(value).into())
 }

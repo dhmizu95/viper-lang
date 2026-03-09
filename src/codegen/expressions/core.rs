@@ -533,6 +533,20 @@ pub fn generate_expr<'ctx>(
         }
         Expr::Call { func, args, span } => generate_call(state, func, args, *span),
         Expr::Attribute { obj, attr, span: _ } => {
+            // Handle module.attribute access (e.g., math.pi, math.sqrt)
+            if let Expr::Ident(module_name, _) = obj.as_ref() {
+                // Check if this is a known module
+                if module_name == "math" {
+                    // Handle math module constants
+                    match attr.as_str() {
+                        "pi" => return Ok(state.ir_builder.f64_const(std::f64::consts::PI).into()),
+                        "e" => return Ok(state.ir_builder.f64_const(std::f64::consts::E).into()),
+                        "tau" => return Ok(state.ir_builder.f64_const(std::f64::consts::TAU).into()),
+                        _ => {} // Fall through to function/method handling
+                    }
+                }
+            }
+            
             // First try user-defined class attribute access
             if let Ok(result) = crate::codegen::oop::generate_attribute_access(state, obj, attr) {
                 return Ok(result);

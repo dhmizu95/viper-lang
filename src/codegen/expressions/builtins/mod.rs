@@ -9,7 +9,7 @@ pub mod r#struct;
 pub mod str;
 
 pub use len::generate_len_call;
-pub use math::generate_math_builtin;
+pub use math::{generate_math_builtin, generate_math_float_func, generate_math_constant};
 pub use print::{generate_print_call, generate_exit_call};
 pub use r#struct::{generate_hash_call, generate_struct_pack, generate_struct_unpack};
 pub use str::{generate_str_call, generate_type_convert};

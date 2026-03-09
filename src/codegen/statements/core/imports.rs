@@ -24,11 +24,22 @@ pub(crate) fn generate_import<'ctx>(
 
     let import_name = alias.unwrap_or(module_name);
 
-    // Create a marker global to indicate the module is imported
-    // This prevents "undefined variable" errors when using module.func()
+    // Create a module object to represent the imported module
+    // This allows accessing module.func() syntax
+    // For now, we create a simple marker that the module exists
+    
+    // Create a global string for the module name
+    let module_name_str = state.ir_builder.string_const(state.module, module_name);
+    
+    // Create a global to hold the module reference (accessible from all functions)
     let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-    let module_marker = state.module.add_global(i8_ptr_type, None, &format!("__import_{}", import_name));
-    module_marker.set_initializer(&i8_ptr_type.const_null());
+    let module_global = state.module.add_global(i8_ptr_type, None, &format!("__module_{}", import_name));
+    module_global.set_initializer(&module_name_str);
+    module_global.set_constant(false);
+    module_global.set_unnamed_addr(false);
+    
+    // Add to global constants so it's accessible from all functions
+    state.global_constants.insert(import_name.to_string(), module_global);
 
     Ok(())
 }

@@ -11,7 +11,7 @@ use crate::codegen::state::CodeGenState;
 
 use crate::codegen::expressions::builtins::print::{generate_print_call, generate_exit_call};
 use crate::codegen::expressions::builtins::len::generate_len_call;
-use crate::codegen::expressions::builtins::math::generate_math_builtin;
+use crate::codegen::expressions::builtins::math::{generate_math_builtin, generate_math_float_func, generate_math_constant};
 use crate::codegen::expressions::builtins::r#struct::{generate_hash_call, generate_struct_pack, generate_struct_unpack};
 use crate::codegen::expressions::builtins::str::{generate_str_call, generate_type_convert, generate_bytes_call};
 use crate::codegen::expressions::concurrency::{
@@ -44,15 +44,29 @@ pub fn generate_call<'ctx>(
             return generate_super_method_call(state, attr, args);
         }
 
-        // Handle math module specifically for BigInts
-        if let Expr::Ident(name, _) = obj.as_ref() {
-            if name == "math" {
+        // Handle module.function() calls
+        if let Expr::Ident(module_name, _) = obj.as_ref() {
+            // Handle math module functions
+            if module_name == "math" {
                 match attr.as_str() {
                     "isqrt" | "gcd" | "lcm" | "factorial" | "comb" | "perm" => {
                         // Always use BigInt path for these functions
                         return generate_math_bigint_func(state, attr, args);
                     }
-                    _ => {} // Fall through to standard math dispatch logic in generate_method_call or others
+                    "sqrt" | "ln" | "log" | "log10" | "log2" | "exp" | "exp2" | "exp10" => {
+                        return generate_math_float_func(state, attr, args);
+                    }
+                    "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "atan2" => {
+                        return generate_math_float_func(state, attr, args);
+                    }
+                    "floor" | "ceil" | "trunc" | "round" => {
+                        return generate_math_float_func(state, attr, args);
+                    }
+                    "pi" | "e" | "tau" => {
+                        // Math constants - return as float
+                        return generate_math_constant(state, attr);
+                    }
+                    _ => {} // Fall through to standard method dispatch
                 }
             }
         }
