@@ -163,4 +163,14 @@ pub fn register_collection_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_struct_pack" => super::super::structs::vp_struct_pack,
         "vp_struct_unpack" => super::super::structs::vp_struct_unpack,
     ]);
+
+    // Tuple functions
+    register_stubs!(ee, module, [
+        "vp_tuple_create" => super::super::tuples::vp_tuple_create_stub,
+        "vp_tuple_free" => super::super::tuples::vp_tuple_free_stub,
+        "vp_tuple_get" => super::super::tuples::vp_tuple_get_stub,
+        "vp_tuple_set" => super::super::tuples::vp_tuple_set_stub,
+        "vp_tuple_len" => super::super::tuples::vp_tuple_len_stub,
+        "vp_tuple_to_str" => super::super::tuples::vp_tuple_to_str_stub,
+    ]);
 }

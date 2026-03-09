@@ -227,7 +227,7 @@ unsafe fn get_string_data(s: *mut ViperString) -> String {
 }
 
 // Helper function to create a new ViperString
-fn create_viper_string(s: &str) -> *mut ViperString {
+pub fn create_viper_string(s: &str) -> *mut ViperString {
     use std::alloc::{alloc, Layout};
     
     let len = s.len();
