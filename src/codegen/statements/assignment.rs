@@ -525,9 +525,14 @@ pub(crate) fn generate_aug_assign<'ctx>(
                     let res = state.ir_builder.build_call(state.builder, pow_i64_func, &[lhs.into(), rhs.into()], "pow").expect("pow call");
                     res.into_int_value()
                 }
+                BinOp::BitAnd => state.builder.build_and(lhs, rhs, "bitand").expect("bitand"),
+                BinOp::BitOr => state.builder.build_or(lhs, rhs, "bitor").expect("bitor"),
+                BinOp::BitXor => state.builder.build_xor(lhs, rhs, "bitxor").expect("bitxor"),
+                BinOp::LShift => state.builder.build_left_shift(lhs, rhs, "lshift").expect("lshift"),
+                BinOp::RShift => state.builder.build_right_shift(lhs, rhs, false, "rshift").expect("rshift"),
                 _ => return Err(format!("Unsupported augmented assignment operator: {:?}", op)),
             };
-            
+
             state.builder.build_store(global_ptr, result).expect("store to global");
             return Ok(());
         }
@@ -638,6 +643,11 @@ pub(crate) fn generate_aug_assign<'ctx>(
                             .expect("pow call");
                         result.into_int_value()
                     }
+                    BinOp::BitAnd => state.builder.build_and(lhs, rhs, "bitand").expect("bitand"),
+                    BinOp::BitOr => state.builder.build_or(lhs, rhs, "bitor").expect("bitor"),
+                    BinOp::BitXor => state.builder.build_xor(lhs, rhs, "bitxor").expect("bitxor"),
+                    BinOp::LShift => state.builder.build_left_shift(lhs, rhs, "lshift").expect("lshift"),
+                    BinOp::RShift => state.builder.build_right_shift(lhs, rhs, false, "rshift").expect("rshift"),
                     _ => {
                         return Err(format!(
                             "Unsupported augmented assignment operator for int: {:?}",

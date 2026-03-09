@@ -157,6 +157,26 @@ pub extern "C" fn vp_bigint_to_str_stub(bigint: *mut c_void, base: i32) -> *cons
     unsafe { vp_bigint_to_str_c(bigint, base) }
 }
 
+pub extern "C" fn vp_bigint_and_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_and_c(result, a, b) }
+}
+
+pub extern "C" fn vp_bigint_or_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_or_c(result, a, b) }
+}
+
+pub extern "C" fn vp_bigint_xor_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_xor_c(result, a, b) }
+}
+
+pub extern "C" fn vp_bigint_lshift_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_lshift_c(result, a, b) }
+}
+
+pub extern "C" fn vp_bigint_rshift_stub(result: *mut c_void, a: *mut c_void, b: *mut c_void) {
+    unsafe { vp_bigint_rshift_c(result, a, b) }
+}
+
 pub extern "C" fn vp_bigint_to_i64_stub(bigint: *mut c_void) -> i64 {
     unsafe { vp_bigint_to_i64(bigint) }
 }

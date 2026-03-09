@@ -371,3 +371,162 @@ pub extern "C" fn tagged_int_free(val: i64) {
         unsafe { vp_bigint_free_stub(extract_ptr(val) as *mut _) };
     }
 }
+
+#[no_mangle]
+pub extern "C" fn tagged_int_bitand(lhs: i64, rhs: i64) -> i64 {
+    // Both small integers - direct bitwise AND
+    if !is_bigint(lhs) && !is_bigint(rhs) {
+        let a = get_small_int(lhs);
+        let b = get_small_int(rhs);
+        return make_small_int(a & b);
+    }
+    
+    // At least one BigInt - convert both to BigInt and use GMP
+    let l_ptr = convert_to_bigint_ptr(lhs);
+    let r_ptr = convert_to_bigint_ptr(rhs);
+    
+    let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
+    unsafe { crate::jit_stubs::bigint::vp_bigint_and_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
+    
+    if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
+    if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
+    
+    // Try to demote back to small int
+    if let Some(small) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        return small;
+    }
+    
+    make_tagged_ptr(res_ptr as *mut c_void)
+}
+
+#[no_mangle]
+pub extern "C" fn tagged_int_bitor(lhs: i64, rhs: i64) -> i64 {
+    // Both small integers - direct bitwise OR
+    if !is_bigint(lhs) && !is_bigint(rhs) {
+        let a = get_small_int(lhs);
+        let b = get_small_int(rhs);
+        return make_small_int(a | b);
+    }
+    
+    // At least one BigInt - convert both to BigInt and use GMP
+    let l_ptr = convert_to_bigint_ptr(lhs);
+    let r_ptr = convert_to_bigint_ptr(rhs);
+    
+    let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
+    unsafe { crate::jit_stubs::bigint::vp_bigint_or_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
+    
+    if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
+    if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
+    
+    // Try to demote back to small int
+    if let Some(small) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        return small;
+    }
+    
+    make_tagged_ptr(res_ptr as *mut c_void)
+}
+
+#[no_mangle]
+pub extern "C" fn tagged_int_bitxor(lhs: i64, rhs: i64) -> i64 {
+    // Both small integers - direct bitwise XOR
+    if !is_bigint(lhs) && !is_bigint(rhs) {
+        let a = get_small_int(lhs);
+        let b = get_small_int(rhs);
+        return make_small_int(a ^ b);
+    }
+    
+    // At least one BigInt - convert both to BigInt and use GMP
+    let l_ptr = convert_to_bigint_ptr(lhs);
+    let r_ptr = convert_to_bigint_ptr(rhs);
+    
+    let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
+    unsafe { crate::jit_stubs::bigint::vp_bigint_xor_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
+    
+    if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
+    if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
+    
+    // Try to demote back to small int
+    if let Some(small) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        return small;
+    }
+    
+    make_tagged_ptr(res_ptr as *mut c_void)
+}
+
+#[no_mangle]
+pub extern "C" fn tagged_int_lshift(lhs: i64, rhs: i64) -> i64 {
+    // Both small integers - direct left shift
+    if !is_bigint(lhs) && !is_bigint(rhs) {
+        let a = get_small_int(lhs);
+        let b = get_small_int(rhs);
+        // Check for overflow
+        if b < 0 || b >= 63 {
+            // Result would overflow, use BigInt
+            let l_ptr = convert_to_bigint_ptr(lhs);
+            let r_ptr = convert_to_bigint_ptr(rhs);
+            let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
+            unsafe { crate::jit_stubs::bigint::vp_bigint_lshift_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
+            unsafe { vp_bigint_free_stub(l_ptr as *mut _) };
+            unsafe { vp_bigint_free_stub(r_ptr as *mut _) };
+            if let Some(small) = try_demote_bigint(res_ptr as *mut c_void) {
+                unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+                return small;
+            }
+            return make_tagged_ptr(res_ptr as *mut c_void);
+        }
+        return make_small_int(a << b);
+    }
+    
+    // At least one BigInt - use GMP
+    let l_ptr = convert_to_bigint_ptr(lhs);
+    let r_ptr = convert_to_bigint_ptr(rhs);
+    
+    let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
+    unsafe { crate::jit_stubs::bigint::vp_bigint_lshift_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
+    
+    if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
+    if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
+    
+    if let Some(small) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        return small;
+    }
+    
+    make_tagged_ptr(res_ptr as *mut c_void)
+}
+
+#[no_mangle]
+pub extern "C" fn tagged_int_rshift(lhs: i64, rhs: i64) -> i64 {
+    // Both small integers - direct right shift
+    if !is_bigint(lhs) && !is_bigint(rhs) {
+        let a = get_small_int(lhs);
+        let b = get_small_int(rhs);
+        if b < 0 {
+            return make_small_int(0);
+        }
+        if b >= 63 {
+            return make_small_int(if a >= 0 { 0 } else { -1 });
+        }
+        return make_small_int(a >> b);
+    }
+    
+    // At least one BigInt - use GMP
+    let l_ptr = convert_to_bigint_ptr(lhs);
+    let r_ptr = convert_to_bigint_ptr(rhs);
+    
+    let res_ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_i64_temp_stub(0) };
+    unsafe { crate::jit_stubs::bigint::vp_bigint_rshift_stub(res_ptr as *mut _, l_ptr as *mut _, r_ptr as *mut _) };
+    
+    if !is_bigint(lhs) { unsafe { vp_bigint_free_stub(l_ptr as *mut _) }; }
+    if !is_bigint(rhs) { unsafe { vp_bigint_free_stub(r_ptr as *mut _) }; }
+    
+    if let Some(small) = try_demote_bigint(res_ptr as *mut c_void) {
+        unsafe { vp_bigint_free_stub(res_ptr as *mut _) };
+        return small;
+    }
+    
+    make_tagged_ptr(res_ptr as *mut c_void)
+}

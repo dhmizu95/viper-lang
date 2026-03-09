@@ -325,10 +325,46 @@ impl<'a> Lexer<'a> {
                         ));
                     }
                 }
+
+                // Bitwise operators (Phase 2)
+                '&' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::AmpersandEq
+                    } else {
+                        TokenKind::Ampersand
+                    }
+                }
+                '|' => {
+                    // Check for |> (pipeline) or just | (bitwise OR)
+                    if self.peek() == Some('>') {
+                        self.advance();
+                        TokenKind::Pipeline // Pipeline operator |>
+                    } else if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::PipeEq
+                    } else {
+                        TokenKind::Pipe // Bitwise OR |
+                    }
+                }
+                '^' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        TokenKind::CaretEq
+                    } else {
+                        TokenKind::Caret
+                    }
+                }
+                '~' => TokenKind::Tilde,
                 '<' => {
                     if self.peek() == Some('<') {
                         self.advance();
-                        TokenKind::LtLt
+                        if self.peek() == Some('=') {
+                            self.advance();
+                            TokenKind::LtLtEq
+                        } else {
+                            TokenKind::LtLt
+                        }
                     } else if self.peek() == Some('=') {
                         self.advance();
                         TokenKind::LtEq
@@ -342,32 +378,14 @@ impl<'a> Lexer<'a> {
                         TokenKind::GtEq
                     } else if self.peek() == Some('>') {
                         self.advance();
-                        TokenKind::GtGt
+                        if self.peek() == Some('=') {
+                            self.advance();
+                            TokenKind::GtGtEq
+                        } else {
+                            TokenKind::GtGt
+                        }
                     } else {
                         TokenKind::Gt
-                    }
-                }
-
-                // Bitwise operators (Phase 2)
-                '&' => TokenKind::Ampersand,
-                '|' => {
-                    // Check for |> (pipeline) or just | (bitwise OR)
-                    if self.peek() == Some('>') {
-                        self.advance();
-                        TokenKind::Pipeline // Pipeline operator |>
-                    } else {
-                        TokenKind::Pipe // Bitwise OR |
-                    }
-                }
-                '^' => TokenKind::Caret,
-                '~' => TokenKind::Tilde,
-                '?' => {
-                    // Check for ?? (null coalescing)
-                    if self.peek() == Some('?') {
-                        self.advance();
-                        TokenKind::DoubleQuestion
-                    } else {
-                        TokenKind::Question
                     }
                 }
 

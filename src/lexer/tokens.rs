@@ -98,12 +98,17 @@ pub enum TokenKind {
     Or,
     Not,
     // Bitwise operators (Phase 2)
-    Ampersand, // &
-    Pipe,      // |
-    Caret,     // ^
-    Tilde,     // ~
-    LtLt,      // <<
-    GtGt,      // >>
+    Ampersand,      // &
+    Pipe,           // |
+    Caret,          // ^
+    Tilde,          // ~
+    LtLt,           // <<
+    GtGt,           // >>
+    AmpersandEq,    // &=
+    PipeEq,         // |=
+    CaretEq,        // ^=
+    LtLtEq,         // <<=
+    GtGtEq,         // >>=
     // Identity and Membership (Phase 2)
     Is,
     IsNot,
@@ -243,6 +248,11 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Tilde => write!(f, "~"),
             TokenKind::LtLt => write!(f, "<<"),
             TokenKind::GtGt => write!(f, ">>"),
+            TokenKind::AmpersandEq => write!(f, "&="),
+            TokenKind::PipeEq => write!(f, "|="),
+            TokenKind::CaretEq => write!(f, "^="),
+            TokenKind::LtLtEq => write!(f, "<<="),
+            TokenKind::GtGtEq => write!(f, ">>="),
             TokenKind::Is => write!(f, "is"),
             TokenKind::IsNot => write!(f, "is not"),
             TokenKind::NotIn => write!(f, "not in"),

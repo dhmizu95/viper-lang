@@ -395,6 +395,11 @@ pub fn is_augmented_assign(parser: &mut StatementParser) -> bool {
             | TokenKind::PercentEq
             | TokenKind::DoubleStarEq
             | TokenKind::DoubleSlashEq
+            | TokenKind::AmpersandEq
+            | TokenKind::PipeEq
+            | TokenKind::CaretEq
+            | TokenKind::LtLtEq
+            | TokenKind::GtGtEq
     )
 }
 
@@ -407,6 +412,11 @@ pub fn get_aug_assign_op(parser: &mut StatementParser) -> BinOp {
         TokenKind::PercentEq => BinOp::Mod,
         TokenKind::DoubleStarEq => BinOp::Pow,
         TokenKind::DoubleSlashEq => BinOp::FloorDiv,
+        TokenKind::AmpersandEq => BinOp::BitAnd,
+        TokenKind::PipeEq => BinOp::BitOr,
+        TokenKind::CaretEq => BinOp::BitXor,
+        TokenKind::LtLtEq => BinOp::LShift,
+        TokenKind::GtGtEq => BinOp::RShift,
         _ => BinOp::Add, // default
     };
     parser.advance(); // skip the augmented assignment token
