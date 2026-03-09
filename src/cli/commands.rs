@@ -43,8 +43,11 @@ pub fn execute(args: Args) -> Result<(), String> {
             let args = cli::doc::DocArgs::new(input, output);
             cli::doc::run_doc(&args)
         }
-        Commands::Test { input, discover, verbose, filter } => {
-            cli::test::run_test_command(&input, discover, verbose, filter.as_deref())
+        Commands::Test { input, discover: _, verbose: _, filter: _ } => {
+            // Test module not implemented yet
+            eprintln!("Error: test command not implemented yet");
+            eprintln!("Input: {:?}", input);
+            Err("test command not available".to_string())
         }
     }
 }
