@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 
 /* Include optimization macros (branch prediction, inlining, etc.) */
 #include "viper_optimize.h"
@@ -36,6 +37,7 @@ typedef enum {
 typedef struct ViperList ViperList;
 typedef struct ViperDict ViperDict;
 typedef struct ViperObject ViperObject;
+typedef struct ViperString ViperString;
 
 /* Generic Viper Value - Unified 24-byte layout */
 typedef struct {
@@ -44,7 +46,7 @@ typedef struct {
         int64_t as_i64;
         double as_f64;
         bool as_bool;
-        char* as_str;
+        ViperString* as_str;
         ViperList* as_list;
         ViperDict* as_dict;
         ViperObject* as_object;
@@ -146,7 +148,7 @@ VIPER_ALWAYS_INLINE void vp_list_set_unchecked(ViperList* list, int64_t index, i
 /* ============================================ */
 
 typedef struct DictEntry {
-    char* key;            /* 0:  Key string */
+    ViperString* key;     /* 0:  Key string */
     ViperValue value;     /* 8:  Value (24 bytes) */
     struct DictEntry* next;/* 32: Next entry in chain */
 } DictEntry;              /* Total: 40 bytes per entry */

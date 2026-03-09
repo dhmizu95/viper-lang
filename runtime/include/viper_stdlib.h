@@ -127,10 +127,10 @@ ViperList* vp_bitvec_concat(ViperList* vec1, ViperList* vec2);
 ViperDict* vp_dict_create(void);
 ViperDict* vp_dict_create_with_capacity(int64_t initial_cap);
 void vp_dict_free(ViperDict* dict);
-void vp_dict_set(ViperDict* dict, const char* key, ViperValue value);
-ViperValue vp_dict_get(ViperDict* dict, const char* key);
-bool vp_dict_contains(ViperDict* dict, const char* key);
-bool vp_dict_remove(ViperDict* dict, const char* key);
+void vp_dict_set(ViperDict* dict, ViperString* key, ViperValue value);
+ViperValue vp_dict_get(ViperDict* dict, ViperString* key);
+bool vp_dict_contains(ViperDict* dict, ViperString* key);
+bool vp_dict_remove(ViperDict* dict, ViperString* key);
 void vp_dict_clear(ViperDict* dict);
 int64_t vp_dict_len(ViperDict* dict);
 ViperDict* vp_dict_copy(ViperDict* dict);
@@ -150,7 +150,7 @@ struct ViperDictIter {
 
 ViperDictIter* vp_dict_iter_create(ViperDict* dict);
 void vp_dict_iter_free(ViperDictIter* iter);
-bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value);
+bool vp_dict_iter_next(ViperDictIter* iter, ViperString** key, ViperValue* value);
 
 /* ============================================ */
 /* String Functions - Use ViperString* from viper_types.h */

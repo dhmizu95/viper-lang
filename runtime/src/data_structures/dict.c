@@ -15,15 +15,17 @@
 /* Hash Function                                */
 /* ============================================ */
 
-static uint64_t vp_dict_hash(const char* key) {
+/* Hash function for ViperString keys */
+static uint64_t vp_dict_hash_str(ViperString* key) {
     if (!key) return 0;
-
+    const char* data = vp_str_data_inline(key);
+    int64_t len = vp_str_len_inline(key);
+    
     /* FNV-1a hash function */
     uint64_t hash = 14695981039346656037ULL;
-    while (*key) {
-        hash ^= (uint64_t)(*key);
+    for (int64_t i = 0; i < len; i++) {
+        hash ^= (uint64_t)data[i];
         hash *= 1099511628211ULL;
-        key++;
     }
     return hash;
 }
@@ -32,14 +34,14 @@ static uint64_t vp_dict_hash(const char* key) {
 /* DictEntry Internal Functions                 */
 /* ============================================ */
 
-static DictEntry* vp_dict_entry_create(const char* key, ViperValue value) {
+static DictEntry* vp_dict_entry_create(ViperString* key, ViperValue value) {
     DictEntry* entry = (DictEntry*)malloc(sizeof(DictEntry));
     if (!entry) {
         vp_panic("Failed to allocate dict entry");
         return NULL;
     }
 
-    entry->key = vp_str_create(key);
+    entry->key = key;
     entry->value = value;
     entry->next = NULL;
 
@@ -84,7 +86,7 @@ static void vp_dict_resize(ViperDict* dict, int64_t new_size) {
         while (entry) {
             DictEntry* next = entry->next;
 
-            uint64_t new_hash = vp_dict_hash(entry->key);
+            uint64_t new_hash = vp_dict_hash_str(entry->key);
             int64_t new_index = new_hash % new_size;
 
             entry->next = new_buckets[new_index];
@@ -172,7 +174,7 @@ void vp_dict_free(ViperDict* dict) {
     vp_arc_release(dict);
 }
 
-void vp_dict_set(ViperDict* dict, const char* key, ViperValue value) {
+void vp_dict_set(ViperDict* dict, ViperString* key, ViperValue value) {
     if (!dict || !key) {
         vp_panic("Cannot set on NULL dict or with NULL key");
         return;
@@ -184,13 +186,13 @@ void vp_dict_set(ViperDict* dict, const char* key, ViperValue value) {
         vp_dict_resize(dict, dict->size * 2);
     }
 
-    uint64_t hash = vp_dict_hash(key);
+    uint64_t hash = vp_dict_hash_str(key);
     int64_t index = hash % dict->size;
 
     /* Check if key already exists */
     DictEntry* entry = dict->buckets[index];
     while (entry) {
-        if (strcmp(entry->key, key) == 0) {
+        if (vp_str_equals(entry->key, key)) {
             /* Update existing value */
             /* Free old value if reference type */
             if (entry->value.type == VIPER_TYPE_STR) {
@@ -214,19 +216,19 @@ void vp_dict_set(ViperDict* dict, const char* key, ViperValue value) {
     dict->count++;
 }
 
-ViperValue vp_dict_get(ViperDict* dict, const char* key) {
+ViperValue vp_dict_get(ViperDict* dict, ViperString* key) {
     if (!dict || !key) {
         ViperValue null_val = {0};
         null_val.type = VIPER_TYPE_NONE;
         return null_val;
     }
 
-    uint64_t hash = vp_dict_hash(key);
+    uint64_t hash = vp_dict_hash_str(key);
     int64_t index = hash % dict->size;
 
     DictEntry* entry = dict->buckets[index];
     while (entry) {
-        if (strcmp(entry->key, key) == 0) {
+        if (vp_str_equals(entry->key, key)) {
             return entry->value;
         }
         entry = entry->next;
@@ -238,15 +240,15 @@ ViperValue vp_dict_get(ViperDict* dict, const char* key) {
     return null_val;
 }
 
-bool vp_dict_contains(ViperDict* dict, const char* key) {
+bool vp_dict_contains(ViperDict* dict, ViperString* key) {
     if (!dict || !key) return false;
 
-    uint64_t hash = vp_dict_hash(key);
+    uint64_t hash = vp_dict_hash_str(key);
     int64_t index = hash % dict->size;
 
     DictEntry* entry = dict->buckets[index];
     while (entry) {
-        if (strcmp(entry->key, key) == 0) {
+        if (vp_str_equals(entry->key, key)) {
             return true;
         }
         entry = entry->next;
@@ -255,17 +257,17 @@ bool vp_dict_contains(ViperDict* dict, const char* key) {
     return false;
 }
 
-bool vp_dict_remove(ViperDict* dict, const char* key) {
+bool vp_dict_remove(ViperDict* dict, ViperString* key) {
     if (!dict || !key) return false;
 
-    uint64_t hash = vp_dict_hash(key);
+    uint64_t hash = vp_dict_hash_str(key);
     int64_t index = hash % dict->size;
 
     DictEntry* entry = dict->buckets[index];
     DictEntry* prev = NULL;
 
     while (entry) {
-        if (strcmp(entry->key, key) == 0) {
+        if (vp_str_equals(entry->key, key)) {
             if (prev) {
                 prev->next = entry->next;
             } else {
@@ -350,7 +352,7 @@ void vp_dict_iter_free(ViperDictIter* iter) {
     if (iter) free(iter);
 }
 
-bool vp_dict_iter_next(ViperDictIter* iter, const char** key, ViperValue* value) {
+bool vp_dict_iter_next(ViperDictIter* iter, ViperString** key, ViperValue* value) {
     if (!iter || !iter->dict || !key || !value) return false;
 
     if (!iter->current) return false;
@@ -411,11 +413,11 @@ void vp_dict_print(ViperDict* dict) {
             
             /* Print key */
             if (entry->key) {
-                printf("'%s': ", entry->key);
+                printf("'%.*s': ", (int)vp_str_len_inline(entry->key), vp_str_data_inline(entry->key));
             } else {
                 printf("<null_key>: ");
             }
-            
+
             /* Print value based on type */
             switch (entry->value.type) {
                 case VIPER_TYPE_I64:
@@ -429,7 +431,7 @@ void vp_dict_print(ViperDict* dict) {
                     break;
                 case VIPER_TYPE_STR:
                     if (entry->value.data.as_str) {
-                        printf("'%s'", entry->value.data.as_str);
+                        printf("'%.*s': ", (int)vp_str_len_inline(entry->value.data.as_str), vp_str_data_inline(entry->value.data.as_str));
                     } else {
                         printf("<null_str>");
                     }
