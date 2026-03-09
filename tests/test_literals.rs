@@ -83,6 +83,18 @@ test()
     assert!(run_viper_code(code).is_ok());
 }
 
+#[test]
+fn test_float_literals_exponent() {
+    let code = r#"
+def test():
+    a = 2.5e10
+    b = 1.0e-5
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
 // String Literals
 #[test]
 fn test_string_literals_double_quote() {
@@ -153,15 +165,56 @@ test()
     assert!(run_viper_code(code).is_ok());
 }
 
-// Float Exponent Notation
+// BigInt Literals
 #[test]
-fn test_float_literals_exponent() {
+fn test_bigint_literals() {
     let code = r#"
 def test():
-    a = 2.5e10
-    b = 1.0e-5
+    a = 123456789012345678901234567890
+    b = 999999999999999999999999999999
     print(a)
 test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+// ============================================================================
+// KNOWN LIMITATIONS - Tests for features not yet fully implemented
+// ============================================================================
+
+// The following literal types have known JIT issues:
+
+// 1. f-string literals - String concatenation causes segfault
+// Example: f"Hello {name}"
+// Root cause: vp_str_concat runtime function has issues
+// Fix needed: Debug and fix string concatenation in runtime
+
+// 2. bytes literals - Causes segfault
+// Example: b"bytes"
+// Root cause: bytes_const or vp_bytes_create has issues
+// Fix needed: Debug bytes handling in codegen/runtime
+
+// These tests should be added once the features are fully implemented:
+
+// #[test]
+// fn test_fstring_literals() {
+//     let code = r#"
+// def test():
+//     name = "World"
+//     a = f"Hello {name}"
+//     print(a)
+// test()
+// "#;
+//     assert!(run_viper_code(code).is_ok());
+// }
+
+// #[test]
+// fn test_bytes_literals() {
+//     let code = r#"
+// def test():
+//     a = b"hello"
+//     print(a)
+// test()
+// "#;
+//     assert!(run_viper_code(code).is_ok());
+// }

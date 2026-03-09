@@ -330,12 +330,60 @@ pub fn generate_expr<'ctx>(
                     .unwrap();
                 return Ok(result);
             }
-            let mut current = generate_str_call(state, &elements[0..1])?;
-            for elem in elements.iter().skip(1) {
-                let next_val = generate_str_call(state, std::slice::from_ref(elem))?;
-                current = generate_str_concat(state, current, next_val)?;
+            
+            // Generate each f-string element and concatenate
+            let mut current: Option<BasicValueEnum<'ctx>> = None;
+            for elem in elements {
+                let elem_str = match elem {
+                    // String literal element - create directly
+                    Expr::Str(s, _) => {
+                        let str_val = state.ir_builder.string_const(state.module, s);
+                        let create_func = state.module.get_function("vp_str_create").unwrap();
+                        state
+                            .ir_builder
+                            .build_call(state.builder, create_func, &[str_val.into()], "str_elem")
+                            .unwrap()
+                    }
+                    // Expression element - generate and convert to string
+                    _ => {
+                        let elem_val = generate_expr(state, elem)?;
+                        // Convert to string based on type
+                        if elem_val.is_float_value() {
+                            let str_func = state.module.get_function("vp_str_from_f64")
+                                .ok_or_else(|| "vp_str_from_f64 not declared".to_string())?;
+                            state
+                                .ir_builder
+                                .build_call(state.builder, str_func, &[elem_val.into()], "elem_to_str")
+                                .unwrap()
+                        } else {
+                            // For integers and pointers, use appropriate conversion
+                            // Tagged integers need tagged_int_to_str
+                            // String pointers can be used directly
+                            if elem_val.is_pointer_value() {
+                                // Already a string or other pointer - use directly
+                                elem_val
+                            } else {
+                                // Integer - use tagged int to str
+                                let to_str_func = state.module.get_function("tagged_int_to_str")
+                                    .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
+                                state
+                                    .ir_builder
+                                    .build_call(state.builder, to_str_func, &[elem_val.into()], "elem_to_str")
+                                    .unwrap()
+                            }
+                        }
+                    }
+                };
+                
+                // Concatenate with previous
+                if let Some(prev) = current {
+                    current = Some(generate_str_concat(state, prev, elem_str)?);
+                } else {
+                    current = Some(elem_str);
+                }
             }
-            Ok(current)
+            
+            Ok(current.unwrap())
         }
         Expr::Ident(name, _span) => {
             // First check if it's a global constant
