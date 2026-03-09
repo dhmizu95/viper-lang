@@ -1,1 +1,0 @@
-sed -i 's/println!("ITER_TYPE: {:?}", iter_type);/println!("ITER_TYPE: {:?}, iter: {:?}", iter_type, iter); if let Expr::Ident(name, _) = iter { println!("In var_types: {:?}", state.var_types.get(name)); }/' src/codegen/control_flow/loops.rs
