@@ -21,57 +21,134 @@ fn run_viper_code(code: &str) -> Result<String, String> {
     Ok(stdout)
 }
 
+// Integer Literals
 #[test]
 fn test_int_literals_basic() {
-    assert!(run_viper_code("def test():\n    a = 42\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 42
+    b = -17
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_int_literals_hex() {
-    assert!(run_viper_code("def test():\n    a = 0xFF\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 0xFF
+    b = 0x1A
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_int_literals_binary() {
-    assert!(run_viper_code("def test():\n    a = 0b1010\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 0b1010
+    b = 0b1111
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_int_literals_octal() {
-    assert!(run_viper_code("def test():\n    a = 0o755\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 0o755
+    b = 0o644
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
+// Float Literals
 #[test]
 fn test_float_literals_basic() {
-    assert!(run_viper_code("def test():\n    a = 3.14\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 3.14
+    b = -2.5
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
+// String Literals
 #[test]
 fn test_string_literals_double_quote() {
-    assert!(run_viper_code("def test():\n    a = \"hello\"\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = "hello"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_string_literals_single_quote() {
-    assert!(run_viper_code("def test():\n    a = 'world'\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 'world'
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_string_literals_escape() {
-    assert!(run_viper_code("def test():\n    a = \"hello\\nworld\"\n    print(\"ok\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = "hello\nworld"
+    print("ok")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
+// Boolean Literals
 #[test]
 fn test_bool_literals_true() {
-    assert!(run_viper_code("def test():\n    a = True\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = True
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_bool_literals_false() {
-    assert!(run_viper_code("def test():\n    a = False\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = False
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
+// None Literal
 #[test]
 fn test_none_literal() {
-    assert!(run_viper_code("def test():\n    a = None\n    b = None\n    print(a is b)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = None
+    b = None
+    print(a is b)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }

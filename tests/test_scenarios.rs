@@ -24,23 +24,79 @@ fn run_viper_code(code: &str) -> Result<String, String> {
 // Calculator
 #[test]
 fn test_scenario_calculator() {
-    assert!(run_viper_code("def add(a, b):\n    return a + b\ndef sub(a, b):\n    return a - b\ndef mul(a, b):\n    return a * b\ndef div(a, b):\n    return a / b\ndef test():\n    print(add(10, 5))\n    print(sub(10, 5))\n    print(mul(10, 5))\n    print(div(10, 5))\ntest()").is_ok());
+    let code = r#"
+def add(a, b):
+    return a + b
+
+def sub(a, b):
+    return a - b
+
+def mul(a, b):
+    return a * b
+
+def div(a, b):
+    return a / b
+
+def test():
+    print(add(10, 5))
+    print(sub(10, 5))
+    print(mul(10, 5))
+    print(div(10, 5))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Temperature Converter
 #[test]
 fn test_scenario_temperature_converter() {
-    assert!(run_viper_code("def celsius_to_fahrenheit(c):\n    return c * 9 / 5 + 32\ndef fahrenheit_to_celsius(f):\n    return (f - 32) * 5 / 9\ndef test():\n    print(celsius_to_fahrenheit(100))\n    print(fahrenheit_to_celsius(212))\ntest()").is_ok());
+    let code = r#"
+def celsius_to_fahrenheit(c):
+    return c * 9 / 5 + 32
+
+def fahrenheit_to_celsius(f):
+    return (f - 32) * 5 / 9
+
+def test():
+    print(celsius_to_fahrenheit(100))
+    print(fahrenheit_to_celsius(212))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Factorial Table
 #[test]
 fn test_scenario_factorial_table() {
-    assert!(run_viper_code("def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\ndef test():\n    i = 1\n    while i <= 5:\n        print(factorial(i))\n        i = i + 1\ntest()").is_ok());
+    let code = r#"
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+def test():
+    i = 1
+    while i <= 5:
+        print(factorial(i))
+        i = i + 1
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Multiplication Table
 #[test]
 fn test_scenario_multiplication_table() {
-    assert!(run_viper_code("def test():\n    i = 1\n    while i <= 5:\n        j = 1\n        while j <= 5:\n            j = j + 1\n        i = i + 1\n    print(\"ok\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 1
+    while i <= 5:
+        j = 1
+        while j <= 5:
+            j = j + 1
+        i = i + 1
+    print("ok")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }

@@ -24,52 +24,148 @@ fn run_viper_code(code: &str) -> Result<String, String> {
 // If Statements
 #[test]
 fn test_if_simple() {
-    assert!(run_viper_code("def test():\n    x = 10\n    if x > 5:\n        print(\"yes\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 10
+    if x > 5:
+        print("yes")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_if_else() {
-    assert!(run_viper_code("def test():\n    x = 3\n    if x > 5:\n        print(\"greater\")\n    else:\n        print(\"less\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 3
+    if x > 5:
+        print("greater")
+    else:
+        print("less")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_if_elif_else() {
-    assert!(run_viper_code("def test():\n    x = 5\n    if x > 10:\n        print(\"a\")\n    elif x > 3:\n        print(\"b\")\n    else:\n        print(\"c\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 5
+    if x > 10:
+        print("a")
+    elif x > 3:
+        print("b")
+    else:
+        print("c")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // While Loops
 #[test]
 fn test_while_simple() {
-    assert!(run_viper_code("def test():\n    i = 0\n    while i < 5:\n        i = i + 1\n    print(i)\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    while i < 5:
+        i = i + 1
+    print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_while_with_break() {
-    assert!(run_viper_code("def test():\n    i = 0\n    while True:\n        if i >= 5:\n            break\n        i = i + 1\n    print(i)\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    while True:
+        if i >= 5:
+            break
+        i = i + 1
+    print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_while_with_continue() {
-    assert!(run_viper_code("def test():\n    i = 0\n    total = 0\n    while i < 5:\n        i = i + 1\n        if i == 3:\n            continue\n        total = total + i\n    print(total)\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    total = 0
+    while i < 5:
+        i = i + 1
+        if i == 3:
+            continue
+        total = total + i
+    print(total)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_while_nested() {
-    assert!(run_viper_code("def test():\n    i = 0\n    j = 0\n    while i < 3:\n        while j < 3:\n            j = j + 1\n        i = i + 1\n        j = 0\n    print(i)\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    j = 0
+    while i < 3:
+        while j < 3:
+            j = j + 1
+        i = i + 1
+        j = 0
+    print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Keywords
 #[test]
 fn test_keyword_break() {
-    assert!(run_viper_code("def test():\n    i = 0\n    while i < 10:\n        if i == 3:\n            break\n        i = i + 1\n    print(i)\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    while i < 10:
+        if i == 3:
+            break
+        i = i + 1
+    print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_keyword_continue() {
-    assert!(run_viper_code("def test():\n    i = 0\n    while i < 5:\n        i = i + 1\n        if i == 3:\n            continue\n    print(\"ok\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    while i < 5:
+        i = i + 1
+        if i == 3:
+            continue
+    print("ok")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_keyword_pass() {
-    assert!(run_viper_code("def test():\n    if True:\n        pass\n    print(\"ok\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    if True:
+        pass
+    print("ok")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }

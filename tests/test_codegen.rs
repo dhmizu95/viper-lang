@@ -24,61 +24,159 @@ fn run_viper_code(code: &str) -> Result<String, String> {
 // Arithmetic Codegen
 #[test]
 fn test_codegen_arithmetic_int() {
-    assert!(run_viper_code("def test():\n    a = 10 + 5 * 2\n    b = (10 + 5) * 2\n    c = 100 / 4\n    d = 17 % 5\n    print(a)\n    print(b)\n    print(c)\n    print(d)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 10 + 5 * 2
+    b = (10 + 5) * 2
+    c = 100 / 4
+    d = 17 % 5
+    print(a)
+    print(b)
+    print(c)
+    print(d)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_codegen_arithmetic_float() {
-    assert!(run_viper_code("def test():\n    a = 3.14 + 2.86\n    b = 10.0 / 4.0\n    print(a)\n    print(b)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 3.14 + 2.86
+    b = 10.0 / 4.0
+    print(a)
+    print(b)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Comparison Codegen
 #[test]
 fn test_codegen_comparison() {
-    assert!(run_viper_code("def test():\n    print(5 < 10)\n    print(5 > 10)\n    print(5 == 5)\n    print(5 != 10)\n    print(5 <= 5)\n    print(5 >= 5)\ntest()").is_ok());
+    let code = r#"
+def test():
+    print(5 < 10)
+    print(5 > 10)
+    print(5 == 5)
+    print(5 != 10)
+    print(5 <= 5)
+    print(5 >= 5)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Logical Codegen
 #[test]
 fn test_codegen_logical() {
-    assert!(run_viper_code("def test():\n    print(True and False)\n    print(True or False)\n    print(not True)\n    print(not False)\ntest()").is_ok());
+    let code = r#"
+def test():
+    print(True and False)
+    print(True or False)
+    print(not True)
+    print(not False)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Branch Codegen
 #[test]
 fn test_codegen_branches_if() {
-    assert!(run_viper_code("def test():\n    x = 10\n    if x > 5:\n        print(\"branch1\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 10
+    if x > 5:
+        print("branch1")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_codegen_branches_if_else() {
-    assert!(run_viper_code("def test():\n    x = 3\n    if x > 5:\n        print(\"greater\")\n    else:\n        print(\"less\")\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 3
+    if x > 5:
+        print("greater")
+    else:
+        print("less")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Loop Codegen
 #[test]
 fn test_codegen_loops_while() {
-    assert!(run_viper_code("def test():\n    i = 0\n    while i < 5:\n        i = i + 1\n    print(i)\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    while i < 5:
+        i = i + 1
+    print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_codegen_loops_nested() {
-    assert!(run_viper_code("def test():\n    i = 0\n    j = 0\n    while i < 3:\n        while j < 3:\n            j = j + 1\n        i = i + 1\n        j = 0\n    print(i)\ntest()").is_ok());
+    let code = r#"
+def test():
+    i = 0
+    j = 0
+    while i < 3:
+        while j < 3:
+            j = j + 1
+        i = i + 1
+        j = 0
+    print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Function Codegen
 #[test]
 fn test_codegen_functions_simple() {
-    assert!(run_viper_code("def add(a, b):\n    return a + b\ndef test():\n    print(add(10, 20))\ntest()").is_ok());
+    let code = r#"
+def add(a, b):
+    return a + b
+
+def test():
+    print(add(10, 20))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_codegen_functions_recursive() {
-    assert!(run_viper_code("def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\ndef test():\n    print(factorial(5))\ntest()").is_ok());
+    let code = r#"
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+def test():
+    print(factorial(5))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Closure Codegen
 #[test]
 fn test_codegen_closures() {
-    assert!(run_viper_code("def test():\n    f = lambda x: x * 2\n    print(f(21))\ntest()").is_ok());
+    let code = r#"
+def test():
+    f = lambda x: x * 2
+    print(f(21))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }

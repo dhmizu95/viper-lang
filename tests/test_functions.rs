@@ -24,79 +24,211 @@ fn run_viper_code(code: &str) -> Result<String, String> {
 // Function Definitions
 #[test]
 fn test_function_no_params() {
-    assert!(run_viper_code("def greet():\n    print(\"hello\")\ndef test():\n    greet()\ntest()").is_ok());
+    let code = r#"
+def greet():
+    print("hello")
+
+def test():
+    greet()
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_function_single_param() {
-    assert!(run_viper_code("def double(x):\n    return x * 2\ndef test():\n    print(double(21))\ntest()").is_ok());
+    let code = r#"
+def double(x):
+    return x * 2
+
+def test():
+    print(double(21))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_function_multiple_params() {
-    assert!(run_viper_code("def add(a, b):\n    return a + b\ndef test():\n    print(add(3, 4))\ntest()").is_ok());
+    let code = r#"
+def add(a, b):
+    return a + b
+
+def test():
+    print(add(3, 4))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_function_with_return_type() {
-    assert!(run_viper_code("def add(a: int, b: int) -> int:\n    return a + b\ndef test():\n    print(add(3, 4))\ntest()").is_ok());
+    let code = r#"
+def add(a: int, b: int) -> int:
+    return a + b
+
+def test():
+    print(add(3, 4))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Function Calls
 #[test]
 fn test_function_call_no_args() {
-    assert!(run_viper_code("def greet():\n    print(\"hello\")\ndef test():\n    greet()\ntest()").is_ok());
+    let code = r#"
+def greet():
+    print("hello")
+
+def test():
+    greet()
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_function_call_with_args() {
-    assert!(run_viper_code("def add(a, b):\n    return a + b\ndef test():\n    print(add(3, 5))\ntest()").is_ok());
+    let code = r#"
+def add(a, b):
+    return a + b
+
+def test():
+    print(add(3, 5))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_function_call_nested() {
-    assert!(run_viper_code("def add(a, b):\n    return a + b\ndef mul(a, b):\n    return a * b\ndef test():\n    print(mul(add(2, 3), 4))\ntest()").is_ok());
+    let code = r#"
+def add(a, b):
+    return a + b
+
+def mul(a, b):
+    return a * b
+
+def test():
+    print(mul(add(2, 3), 4))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Lambda Expressions
 #[test]
 fn test_lambda_no_params() {
-    assert!(run_viper_code("def test():\n    f = lambda: 42\n    print(f())\ntest()").is_ok());
+    let code = r#"
+def test():
+    f = lambda: 42
+    print(f())
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_lambda_single_param() {
-    assert!(run_viper_code("def test():\n    f = lambda x: x + 1\n    print(f(5))\ntest()").is_ok());
+    let code = r#"
+def test():
+    f = lambda x: x + 1
+    print(f(5))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_lambda_multiple_params() {
-    assert!(run_viper_code("def test():\n    f = lambda a, b: a + b\n    print(f(3, 4))\ntest()").is_ok());
+    let code = r#"
+def test():
+    f = lambda a, b: a + b
+    print(f(3, 4))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Recursive Functions
 #[test]
 fn test_recursive_factorial() {
-    assert!(run_viper_code("def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\ndef test():\n    print(factorial(5))\ntest()").is_ok());
+    let code = r#"
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+def test():
+    print(factorial(5))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_recursive_fibonacci() {
-    assert!(run_viper_code("def fib(n):\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)\ndef test():\n    print(fib(10))\ntest()").is_ok());
+    let code = r#"
+def fib(n):
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def test():
+    print(fib(10))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_mutual_recursion() {
-    assert!(run_viper_code("def is_even(n):\n    if n == 0:\n        return True\n    return is_odd(n - 1)\ndef is_odd(n):\n    if n == 0:\n        return False\n    return is_even(n - 1)\ndef test():\n    print(is_even(4))\n    print(is_odd(4))\ntest()").is_ok());
+    let code = r#"
+def is_even(n):
+    if n == 0:
+        return True
+    return is_odd(n - 1)
+
+def is_odd(n):
+    if n == 0:
+        return False
+    return is_even(n - 1)
+
+def test():
+    print(is_even(4))
+    print(is_odd(4))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Return Statements
 #[test]
 fn test_return_value() {
-    assert!(run_viper_code("def get_answer():\n    return 42\ndef test():\n    print(get_answer())\ntest()").is_ok());
+    let code = r#"
+def get_answer():
+    return 42
+
+def test():
+    print(get_answer())
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_return_early() {
-    assert!(run_viper_code("def check_positive(x):\n    if x > 0:\n        return True\n    return False\ndef test():\n    print(check_positive(5))\n    print(check_positive(-3))\ntest()").is_ok());
+    let code = r#"
+def check_positive(x):
+    if x > 0:
+        return True
+    return False
+
+def test():
+    print(check_positive(5))
+    print(check_positive(-3))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }

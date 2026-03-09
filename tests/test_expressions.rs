@@ -24,29 +24,62 @@ fn run_viper_code(code: &str) -> Result<String, String> {
 // Binary Operations
 #[test]
 fn test_binary_ops_precedence() {
-    assert!(run_viper_code("def test():\n    a = 1 + 2 * 3\n    b = (1 + 2) * 3\n    print(a)\n    print(b)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = 1 + 2 * 3
+    b = (1 + 2) * 3
+    print(a)
+    print(b)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Unary Operations
 #[test]
 fn test_unary_neg() {
-    assert!(run_viper_code("def test():\n    a = -5\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = -5
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_unary_pos() {
-    assert!(run_viper_code("def test():\n    a = +5\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = +5
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_unary_not() {
-    assert!(run_viper_code("def test():\n    a = not True\n    print(a)\ntest()").is_ok());
+    let code = r#"
+def test():
+    a = not True
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Ternary Expression
 #[test]
 fn test_ternary() {
-    let result = run_viper_code("def test():\n    x = 10\n    result = 1 if x > 5 else 2\n    print(result)\ntest()");
+    let code = r#"
+def test():
+    x = 10
+    result = 1 if x > 5 else 2
+    print(result)
+test()
+"#;
+    let result = run_viper_code(code);
     // May have codegen issues
     let _ = result;
 }

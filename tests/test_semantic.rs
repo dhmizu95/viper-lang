@@ -24,21 +24,54 @@ fn run_viper_code(code: &str) -> Result<String, String> {
 // Type Inference
 #[test]
 fn test_type_inference_int() {
-    assert!(run_viper_code("def test():\n    x = 42\n    y = x + 1\n    print(y)\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 42
+    y = x + 1
+    print(y)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Scope Tests
 #[test]
 fn test_scope_local() {
-    assert!(run_viper_code("def test():\n    x = 10\n    if True:\n        y = 20\n    print(x)\n    print(y)\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 10
+    if True:
+        y = 20
+    print(x)
+    print(y)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_shadowing() {
-    assert!(run_viper_code("def test():\n    x = 10\n    if True:\n        x = 20\n    print(x)\ntest()").is_ok());
+    let code = r#"
+def test():
+    x = 10
+    if True:
+        x = 20
+    print(x)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_function_scope() {
-    assert!(run_viper_code("def inner():\n    x = 42\n    return x\ndef test():\n    print(inner())\ntest()").is_ok());
+    let code = r#"
+def inner():
+    x = 42
+    return x
+
+def test():
+    print(inner())
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }

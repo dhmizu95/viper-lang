@@ -24,74 +24,242 @@ fn run_viper_code(code: &str) -> Result<String, String> {
 // Fibonacci
 #[test]
 fn test_algo_fibonacci_recursive() {
-    assert!(run_viper_code("def fib(n):\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)\ndef test():\n    print(fib(10))\ntest()").is_ok());
+    let code = r#"
+def fib(n):
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def test():
+    print(fib(10))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_algo_fibonacci_iterative() {
-    assert!(run_viper_code("def fib(n):\n    if n <= 1:\n        return n\n    a = 0\n    b = 1\n    i = 2\n    while i <= n:\n        temp = a + b\n        a = b\n        b = temp\n        i = i + 1\n    return b\ndef test():\n    print(fib(10))\ntest()").is_ok());
+    let code = r#"
+def fib(n):
+    if n <= 1:
+        return n
+    a = 0
+    b = 1
+    i = 2
+    while i <= n:
+        temp = a + b
+        a = b
+        b = temp
+        i = i + 1
+    return b
+
+def test():
+    print(fib(10))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Factorial
 #[test]
 fn test_algo_factorial_recursive() {
-    assert!(run_viper_code("def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\ndef test():\n    print(factorial(5))\ntest()").is_ok());
+    let code = r#"
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+def test():
+    print(factorial(5))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_algo_factorial_iterative() {
-    assert!(run_viper_code("def factorial(n):\n    result = 1\n    i = 2\n    while i <= n:\n        result = result * i\n        i = i + 1\n    return result\ndef test():\n    print(factorial(5))\ntest()").is_ok());
+    let code = r#"
+def factorial(n):
+    result = 1
+    i = 2
+    while i <= n:
+        result = result * i
+        i = i + 1
+    return result
+
+def test():
+    print(factorial(5))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // GCD
 #[test]
 fn test_algo_gcd() {
-    assert!(run_viper_code("def gcd(a, b):\n    while b != 0:\n        temp = b\n        b = a % b\n        a = temp\n    return a\ndef test():\n    print(gcd(48, 18))\ntest()").is_ok());
+    let code = r#"
+def gcd(a, b):
+    while b != 0:
+        temp = b
+        b = a % b
+        a = temp
+    return a
+
+def test():
+    print(gcd(48, 18))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Power
 #[test]
 fn test_algo_power_iterative() {
-    assert!(run_viper_code("def power(base, exp):\n    result = 1\n    i = 0\n    while i < exp:\n        result = result * base\n        i = i + 1\n    return result\ndef test():\n    print(power(2, 10))\ntest()").is_ok());
+    let code = r#"
+def power(base, exp):
+    result = 1
+    i = 0
+    while i < exp:
+        result = result * base
+        i = i + 1
+    return result
+
+def test():
+    print(power(2, 10))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
 fn test_algo_power_recursive() {
-    assert!(run_viper_code("def power(base, exp):\n    if exp == 0:\n        return 1\n    return base * power(base, exp - 1)\ndef test():\n    print(power(2, 10))\ntest()").is_ok());
+    let code = r#"
+def power(base, exp):
+    if exp == 0:
+        return 1
+    return base * power(base, exp - 1)
+
+def test():
+    print(power(2, 10))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Prime Check
 #[test]
 fn test_algo_is_prime() {
-    assert!(run_viper_code("def is_prime(n):\n    if n < 2:\n        return False\n    i = 2\n    while i * i <= n:\n        if n % i == 0:\n            return False\n        i = i + 1\n    return True\ndef test():\n    print(is_prime(17))\n    print(is_prime(18))\ntest()").is_ok());
+    let code = r#"
+def is_prime(n):
+    if n < 2:
+        return False
+    i = 2
+    while i * i <= n:
+        if n % i == 0:
+            return False
+        i = i + 1
+    return True
+
+def test():
+    print(is_prime(17))
+    print(is_prime(18))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Sum Range
 #[test]
 fn test_algo_sum_range() {
-    assert!(run_viper_code("def sum_range(n):\n    total = 0\n    i = 1\n    while i <= n:\n        total = total + i\n        i = i + 1\n    return total\ndef test():\n    print(sum_range(100))\ntest()").is_ok());
+    let code = r#"
+def sum_range(n):
+    total = 0
+    i = 1
+    while i <= n:
+        total = total + i
+        i = i + 1
+    return total
+
+def test():
+    print(sum_range(100))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Count Digits
 #[test]
 fn test_algo_count_digits() {
-    assert!(run_viper_code("def count_digits(n):\n    count = 0\n    while n > 0:\n        n = n // 10\n        count = count + 1\n    return count\ndef test():\n    print(count_digits(12345))\ntest()").is_ok());
+    let code = r#"
+def count_digits(n):
+    count = 0
+    while n > 0:
+        n = n // 10
+        count = count + 1
+    return count
+
+def test():
+    print(count_digits(12345))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Reverse Number
 #[test]
 fn test_algo_reverse_number() {
-    assert!(run_viper_code("def reverse_number(n):\n    result = 0\n    while n > 0:\n        result = result * 10 + n % 10\n        n = n // 10\n    return result\ndef test():\n    print(reverse_number(12345))\ntest()").is_ok());
+    let code = r#"
+def reverse_number(n):
+    result = 0
+    while n > 0:
+        result = result * 10 + n % 10
+        n = n // 10
+    return result
+
+def test():
+    print(reverse_number(12345))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Palindrome
 #[test]
 fn test_algo_palindrome() {
-    assert!(run_viper_code("def is_palindrome(n):\n    original = n\n    reversed_n = 0\n    while n > 0:\n        reversed_n = reversed_n * 10 + n % 10\n        n = n // 10\n    return original == reversed_n\ndef test():\n    print(is_palindrome(121))\n    print(is_palindrome(123))\ntest()").is_ok());
+    let code = r#"
+def is_palindrome(n):
+    original = n
+    reversed_n = 0
+    while n > 0:
+        reversed_n = reversed_n * 10 + n % 10
+        n = n // 10
+    return original == reversed_n
+
+def test():
+    print(is_palindrome(121))
+    print(is_palindrome(123))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
 
 // Armstrong Number
 #[test]
 fn test_algo_armstrong() {
-    assert!(run_viper_code("def is_armstrong(n):\n    original = n\n    sum_cubes = 0\n    while n > 0:\n        digit = n % 10\n        sum_cubes = sum_cubes + digit * digit * digit\n        n = n // 10\n    return original == sum_cubes\ndef test():\n    print(is_armstrong(153))\n    print(is_armstrong(100))\ntest()").is_ok());
+    let code = r#"
+def is_armstrong(n):
+    original = n
+    sum_cubes = 0
+    while n > 0:
+        digit = n % 10
+        sum_cubes = sum_cubes + digit * digit * digit
+        n = n // 10
+    return original == sum_cubes
+
+def test():
+    print(is_armstrong(153))
+    print(is_armstrong(100))
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
 }
