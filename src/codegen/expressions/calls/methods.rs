@@ -1,12 +1,9 @@
 //! Method call code generation
 
-use super::*;
-
 use crate::ast::Expr;
-
-use inkwell::values::BasicValueEnum;
-
+use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
+use inkwell::values::BasicValueEnum;
 
 /// Generate method call
 pub fn generate_method_call<'ctx>(

@@ -26,7 +26,7 @@ pub fn parse_ident_expr(
             let mut args = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(super::parse_expression(parser)?);
+                    args.push(parse_expression(parser)?);
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -48,7 +48,7 @@ pub fn parse_ident_expr(
                 expr = parse_slice_expr(parser, expr, span)?;
             } else {
                 // Regular indexing
-                let index = super::parse_expression(parser)?;
+                let index = parse_expression(parser)?;
                 parser.expect(&TokenKind::RBracket)?;
                 let index_span = span.merge(parser.previous().span);
                 expr = Expr::Index {
@@ -87,7 +87,7 @@ pub fn parse_send_expr(
             let mut args = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(super::parse_expression(parser)?);
+                    args.push(parse_expression(parser)?);
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -106,7 +106,7 @@ pub fn parse_send_expr(
             if is_slice {
                 expr = parse_slice_expr(parser, expr, span)?;
             } else {
-                let index = super::parse_expression(parser)?;
+                let index = parse_expression(parser)?;
                 parser.expect(&TokenKind::RBracket)?;
                 let index_span = span.merge(parser.previous().span);
                 expr = Expr::Index {
@@ -145,7 +145,7 @@ pub fn parse_recv_expr(
             let mut args = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(super::parse_expression(parser)?);
+                    args.push(parse_expression(parser)?);
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -164,7 +164,7 @@ pub fn parse_recv_expr(
             if is_slice {
                 expr = parse_slice_expr(parser, expr, span)?;
             } else {
-                let index = super::parse_expression(parser)?;
+                let index = parse_expression(parser)?;
                 parser.expect(&TokenKind::RBracket)?;
                 let index_span = span.merge(parser.previous().span);
                 expr = Expr::Index {
@@ -193,7 +193,7 @@ fn parse_slice_expr(
 
     // Parse start (optional)
     if !matches!(parser.current().kind, TokenKind::Colon) {
-        start = Some(Box::new(super::parse_expression(parser)?));
+        start = Some(Box::new(parse_expression(parser)?));
     }
 
     // Expect first colon
@@ -203,7 +203,7 @@ fn parse_slice_expr(
     if !matches!(parser.current().kind, TokenKind::RBracket)
         && !matches!(parser.current().kind, TokenKind::Colon)
     {
-        end = Some(Box::new(super::parse_expression(parser)?));
+        end = Some(Box::new(parse_expression(parser)?));
     }
 
     // Check for step
@@ -211,7 +211,7 @@ fn parse_slice_expr(
         parser.expect(&TokenKind::Colon)?;
         // Parse step (optional)
         if !matches!(parser.current().kind, TokenKind::RBracket) {
-            step = Some(Box::new(super::parse_expression(parser)?));
+            step = Some(Box::new(parse_expression(parser)?));
         }
     }
 

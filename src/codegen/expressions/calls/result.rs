@@ -1,12 +1,9 @@
 //! Result type constructors
 
-use super::*;
-
 use crate::ast::Expr;
-
-use inkwell::values::BasicValueEnum;
-
+use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
+use inkwell::values::BasicValueEnum;
 
 /// Generate Ok constructor call
 /// Creates a Result struct with is_ok=1 and the value, returned by value

@@ -1,12 +1,9 @@
 //! I/O built-in functions
 
-use super::*;
-
 use crate::ast::Expr;
-
-use inkwell::values::BasicValueEnum;
-
+use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
+use inkwell::values::BasicValueEnum;
 
 /// Generate input() call
 pub fn generate_input_call<'ctx>(

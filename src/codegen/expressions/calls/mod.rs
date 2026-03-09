@@ -27,6 +27,4 @@ pub use numeric::*;
 pub use result::*;
 pub use special::*;
 pub use super_call::*;
-
-// Re-export from parent module for convenience
 pub use super::generate_expr;

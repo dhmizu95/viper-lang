@@ -295,12 +295,12 @@ impl TypeChecker {
                 self.symbol_table.exit_scope();
             }
             Stmt::Function {
-                name,
-                type_params,
+                name: _,
+                type_params: _,
                 params,
                 return_type,
                 body,
-                span,
+                span: _,
                 is_async: _,
                 decorators: _,
             } => {

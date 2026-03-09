@@ -4,7 +4,7 @@ use crate::lexer::TokenKind;
 use crate::utils::Span;
 
 /// Parse integer literal (Int or BigInt)
-pub fn parse_int_literal(parser: &mut StatementParser, n: i128, span: Span) -> Expr {
+pub fn parse_int_literal(_parser: &mut StatementParser, n: i128, span: Span) -> Expr {
     // Check if the integer fits in i64
     if n > i64::MAX as i128 || n < i64::MIN as i128 {
         // Convert to BigInt if too large for i64
@@ -15,22 +15,22 @@ pub fn parse_int_literal(parser: &mut StatementParser, n: i128, span: Span) -> E
 }
 
 /// Parse BigInt literal
-pub fn parse_bigint_literal(parser: &mut StatementParser, s: String, span: Span) -> Expr {
+pub fn parse_bigint_literal(_parser: &mut StatementParser, s: String, span: Span) -> Expr {
     Expr::BigInt(s, span)
 }
 
 /// Parse float literal
-pub fn parse_float_literal(parser: &mut StatementParser, n: f64, span: Span) -> Expr {
+pub fn parse_float_literal(_parser: &mut StatementParser, n: f64, span: Span) -> Expr {
     Expr::Float(n, span)
 }
 
 /// Parse string literal
-pub fn parse_str_literal(parser: &mut StatementParser, s: String, span: Span) -> Expr {
+pub fn parse_str_literal(_parser: &mut StatementParser, s: String, span: Span) -> Expr {
     Expr::Str(s, span)
 }
 
 /// Parse f-string literal with interpolated expressions
-pub fn parse_fstring_literal(parser: &mut StatementParser, s: String, span: Span) -> Expr {
+pub fn parse_fstring_literal(_parser: &mut StatementParser, s: String, span: Span) -> Expr {
     let mut elements = Vec::new();
     let mut current_lit = String::new();
     let mut chars = s.chars().peekable();
@@ -74,17 +74,17 @@ pub fn parse_fstring_literal(parser: &mut StatementParser, s: String, span: Span
 }
 
 /// Parse bytes literal
-pub fn parse_bytes_literal(parser: &mut StatementParser, b: Vec<u8>, span: Span) -> Expr {
+pub fn parse_bytes_literal(_parser: &mut StatementParser, b: Vec<u8>, span: Span) -> Expr {
     Expr::Bytes(b, span)
 }
 
 /// Parse boolean literal
-pub fn parse_bool_literal(parser: &mut StatementParser, b: bool, span: Span) -> Expr {
+pub fn parse_bool_literal(_parser: &mut StatementParser, b: bool, span: Span) -> Expr {
     Expr::Bool(b, span)
 }
 
 /// Parse None literal
-pub fn parse_none_literal(parser: &mut StatementParser, span: Span) -> Expr {
+pub fn parse_none_literal(_parser: &mut StatementParser, span: Span) -> Expr {
     Expr::None(span)
 }
 

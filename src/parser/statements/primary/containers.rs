@@ -13,7 +13,7 @@ pub fn parse_tuple_literal(parser: &mut StatementParser, span: Span) -> Result<E
         return Ok(Expr::Tuple { elements: vec![], span });
     }
 
-    let expr = super::parse_expression(parser)?;
+    let expr = parse_expression(parser)?;
 
     // Check for tuple (has trailing comma)
     if parser.match_token(&TokenKind::Comma) {
@@ -26,7 +26,7 @@ pub fn parse_tuple_literal(parser: &mut StatementParser, span: Span) -> Result<E
         }
         // More elements follow - parse them
         loop {
-            elements.push(super::parse_expression(parser)?);
+            elements.push(parse_expression(parser)?);
             if parser.match_token(&TokenKind::Comma) {
                 // Check for trailing comma after multiple elements
                 if parser.match_token(&TokenKind::RParen) {
@@ -56,7 +56,7 @@ pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> Result<E
     // Check for empty list without consuming the RBracket
     if !matches!(parser.current().kind, TokenKind::RBracket) {
         // Parse first element
-        let first_elem = super::parse_expression(parser)?;
+        let first_elem = parse_expression(parser)?;
 
         // Check for list comprehension: [expr for var in iter]
         if matches!(parser.current().kind, TokenKind::For) {
@@ -94,7 +94,7 @@ pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> Result<E
                 if matches!(parser.current().kind, TokenKind::RBracket) {
                     break;
                 }
-                elements.push(super::parse_expression(parser)?);
+                elements.push(parse_expression(parser)?);
             }
             parser.expect(&TokenKind::RBracket)?;
         }
@@ -126,9 +126,9 @@ pub fn parse_dict_literal(parser: &mut StatementParser, span: Span) -> Result<Ex
 
     // Parse key-value pairs
     loop {
-        let key = super::parse_expression(parser)?;
+        let key = parse_expression(parser)?;
         parser.expect(&TokenKind::Colon)?;
-        let value = super::parse_expression(parser)?;
+        let value = parse_expression(parser)?;
         pairs.push((key, value));
 
         if !parser.match_token(&TokenKind::Comma) {

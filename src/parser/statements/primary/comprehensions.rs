@@ -25,7 +25,7 @@ pub fn parse_list_comprehension(
     parser.expect(&TokenKind::In)?;
 
     // Parse the iterable
-    let iter = super::parse_expression(parser)?;
+    let iter = parse_expression(parser)?;
 
     // Expect closing bracket
     parser.expect(&TokenKind::RBracket)?;

@@ -1,3 +1,5 @@
+#![allow(unused_unsafe)]
+
 use std::os::raw::c_char;
 use std::ffi::{CString, c_void};
 use crate::jit_stubs::bigint::{vp_bigint_add_stub, vp_bigint_sub_stub, vp_bigint_mul_stub, vp_bigint_div_stub, vp_bigint_mod_stub, vp_bigint_pow_stub, vp_bigint_neg_stub, vp_bigint_eq_stub, vp_bigint_lt_stub, vp_bigint_gt_stub, vp_bigint_to_str_stub, vp_bigint_free_stub, vp_bigint_from_i64_stub, vp_bigint_cmp_stub, vp_bigint_to_i64_stub};
