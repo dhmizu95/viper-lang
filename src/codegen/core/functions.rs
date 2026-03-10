@@ -212,15 +212,9 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         // Mark function as containing BigInt if it has BigInt variables
-        // These functions need special optimization handling (no mem2reg)
+        // mem2reg is safe for pointer-typed allocas; no need for optnone
         if !self.bigint_vars.is_empty() {
             self.bigint_functions.insert(original_name.to_string());
-            // Apply optnone attribute to prevent mem2reg and other optimizations
-            // that could break ARC retain/release semantics for BigInt
-            func.add_attribute(
-                inkwell::attributes::AttributeLoc::Function,
-                self.context.create_string_attribute("optnone", ""),
-            );
         }
 
         // Generate ARC cleanup for local variables before return
