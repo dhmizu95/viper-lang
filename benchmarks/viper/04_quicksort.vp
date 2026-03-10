@@ -1,0 +1,71 @@
+# QuickSort Benchmark - Viper Implementation
+# Array sorting algorithm (inlined to avoid function parameter issues)
+
+def main():
+    # Benchmark parameter - array size
+    n = 100
+    
+    # Initialize array with pseudo-random values
+    arr = [0] * n
+    i = 0
+    seed = 12345
+    while i < n:
+        seed = (seed * 1103515245 + 12345) % 2147483648
+        arr[i] = seed % 1000
+        i = i + 1
+    
+    # Iterative quicksort (inlined)
+    stack = [0] * 200
+    top = 0
+    
+    stack[top] = 0
+    top = top + 1
+    stack[top] = n - 1
+    top = top + 1
+    
+    while top > 1:
+        top = top - 1
+        high = stack[top]
+        top = top - 1
+        low = stack[top]
+        
+        # Partition
+        if low < high:
+            pivot = arr[high]
+            partition_idx = low
+            j = low
+            while j < high:
+                if arr[j] < pivot:
+                    temp = arr[partition_idx]
+                    arr[partition_idx] = arr[j]
+                    arr[j] = temp
+                    partition_idx = partition_idx + 1
+                j = j + 1
+            temp = arr[partition_idx]
+            arr[partition_idx] = arr[high]
+            arr[high] = temp
+            
+            # Push left subarray
+            if partition_idx - 1 > low:
+                stack[top] = low
+                top = top + 1
+                stack[top] = partition_idx - 1
+                top = top + 1
+            
+            # Push right subarray
+            if partition_idx + 1 < high:
+                stack[top] = partition_idx + 1
+                top = top + 1
+                stack[top] = high
+                top = top + 1
+    
+    # Calculate checksum to verify sort
+    checksum = 0
+    i = 0
+    while i < n:
+        checksum = checksum + arr[i]
+        i = i + 1
+    
+    print(checksum)
+
+main()

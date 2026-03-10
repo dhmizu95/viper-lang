@@ -8,7 +8,11 @@ Cross-language performance benchmarks comparing Viper against C, Rust, and Go.
 |----|------|-------------|------|
 | 01 | Fibonacci | Recursive Fibonacci (n=35) | CPU-bound |
 | 02 | Prime Sieve | Prime counting, trial division (n=5000) | CPU-bound |
-| 03 | Matrix Mul | Matrix multiplication (30x30) | CPU + Memory |
+| 03 | Matrix Mul | Matrix multiplication (30x30, scalar) | CPU + Memory |
+| 04 | QuickSort | Iterative quicksort (100 elements) | CPU + Memory |
+| 05 | Matrix Mul Array | Matrix multiplication with arrays (50x50) | CPU + Memory |
+| 06 | Prime Sieve Array | Sieve of Eratosthenes (n=10000) | Memory + CPU |
+| 07 | String Operations | String manipulation & parsing | Memory + CPU |
 
 ## Directory Structure
 

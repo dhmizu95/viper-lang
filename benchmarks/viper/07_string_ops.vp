@@ -1,0 +1,37 @@
+# String Operations Benchmark - Viper Implementation
+# Character counting in byte array
+
+def main():
+    # Benchmark parameter
+    n = 9000
+    
+    # Create array with repeating pattern
+    s = [0] * n
+    i = 0
+    while i < n:
+        # Simple pattern: alternating values
+        s[i] = (i * 7 + 3) % 128
+        i = i + 1
+    
+    # Count occurrences of specific values
+    count1 = 0
+    count2 = 0
+    count3 = 0
+    count4 = 0
+    i = 0
+    while i < n:
+        if s[i] == 65:
+            count1 = count1 + 1
+        elif s[i] == 66:
+            count2 = count2 + 1
+        elif s[i] == 67:
+            count3 = count3 + 1
+        elif s[i] == 68:
+            count4 = count4 + 1
+        i = i + 1
+    
+    # Calculate checksum
+    checksum = n + count1 + count2 + count3 + count4
+    print(checksum)
+
+main()

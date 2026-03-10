@@ -21,6 +21,10 @@ BENCHMARKS=(
     "01_fibonacci"
     "02_prime_sieve"
     "03_matrix_mul"
+    "04_quicksort"
+    "05_matrix_mul"
+    "06_prime_sieve"
+    "07_string_ops"
 )
 
 # Check prerequisites
