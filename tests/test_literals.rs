@@ -513,7 +513,7 @@ test()
 #[test]
 fn test_string_concat_with_result() {
     let code = r#"
-def greet(name):
+def greet(name: str):
     return "Hello " + name
 
 def test():

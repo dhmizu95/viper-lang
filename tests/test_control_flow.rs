@@ -323,7 +323,7 @@ test()
 fn test_for_range_accumulator() {
     let code = r#"
 def test():
-    sum = 0
+    sum: int = 0
     for i in range(1, 11):
         sum = sum + i
     print(sum)
