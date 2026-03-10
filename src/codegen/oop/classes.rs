@@ -750,18 +750,46 @@ fn generate_field_access<'ctx>(
         )
     }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
 
-    // Determine load type based on field type
-    let load_type: inkwell::types::BasicTypeEnum<'ctx> = match &field.ty {
-        Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_) | Type::Bytes => {
-            i8_ptr_type.into()
-        }
-        Type::F64 => state.context.f64_type().into(),
-        Type::Bool => state.context.bool_type().into(),
-        _ => i64_type.into(),
+    // All fields are stored as i64 (pointer-sized)
+    // Reference types store the pointer value as i64
+    // Float types need special handling
+    let value = if field.ty == Type::F64 {
+        // Float field - load as f64 then bitcast to i64 for uniform handling
+        let field_f64_ptr = state.builder.build_bit_cast(
+            field_ptr, 
+            state.context.f64_type().ptr_type(AddressSpace::default()), 
+            "field_f64_ptr"
+        ).map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+        .into_pointer_value();
+        
+        let f64_val = state.builder.build_load(state.context.f64_type(), field_f64_ptr, &format!("field_{}", field.name))
+            .map_err(|e| format!("Failed to load field: {:?}", e))?;
+        
+        // Bitcast f64 to i64 for uniform return
+        state.builder.build_float_to_signed_int(f64_val.into_float_value(), i64_type, "f64_to_i64")
+            .map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
+            .into()
+    } else if field.ty == Type::Bool {
+        // Bool field - load as i8 then zero-extend to i64
+        let field_bool_ptr = state.builder.build_bit_cast(
+            field_ptr, 
+            state.context.i8_type().ptr_type(AddressSpace::default()), 
+            "field_bool_ptr"
+        ).map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+        .into_pointer_value();
+        
+        let bool_val = state.builder.build_load(state.context.i8_type(), field_bool_ptr, &format!("field_{}", field.name))
+            .map_err(|e| format!("Failed to load field: {:?}", e))?;
+        
+        // Zero-extend i8 to i64
+        state.builder.build_int_z_extend(bool_val.into_int_value(), i64_type, "bool_to_i64")
+            .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
+            .into()
+    } else {
+        // Default: load as i64 (handles pointers, ints, etc.)
+        state.builder.build_load(i64_type, field_ptr, &format!("field_{}", field.name))
+            .map_err(|e| format!("Failed to load field: {:?}", e))?
     };
-
-    let value = state.builder.build_load(load_type, field_ptr, &format!("field_{}", field.name))
-        .map_err(|e| format!("Failed to load field: {:?}", e))?;
 
     Ok(value)
 }
@@ -984,7 +1012,7 @@ pub fn generate_field_assignment<'ctx>(
     Err(format!("Field '{}' not found on object", field_name))
 }
 
-/// Store value to a field
+/// Store value to a field - all fields stored as i64 (pointer-sized)
 fn store_field<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     obj_ptr: PointerValue<'ctx>,
@@ -1012,42 +1040,25 @@ fn store_field<'ctx>(
         )
     }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
 
-    // Determine store type based on field type and cast field_ptr accordingly
-    match &field.ty {
-        Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_) | Type::Bytes => {
-            // Pointer type field - cast to pointer* and store
-            let field_ptr_type = state.context.ptr_type(AddressSpace::default()).ptr_type(AddressSpace::default());
-            let field_typed_ptr = state.builder.build_bit_cast(field_ptr, field_ptr_type, "field_ptr_typed")
-                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-                .into_pointer_value();
-            state.builder.build_store(field_typed_ptr, value)
-                .map_err(|e| format!("Failed to store field: {:?}", e))?;
-        }
-        Type::F64 => {
-            // Float type field - cast to f64* and store
-            let field_f64_ptr = state.builder.build_bit_cast(field_ptr, state.context.f64_type().ptr_type(AddressSpace::default()), "field_f64_ptr")
-                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-                .into_pointer_value();
-            state.builder.build_store(field_f64_ptr, value)
-                .map_err(|e| format!("Failed to store field: {:?}", e))?;
-        }
-        Type::Bool => {
-            // Bool type field - cast to bool* and store
-            let field_bool_ptr = state.builder.build_bit_cast(field_ptr, state.context.bool_type().ptr_type(AddressSpace::default()), "field_bool_ptr")
-                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-                .into_pointer_value();
-            state.builder.build_store(field_bool_ptr, value)
-                .map_err(|e| format!("Failed to store field: {:?}", e))?;
-        }
-        _ => {
-            // Default: i64 type field - cast to i64* and store
-            let field_i64_ptr = state.builder.build_bit_cast(field_ptr, i64_type.ptr_type(AddressSpace::default()), "field_i64_ptr")
-                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-                .into_pointer_value();
-            state.builder.build_store(field_i64_ptr, value)
-                .map_err(|e| format!("Failed to store field: {:?}", e))?;
-        }
-    }
+    // Convert value to i64 for storage if needed
+    let store_value = if field.ty == Type::F64 && value.is_float_value() {
+        // Float field - convert f64 to i64 bits for storage
+        state.builder.build_float_to_signed_int(value.into_float_value(), i64_type, "f64_to_i64")
+            .map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
+            .into()
+    } else if field.ty == Type::Bool && value.is_int_value() && value.get_type().into_int_type().get_bit_width() == 1 {
+        // Bool field - zero-extend i1 to i64 for storage
+        state.builder.build_int_z_extend(value.into_int_value(), i64_type, "bool_to_i64")
+            .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
+            .into()
+    } else {
+        // Already i64 or pointer (stored as i64)
+        value
+    };
+
+    // Store as i64
+    state.builder.build_store(field_ptr, store_value)
+        .map_err(|e| format!("Failed to store field: {:?}", e))?;
 
     Ok(())
 }

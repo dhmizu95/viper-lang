@@ -59,29 +59,16 @@ fn coerce_return_value<'ctx>(
             return Ok(cast_value.into());
         }
 
-        // Handle i64 -> pointer coercion (e.g., returning 0 or 1 as BigInt)
+        // Handle i64 -> pointer coercion (e.g., returning a stored field value as pointer)
+        // This happens when a method returns a reference type field stored as i64
         if value_type.is_int_type() && expected.is_pointer_type() {
-            // This is likely returning an integer literal where a BigInt is expected
-            // We need to call vp_bigint_from_i64 to convert
-            let i64_type = state.context.i64_type();
-            let bigint_from_i64 = state
-                .module
-                .get_function("vp_bigint_from_i64")
-                .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
-
-            // Ensure the value is i64
-            let i64_value = if value_type.into_int_type() != i64_type {
-                state.builder.build_int_cast(value.into_int_value(), i64_type, "to_i64")
-                    .map_err(|e| format!("int cast failed: {:?}", e))?
-            } else {
-                value.into_int_value()
-            };
-
-            let result = state
-                .ir_builder
-                .build_call(state.builder, bigint_from_i64, &[i64_value.into()], "bigint_from_i64")
-                .expect("bigint_from_i64 call");
-            return Ok(result.into());
+            // Convert i64 back to pointer
+            let ptr_val = state.builder.build_int_to_ptr(
+                value.into_int_value(),
+                expected.into_pointer_type(),
+                "i64_to_ptr",
+            ).map_err(|e| format!("i64 to ptr cast failed: {:?}", e))?;
+            return Ok(ptr_val.into());
         }
 
         // Handle pointer -> i64 coercion (shouldn't happen normally, but for completeness)
@@ -91,6 +78,26 @@ fn coerce_return_value<'ctx>(
                 "Cannot convert pointer to integer in return value. Expected {:?}, got {:?}",
                 expected, value_type
             ));
+        }
+
+        // Handle i64 -> f64 coercion (returning stored float field)
+        if value_type.is_int_type() && expected.is_float_type() {
+            let f64_val = state.builder.build_signed_int_to_float(
+                value.into_int_value(),
+                expected.into_float_type(),
+                "i64_to_f64",
+            ).map_err(|e| format!("i64 to f64 cast failed: {:?}", e))?;
+            return Ok(f64_val.into());
+        }
+
+        // Handle i64 -> bool coercion (returning stored bool field)
+        if value_type.is_int_type() && expected.is_int_type() && expected.into_int_type().get_bit_width() == 1 {
+            let bool_val = state.builder.build_int_truncate_or_bit_cast(
+                value.into_int_value(),
+                expected.into_int_type(),
+                "i64_to_bool",
+            ).map_err(|e| format!("i64 to bool cast failed: {:?}", e))?;
+            return Ok(bool_val.into());
         }
     }
 
