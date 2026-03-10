@@ -161,3 +161,82 @@ test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+// ============================================================================
+// Multiple Assignment - Issue #5 (Future/Low Priority)
+// Note: These tests require tuple support and may fail until that is implemented
+// ============================================================================
+
+#[test]
+fn test_multiple_assignment_basic() {
+    let code = r#"
+def test():
+    a, b = 1, 2
+    print(a)
+    print(b)
+test()
+"#;
+    let result = run_viper_code(code);
+    // This test may fail until tuple support is implemented
+    assert!(result.is_ok(), "Multiple assignment basic test failed: {:?}", result);
+}
+
+#[test]
+fn test_multiple_assignment_with_expressions() {
+    let code = r#"
+def test():
+    x = 10
+    y = 20
+    a, b = x + 1, y + 2
+    print(a)
+    print(b)
+test()
+"#;
+    let result = run_viper_code(code);
+    assert!(result.is_ok(), "Multiple assignment with expressions failed: {:?}", result);
+}
+
+#[test]
+fn test_multiple_assignment_swap() {
+    let code = r#"
+def test():
+    a = 1
+    b = 2
+    a, b = b, a
+    print(a)
+    print(b)
+test()
+"#;
+    let result = run_viper_code(code);
+    assert!(result.is_ok(), "Multiple assignment swap failed: {:?}", result);
+}
+
+#[test]
+fn test_multiple_assignment_three_vars() {
+    let code = r#"
+def test():
+    a, b, c = 1, 2, 3
+    print(a)
+    print(b)
+    print(c)
+test()
+"#;
+    let result = run_viper_code(code);
+    assert!(result.is_ok(), "Multiple assignment three vars failed: {:?}", result);
+}
+
+#[test]
+fn test_multiple_assignment_with_function_return() {
+    let code = r#"
+def get_pair():
+    return 10, 20
+
+def test():
+    x, y = get_pair()
+    print(x)
+    print(y)
+test()
+"#;
+    let result = run_viper_code(code);
+    assert!(result.is_ok(), "Multiple assignment with function return failed: {:?}", result);
+}

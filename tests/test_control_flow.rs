@@ -169,3 +169,190 @@ test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+// ============================================================================
+// For Loops - Issue #4 Fix Verification
+// ============================================================================
+
+#[test]
+fn test_for_range_one_arg() {
+    let code = r#"
+def test():
+    for i in range(3):
+        print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_two_args() {
+    let code = r#"
+def test():
+    for i in range(2, 5):
+        print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_three_args() {
+    let code = r#"
+def test():
+    for i in range(0, 10, 2):
+        print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_multiple_iterations() {
+    let code = r#"
+def test():
+    total = 0
+    for i in range(5):
+        total = total + i
+    print(total)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_with_function_call() {
+    let code = r#"
+def test():
+    for i in range(3):
+        print(i)
+    print(999)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_nested_operations() {
+    let code = r#"
+def test():
+    result = 1
+    for i in range(1, 6):
+        result = result * i
+    print(result)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_zero_iterations() {
+    let code = r#"
+def test():
+    for i in range(0):
+        print(i)
+    print("done")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_single_iteration() {
+    let code = r#"
+def test():
+    for i in range(1):
+        print(i)
+    print("done")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_large_count() {
+    let code = r#"
+def test():
+    count = 0
+    for i in range(100):
+        count = count + 1
+    print(count)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_with_break() {
+    let code = r#"
+def test():
+    for i in range(10):
+        if i == 3:
+            break
+        print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_with_continue() {
+    let code = r#"
+def test():
+    for i in range(5):
+        if i == 2:
+            continue
+        print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_reverse_step() {
+    let code = r#"
+def test():
+    for i in range(10, 0, -1):
+        print(i)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_accumulator() {
+    let code = r#"
+def test():
+    sum = 0
+    for i in range(1, 11):
+        sum = sum + i
+    print(sum)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_string_concat() {
+    let code = r#"
+def test():
+    result = ""
+    for i in range(3):
+        result = result + "x"
+    print(result)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_for_range_fstring() {
+    let code = r#"
+def test():
+    for i in range(3):
+        msg = f"Iteration {i}"
+        print(msg)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}

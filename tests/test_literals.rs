@@ -275,3 +275,251 @@ test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+// ============================================================================
+// Additional F-String Integration Tests (Issue #1)
+// ============================================================================
+
+#[test]
+fn test_fstring_with_bool() {
+    let code = r#"
+def test():
+    flag = True
+    a = f"Flag is {flag}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_fstring_with_float() {
+    let code = r#"
+def test():
+    pi = 3.14
+    a = f"Pi is {pi}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_fstring_with_none() {
+    let code = r#"
+def test():
+    val = None
+    a = f"Value is {val}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_fstring_with_string_variable() {
+    let code = r#"
+def test():
+    greeting = "Hello"
+    a = f"{greeting} World"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_fstring_with_method_call() {
+    let code = r#"
+def get_name():
+    return "Alice"
+
+def test():
+    a = f"Name: {get_name()}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_fstring_with_arithmetic() {
+    let code = r#"
+def test():
+    x = 10
+    y = 5
+    a = f"Result: {x * y}"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_fstring_nested() {
+    let code = r#"
+def test():
+    a = 1
+    b = 2
+    c = 3
+    result = f"Sum: {a + b + c}, Product: {a * b * c}"
+    print(result)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_fstring_with_literal_mix() {
+    let code = r#"
+def test():
+    name = "Bob"
+    a = f"Hello {name}, you are {25 + 5} years old"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+// ============================================================================
+// Additional Bytes Literal Integration Tests (Issue #2)
+// ============================================================================
+
+#[test]
+fn test_bytes_with_escape_sequences() {
+    let code = r#"
+def test():
+    a = b"line1\nline2"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_bytes_with_tab() {
+    let code = r#"
+def test():
+    a = b"col1\tcol2"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_bytes_single_quote() {
+    let code = r#"
+def test():
+    a = b'hello'
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_bytes_mixed_quotes() {
+    let code = r#"
+def test():
+    a = b"it's"
+    b = b'he said "hi"'
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_bytes_long() {
+    let code = r#"
+def test():
+    a = b"this is a longer bytes string for testing purposes"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+// ============================================================================
+// Additional String Concatenation Integration Tests (Issue #3)
+// ============================================================================
+
+#[test]
+fn test_string_concat_multiple() {
+    let code = r#"
+def test():
+    a = "Hello" + " " + "World" + "!"
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_string_concat_with_variables() {
+    let code = r#"
+def test():
+    first = "Hello"
+    second = "World"
+    a = first + " " + second
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_string_concat_empty() {
+    let code = r#"
+def test():
+    a = "" + "hello"
+    b = "hello" + ""
+    c = "" + ""
+    print(a)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_string_concat_long() {
+    let code = r#"
+def test():
+    a = "This is a longer string part one "
+    b = "and this is part two of the string"
+    c = a + b
+    print(c)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_string_concat_chained() {
+    let code = r#"
+def test():
+    a = "A"
+    b = "B"
+    c = "C"
+    d = a + b
+    e = d + c
+    print(e)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_string_concat_with_result() {
+    let code = r#"
+def greet(name):
+    return "Hello " + name
+
+def test():
+    result = greet("World")
+    print(result)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
