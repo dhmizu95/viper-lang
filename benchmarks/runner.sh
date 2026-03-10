@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cross-Language Benchmark Runner (JIT and AOT modes)
-# Compares Viper JIT, Viper AOT, C, Rust, and Go performance
+# Compares Viper JIT, Viper AOT (O1/O2/O3), C, Rust, and Go performance
 
 set -e
 
@@ -16,6 +16,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 NC='\033[0m'
 
 # Benchmark list
@@ -312,6 +313,89 @@ run_all_both() {
     echo -e "${GREEN}========================================${NC}"
 }
 
+# Run comprehensive benchmark with all optimization levels
+run_all_opt_levels() {
+    local name=$1
+
+    echo -e "${MAGENTA}========================================${NC}"
+    echo -e "${MAGENTA}Benchmark: $name (All Opt Levels)${NC}"
+    echo -e "${MAGENTA}========================================${NC}"
+    echo
+
+    # Run and show output (just once for verification)
+    echo "  Output verification:"
+    run_c "$name" || true
+
+    echo
+    echo "  Timing (avg of $ITERATIONS runs):"
+
+    # Viper JIT
+    viper_jit_time=$(run_bench "$VIPER_BIN run -O3 $SCRIPT_DIR/viper/${name}.vp" "$ITERATIONS" 2>/dev/null || echo "N/A")
+
+    # Viper AOT -O1
+    "$VIPER_BIN" build -O1 "$SCRIPT_DIR/viper/${name}.vp" -o "$TMPDIR/bench_viper_o1_$$" 2>/dev/null
+    viper_o1_time=$(run_bench "$TMPDIR/bench_viper_o1_$$_bin" "$ITERATIONS")
+    rm -f "$TMPDIR/bench_viper_o1_$$" "$TMPDIR/bench_viper_o1_$$_bin"
+
+    # Viper AOT -O2
+    "$VIPER_BIN" build -O2 "$SCRIPT_DIR/viper/${name}.vp" -o "$TMPDIR/bench_viper_o2_$$" 2>/dev/null
+    viper_o2_time=$(run_bench "$TMPDIR/bench_viper_o2_$$_bin" "$ITERATIONS")
+    rm -f "$TMPDIR/bench_viper_o2_$$" "$TMPDIR/bench_viper_o2_$$_bin"
+
+    # Viper AOT -O3
+    "$VIPER_BIN" build -O3 "$SCRIPT_DIR/viper/${name}.vp" -o "$TMPDIR/bench_viper_o3_$$" 2>/dev/null
+    viper_o3_time=$(run_bench "$TMPDIR/bench_viper_o3_$$_bin" "$ITERATIONS")
+    rm -f "$TMPDIR/bench_viper_o3_$$" "$TMPDIR/bench_viper_o3_$$_bin"
+
+    # C -O3
+    gcc -O3 -march=native -flto -o "$TMPDIR/bench_c_$$" "$SCRIPT_DIR/c/${name}.c" 2>/dev/null
+    c_time=$(run_bench "$TMPDIR/bench_c_$$" "$ITERATIONS")
+    rm -f "$TMPDIR/bench_c_$$"
+
+    # Rust -O3
+    rustc -C opt-level=3 -C lto=fat -C target-cpu=native -o "$TMPDIR/bench_rs_$$" "$SCRIPT_DIR/rust/${name}.rs" 2>/dev/null
+    rust_time=$(run_bench "$TMPDIR/bench_rs_$$" "$ITERATIONS")
+    rm -f "$TMPDIR/bench_rs_$$"
+
+    # Go
+    go build -ldflags="-s -w" -o "$TMPDIR/bench_go_$$" "$SCRIPT_DIR/go/${name}.go" 2>/dev/null
+    go_time=$(run_bench "$TMPDIR/bench_go_$$" "$ITERATIONS")
+    rm -f "$TMPDIR/bench_go_$$"
+
+    # Print results table
+    printf "\n  %-20s %10s\n" "Language" "Avg Time (ms)"
+    printf "  %-20s %10s\n" "--------------------" "----------"
+    printf "  %-20s %10s\n" "Viper JIT" "$viper_jit_time"
+    printf "  %-20s %10s\n" "Viper AOT -O1" "$viper_o1_time"
+    printf "  %-20s %10s\n" "Viper AOT -O2" "$viper_o2_time"
+    printf "  %-20s %10s\n" "Viper AOT -O3" "$viper_o3_time"
+    printf "  %-20s %10s\n" "C -O3" "$c_time"
+    printf "  %-20s %10s\n" "Rust -O3" "$rust_time"
+    printf "  %-20s %10s\n" "Go" "$go_time"
+    echo
+}
+
+# Run all benchmarks with all optimization levels comparison
+run_all_opt_comparison() {
+    echo -e "${MAGENTA}========================================${NC}"
+    echo -e "${MAGENTA}Cross-Language Benchmark Suite${NC}"
+    echo -e "${MAGENTA}(All Optimization Levels)${NC}"
+    echo -e "${MAGENTA}Iterations: $ITERATIONS${NC}"
+    echo -e "${MAGENTA}Date: $(date '+%Y-%m-%d %H:%M:%S')${NC}"
+    echo -e "${MAGENTA}========================================${NC}"
+    echo
+
+    for bench in "${BENCHMARKS[@]}"; do
+        if [[ -z "$1" || "$1" == "$bench" || "$1" == "all" ]]; then
+            run_all_opt_levels "$bench"
+        fi
+    done
+
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}All optimization level benchmarks complete!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+}
+
 # Show help
 show_help() {
     echo "Usage: $0 [OPTIONS] [BENCHMARK]"
@@ -320,8 +404,9 @@ show_help() {
     echo "  -h, --help          Show this help message"
     echo "  -i, --iterations N  Set number of iterations (default: 3)"
     echo "  --jit               Run JIT benchmarks only (default)"
-    echo "  --aot               Run AOT benchmarks only"
+    echo "  --aot               Run AOT benchmarks only (-O2)"
     echo "  --both              Run both JIT and AOT benchmarks"
+    echo "  --opt-compare       Run all optimization levels (JIT, O1, O2, O3) + C/Rust/Go"
     echo
     echo "Benchmarks:"
     for bench in "${BENCHMARKS[@]}"; do
@@ -354,6 +439,10 @@ while [[ $# -gt 0 ]]; do
             MODE="both"
             shift
             ;;
+        --opt-compare)
+            MODE="opt-compare"
+            shift
+            ;;
         *)
             BENCHMARK_TO_RUN="$1"
             shift
@@ -372,5 +461,8 @@ case $MODE in
         ;;
     both)
         run_all_both "${BENCHMARK_TO_RUN:-all}"
+        ;;
+    opt-compare)
+        run_all_opt_comparison "${BENCHMARK_TO_RUN:-all}"
         ;;
 esac

@@ -141,16 +141,16 @@ pub fn compile_file_aot(
 
         // Build the passes string based on optimization level
         // -O0: No optimization (debug builds)
-        // -O1: Basic optimizations with mem2reg for stack-to-register promotion
-        // -O2: Adds GVN and better inlining
-        // -O3: Aggressive inlining, loop unrolling, and instcombine
-        // Note: LLVM 21 removed slp-vectorize, loop-vectorize, licm, and cg-sccp passes
+        // -O1: Basic optimizations for fast compilation
+        // -O2: Balanced optimizations for production builds
+        // -O3: Aggressive optimizations including full loop unrolling
+        // Note: LLVM 21 default<O1/O2/O3> passes include comprehensive optimization pipelines
         let passes = match opt_level {
             0 => "verify",
-            1 => "default<O1>,mem2reg,instcombine,simplifycfg",
-            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,inline",
-            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,inline,loop-unroll,aggressive-instcombine,coro-early",
-            _ => "default<O1>,mem2reg,instcombine,simplifycfg",
+            1 => "default<O1>",
+            2 => "default<O2>",
+            3 => "default<O3>",
+            _ => "default<O1>",
         };
 
         opt_args.push("--passes");
