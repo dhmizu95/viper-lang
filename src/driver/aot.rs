@@ -7,6 +7,12 @@ use inkwell::OptimizationLevel;
 use std::fs;
 use std::path::Path;
 
+/// Find LLVM tool path - checks environment variable first, then uses default
+fn find_llvm_tool(tool: &str) -> String {
+    std::env::var(format!("LLVM_{}_PATH", tool.to_uppercase()))
+        .unwrap_or_else(|_| format!("/usr/lib/llvm-21/bin/{}", tool))
+}
+
 #[allow(dead_code)]
 pub fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
     compile_file_aot(input_path, 0, output_path, false, false, None)
@@ -156,7 +162,7 @@ pub fn compile_file_aot(
         opt_args.push("--passes");
         opt_args.push(passes);
 
-        let opt_output = std::process::Command::new("/usr/lib/llvm-21/bin/opt")
+        let opt_output = std::process::Command::new(find_llvm_tool("opt"))
             .args(&opt_args)
             .output()
             .map_err(|e| format!("opt failed: {}", e))?;
@@ -412,7 +418,7 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     // 9. loop-unroll: Unroll small loops
     // 10. coro-early: Early coroutine optimization
     // 11. cg-sccp: Interprocedural constant propagation
-    let opt_status = std::process::Command::new("/usr/lib/llvm-21/bin/opt")
+    let opt_status = std::process::Command::new(find_llvm_tool("opt"))
         .args(&[
             "-O3",
             "-mtriple=x86_64-pc-linux-gnu",
