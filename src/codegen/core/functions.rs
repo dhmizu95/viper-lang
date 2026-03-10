@@ -21,8 +21,18 @@ impl<'ctx> CodeGen<'ctx> {
                 // Compute mangled name including closure info
                 // Rename user's main to __user_main to match declaration
                 let func_name = if name == "main" { "__user_main" } else { name };
-                use crate::codegen::functions::infer_param_types_from_body;
-                let param_types = infer_param_types_from_body(params, body);
+                
+                // Use type annotations directly if present, otherwise default to I64
+                // This must match the logic in declare_function_with_closure
+                let param_types: Vec<Type> = params.iter().map(|p| {
+                    if let Some(ref ty) = p.type_ann {
+                        ty.clone()
+                    } else {
+                        // Default to I64 for unannotated parameters (backward compatible)
+                        Type::I64
+                    }
+                }).collect();
+                
                 let mangled_name = mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
                 self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
             }
@@ -103,9 +113,20 @@ impl<'ctx> CodeGen<'ctx> {
             let alloca =
                 self.builder.build_alloca(param_value.get_type(), &param.name).expect("alloca");
             self.builder.build_store(alloca, param_value).expect("store");
-            // Determine VarType from the actual LLVM parameter type, not just the annotation
-            // This handles cases where lists/channels are passed without explicit type annotations
-            let var_type = if param_value.is_pointer_value() {
+            // Determine VarType from the type annotation if present, otherwise from the LLVM parameter type
+            // This ensures correct type handling even if there's a mismatch in the function signature
+            let var_type = if let Some(ref ty) = param.type_ann {
+                // Use type annotation to determine VarType
+                match ty {
+                    Type::F32 | Type::F64 => VarType::Float,
+                    Type::Bool => VarType::Bool,
+                    Type::Bytes => VarType::Bytes,
+                    Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_)
+                    | Type::Fn(_, _) | Type::Optional(_) | Type::Chan(_) | Type::WaitGroup
+                    | Type::Future(_) => VarType::Pointer,
+                    _ => VarType::Int,
+                }
+            } else if param_value.is_pointer_value() {
                 VarType::Pointer
             } else if param_value.is_float_value() {
                 VarType::Float

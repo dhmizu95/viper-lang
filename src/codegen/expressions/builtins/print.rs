@@ -204,21 +204,12 @@ pub fn generate_print_call<'ctx>(
                     .build_call(print_func, &[val.into()], "print_list")
                     .expect("vp_list_print");
             } else {
-                // Check if this is a C string literal (char*) vs ViperString*
-                // C string literals are global constants, ViperString* are allocated
-                let is_cstr = matches!(arg, Expr::Str(_, _) | Expr::FString(_, _));
-                
-                let print_func = if is_cstr {
-                    state
-                        .module
-                        .get_function("vp_print_cstr")
-                        .ok_or_else(|| "vp_print_cstr not declared".to_string())?
-                } else {
-                    state
-                        .module
-                        .get_function("vp_print_viper_str")
-                        .ok_or_else(|| "vp_print_viper_str not declared".to_string())?
-                };
+                // All pointer values that aren't list/dict/bytes are ViperString*
+                // Use vp_print_viper_str for ViperString* objects
+                let print_func = state
+                    .module
+                    .get_function("vp_print_viper_str")
+                    .ok_or_else(|| "vp_print_viper_str not declared".to_string())?;
                 state
                     .builder
                     .build_call(print_func, &[val.into()], "print_str")

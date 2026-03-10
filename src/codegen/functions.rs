@@ -123,25 +123,24 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return Type::List(Box::new(Type::Infer));
             }
 
-            // Check if parameter is used in arithmetic/comparison operations (indicating scalar)
-            if param_is_used_as_scalar(&param.name, body) {
-                return Type::I64;
+            // Check if parameter is passed to list-specific functions (indicating list type)
+            if param_is_passed_to_list_function(&param.name, body) {
+                return Type::List(Box::new(Type::Infer));
             }
+
+            // Check if parameter is used in arithmetic/comparison operations (indicating scalar)
+            // Disabled for now - passing to functions like print() shouldn't indicate scalar
+            // if param_is_used_as_scalar(&param.name, body) {
+            //     return Type::I64;
+            // }
 
             // Check if parameter is used with BigInt (assigned or compared with BigInt literals)
             if param_is_used_as_bigint(&param.name, body) {
                 return Type::BigInt;
             }
 
-            // Also check if parameter is passed to another function (indicating reference type)
-            // This is a fallback for parameters that are only passed through
-            // Exclude built-in functions that accept any type (print, len, str, etc.)
-            if param_is_passed_to_list_function(&param.name, body) {
-                return Type::List(Box::new(Type::Infer));
-            }
-
-            // Default to I64 for unannotated parameters
-            Type::I64
+            // Default to Str (pointer) for unannotated parameters to handle string/reference types
+            Type::Str
         })
         .collect()
 }
@@ -357,9 +356,10 @@ fn expr_contains_scalar_usage(param_name: &str, expr: &Expr) -> bool {
             }
             expr_contains_scalar_usage(param_name, obj)
         }
-        // Function calls - check arguments but passing to function doesn't indicate scalar
-        Expr::Call { args, .. } => {
-            args.iter().any(|arg| expr_contains_scalar_usage(param_name, arg))
+        // Function calls - passing a parameter to a function doesn't indicate scalar usage
+        // We only check the function expression itself (for method calls like obj.method())
+        Expr::Call { func, .. } => {
+            expr_contains_scalar_usage(param_name, func)
         }
         Expr::Attribute { obj, .. } => expr_contains_scalar_usage(param_name, obj),
         _ => false,
@@ -524,7 +524,8 @@ pub fn declare_function<'ctx>(
     let param_types = if let Some(body) = body {
         infer_param_types_from_body(params, body)
     } else {
-        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect()
+        // Default to Str (pointer) for unannotated parameters to handle string/reference types
+        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Str)).collect()
     };
 
     let param_llvm_types: Vec<_> = param_types
@@ -578,11 +579,19 @@ pub fn declare_function_with_closure<'ctx>(
     // First declare with regular params
     let normalized_return_type = return_type.as_ref().map(|t| normalize_type(t));
 
-    let param_types = if let Some(body) = body {
-        infer_param_types_from_body(params, body)
-    } else {
-        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect()
-    };
+    // Use type annotations directly if present, otherwise infer from body
+    let param_types: Vec<Type> = params.iter().map(|p| {
+        if let Some(ref ty) = p.type_ann {
+            ty.clone()
+        } else if let Some(body) = body {
+            // Infer from body for unannotated parameters
+            // For now, default to I64 for unannotated params to maintain backward compatibility
+            Type::I64
+        } else {
+            // Default to I64 for unannotated parameters (backward compatible)
+            Type::I64
+        }
+    }).collect();
 
     // Build LLVM parameter types for regular params
     let mut param_llvm_types: Vec<_> = param_types
