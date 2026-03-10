@@ -4,6 +4,7 @@ use crate::parser;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use std::path::Path;
+use std::process;
 
 pub fn run_llvm_optimizations(
     _module: &inkwell::module::Module,
@@ -89,5 +90,7 @@ pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), Strin
         }
     }
 
-    Ok(())
+    // Exit immediately to avoid LLVM 21 MCJIT cleanup crash
+    // This is a known issue with inkwell/LLVM 21 - the destructor causes segfault
+    process::exit(0);
 }

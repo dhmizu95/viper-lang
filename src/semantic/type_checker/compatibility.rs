@@ -105,6 +105,62 @@ impl TypeChecker {
                 variants.iter().any(|variant| self.is_compatible(expected, variant))
             }
 
+            // Result type compatibility
+            (Type::Result(ok1, err1), Type::Result(ok2, err2)) => {
+                self.is_compatible(ok1, ok2) && self.is_compatible(err1, err2)
+            }
+
+            // Dict type compatibility
+            (Type::Dict(k1, v1), Type::Dict(k2, v2)) => {
+                self.is_compatible(k1, k2) && self.is_compatible(v1, v2)
+            }
+
+            // Optional type compatibility
+            (Type::Optional(inner1), Type::Optional(inner2)) => {
+                self.is_compatible(inner1, inner2)
+            }
+            // None is compatible with Optional[T]
+            (Type::Optional(_), Type::None) => true,
+
+            // GenericApp compatibility (for any remaining generic applications)
+            (Type::GenericApp { name: n1, type_args: args1 }, Type::GenericApp { name: n2, type_args: args2 }) => {
+                if n1 != n2 || args1.len() != args2.len() {
+                    return false;
+                }
+                args1.iter().zip(args2.iter()).all(|(a1, a2)| self.is_compatible(a1, a2))
+            }
+
+            // Class/Instance compatibility
+            (Type::Instance(name1), Type::Instance(name2)) => name1 == name2,
+            (Type::Class(name1), Type::Class(name2)) => name1 == name2,
+            // Instance can match Class of same name
+            (Type::Instance(name1), Type::Class(name2)) => name1 == name2,
+            (Type::Class(name1), Type::Instance(name2)) => name1 == name2,
+            // All classes inherit from Object
+            (Type::Object, Type::Instance(_)) => true,
+            (Type::Object, Type::Class(_)) => true,
+            (Type::Instance(_), Type::Object) => true,
+            (Type::Class(_), Type::Object) => true,
+
+            // Method compatibility
+            (Type::Method { class_name: c1, method_name: m1, params: p1, return_type: r1, is_bound: b1 },
+             Type::Method { class_name: c2, method_name: m2, params: p2, return_type: r2, is_bound: b2 }) => {
+                c1 == c2 && m1 == m2 && b1 == b2 &&
+                p1.len() == p2.len() &&
+                p1.iter().zip(p2.iter()).all(|(a1, a2)| self.is_compatible(a1, a2)) &&
+                self.is_compatible(r1, r2)
+            }
+
+            // Struct compatibility
+            (Type::Struct { name: n1, fields: f1 }, Type::Struct { name: n2, fields: f2 }) => {
+                if n1 != n2 || f1.len() != f2.len() {
+                    return false;
+                }
+                f1.iter().zip(f2.iter()).all(|((name1, t1), (name2, t2))| {
+                    name1 == name2 && self.is_compatible(t1, t2)
+                })
+            }
+
             // TODO: handle user-defined types and interfaces
             _ => false,
         }
