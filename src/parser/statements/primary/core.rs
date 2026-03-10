@@ -261,15 +261,18 @@ pub fn parse_value_expr(parser: &mut StatementParser) -> Result<Expr, String> {
 
 /// Parse a value expression or tuple of values
 /// Used for assignment right-hand sides: a, b = 1, 2
+/// Also supports expressions in tuples: a, b = x + 1, y + 2
 pub fn parse_value_or_tuple(parser: &mut StatementParser) -> Result<Expr, String> {
-    let first = parse_primary_expr(parser)?;
+    // Parse first element as a full expression (not just primary)
+    let first = parse_value_expr(parser)?;
 
     // Check for comma - indicates a tuple
     if parser.match_token(&TokenKind::Comma) {
         let first_span = first.span();
         let mut elements = vec![first];
         loop {
-            elements.push(parse_primary_expr(parser)?);
+            // Each tuple element can be a full expression
+            elements.push(parse_value_expr(parser)?);
             if !parser.match_token(&TokenKind::Comma) {
                 break;
             }
@@ -279,8 +282,8 @@ pub fn parse_value_or_tuple(parser: &mut StatementParser) -> Result<Expr, String
         return Ok(Expr::Tuple { elements, span: merged_span });
     }
 
-    // Otherwise parse as a regular value expression
-    parse_value_expr_with_left(parser, first)
+    // No comma - just a single value expression
+    Ok(first)
 }
 
 pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> {

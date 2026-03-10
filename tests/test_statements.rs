@@ -164,9 +164,10 @@ test()
 
 // ============================================================================
 // Multiple Assignment - Issue #5
-// Basic tuple unpacking is now supported. Remaining limitations:
-// - Expressions in tuple assignment (e.g., a, b = x + 1, y + 2)
-// - Function returns as tuple source (e.g., x, y = get_pair())
+// Basic tuple unpacking is now supported including:
+// - Literal tuples: a, b = 1, 2
+// - Expression tuples: a, b = x + 1, y + 2
+// - Function returns: x, y = get_pair()
 // ============================================================================
 
 #[test]
@@ -182,7 +183,6 @@ test()
 }
 
 #[test]
-#[ignore = "Expressions in tuple assignment not yet supported (Issue #5)"]
 fn test_multiple_assignment_with_expressions() {
     let code = r#"
 def test():
@@ -193,8 +193,7 @@ def test():
     print(b)
 test()
 "#;
-    let result = run_viper_code(code);
-    assert!(result.is_ok(), "Multiple assignment with expressions failed: {:?}", result);
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
@@ -225,7 +224,6 @@ test()
 }
 
 #[test]
-#[ignore = "Function return tuple unpacking not yet supported (Issue #5)"]
 fn test_multiple_assignment_with_function_return() {
     let code = r#"
 def get_pair():
@@ -237,6 +235,5 @@ def test():
     print(y)
 test()
 "#;
-    let result = run_viper_code(code);
-    assert!(result.is_ok(), "Multiple assignment with function return failed: {:?}", result);
+    assert!(run_viper_code(code).is_ok());
 }

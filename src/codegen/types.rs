@@ -115,14 +115,10 @@ impl<'ctx> TypeMapper<'ctx> {
             | Some(Type::Optional(_)) => {
                 Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
             }
-            Some(Type::Tuple(types)) => {
-                let field_types: Vec<BasicTypeEnum<'ctx>> =
-                    types.iter().map(|t| self.llvm_type(t)).collect();
-                if field_types.is_empty() {
-                    Some(self.context.i64_type().into())
-                } else {
-                    Some(self.context.struct_type(&field_types, false).into())
-                }
+            Some(Type::Tuple(_types)) => {
+                // Tuples are heap-allocated via vp_tuple_create, return as pointer
+                // This is consistent with tuple literals and enables tuple unpacking from function returns
+                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
             }
             Some(Type::None) | None => None,
             // Result type is returned by value as a struct { is_ok: i8, value: i64 }
