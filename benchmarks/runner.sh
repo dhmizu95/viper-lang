@@ -57,13 +57,13 @@ check_prereqs() {
 
 # Time a benchmark run
 run_bench() {
-    local binary=$1
+    local cmd=$1
     local runs=$2
-    
+
     total_ns=0
     for i in $(seq 1 $runs); do
         start=$(date +%s%N)
-        "$binary" > /dev/null 2>&1
+        eval "$cmd" > /dev/null 2>&1
         end=$(date +%s%N)
         elapsed=$((end - start))
         total_ns=$((total_ns + elapsed))
