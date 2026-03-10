@@ -455,6 +455,7 @@ ViperList* vp_list_repeat(int64_t elem, int64_t count) {
         for (int64_t i = 0; i < count; i++) {
             data[i] = elem;
         }
+        list->length = count;
     } else {
         /* Standard fill */
         for (int64_t i = 0; i < count; i++) {

@@ -228,12 +228,69 @@ pub fn generate_index<'ctx>(
     // For non-list pointers (strings, arrays), use array indexing
     if is_pointer_type {
         let obj_ptr = obj_val.into_pointer_value();
-        // For strings, element type is i8 (char); for arrays, it depends on the array type
-        // Default to i8 for strings
-        let elem_type = state.context.i8_type();
+        
+        // Determine element type based on the object
+        let elem_type: inkwell::types::BasicTypeEnum = match obj {
+            Expr::Ident(name, _) => {
+                // Check var_types for array type
+                if let Some(var_type) = state.var_types.get(name) {
+                    match var_type {
+                        Type::Array(inner, _) => {
+                            match &**inner {
+                                Type::I64 | Type::I32 | Type::I16 | Type::I8 | Type::Int => state.context.i64_type().into(),
+                                Type::F64 | Type::F32 => state.context.f64_type().into(),
+                                Type::Bool => state.context.bool_type().into(),
+                                _ => state.context.i64_type().into(),
+                            }
+                        }
+                        _ => state.context.i8_type().into(), // Default to i8 for strings
+                    }
+                } else {
+                    state.context.i8_type().into()
+                }
+            }
+            Expr::Array { elements, .. } => {
+                // Infer from first element
+                if let Some(first) = elements.first() {
+                    match first {
+                        Expr::Int(_, _) => state.context.i64_type().into(),
+                        Expr::Float(_, _) => state.context.f64_type().into(),
+                        Expr::Bool(_, _) => state.context.bool_type().into(),
+                        _ => state.context.i8_type().into(),
+                    }
+                } else {
+                    state.context.i8_type().into()
+                }
+            }
+            _ => state.context.i8_type().into(), // Default to i8 for strings
+        };
 
-        let elem_ptr = unsafe {
-            state.builder.build_in_bounds_gep(elem_type, obj_ptr, &[index_val], "array_elem")
+        let elem_ptr = if elem_type == state.context.i8_type().into() {
+            // String indexing - use i8 GEP
+            unsafe {
+                state.builder.build_in_bounds_gep(elem_type.into_int_type(), obj_ptr, &[index_val], "string_elem")
+            }
+        } else {
+            // Array indexing - need to cast pointer to correct element type first
+            let elem_ptr_type = match elem_type {
+                inkwell::types::BasicTypeEnum::IntType(it) => it.ptr_type(inkwell::AddressSpace::default()),
+                inkwell::types::BasicTypeEnum::FloatType(ft) => ft.ptr_type(inkwell::AddressSpace::default()),
+                inkwell::types::BasicTypeEnum::ArrayType(at) => at.ptr_type(inkwell::AddressSpace::default()),
+                inkwell::types::BasicTypeEnum::VectorType(vt) => vt.ptr_type(inkwell::AddressSpace::default()),
+                inkwell::types::BasicTypeEnum::StructType(st) => st.ptr_type(inkwell::AddressSpace::default()),
+                inkwell::types::BasicTypeEnum::PointerType(pt) => pt,
+                inkwell::types::BasicTypeEnum::ScalableVectorType(svt) => svt.ptr_type(inkwell::AddressSpace::default()),
+            };
+            
+            let typed_ptr = state.builder.build_pointer_cast(
+                obj_ptr,
+                elem_ptr_type,
+                "typed_array_ptr",
+            ).map_err(|e| format!("Failed to cast array pointer: {:?}", e))?;
+
+            unsafe {
+                state.builder.build_in_bounds_gep(elem_type, typed_ptr, &[index_val], "array_elem")
+            }
         }
         .map_err(|e| format!("Failed to build array index GEP: {:?}", e))?;
 
@@ -242,15 +299,33 @@ pub fn generate_index<'ctx>(
             .build_load(elem_type, elem_ptr, "array_load")
             .map_err(|e| format!("Failed to load array element: {:?}", e))?;
 
-        // Cast i8 to i64 for compatibility with print() and other functions
-        let int_val = loaded.into_int_value();
+        // Convert to i64 for compatibility with print() and other functions
+        let result: BasicValueEnum = match elem_type {
+            inkwell::types::BasicTypeEnum::IntType(it) => {
+                if it.get_bit_width() < 64 {
+                    let int_val = loaded.into_int_value();
+                    state
+                        .builder
+                        .build_int_z_extend(int_val, state.context.i64_type(), "extend_to_i64")
+                        .map_err(|e| format!("Failed to extend to i64: {:?}", e))?
+                        .into()
+                } else {
+                    loaded
+                }
+            }
+            inkwell::types::BasicTypeEnum::FloatType(_) => {
+                // Float to i64 conversion (bitcast for tagged representation)
+                let float_val = loaded.into_float_value();
+                state
+                    .builder
+                    .build_float_to_signed_int(float_val, state.context.i64_type(), "f64_to_i64")
+                    .map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
+                    .into()
+            }
+            _ => loaded,
+        };
 
-        let extended = state
-            .builder
-            .build_int_z_extend(int_val, state.context.i64_type(), "char_to_i64")
-            .map_err(|e| format!("Failed to extend char to i64: {:?}", e))?;
-
-        return Ok(extended.into());
+        return Ok(result);
     }
 
     // Fall back to list indexing for any remaining cases
