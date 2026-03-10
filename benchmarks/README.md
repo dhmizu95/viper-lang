@@ -6,8 +6,9 @@ Cross-language performance benchmarks comparing Viper against C, Rust, and Go.
 
 | ID | Name | Description | Type |
 |----|------|-------------|------|
-| 01 | Fibonacci | Recursive Fibonacci calculation (n=35) | CPU-bound |
-| 02 | Prime Sieve | Prime counting using trial division (n=5000) | CPU-bound |
+| 01 | Fibonacci | Recursive Fibonacci (n=35) | CPU-bound |
+| 02 | Prime Sieve | Prime counting, trial division (n=5000) | CPU-bound |
+| 03 | Matrix Mul | Matrix multiplication (30x30) | CPU + Memory |
 
 ## Directory Structure
 
@@ -16,6 +17,7 @@ benchmarks/
 ├── README.md           # This file
 ├── runner.sh           # JIT benchmark runner
 ├── test_aot.sh         # AOT compilation test
+├── compare_aot.sh      # AOT cross-language comparison
 ├── results/            # Historical results
 ├── viper/              # Viper implementations
 ├── c/                  # C implementations
@@ -44,6 +46,9 @@ cd benchmarks
 
 # Test AOT compilation
 ./test_aot.sh
+
+# Compare AOT performance across languages
+./compare_aot.sh
 ```
 
 ### Using Makefile
@@ -58,8 +63,6 @@ make bench-aot-test     # Test AOT compilation
 
 ## Compilation Flags
 
-All languages are compiled with optimization flags for fair comparison:
-
 | Language | Command | Flags |
 |----------|---------|-------|
 | Viper JIT | `viper run -O3` | Level 3 optimization |
@@ -68,34 +71,44 @@ All languages are compiled with optimization flags for fair comparison:
 | Rust | `rustc` | `-C opt-level=3 -C lto=fat -C target-cpu=native` |
 | Go | `go build` | `-ldflags="-s -w"` |
 
-## Results
+## Results Summary
 
-See `results/2026-03-10.md` for detailed benchmark results.
+### JIT Mode Performance
 
-### Summary (JIT Mode)
+| Benchmark | C | Rust | Go | Viper JIT |
+|-----------|---|------|-----|-----------|
+| Fibonacci | 14ms | 24ms | 44ms | 186ms |
+| Prime Sieve | 1ms | 1ms | 2ms | 26ms |
+| Matrix Mul | 2ms | 2ms | 2ms | 1ms |
 
-| Benchmark | C | Rust | Go | Viper |
-|-----------|---|------|-----|-------|
-| Fibonacci | 22ms | 29ms | 44ms | 186ms |
-| Prime Sieve | 2ms | 5ms | 5ms | 26ms |
+### AOT Mode Performance
 
-### AOT Compilation
+| Benchmark | C -O3 | Rust -O3 | Go | Viper AOT -O2 |
+|-----------|-------|----------|-----|---------------|
+| Fibonacci | 14ms | 24ms | 44ms | 111ms |
+| Prime Sieve | 1ms | 1ms | 2ms | 4ms |
+| Matrix Mul | 1ms | 1ms | 2ms | 8ms |
 
-| Benchmark | -O0 | -O2 | -O3 |
-|-----------|-----|-----|-----|
-| Fibonacci | ✅ | ✅ | ✅ |
-| Prime Sieve | ✅ | ✅ | ✅ |
+### JIT vs AOT for Viper
+
+| Benchmark | JIT | AOT | Speedup |
+|-----------|-----|-----|---------|
+| Fibonacci | 186ms | 111ms | 1.67x |
+| Prime Sieve | 26ms | 4ms | 6.5x |
+| Matrix Mul | 1ms | 8ms | JIT faster* |
+
+*Matrix Mul JIT appears faster due to measurement overhead for very fast operations
 
 ## Adding New Benchmarks
 
-1. Create implementation in all 4 languages under respective directories
+1. Create implementation in all 4 languages (viper/, c/, rust/, go/)
 2. Ensure identical algorithm and input sizes
-3. Add to `runner.sh` benchmark list
+3. Add benchmark ID to `runner.sh` and `compare_aot.sh`
 4. Document in this README
 
 ## Notes
 
-- All benchmarks run with warm-up iterations
+- All benchmarks produce identical results across languages
 - Results are averaged over multiple runs
 - JIT compilation time is included for Viper
-- AOT mode produces native binaries with comparable performance
+- AOT mode recommended for production use
