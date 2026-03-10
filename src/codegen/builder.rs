@@ -142,6 +142,17 @@ impl<'ctx> IRBuilder<'ctx> {
         builder.build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, name).expect("lt")
     }
 
+    /// Build a comparison (greater than)
+    pub fn build_icmp_gt(
+        &self,
+        builder: &inkwell::builder::Builder<'ctx>,
+        lhs: IntValue<'ctx>,
+        rhs: IntValue<'ctx>,
+        name: &str,
+    ) -> IntValue<'ctx> {
+        builder.build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, name).expect("gt")
+    }
+
     /// Build a conditional branch
     pub fn build_cond_branch(
         &self,
