@@ -228,6 +228,12 @@ impl<'ctx> CodeGen<'ctx> {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.bool_const(false)));
                 }
+                // For pointer return types (str, list, object, etc.), return null pointer
+                Some(Type::Str) | Some(Type::Bytes) | Some(Type::List(_)) | Some(Type::Dict(_, _)) 
+                | Some(Type::Class(_)) | Some(Type::Instance(_)) | Some(Type::Infer) => {
+                    self.ir_builder
+                        .build_return(&self.builder, Some(&self.context.ptr_type(inkwell::AddressSpace::default()).const_null()));
+                }
                 // For functions with no explicit return type (None),
                 // check LLVM signature: main() returns i64, others return void
                 None => {
@@ -454,6 +460,17 @@ impl<'ctx> CodeGen<'ctx> {
                                 }
                             }
 
+                            // For methods without return type annotation, use pointer type as default
+                            // This allows the method to return any reference type (str, list, object, etc.)
+                            // Exception: __init__ methods should have None (void) return type
+                            let method_return_type = if method_name == "__init__" {
+                                Some(Type::None)
+                            } else if return_type.as_ref().map_or(true, |t| matches!(t, Type::None)) {
+                                Some(Type::Str)
+                            } else {
+                                return_type.clone()
+                            };
+
                             // Just create a forward declaration without body-based name mangling
                             crate::codegen::functions::declare_function_simple(
                                 self.context,
@@ -462,7 +479,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.functions,
                                 &mangled_name,
                                 &method_params,
-                                return_type,
+                                &method_return_type,
                             )?;
                         }
                     }

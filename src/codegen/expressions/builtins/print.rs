@@ -166,16 +166,15 @@ pub fn generate_print_call<'ctx>(
                     )
                     .expect("vp_bigint_to_str");
 
-                // str() returns the tagged int value directly
-                // Use tagged_int_print to display it
+                // vp_bigint_to_str returns a C string (char*), use vp_print_cstr to print it
                 let print_func = state
                     .module
-                    .get_function("tagged_int_print")
-                    .ok_or_else(|| "tagged_int_print not declared".to_string())?;
+                    .get_function("vp_print_cstr")
+                    .ok_or_else(|| "vp_print_cstr not declared".to_string())?;
                 state
                     .builder
                     .build_call(print_func, &[c_str_val.into()], "print_bigint_str")
-                    .expect("tagged_int_print");
+                    .expect("vp_print_cstr");
             } else if is_bytes_arg {
                 // Print bytes using vp_bytes_print
                 let print_func = state

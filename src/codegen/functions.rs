@@ -648,7 +648,10 @@ pub fn declare_function_simple<'ctx>(
             if i == 0 && p.name == "self" {
                 context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum().into()
             } else {
-                let ty = p.type_ann.clone().unwrap_or(Type::I64);
+                // For parameters without type annotation, use pointer type as default
+                // This allows unannotated parameters to accept any reference type (str, list, etc.)
+                // and is compatible with Viper's dynamic typing for unannotated params
+                let ty = p.type_ann.clone().unwrap_or(Type::Str);
                 type_mapper.llvm_type(&ty).as_basic_type_enum().into()
             }
         })
