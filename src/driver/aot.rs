@@ -142,13 +142,14 @@ pub fn compile_file_aot(
         // Build the passes string based on optimization level
         // -O0: No optimization (debug builds)
         // -O1: Basic optimizations with mem2reg for stack-to-register promotion
-        // -O2: Adds vectorization, GVN, and better inlining
-        // -O3: Aggressive vectorization, loop unrolling, and SLP vectorization
+        // -O2: Adds GVN and better inlining
+        // -O3: Aggressive inlining, loop unrolling, and instcombine
+        // Note: LLVM 21 removed slp-vectorize, loop-vectorize, licm, and cg-sccp passes
         let passes = match opt_level {
             0 => "verify",
-            1 => "default<O1>,mem2reg,instcombine,simplifycfg,licm",
-            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,licm,loop-vectorize,slp-vectorize,inline",
-            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,licm,loop-vectorize,slp-vectorize,inline,loop-unroll,aggressive-instcombine,coro-early,cg-sccp",
+            1 => "default<O1>,mem2reg,instcombine,simplifycfg",
+            2 => "default<O2>,mem2reg,instcombine,simplifycfg,gvn,inline",
+            3 => "default<O3>,mem2reg,instcombine,simplifycfg,gvn,inline,loop-unroll,aggressive-instcombine,coro-early",
             _ => "default<O1>,mem2reg,instcombine,simplifycfg",
         };
 
@@ -304,10 +305,8 @@ pub fn link_with_gcc(
     // Add output
     args.extend_from_slice(&["-o".to_string(), bin_path.to_string()]);
 
-    // Add runtime.o for additional runtime functions (only if using local path)
-    if runtime_path.starts_with(".") {
-        args.push(format!("{}/runtime.o", runtime_path));
-    }
+    // Note: Don't add runtime.o separately - libviper.a already contains all runtime symbols
+    // Adding both causes duplicate symbol errors (e.g., vp_print_str defined in both)
 
     // Add library path and libraries
     args.extend_from_slice(&[

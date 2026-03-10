@@ -426,7 +426,8 @@ TaggedInt tagged_int_div(TaggedInt a, TaggedInt b) {
 }
 
 TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b) {
-    ViperBigInt* a_big = tagged_int_get_bigint(a);
+    /* Handle both SmallInt and BigInt for operand a */
+    ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
     ViperBigInt* b_big = tagged_int_to_bigint(b);
     ViperBigInt* result = alloc_bigint_for_tagged();
 
@@ -437,17 +438,19 @@ TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b) {
         } else {
             mpz_tdiv_r(result->value, a_big->value, b_big->value);
         }
-        
+
         /* Try to demote result back to SmallInt */
         TaggedInt demoted = try_demote_bigint(result->value);
         if (demoted != 0) {
             // mpz_clear handled by ARC destructor
             free_bigint_for_tagged(result);
+            free_temp_bigint(a_big);
             free_temp_bigint(b_big);
             return demoted;
         }
     }
 
+    free_temp_bigint(a_big);
     free_temp_bigint(b_big);
 
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
@@ -919,7 +922,7 @@ const char* vp_str_data_inline(MinimalViperString* s) {
 }
 
 /* Print a C string (for use by print() builtin with str() result) */
-void vp_print_str(const char* val) {
+void vp_print_cstr(const char* val) {
     if (!val) {
         printf("(null)");
         return;

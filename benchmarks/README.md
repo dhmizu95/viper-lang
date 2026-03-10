@@ -6,15 +6,16 @@ Cross-language performance benchmarks comparing Viper against C, Rust, and Go.
 
 | ID | Name | Description | Type |
 |----|------|-------------|------|
-| 01 | Fibonacci | Recursive Fibonacci calculation | CPU-bound |
-| 02 | QuickSort | Array sorting algorithm | Memory + CPU |
+| 01 | Fibonacci | Recursive Fibonacci calculation (n=35) | CPU-bound |
+| 02 | Prime Sieve | Prime counting using trial division (n=5000) | CPU-bound |
 
 ## Directory Structure
 
 ```
 benchmarks/
 ├── README.md           # This file
-├── runner.sh           # Benchmark runner script
+├── runner.sh           # JIT benchmark runner
+├── test_aot.sh         # AOT compilation test
 ├── results/            # Historical results
 ├── viper/              # Viper implementations
 ├── c/                  # C implementations
@@ -34,24 +35,25 @@ benchmarks/
 ### Quick Start
 
 ```bash
-# Run all benchmarks
+# Run all JIT benchmarks
 cd benchmarks
 ./runner.sh
 
 # Run specific benchmark
 ./runner.sh 01_fibonacci
 
-# Run with custom iterations
-./runner.sh --iterations 10
+# Test AOT compilation
+./test_aot.sh
 ```
 
 ### Using Makefile
 
 ```bash
 # From project root
-make bench-all          # Run all benchmarks
+make bench-all          # Run all JIT benchmarks
 make bench-fibonacci    # Run Fibonacci only
-make bench-compare      # Run and compare all languages
+make bench-compare      # Run with 10 iterations
+make bench-aot-test     # Test AOT compilation
 ```
 
 ## Compilation Flags
@@ -60,18 +62,29 @@ All languages are compiled with optimization flags for fair comparison:
 
 | Language | Command | Flags |
 |----------|---------|-------|
-| Viper | `viper run -O3` | Level 3 optimization |
+| Viper JIT | `viper run -O3` | Level 3 optimization |
+| Viper AOT | `viper build -O2` | Level 2 optimization |
 | C | `gcc` | `-O3 -march=native -flto` |
 | Rust | `rustc` | `-C opt-level=3 -C lto=fat -C target-cpu=native` |
 | Go | `go build` | `-ldflags="-s -w"` |
 
-## Results Format
+## Results
 
-Results are stored in `results/YYYY-MM-DD.md` with:
+See `results/2026-03-10.md` for detailed benchmark results.
 
-- Execution time (milliseconds)
-- Relative performance (vs fastest)
-- Memory usage (when available)
+### Summary (JIT Mode)
+
+| Benchmark | C | Rust | Go | Viper |
+|-----------|---|------|-----|-------|
+| Fibonacci | 22ms | 29ms | 44ms | 186ms |
+| Prime Sieve | 2ms | 5ms | 5ms | 26ms |
+
+### AOT Compilation
+
+| Benchmark | -O0 | -O2 | -O3 |
+|-----------|-----|-----|-----|
+| Fibonacci | ✅ | ✅ | ✅ |
+| Prime Sieve | ✅ | ✅ | ✅ |
 
 ## Adding New Benchmarks
 
@@ -84,30 +97,5 @@ Results are stored in `results/YYYY-MM-DD.md` with:
 
 - All benchmarks run with warm-up iterations
 - Results are averaged over multiple runs
-- JIT compilation time is excluded for Viper
-
-## AOT Compilation Status
-
-⚠️ **Known Issue**: AOT compilation has a linking issue with duplicate runtime symbols (`vp_print_str` is defined in both `runtime.o` and `libviper.a`).
-
-### Workaround
-
-Until this is fixed, use JIT mode for running benchmarks:
-
-```bash
-# JIT mode (works correctly)
-viper run -O3 benchmarks/viper/01_fibonacci.vp
-
-# AOT mode (has linking issue)
-viper build -O0 benchmarks/viper/01_fibonacci.vp  # Will fail at linking stage
-```
-
-### AOT Test Script
-
-To test AOT compilation status:
-
-```bash
-cd benchmarks
-./test_aot.sh
-```
-
+- JIT compilation time is included for Viper
+- AOT mode produces native binaries with comparable performance
