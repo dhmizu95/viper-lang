@@ -49,6 +49,10 @@ check_prereqs() {
         exit 1
     fi
 
+    if ! command -v /usr/bin/time &> /dev/null; then
+        echo -e "${YELLOW}Warning: /usr/bin/time not found, memory metrics disabled${NC}"
+    fi
+
     if [ ! -f "$VIPER_BIN" ]; then
         echo -e "${YELLOW}Warning: Viper binary not found. Building...${NC}"
         cd "$PROJECT_ROOT" && cargo build --release
@@ -58,22 +62,61 @@ check_prereqs() {
     echo
 }
 
-# Time a benchmark run
-run_bench() {
+# Time a benchmark run and measure memory (returns: time_ms,mem_kb)
+run_bench_with_mem() {
     local cmd=$1
     local runs=$2
+    local output_file="$TMPDIR/bench_out_$$"
 
-    total_ns=0
+    total_ms_int=0
+    total_mem_kb=0
+    valid_runs=0
+
     for i in $(seq 1 $runs); do
-        start=$(date +%s%N)
-        eval "$cmd" > /dev/null 2>&1
-        end=$(date +%s%N)
-        elapsed=$((end - start))
-        total_ns=$((total_ns + elapsed))
+        if command -v /usr/bin/time &> /dev/null; then
+            # Use GNU time for memory measurement
+            /usr/bin/time -f "%e %M" -o "$output_file" sh -c "$cmd" > /dev/null 2>&1 || true
+            if [ -f "$output_file" ] && [ -s "$output_file" ]; then
+                read elapsed_sec mem_kb < "$output_file"
+                # Skip if command crashed (mem_kb would be 0 or invalid)
+                if [ -n "$elapsed_sec" ] && [ -n "$mem_kb" ] && [ "$mem_kb" -gt 0 ] 2>/dev/null; then
+                    elapsed_ms_int=$(awk "BEGIN {printf \"%.0f\", $elapsed_sec * 1000}")
+                    total_ms_int=$((total_ms_int + elapsed_ms_int))
+                    total_mem_kb=$((total_mem_kb + mem_kb))
+                    valid_runs=$((valid_runs + 1))
+                fi
+            fi
+        else
+            # Fallback without memory measurement
+            start=$(date +%s%N)
+            sh -c "$cmd" > /dev/null 2>&1 || true
+            end=$(date +%s%N)
+            elapsed=$((end - start))
+            elapsed_ms_int=$((elapsed / 1000000))
+            total_ms_int=$((total_ms_int + elapsed_ms_int))
+            valid_runs=$((valid_runs + 1))
+        fi
     done
-    avg_ns=$((total_ns / runs))
-    avg_ms=$((avg_ns / 1000000))
-    echo "$avg_ms"
+
+    rm -f "$output_file"
+
+    # Calculate average with one decimal place
+    if [ $valid_runs -gt 0 ]; then
+        avg_ms_int=$((total_ms_int / valid_runs))
+        avg_ms_rem=$((total_ms_int % valid_runs))
+        # Add decimal
+        decimal=$((avg_ms_rem * 10 / valid_runs))
+        avg_ms="${avg_ms_int}.${decimal}"
+    else
+        avg_ms="CRASH"
+    fi
+
+    if [ $total_mem_kb -gt 0 ]; then
+        avg_mem_kb=$((total_mem_kb / valid_runs))
+        echo "$avg_ms,$avg_mem_kb"
+    else
+        echo "$avg_ms,-"
+    fi
 }
 
 # Run single benchmark with all optimization levels and languages
@@ -99,69 +142,96 @@ run_benchmark_full() {
     fi
 
     echo
-    echo "  Timing (avg of $ITERATIONS runs):"
+    echo "  Timing & Memory (avg of $ITERATIONS runs):"
 
     # Viper JIT
-    viper_jit_time="N/A"
+    viper_jit_result="N/A,-"
     if [ -f "$file" ]; then
-        viper_jit_time=$(run_bench "$VIPER_BIN run -O3 $file" "$ITERATIONS" 2>/dev/null || echo "N/A")
+        viper_jit_result=$(run_bench_with_mem "$VIPER_BIN run -O3 $file" "$ITERATIONS")
     fi
 
     # Viper AOT -O1
-    viper_o1_time="N/A"
+    viper_o1_result="N/A,-"
     if [ -f "$file" ]; then
         "$VIPER_BIN" build -O1 "$file" -o "$TMPDIR/bench_viper_o1_$$" 2>/dev/null
-        viper_o1_time=$(run_bench "$TMPDIR/bench_viper_o1_$$_bin" "$ITERATIONS")
+        viper_o1_result=$(run_bench_with_mem "$TMPDIR/bench_viper_o1_$$_bin" "$ITERATIONS")
         rm -f "$TMPDIR/bench_viper_o1_$$" "$TMPDIR/bench_viper_o1_$$_bin"
     fi
 
     # Viper AOT -O2
-    viper_o2_time="N/A"
+    viper_o2_result="N/A,-"
     if [ -f "$file" ]; then
         "$VIPER_BIN" build -O2 "$file" -o "$TMPDIR/bench_viper_o2_$$" 2>/dev/null
-        viper_o2_time=$(run_bench "$TMPDIR/bench_viper_o2_$$_bin" "$ITERATIONS")
+        viper_o2_result=$(run_bench_with_mem "$TMPDIR/bench_viper_o2_$$_bin" "$ITERATIONS")
         rm -f "$TMPDIR/bench_viper_o2_$$" "$TMPDIR/bench_viper_o2_$$_bin"
     fi
 
     # Viper AOT -O3
-    viper_o3_time="N/A"
+    viper_o3_result="N/A,-"
     if [ -f "$file" ]; then
         "$VIPER_BIN" build -O3 "$file" -o "$TMPDIR/bench_viper_o3_$$" 2>/dev/null
-        viper_o3_time=$(run_bench "$TMPDIR/bench_viper_o3_$$_bin" "$ITERATIONS")
+        viper_o3_result=$(run_bench_with_mem "$TMPDIR/bench_viper_o3_$$_bin" "$ITERATIONS")
         rm -f "$TMPDIR/bench_viper_o3_$$" "$TMPDIR/bench_viper_o3_$$_bin"
     fi
 
     # C -O3
-    c_time="N/A"
+    c_result="N/A,-"
     if [ -f "$c_file" ]; then
         gcc -O3 -march=native -flto -o "$TMPDIR/bench_c_$$" "$c_file" 2>/dev/null
-        c_time=$(run_bench "$TMPDIR/bench_c_$$" "$ITERATIONS")
+        c_result=$(run_bench_with_mem "$TMPDIR/bench_c_$$" "$ITERATIONS")
         rm -f "$TMPDIR/bench_c_$$"
     fi
 
     # Rust -O3
-    rust_time="N/A"
+    rust_result="N/A,-"
     if [ -f "$rust_file" ]; then
         rustc -C opt-level=3 -C lto=fat -C target-cpu=native -o "$TMPDIR/bench_rs_$$" "$rust_file" 2>/dev/null
-        rust_time=$(run_bench "$TMPDIR/bench_rs_$$" "$ITERATIONS")
+        rust_result=$(run_bench_with_mem "$TMPDIR/bench_rs_$$" "$ITERATIONS")
         rm -f "$TMPDIR/bench_rs_$$"
     fi
 
     # Go
-    go_time="N/A"
+    go_result="N/A,-"
     if [ -f "$go_file" ]; then
         go build -ldflags="-s -w" -o "$TMPDIR/bench_go_$$" "$go_file" 2>/dev/null
-        go_time=$(run_bench "$TMPDIR/bench_go_$$" "$ITERATIONS")
+        go_result=$(run_bench_with_mem "$TMPDIR/bench_go_$$" "$ITERATIONS")
         rm -f "$TMPDIR/bench_go_$$"
     fi
 
-    # Print results table
-    printf "\n  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
+    # Parse results
+    viper_jit_time=$(echo "$viper_jit_result" | cut -d',' -f1)
+    viper_jit_mem=$(echo "$viper_jit_result" | cut -d',' -f2)
+    viper_o1_time=$(echo "$viper_o1_result" | cut -d',' -f1)
+    viper_o1_mem=$(echo "$viper_o1_result" | cut -d',' -f2)
+    viper_o2_time=$(echo "$viper_o2_result" | cut -d',' -f1)
+    viper_o2_mem=$(echo "$viper_o2_result" | cut -d',' -f2)
+    viper_o3_time=$(echo "$viper_o3_result" | cut -d',' -f1)
+    viper_o3_mem=$(echo "$viper_o3_result" | cut -d',' -f2)
+    c_time=$(echo "$c_result" | cut -d',' -f1)
+    c_mem=$(echo "$c_result" | cut -d',' -f2)
+    rust_time=$(echo "$rust_result" | cut -d',' -f1)
+    rust_mem=$(echo "$rust_result" | cut -d',' -f2)
+    go_time=$(echo "$go_result" | cut -d',' -f1)
+    go_mem=$(echo "$go_result" | cut -d',' -f2)
+
+    # Print time table
+    printf "\n  ${CYAN}Time (ms):${NC}\n"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
         "Language" "JIT" "O1" "O2" "O3" "C" "Rust" "Go"
     printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
         "------------------" "--------" "--------" "--------" "--------" "--------" "--------" "--------"
     printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
-        "Time (ms)" "$viper_jit_time" "$viper_o1_time" "$viper_o2_time" "$viper_o3_time" "$c_time" "$rust_time" "$go_time"
+        "Time" "$viper_jit_time" "$viper_o1_time" "$viper_o2_time" "$viper_o3_time" "$c_time" "$rust_time" "$go_time"
+    echo
+
+    # Print memory table
+    printf "  ${CYAN}Memory (KB):${NC}\n"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "Language" "JIT" "O1" "O2" "O3" "C" "Rust" "Go"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "------------------" "--------" "--------" "--------" "--------" "--------" "--------" "--------"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "Memory" "$viper_jit_mem" "$viper_o1_mem" "$viper_o2_mem" "$viper_o3_mem" "$c_mem" "$rust_mem" "$go_mem"
     echo
 }
 
