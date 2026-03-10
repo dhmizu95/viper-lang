@@ -1,7 +1,7 @@
 # Remaining Issues Fix Plan
 
-**Date:** March 10, 2026  
-**Version:** 0.5.0  
+**Date:** March 10, 2026
+**Version:** 0.5.0
 **Status:** Active Development
 
 ---
@@ -16,6 +16,11 @@ This document outlines the plan to fix remaining issues in the Viper compiler af
 - ✅ Float exponent notation (already working)
 - ✅ Bitwise operators (already working)
 - ✅ Membership operators (already working)
+
+**Related Documents:**
+- **Optimization Plan:** See `OPTIMIZATION_PLAN.md` for compiler optimization roadmap
+- **Known Issues:** See `KNOWN_ISSUES_FIX_PLAN.md` for recently fixed issues
+- **Test Coverage:** See `TEST_COVERAGE_REPORT.md` for current test status
 
 ---
 

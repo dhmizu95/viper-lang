@@ -15,22 +15,7 @@ fn generate_if_chain<'ctx>(
         // No more elif blocks, handle else body
         if let Some(else_stmts) = else_body {
             for stmt in else_stmts {
-                crate::codegen::statements::generate_stmt(
-                    state.context,
-                    state.module,
-                    state.builder,
-                    state.ir_builder,
-                    state.variables,
-                    state.functions,
-                    state.global_constants,
-                    state.loop_stack,
-                    state.list_vars,
-                    state.dict_vars,
-                    state.bool_list_vars,
-                    state.bigint_vars,
-                    state.var_types,
-                    stmt,
-                )?;
+                crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
             }
             let terminates = state.builder.get_insert_block().unwrap().get_terminator().is_some();
             if !terminates {
@@ -69,22 +54,7 @@ fn generate_if_chain<'ctx>(
     // Generate then block for this elif
     state.builder.position_at_end(elif_then);
     for stmt in elif_body {
-        crate::codegen::statements::generate_stmt(
-            state.context,
-            state.module,
-            state.builder,
-            state.ir_builder,
-            state.variables,
-            state.functions,
-            state.global_constants,
-            state.loop_stack,
-            state.list_vars,
-            state.dict_vars,
-            state.bool_list_vars,
-            state.bigint_vars,
-            state.var_types,
-            stmt,
-        )?;
+        crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
     }
     let then_terminates = state.builder.get_insert_block().unwrap().get_terminator().is_some();
     if !then_terminates {
@@ -133,22 +103,7 @@ pub fn generate_if<'ctx>(
     // Then block
     state.builder.position_at_end(then_block);
     for stmt in body {
-        crate::codegen::statements::generate_stmt(
-            state.context,
-            state.module,
-            state.builder,
-            state.ir_builder,
-            state.variables,
-            state.functions,
-            state.global_constants,
-            state.loop_stack,
-            state.list_vars,
-            state.dict_vars,
-            state.bool_list_vars,
-            state.bigint_vars,
-            state.var_types,
-            stmt,
-        )?;
+        crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
     }
     let then_terminates = state.builder.get_insert_block().unwrap().get_terminator().is_some();
     if !then_terminates {
@@ -160,8 +115,12 @@ pub fn generate_if<'ctx>(
     let else_terminates = generate_if_chain(state, elif_blocks, else_body, merge_block)?;
 
     // Only position at merge_block if at least one path doesn't terminate
-    // If both then and else terminate, merge_block is unreachable
-    if !then_terminates || !else_terminates {
+    // If both then and else terminate, merge_block is unreachable - add unreachable terminator
+    if then_terminates && else_terminates {
+        // Both paths terminate - merge_block is unreachable, but LLVM requires all blocks to have terminators
+        state.builder.position_at_end(merge_block);
+        state.builder.build_unreachable().map_err(|e| format!("Failed to build unreachable: {:?}", e))?;
+    } else {
         state.builder.position_at_end(merge_block);
     }
     Ok(())

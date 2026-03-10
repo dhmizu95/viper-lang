@@ -254,6 +254,87 @@ pub fn inline_i64_list_set<'ctx>(
     Ok(())
 }
 
+/// Inline f64 list get - generates direct LLVM load
+pub fn inline_f64_list_get<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    list_val: PointerValue<'ctx>,
+    index_val: IntValue<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, String> {
+    // Get the data pointer (needs to be cast to f64* for f64 lists)
+    let data_ptr = get_list_data_ptr(state, list_val)?;
+
+    // Cast data pointer to f64*
+    let f64_type = state.context.f64_type();
+    let data_ptr_f64 = state
+        .builder
+        .build_pointer_cast(
+            data_ptr,
+            state.context.ptr_type(inkwell::AddressSpace::default()),
+            "data_f64_ptr",
+        )
+        .map_err(|e| format!("Failed to cast data pointer to f64*: {:?}", e))?;
+
+    // Calculate element pointer: data_ptr + index
+    let elem_ptr = unsafe {
+        state.builder.build_in_bounds_gep(
+            f64_type,
+            data_ptr_f64,
+            &[index_val],
+            "f64_elem_ptr",
+        )
+    }
+    .map_err(|e| format!("Failed to build GEP for f64 element: {:?}", e))?;
+
+    // Load the f64 value
+    let loaded = state
+        .builder
+        .build_load(f64_type, elem_ptr, "f64_load")
+        .map_err(|e| format!("Failed to load f64 element: {:?}", e))?;
+
+    Ok(loaded)
+}
+
+/// Inline f64 list set - generates direct LLVM store
+pub fn inline_f64_list_set<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    list_val: PointerValue<'ctx>,
+    index_val: IntValue<'ctx>,
+    value_val: BasicValueEnum<'ctx>,
+) -> Result<(), String> {
+    // Get the data pointer (needs to be cast to f64* for f64 lists)
+    let data_ptr = get_list_data_ptr(state, list_val)?;
+
+    // Cast data pointer to f64*
+    let f64_type = state.context.f64_type();
+    let data_ptr_f64 = state
+        .builder
+        .build_pointer_cast(
+            data_ptr,
+            state.context.ptr_type(inkwell::AddressSpace::default()),
+            "data_f64_ptr",
+        )
+        .map_err(|e| format!("Failed to cast data pointer to f64*: {:?}", e))?;
+
+    // Calculate element pointer: data_ptr + index
+    let elem_ptr = unsafe {
+        state.builder.build_in_bounds_gep(
+            f64_type,
+            data_ptr_f64,
+            &[index_val],
+            "f64_elem_ptr",
+        )
+    }
+    .map_err(|e| format!("Failed to build GEP for f64 element: {:?}", e))?;
+
+    // Store the f64 value
+    state
+        .builder
+        .build_store(elem_ptr, value_val)
+        .map_err(|e| format!("Failed to store f64 element: {:?}", e))?;
+
+    Ok(())
+}
+
 /// ViperList struct field offsets (in bytes)
 /// struct ViperList {
 ///     int64_t ref_count;    // offset 0 (0-7)
