@@ -199,15 +199,25 @@ pub fn inline_i64_list_get<'ctx>(
     list_val: PointerValue<'ctx>,
     index_val: IntValue<'ctx>,
 ) -> Result<BasicValueEnum<'ctx>, String> {
-    // Get the data pointer (i64* for i64 lists)
+    // Get the data pointer (needs to be cast to i64* for i64 lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
-    
-    // Calculate element pointer: data_ptr + index
+
+    // Cast data pointer to i64*
     let i64_type = state.context.i64_type();
+    let data_ptr_i64 = state
+        .builder
+        .build_pointer_cast(
+            data_ptr,
+            state.context.ptr_type(inkwell::AddressSpace::default()),
+            "data_i64_ptr",
+        )
+        .map_err(|e| format!("Failed to cast data pointer to i64*: {:?}", e))?;
+
+    // Calculate element pointer: data_ptr + index
     let elem_ptr = unsafe {
         state.builder.build_in_bounds_gep(
             i64_type,
-            data_ptr,
+            data_ptr_i64,
             &[index_val],
             "i64_elem_ptr",
         )
@@ -230,15 +240,25 @@ pub fn inline_i64_list_set<'ctx>(
     index_val: IntValue<'ctx>,
     value_val: BasicValueEnum<'ctx>,
 ) -> Result<(), String> {
-    // Get the data pointer (i64* for i64 lists)
+    // Get the data pointer (needs to be cast to i64* for i64 lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
 
-    // Calculate element pointer: data_ptr + index
+    // Cast data pointer to i64*
     let i64_type = state.context.i64_type();
+    let data_ptr_i64 = state
+        .builder
+        .build_pointer_cast(
+            data_ptr,
+            state.context.ptr_type(inkwell::AddressSpace::default()),
+            "data_i64_ptr",
+        )
+        .map_err(|e| format!("Failed to cast data pointer to i64*: {:?}", e))?;
+
+    // Calculate element pointer: data_ptr + index
     let elem_ptr = unsafe {
         state.builder.build_in_bounds_gep(
             i64_type,
-            data_ptr,
+            data_ptr_i64,
             &[index_val],
             "i64_elem_ptr",
         )
@@ -331,6 +351,85 @@ pub fn inline_f64_list_set<'ctx>(
         .builder
         .build_store(elem_ptr, value_val)
         .map_err(|e| format!("Failed to store f64 element: {:?}", e))?;
+
+    Ok(())
+}
+
+/// Inline bool list append - optimized for bit vector growth
+pub fn inline_bool_list_append<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    list_val: PointerValue<'ctx>,
+    value_val: IntValue<'ctx>,
+) -> Result<(), String> {
+    let i64_type = state.context.i64_type();
+    let context = state.context;
+
+    // Get length and capacity
+    let length_ptr = get_length_ptr(state, list_val)?;
+    let length = state.builder
+        .build_load(i64_type, length_ptr, "list_length")
+        .map_err(|e| format!("Failed to load length: {:?}", e))?
+        .into_int_value();
+
+    let capacity_ptr = get_capacity_ptr(state, list_val)?;
+    let capacity = state.builder
+        .build_load(i64_type, capacity_ptr, "list_capacity")
+        .map_err(|e| format!("Failed to load capacity: {:?}", e))?
+        .into_int_value();
+
+    // Check if we need to grow
+    let need_grow = state.builder
+        .build_int_compare(inkwell::IntPredicate::SGE, length, capacity, "need_grow_check")
+        .map_err(|e| format!("Failed to compare length/capacity: {:?}", e))?;
+
+    // Get current function for branching
+    let current_func = state.builder.get_insert_block()
+        .ok_or("No insert block set")?
+        .get_parent()
+        .ok_or("Insert block has no parent function")?;
+
+    let grow_block = context.append_basic_block(current_func, "bool_list_grow");
+    let store_block = context.append_basic_block(current_func, "bool_list_store");
+
+    state.builder
+        .build_conditional_branch(need_grow, grow_block, store_block)
+        .map_err(|e| format!("Failed to build conditional branch: {:?}", e))?;
+
+    // Grow block
+    state.builder.position_at_end(grow_block);
+    let list_grow = state.module.get_function("vp_list_grow")
+        .ok_or_else(|| "vp_list_grow not declared".to_string())?;
+    state.builder.build_call(list_grow, &[list_val.into()], "list_grow_call")
+        .map_err(|e| format!("Failed to call list grow: {:?}", e))?;
+    state.builder.build_unconditional_branch(store_block)
+        .map_err(|e| format!("Failed to branch to store: {:?}", e))?;
+
+    // Store block
+    state.builder.position_at_end(store_block);
+    let data_ptr = get_list_data_ptr(state, list_val)?;
+
+    // Calculate element pointer
+    let i8_type = state.context.i8_type();
+    let elem_ptr = unsafe {
+        state.builder.build_in_bounds_gep(i8_type, data_ptr, &[length], "bool_append_elem_ptr")
+    }
+    .map_err(|e| format!("Failed to build GEP for bool append: {:?}", e))?;
+
+    // Convert value to i8 (bool stored as byte)
+    let value_i8 = state.builder
+        .build_int_truncate(value_val, i8_type, "value_to_i8")
+        .map_err(|e| format!("Failed to truncate to i8: {:?}", e))?;
+
+    // Store the value
+    state.builder.build_store(elem_ptr, value_i8)
+        .map_err(|e| format!("Failed to store bool element: {:?}", e))?;
+
+    // Increment length
+    let new_length = state.builder
+        .build_int_add(length, i64_type.const_int(1, false), "new_length")
+        .map_err(|e| format!("Failed to add length: {:?}", e))?;
+    state.builder.build_store(length_ptr, new_length)
+        .map_err(|e| format!("Failed to store new length: {:?}", e))?;
 
     Ok(())
 }

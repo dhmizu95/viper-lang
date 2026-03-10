@@ -1,6 +1,11 @@
 use crate::ast::{BinOp, Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarStorage, VarType};
+use crate::codegen::inline_lists::{
+    inline_bool_list_set,
+    inline_i64_list_set,
+    inline_f64_list_set,
+};
 
 /// Get the type of an expression for assignment type tracking.
 /// Unlike infer_expr_type, this looks up identifier types from var_types.
@@ -419,64 +424,57 @@ pub(crate) fn generate_assign<'ctx>(
                 .build_store(elem_ptr, value_val)
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
         } else {
-            // List index assignment using runtime function
-            // Determine if this is a bool list (bit vector) by checking the object type
+            // List index assignment using inline LLVM IR for better performance
+            // This generates direct GEP + store instructions instead of function calls
             let obj_name = match obj.as_ref() {
                 Expr::Ident(name, _) => Some(name.as_str()),
                 _ => None,
             };
             let is_bool_list = obj_name.map(|n| state.is_bool_list(n)).unwrap_or(false);
 
-            let (list_set_func, value_for_list) = if is_bool_list {
-                // Use bit vector set function for bool lists
-                // The checked version has branch prediction hints for common case
-                let list_set = state
-                    .module
-                    .get_function("vp_bitvec_set")
-                    .ok_or_else(|| "vp_bitvec_set not declared".to_string())?;
-
-                // Bool value (i1), keep as bool
-                (list_set, value_val)
-            } else {
-                // Determine if this is a bool value for legacy bool lists
-                let is_bool_value = value_val.is_int_value()
-                    && value_val.get_type().into_int_type().get_bit_width() == 1;
-
-                if is_bool_value {
-                    // Use bool-specific list set function for legacy bool lists
-                    let list_set = state
-                        .module
-                        .get_function("vp_list_bool_set")
-                        .ok_or_else(|| "vp_list_bool_set not declared".to_string())?;
-
-                    (list_set, value_val)
+            // Check if this is a float list
+            let is_float_list = {
+                let obj_type = crate::codegen::expressions::infer_expr_type(obj);
+                let obj_type = if let Expr::Ident(name, _) = obj.as_ref() {
+                    state.var_types.get(name).cloned().unwrap_or(obj_type)
                 } else {
-                    // Use generic i64 list set function
-                    let list_set = state
-                        .module
-                        .get_function("vp_list_set")
-                        .ok_or_else(|| "vp_list_set not declared".to_string())?;
+                    obj_type
+                };
 
-                    // Convert bool to i64 if needed
-                    let value_converted = if value_val.is_int_value() && value_val.get_type().into_int_type().get_bit_width() == 1 {
-                        let bool_val = value_val.into_int_value();
-                        state.builder.build_int_z_extend(bool_val, state.context.i64_type(), "bool_to_i64")
-                            .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
-                            .into()
-                    } else {
-                        value_val
-                    };
-
-                    (list_set, value_converted)
+                match &obj_type {
+                    Type::List(inner) => match &**inner {
+                        Type::F64 => true,
+                        Type::Var(n) if n == "float" || n == "f64" => true,
+                        _ => false,
+                    },
+                    Type::GenericApp { name, type_args } if (name == "list" || name == "List") && type_args.len() == 1 => {
+                        match &type_args[0] {
+                            Type::F64 => true,
+                            Type::Var(n) if n == "float" || n == "f64" => true,
+                            _ => false,
+                        }
+                    }
+                    _ => false,
                 }
             };
 
-            let _ = state.ir_builder.build_call(
-                state.builder,
-                list_set_func,
-                &[obj_val.into(), index_val.into(), value_for_list.into()],
-                "list_set",
-            );
+            let list_ptr = obj_val.into_pointer_value();
+
+            // Use inline list set based on element type
+            if is_bool_list {
+                // Inline bool list set - generates direct LLVM store
+                inline_bool_list_set(state, list_ptr, index_val, value_val)
+                    .map_err(|e| format!("Inline bool list set failed: {:?}", e))?;
+            } else if is_float_list {
+                // Inline f64 list set - generates direct LLVM store
+                inline_f64_list_set(state, list_ptr, index_val, value_val)
+                    .map_err(|e| format!("Inline f64 list set failed: {:?}", e))?;
+            } else {
+                // Inline i64 list set - generates direct LLVM store
+                // Values in lists are tagged integers, so store as-is
+                inline_i64_list_set(state, list_ptr, index_val, value_val)
+                    .map_err(|e| format!("Inline i64 list set failed: {:?}", e))?;
+            }
         }
     } else if let Expr::Attribute { obj, attr, .. } = target {
         // Handle attribute assignment: obj.attr = value

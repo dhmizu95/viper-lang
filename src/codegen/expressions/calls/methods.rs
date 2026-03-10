@@ -54,25 +54,51 @@ pub fn generate_method_call<'ctx>(
             }
             let val = generate_expr(state, &args[0])?;
 
-            // Use bit vector append for bool lists
-            let append_func = if is_bool_list {
-                state
-                    .module
-                    .get_function("vp_bitvec_append")
-                    .ok_or_else(|| "vp_bitvec_append not declared".to_string())?
+            // Convert obj_val to pointer if needed
+            let list_ptr = if obj_val.is_pointer_value() {
+                obj_val.into_pointer_value()
             } else {
-                state
-                    .module
-                    .get_function("vp_list_append")
-                    .ok_or_else(|| "vp_list_append not declared".to_string())?
+                return Err("append() requires a list reference".to_string());
             };
 
-            state.ir_builder.build_call(
-                state.builder,
-                append_func,
-                &[obj_val.into(), val.into()],
-                "list_append",
-            );
+            // Use inline append for optimized performance
+            if is_bool_list {
+                // Convert value to bool (i1) if needed
+                let bool_val = if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
+                    val.into_int_value()
+                } else if val.is_int_value() {
+                    // Convert i64 to bool (i1)
+                    let int_val = val.into_int_value();
+                    state.builder.build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        int_val,
+                        state.context.i64_type().const_zero(),
+                        "i64_to_bool",
+                    ).map_err(|e| format!("Failed to convert to bool: {:?}", e))?
+                } else {
+                    return Err("append() value must be integer for bool list".to_string());
+                };
+
+                crate::codegen::inline_lists::inline_bool_list_append(state, list_ptr, bool_val)
+                    .map_err(|e| format!("Failed to inline bool list append: {}", e))?;
+            } else {
+                // Convert value to i64 if needed
+                let int_val = if val.is_int_value() {
+                    val.into_int_value()
+                } else if val.is_float_value() {
+                    // Truncate f64 to i64
+                    state.builder.build_float_to_signed_int(
+                        val.into_float_value(),
+                        state.context.i64_type(),
+                        "f64_to_i64",
+                    ).map_err(|e| format!("Failed to convert float to int: {:?}", e))?
+                } else {
+                    return Err("append() value must be numeric".to_string());
+                };
+
+                crate::codegen::inline_lists::inline_i64_list_append(state, list_ptr, int_val)
+                    .map_err(|e| format!("Failed to inline i64 list append: {}", e))?;
+            }
 
             Ok(obj_val)
         }
