@@ -532,19 +532,21 @@ pub fn generate_class_metadata(
 /// Scan statements for self.* assignments to find instance fields
 fn scan_self_assignments(stmt: &Stmt, metadata: &mut ClassMetadata, offset: &mut usize) {
     match stmt {
-        Stmt::Assign { target, .. } => {
+        Stmt::Assign { target, value, .. } => {
             if let Expr::Attribute { obj, attr, .. } = target.as_ref() {
                 if let Expr::Ident(obj_name, _) = obj.as_ref() {
                     if obj_name == "self" {
                         // Check if field already exists
                         if !metadata.fields.iter().any(|f| f.name == *attr) {
+                            // Infer field type from the assigned value
+                            let field_type = infer_type_from_expr(value);
                             metadata.fields.push(FieldInfo {
                                 name: attr.clone(),
-                                ty: Type::Infer,
+                                ty: field_type,
                                 offset: *offset,
                                 is_class_var: false,
                             });
-                            *offset += 8; // Default to i64 size
+                            *offset += 8; // All fields are pointer-sized (8 bytes)
                         }
                     }
                 }
@@ -566,6 +568,40 @@ fn scan_self_assignments(stmt: &Stmt, metadata: &mut ClassMetadata, offset: &mut
             for stmt in body { scan_self_assignments(stmt, metadata, offset); }
         }
         _ => {}
+    }
+}
+
+/// Infer a field type from an expression
+fn infer_type_from_expr(expr: &crate::ast::Expr) -> crate::ast::Type {
+    use crate::ast::Expr;
+    match expr {
+        Expr::Int(..) | Expr::BigInt(..) => crate::ast::Type::Int,
+        Expr::Float(..) => crate::ast::Type::F64,
+        Expr::Bool(..) => crate::ast::Type::Bool,
+        Expr::Str(..) => crate::ast::Type::Str,
+        Expr::Bytes(..) => crate::ast::Type::Bytes,
+        Expr::List { .. } | Expr::ListComprehension { .. } => crate::ast::Type::List(Box::new(crate::ast::Type::Infer)),
+        Expr::Dict { .. } => crate::ast::Type::Dict(Box::new(crate::ast::Type::Infer), Box::new(crate::ast::Type::Infer)),
+        Expr::Tuple { elements, .. } => crate::ast::Type::Tuple(elements.iter().map(infer_type_from_expr).collect()),
+        Expr::None(..) => crate::ast::Type::None,
+        Expr::Call { func, .. } => {
+            // Check if calling a known type constructor
+            if let Expr::Ident(name, _) = func.as_ref() {
+                match name.as_str() {
+                    "int" => crate::ast::Type::Int,
+                    "float" => crate::ast::Type::F64,
+                    "str" => crate::ast::Type::Str,
+                    "bool" => crate::ast::Type::Bool,
+                    "list" => crate::ast::Type::List(Box::new(crate::ast::Type::Infer)),
+                    "dict" => crate::ast::Type::Dict(Box::new(crate::ast::Type::Infer), Box::new(crate::ast::Type::Infer)),
+                    _ => crate::ast::Type::Infer,
+                }
+            } else {
+                crate::ast::Type::Infer
+            }
+        }
+        // For other expressions, default to pointer type
+        _ => crate::ast::Type::Str,
     }
 }
 
@@ -695,15 +731,15 @@ fn generate_field_access<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     let i64_type = state.context.i64_type();
     let i8_ptr_type = state.context.ptr_type(AddressSpace::default());
-    
+
     // Calculate field address: obj_ptr + offset
     let offset_val = i64_type.const_int(field.offset as u64, false);
-    
+
     // Cast obj_ptr to i8* for byte arithmetic
     let obj_i8 = state.builder.build_bit_cast(obj_ptr, i8_ptr_type, "obj_i8")
         .map_err(|e| format!("Failed to cast object: {:?}", e))?
         .into_pointer_value();
-    
+
     // Get field pointer
     let field_ptr = unsafe {
         state.builder.build_in_bounds_gep(
@@ -714,12 +750,17 @@ fn generate_field_access<'ctx>(
         )
     }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
 
-    // Cast to i64* and load
-    let field_i64_ptr = state.builder.build_bit_cast(field_ptr, state.context.ptr_type(AddressSpace::default()), "field_i64_ptr")
-        .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-        .into_pointer_value();
+    // Determine load type based on field type
+    let load_type: inkwell::types::BasicTypeEnum<'ctx> = match &field.ty {
+        Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_) | Type::Bytes => {
+            i8_ptr_type.into()
+        }
+        Type::F64 => state.context.f64_type().into(),
+        Type::Bool => state.context.bool_type().into(),
+        _ => i64_type.into(),
+    };
 
-    let value = state.builder.build_load(i64_type, field_i64_ptr, &format!("field_{}", field.name))
+    let value = state.builder.build_load(load_type, field_ptr, &format!("field_{}", field.name))
         .map_err(|e| format!("Failed to load field: {:?}", e))?;
 
     Ok(value)
@@ -952,15 +993,15 @@ fn store_field<'ctx>(
 ) -> Result<(), String> {
     let i64_type = state.context.i64_type();
     let i8_ptr_type = state.context.ptr_type(AddressSpace::default());
-    
+
     // Calculate field address
     let offset_val = i64_type.const_int(field.offset as u64, false);
-    
+
     // Cast obj_ptr to i8* for byte arithmetic
     let obj_i8 = state.builder.build_bit_cast(obj_ptr, i8_ptr_type, "obj_i8")
         .map_err(|e| format!("Failed to cast object: {:?}", e))?
         .into_pointer_value();
-    
+
     // Get field pointer
     let field_ptr = unsafe {
         state.builder.build_in_bounds_gep(
@@ -971,13 +1012,42 @@ fn store_field<'ctx>(
         )
     }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
 
-    // Cast to i64* and store
-    let field_i64_ptr = state.builder.build_bit_cast(field_ptr, state.context.ptr_type(AddressSpace::default()), "field_i64_ptr")
-        .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-        .into_pointer_value();
-
-    state.builder.build_store(field_i64_ptr, value)
-        .map_err(|e| format!("Failed to store field: {:?}", e))?;
+    // Determine store type based on field type and cast field_ptr accordingly
+    match &field.ty {
+        Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_) | Type::Bytes => {
+            // Pointer type field - cast to pointer* and store
+            let field_ptr_type = state.context.ptr_type(AddressSpace::default()).ptr_type(AddressSpace::default());
+            let field_typed_ptr = state.builder.build_bit_cast(field_ptr, field_ptr_type, "field_ptr_typed")
+                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+                .into_pointer_value();
+            state.builder.build_store(field_typed_ptr, value)
+                .map_err(|e| format!("Failed to store field: {:?}", e))?;
+        }
+        Type::F64 => {
+            // Float type field - cast to f64* and store
+            let field_f64_ptr = state.builder.build_bit_cast(field_ptr, state.context.f64_type().ptr_type(AddressSpace::default()), "field_f64_ptr")
+                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+                .into_pointer_value();
+            state.builder.build_store(field_f64_ptr, value)
+                .map_err(|e| format!("Failed to store field: {:?}", e))?;
+        }
+        Type::Bool => {
+            // Bool type field - cast to bool* and store
+            let field_bool_ptr = state.builder.build_bit_cast(field_ptr, state.context.bool_type().ptr_type(AddressSpace::default()), "field_bool_ptr")
+                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+                .into_pointer_value();
+            state.builder.build_store(field_bool_ptr, value)
+                .map_err(|e| format!("Failed to store field: {:?}", e))?;
+        }
+        _ => {
+            // Default: i64 type field - cast to i64* and store
+            let field_i64_ptr = state.builder.build_bit_cast(field_ptr, i64_type.ptr_type(AddressSpace::default()), "field_i64_ptr")
+                .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+                .into_pointer_value();
+            state.builder.build_store(field_i64_ptr, value)
+                .map_err(|e| format!("Failed to store field: {:?}", e))?;
+        }
+    }
 
     Ok(())
 }

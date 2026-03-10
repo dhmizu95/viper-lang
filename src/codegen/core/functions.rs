@@ -205,17 +205,25 @@ impl<'ctx> CodeGen<'ctx> {
         // Generate ARC cleanup for local variables before return
         // Only generate cleanup if function doesn't already have a terminator
         // (i.e., no explicit return/break/continue at the end)
-        if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+        let needs_cleanup_and_return = self.builder.get_insert_block().unwrap().get_terminator().is_none();
+        
+        if needs_cleanup_and_return {
             self.generate_arc_cleanup(original_name);
         }
 
         // Add implicit return if needed
-        if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+        if needs_cleanup_and_return {
             // Check actual function return type from LLVM signature
             let func = self.module.get_function(mangled_name).unwrap();
             let return_type_llvm = func.get_type().get_return_type();
 
+            // For methods without explicit return type or with None, use void return
+            // For methods with pointer return type, return null pointer
+            // For methods with scalar return type, return zero
             match return_type {
+                Some(Type::None) => {
+                    self.ir_builder.build_return(&self.builder, None);
+                }
                 Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) => {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
@@ -229,12 +237,17 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_return(&self.builder, Some(&self.ir_builder.bool_const(false)));
                 }
                 // For pointer return types (str, list, object, etc.), return null pointer
-                Some(Type::Str) | Some(Type::Bytes) | Some(Type::List(_)) | Some(Type::Dict(_, _)) 
-                | Some(Type::Class(_)) | Some(Type::Instance(_)) | Some(Type::Infer) => {
+                Some(Type::Str) | Some(Type::Bytes) | Some(Type::List(_)) | Some(Type::Dict(_, _))
+                | Some(Type::Class(_)) | Some(Type::Instance(_)) => {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.context.ptr_type(inkwell::AddressSpace::default()).const_null()));
                 }
-                // For functions with no explicit return type (None),
+                // For Infer type (unannotated methods), return null pointer
+                Some(Type::Infer) => {
+                    self.ir_builder
+                        .build_return(&self.builder, Some(&self.context.ptr_type(inkwell::AddressSpace::default()).const_null()));
+                }
+                // For functions with no explicit return type annotation,
                 // check LLVM signature: main() returns i64, others return void
                 None => {
                     if return_type_llvm.is_some() {

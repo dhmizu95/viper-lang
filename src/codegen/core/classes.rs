@@ -121,15 +121,25 @@ impl<'ctx> CodeGen<'ctx> {
                 let saved_classmethod = self.in_classmethod;
                 self.in_classmethod = is_class_method;
 
+                // For methods without return type annotation, use pointer type as default
+                // Exception: __init__ methods should have None (void) return type
+                let method_return_type = if method_name == "__init__" {
+                    &Some(crate::ast::Type::None)
+                } else if return_type.as_ref().map_or(true, |t| matches!(t, crate::ast::Type::None)) {
+                    &Some(crate::ast::Type::Str)
+                } else {
+                    return_type
+                };
+
                 // For static methods, generate as regular function
                 // For instance methods, the first param is 'self'
                 let empty_nonlocal: Vec<String> = Vec::new();
                 if is_static {
                     // Static method - no self parameter
-                    self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
+                    self.define_function(&mangled_name, method_name, params, method_return_type, method_body, &empty_nonlocal)?;
                 } else {
                     // Instance method - already has self parameter in AST
-                    self.define_function(&mangled_name, method_name, params, return_type, method_body, &empty_nonlocal)?;
+                    self.define_function(&mangled_name, method_name, params, method_return_type, method_body, &empty_nonlocal)?;
                 }
 
                 // Restore classmethod flag

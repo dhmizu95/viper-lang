@@ -42,12 +42,23 @@ fn coerce_return_value<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, String> {
     if let Some(expected) = expected_type {
         let value_type = value.get_type();
-        
+
         // If types already match, no coercion needed
         if value_type == expected {
             return Ok(value);
         }
-        
+
+        // Handle pointer -> pointer coercion (bitcast if both are pointer types)
+        if value_type.is_pointer_type() && expected.is_pointer_type() {
+            // Both are pointer types, just bitcast to match expected type
+            let cast_value = state.builder.build_bit_cast(
+                value.into_pointer_value(),
+                expected.into_pointer_type(),
+                "return_ptr_cast",
+            ).map_err(|e| format!("Pointer bitcast failed: {:?}", e))?;
+            return Ok(cast_value.into());
+        }
+
         // Handle i64 -> pointer coercion (e.g., returning 0 or 1 as BigInt)
         if value_type.is_int_type() && expected.is_pointer_type() {
             // This is likely returning an integer literal where a BigInt is expected
@@ -57,7 +68,7 @@ fn coerce_return_value<'ctx>(
                 .module
                 .get_function("vp_bigint_from_i64")
                 .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
-            
+
             // Ensure the value is i64
             let i64_value = if value_type.into_int_type() != i64_type {
                 state.builder.build_int_cast(value.into_int_value(), i64_type, "to_i64")
@@ -65,14 +76,14 @@ fn coerce_return_value<'ctx>(
             } else {
                 value.into_int_value()
             };
-            
+
             let result = state
                 .ir_builder
                 .build_call(state.builder, bigint_from_i64, &[i64_value.into()], "bigint_from_i64")
                 .expect("bigint_from_i64 call");
             return Ok(result.into());
         }
-        
+
         // Handle pointer -> i64 coercion (shouldn't happen normally, but for completeness)
         if value_type.is_pointer_type() && expected.is_int_type() {
             // This would be an error case - returning a pointer where int expected
@@ -82,7 +93,7 @@ fn coerce_return_value<'ctx>(
             ));
         }
     }
-    
+
     Ok(value)
 }
 
