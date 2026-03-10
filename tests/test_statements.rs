@@ -163,12 +163,13 @@ test()
 }
 
 // ============================================================================
-// Multiple Assignment - Issue #5 (Future/Low Priority)
-// Note: These tests require tuple support and are expected to fail until then
+// Multiple Assignment - Issue #5
+// Basic tuple unpacking is now supported. Remaining limitations:
+// - Expressions in tuple assignment (e.g., a, b = x + 1, y + 2)
+// - Function returns as tuple source (e.g., x, y = get_pair())
 // ============================================================================
 
 #[test]
-#[ignore = "Requires tuple support (Issue #5 - Future)"]
 fn test_multiple_assignment_basic() {
     let code = r#"
 def test():
@@ -177,12 +178,11 @@ def test():
     print(b)
 test()
 "#;
-    let result = run_viper_code(code);
-    assert!(result.is_ok(), "Multiple assignment basic test failed: {:?}", result);
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
-#[ignore = "Requires tuple support (Issue #5 - Future)"]
+#[ignore = "Expressions in tuple assignment not yet supported (Issue #5)"]
 fn test_multiple_assignment_with_expressions() {
     let code = r#"
 def test():
@@ -198,7 +198,6 @@ test()
 }
 
 #[test]
-#[ignore = "Requires tuple support (Issue #5 - Future)"]
 fn test_multiple_assignment_swap() {
     let code = r#"
 def test():
@@ -209,12 +208,10 @@ def test():
     print(b)
 test()
 "#;
-    let result = run_viper_code(code);
-    assert!(result.is_ok(), "Multiple assignment swap failed: {:?}", result);
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
-#[ignore = "Requires tuple support (Issue #5 - Future)"]
 fn test_multiple_assignment_three_vars() {
     let code = r#"
 def test():
@@ -224,12 +221,11 @@ def test():
     print(c)
 test()
 "#;
-    let result = run_viper_code(code);
-    assert!(result.is_ok(), "Multiple assignment three vars failed: {:?}", result);
+    assert!(run_viper_code(code).is_ok());
 }
 
 #[test]
-#[ignore = "Requires tuple support (Issue #5 - Future)"]
+#[ignore = "Function return tuple unpacking not yet supported (Issue #5)"]
 fn test_multiple_assignment_with_function_return() {
     let code = r#"
 def get_pair():
