@@ -116,7 +116,15 @@ measure_benchmark() {
 
         if [ $HAS_GNU_TIME -eq 1 ]; then
             # Use GNU time to measure memory
-            result=$(/usr/bin/time -f "%M" -o "$time_file" bash -c "$cmd" 2>&1)
+            # Run command directly when possible to avoid bash -c overhead
+            # bash -c adds ~1.5MB overhead to memory measurements
+            if [[ "$cmd" == "$TMPDIR"* ]]; then
+                # Direct binary execution from TMPDIR - no bash wrapper needed
+                result=$(/usr/bin/time -f "%M" -o "$time_file" "$cmd" 2>&1)
+            else
+                # Complex command needs bash wrapper
+                result=$(/usr/bin/time -f "%M" -o "$time_file" bash -c "$cmd" 2>&1)
+            fi
             local exit_code=$?
             if [ -f "$time_file" ] && [ -s "$time_file" ]; then
                 mem_kb=$(cat "$time_file" 2>/dev/null || echo "0")
@@ -660,9 +668,23 @@ EOF
 
     log_md "### Key Findings"
     log_md ""
+    
+    # Calculate actual ratios for dynamic key findings
+    local jit_ratio=$(awk "BEGIN {printf \"%.1f\", $jit_mem_total / $jit_count / ($c_mem_total / $c_count)}" 2>/dev/null || echo "N/A")
+    local aot_avg_mem=0
+    local aot_total_count=$((o1_count + o2_count + o3_count))
+    if [ "$aot_total_count" -gt 0 ]; then
+        aot_avg_mem=$(( (o1_mem_total + o2_mem_total + o3_mem_total) / aot_total_count ))
+    fi
+    local aot_ratio=$(awk "BEGIN {printf \"%.1f\", $aot_avg_mem / ($c_mem_total / $c_count)}" 2>/dev/null || echo "N/A")
+    local jit_mem_avg=0
+    if [ "$jit_count" -gt 0 ]; then
+        jit_mem_avg=$((jit_mem_total / jit_count))
+    fi
+    
     log_md "1. **AOT-O1** typically offers the best performance/memory balance"
-    log_md "2. **JIT mode** has ~20× memory overhead due to LLVM JIT engine (~60MB)"
-    log_md "3. **AOT memory** usage equals C/Rust/Go baseline (~3.2MB)"
+    log_md "2. **JIT mode** has ~${jit_ratio}× memory overhead (${jit_mem_avg}KB vs C's ~$((c_mem_total / c_count))KB)"
+    log_md "3. **AOT memory** is ~${aot_ratio}× C baseline (${aot_avg_mem}KB vs ~$((c_mem_total / c_count))KB)"
     log_md "4. Performance varies by workload - see individual benchmark ratios above"
     log_md ""
     log_md "---"
