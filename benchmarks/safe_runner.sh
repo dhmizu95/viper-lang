@@ -369,7 +369,6 @@ run_all_safe() {
     log
     generate_report
     log
-    log "Results saved to: $RESULTS_DIR"
 }
 
 # Generate performance and memory report in Markdown format
