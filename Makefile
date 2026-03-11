@@ -1,6 +1,7 @@
 .PHONY: build test lint fmt run clean bench dev check aot
 .PHONY: bench-all bench-fibonacci bench-quicksort bench-compare
 .PHONY: bench-aot-test bench-opt-compare bench-aot-compare
+.PHONY: bench-safe bench-safe-one bench-safe-fib bench-safe-sort
 
 # Default target: build the compiler
 build:
@@ -70,6 +71,22 @@ bench-aot-compare:
 # Test AOT compilation (known issue: linking fails)
 bench-aot-test:
 	cd benchmarks && ./test_aot.sh
+
+# Run benchmarks with crash protection (safe mode)
+bench-safe:
+	cd benchmarks && ./safe_runner.sh all
+
+# Run single benchmark with safe mode (1 iteration, quick test)
+bench-safe-one:
+	cd benchmarks && ./safe_runner.sh -i 1 01_fibonacci
+
+# Run Fibonacci with safe mode
+bench-safe-fibonacci:
+	cd benchmarks && ./safe_runner.sh 01_fibonacci
+
+# Run QuickSort with safe mode
+bench-safe-quicksort:
+	cd benchmarks && ./safe_runner.sh 04_quicksort
 
 # Helper for AOT compilation
 aot: build runtime
