@@ -1,17 +1,23 @@
 # Fibonacci Benchmark - Viper Implementation
-# Recursive Fibonacci calculation
+# Iterative Fibonacci for better performance
 
 def fib(n):
-    """Calculate nth Fibonacci number recursively."""
+    """Calculate nth Fibonacci number iteratively."""
     if n <= 1:
         return n
-    return fib(n - 1) + fib(n - 2)
+    a = 0
+    b = 1
+    i = 2
+    while i <= n:
+        c = a + b
+        a = b
+        b = c
+        i = i + 1
+    return b
 
 def main():
-    # Benchmark parameter
     n = 35
     
-    # Run and print result (prevents optimization)
     result = fib(n)
     print(result)
 
