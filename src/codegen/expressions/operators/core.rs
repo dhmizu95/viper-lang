@@ -217,13 +217,6 @@ pub fn generate_binop<'ctx>(
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
 
-    // Check if both operands are i64 (tagged integers) - use tagged int arithmetic
-    if lhs_val.is_int_value() && rhs_val.is_int_value() &&
-       lhs_val.get_type().into_int_type().get_bit_width() == 64 &&
-       rhs_val.get_type().into_int_type().get_bit_width() == 64 {
-        return arithmetic::generate_tagged_int_binop(state, lhs_val, rhs_val, op);
-    }
-
     // Check if either operand is BigInt (pointer type that represents BigInt)
     let is_bigint_left = bigint::is_bigint_expr(left, state);
     let is_bigint_right = bigint::is_bigint_expr(right, state);
