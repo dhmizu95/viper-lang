@@ -7,7 +7,7 @@
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
-/// Declare tagged integer runtime functions
+/// Declare tagged integer runtime functions with optimization attributes
 pub fn declare_tagged_int_functions<'ctx>(
     context: &'ctx inkwell::context::Context,
     module: &inkwell::module::Module<'ctx>,
@@ -19,77 +19,135 @@ pub fn declare_tagged_int_functions<'ctx>(
     // TaggedInt operations return TaggedInt (i64)
     let tagged_op_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     
+    // Helper to add optimization attributes to functions
+    // Note: We don't use 'readnone' because tagged int operations can allocate memory
+    // when small ints overflow to BigInt
+    let add_opt_attrs = |func: inkwell::values::FunctionValue<'ctx>| {
+        // alwaysinline: Force inlining for better performance
+        func.add_attribute(
+            inkwell::attributes::AttributeLoc::Function,
+            context.create_string_attribute("alwaysinline", ""),
+        );
+        // willreturn: Function always returns (no infinite loops)
+        func.add_attribute(
+            inkwell::attributes::AttributeLoc::Function,
+            context.create_string_attribute("willreturn", ""),
+        );
+    };
+
     // tagged_int_add
-    module.add_function("tagged_int_add", tagged_op_type, None);
+    let func = module.add_function("tagged_int_add", tagged_op_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_sub
-    module.add_function("tagged_int_sub", tagged_op_type, None);
+    let func = module.add_function("tagged_int_sub", tagged_op_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_mul
-    module.add_function("tagged_int_mul", tagged_op_type, None);
+    let func = module.add_function("tagged_int_mul", tagged_op_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_div
-    module.add_function("tagged_int_div", tagged_op_type, None);
+    let func = module.add_function("tagged_int_div", tagged_op_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_mod
-    module.add_function("tagged_int_mod", tagged_op_type, None);
+    let func = module.add_function("tagged_int_mod", tagged_op_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_pow
-    module.add_function("tagged_int_pow", tagged_op_type, None);
+    let func = module.add_function("tagged_int_pow", tagged_op_type, None);
+    add_opt_attrs(func);
 
     // tagged_int_lshift
-    module.add_function("tagged_int_lshift", tagged_op_type, None);
+    let func = module.add_function("tagged_int_lshift", tagged_op_type, None);
+    add_opt_attrs(func);
 
     // tagged_int_rshift
-    module.add_function("tagged_int_rshift", tagged_op_type, None);
+    let func = module.add_function("tagged_int_rshift", tagged_op_type, None);
+    add_opt_attrs(func);
 
     // tagged_int_bitand
-    module.add_function("tagged_int_bitand", tagged_op_type, None);
+    let func = module.add_function("tagged_int_bitand", tagged_op_type, None);
+    add_opt_attrs(func);
 
     // tagged_int_bitor
-    module.add_function("tagged_int_bitor", tagged_op_type, None);
+    let func = module.add_function("tagged_int_bitor", tagged_op_type, None);
+    add_opt_attrs(func);
 
     // tagged_int_bitxor
-    module.add_function("tagged_int_bitxor", tagged_op_type, None);
+    let func = module.add_function("tagged_int_bitxor", tagged_op_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_neg (unary)
     let tagged_unary_type = i64_type.fn_type(&[i64_type.into()], false);
-    module.add_function("tagged_int_neg", tagged_unary_type, None);
+    let func = module.add_function("tagged_int_neg", tagged_unary_type, None);
+    add_opt_attrs(func);
     
     // Comparison functions return bool (i1)
     let cmp_type = context.bool_type().fn_type(&[i64_type.into(), i64_type.into()], false);
     
     // tagged_int_eq
-    module.add_function("tagged_int_eq", cmp_type, None);
+    let func = module.add_function("tagged_int_eq", cmp_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_lt
-    module.add_function("tagged_int_lt", cmp_type, None);
+    let func = module.add_function("tagged_int_lt", cmp_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_gt
-    module.add_function("tagged_int_gt", cmp_type, None);
+    let func = module.add_function("tagged_int_gt", cmp_type, None);
+    add_opt_attrs(func);
     
     // tagged_int_cmp returns i64 (-1, 0, 1)
     let cmp_ret_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
-    module.add_function("tagged_int_cmp", cmp_ret_type, None);
+    let func = module.add_function("tagged_int_cmp", cmp_ret_type, None);
+    add_opt_attrs(func);
     
     // Utility functions
     // tagged_int_from_i64
-    module.add_function("tagged_int_from_i64", tagged_unary_type, None);
+    let func = module.add_function("tagged_int_from_i64", tagged_unary_type, None);
+    add_opt_attrs(func);
     
-    // tagged_int_from_str
+    // tagged_int_from_str (has side effects - parses string)
     let from_str_type = i64_type.fn_type(&[ptr_type.into()], false);
-    module.add_function("tagged_int_from_str", from_str_type, None);
+    let func = module.add_function("tagged_int_from_str", from_str_type, None);
+    // Only add alwaysinline and willreturn - this function has memory effects
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("willreturn", ""),
+    );
     
-    // tagged_int_to_str returns char*
+    // tagged_int_to_str returns char* (allocates memory)
     let to_str_type = ptr_type.fn_type(&[i64_type.into()], false);
-    module.add_function("tagged_int_to_str", to_str_type, None);
+    let func = module.add_function("tagged_int_to_str", to_str_type, None);
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("willreturn", ""),
+    );
     
-    // tagged_int_print
+    // tagged_int_print (has side effects - I/O)
     let print_type = void_type.fn_type(&[i64_type.into()], false);
-    module.add_function("tagged_int_print", print_type, None);
+    let func = module.add_function("tagged_int_print", print_type, None);
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
     
-    // tagged_int_free
-    module.add_function("tagged_int_free", tagged_unary_type, None);
+    // tagged_int_free (has side effects - frees memory)
+    let func = module.add_function("tagged_int_free", tagged_unary_type, None);
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
 
     Ok(())
 }
