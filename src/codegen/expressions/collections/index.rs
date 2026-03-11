@@ -229,15 +229,24 @@ pub fn generate_index<'ctx>(
 
     // Fall back to runtime function call for list indexing
     // Lists store tagged integers, so the return value is already tagged
+    // But the index needs to be untagged (runtime expects untagged indices)
     if is_pointer_type && is_list {
         let list_get = state
             .module
             .get_function("vp_list_get")
             .ok_or_else(|| "vp_list_get not declared".to_string())?;
 
+        // Untag the index (tagged ints are shifted left by 1)
+        let index_untagged = state.builder.build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        ).map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
         let result = state
             .ir_builder
-            .build_call(state.builder, list_get, &[obj_val.into(), index_val.into()], "list_get")
+            .build_call(state.builder, list_get, &[obj_val.into(), index_untagged.into()], "list_get")
             .expect("vp_list_get call failed");
 
         return Ok(result);

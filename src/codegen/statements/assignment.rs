@@ -422,10 +422,19 @@ pub(crate) fn generate_assign<'ctx>(
             // List index assignment using runtime function call
             // NOTE: Inline list access disabled for JIT mode due to struct layout issues
             // Lists store tagged integers, so pass value directly
+            // But the index needs to be untagged (runtime expects untagged indices)
             let list_set = state
                 .module
                 .get_function("vp_list_set")
                 .ok_or_else(|| "vp_list_set not declared".to_string())?;
+
+            // Untag the index (tagged ints are shifted left by 1)
+            let index_untagged = state.builder.build_right_shift(
+                index_val,
+                state.context.i64_type().const_int(1, false),
+                false,
+                "index_untagged",
+            ).map_err(|e| format!("Failed to untag index: {:?}", e))?;
 
             let _result = state
                 .ir_builder
@@ -434,7 +443,7 @@ pub(crate) fn generate_assign<'ctx>(
                     list_set,
                     &[
                         obj_val.into(),
-                        index_val.into(),
+                        index_untagged.into(),
                         value_val.into(),
                     ],
                     "list_set",

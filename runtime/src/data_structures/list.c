@@ -445,9 +445,9 @@ ViperList* vp_list_repeat(int64_t elem, int64_t count) {
     if (count <= 0) {
         return vp_list_create();
     }
-    
+
     ViperList* list = vp_list_create_with_capacity(count);
-    
+
     /* Fast path: use memset for small integer types */
     if (elem >= 0 && elem <= 255 && list->elem_type == VIPER_LIST_I64) {
         /* For i64 lists with small values, use optimized fill */
@@ -462,7 +462,7 @@ ViperList* vp_list_repeat(int64_t elem, int64_t count) {
             vp_list_append(list, elem);
         }
     }
-    
+
     return list;
 }
 
