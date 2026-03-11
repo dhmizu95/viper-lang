@@ -94,6 +94,14 @@ pub fn compile_file_aot(
         )
     })?;
 
+    // Apply Constant Folding optimization
+    if opt_level >= 1 {
+        println!("   [2.3/4] Running constant folding...");
+        let mut constant_folder = crate::semantic::ConstantFolder::new();
+        constant_folder.fold(&mut ast);
+        println!("   ✓ Constant folding complete");
+    }
+
     // Apply Dead Code Elimination optimization
     if opt_level >= 1 {
         println!("   [2.5/4] Running DCE optimization...");
