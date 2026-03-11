@@ -27,9 +27,91 @@ This document outlines the comprehensive plan to implement Python-compatible dec
 | `@singledispatch` | ❌ Not Implemented | **Future** |
 | `@total_ordering` | ❌ Not Implemented | **Future** |
 
+### Relationship to Performance Improvements
+
+The `@lru_cache` and automatic memoization features directly address performance bottlenecks identified in `plans/viper_compiler_improvement_opportunities_analysis.md`:
+
+| Issue | Solution | Impact |
+|-------|----------|--------|
+| Tagged integer overhead (30-50% loss) | Memoization reduces operation count | 100-1000x on recursive funcs |
+| Missing function inlining (20-40% loss) | Memoization is complementary | Both can be applied together |
+| JIT memory overhead (46× C) | Memoization reduces call stack depth | Reduces peak memory usage |
+
+**Example:** Fibonacci with memoization:
+- Without cache: O(2^n) calls → fib(35) = ~34 billion calls
+- With cache: O(n) calls → fib(35) = 35 calls
+- **Speedup: >5000x** (more impactful than inlining alone)
+
 ---
 
 ## Phase 1: Memoization Decorators (Week 1-2)
+
+### 1.0 Automatic Recursion Detection (Optional Auto-Memoization)
+
+**Priority:** P1 - Medium  
+**Status:** ✅ Infrastructure Started (`src/semantic/recursion_analysis.rs`)
+
+#### Description
+Automatically detect recursive functions and optionally apply memoization transparently or warn users.
+
+#### Implementation Options
+
+**Option A: Warning System (Recommended)**
+```python
+# Compiler warning:
+# warning: function 'fib' is recursive (2 recursive call(s)) but not memoized
+# --> consider adding @lru_cache decorator for significant performance improvement
+
+def fib(n):  # Compiler detects recursion
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+```
+
+**Option B: Automatic Memoization (Aggressive)**
+```python
+# Compiler automatically memoizes all pure recursive functions
+def fib(n):  # Automatically wrapped with cache
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+# To disable:
+@nomemo  # New decorator to opt-out
+def recursive_with_side_effect(n):
+    ...
+```
+
+#### Implementation Plan
+
+1. **Recursion Analysis** (`src/semantic/recursion_analysis.rs`) ✅ Created
+   - Build call graph for all functions
+   - Detect direct recursion (function calls itself)
+   - Detect mutual recursion (A calls B calls A)
+   - Check function purity (no side effects)
+   - Verify parameters are hashable (can be cache keys)
+
+2. **Integration Points**
+   - Run after type checking
+   - Before code generation
+   - Emit warnings or auto-apply memoization
+
+3. **Configuration** (`vpm.toml` or CLI flag)
+   ```toml
+   [compiler]
+   auto_memoize = true  # Enable automatic memoization
+   memoize_warn = true  # Warn about non-memoized recursion
+   ```
+
+#### Files Created
+- `src/semantic/recursion_analysis.rs` ✅
+
+#### Files to Modify
+- `src/driver/aot.rs` (integrate recursion analysis)
+- `src/driver/jit.rs` (integrate recursion analysis)
+- `src/codegen/core/context.rs` (add auto-memoize config)
+
+---
 
 ### 1.1 `@lru_cache(maxsize=128)`
 
