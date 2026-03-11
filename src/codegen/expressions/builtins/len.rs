@@ -75,18 +75,38 @@ pub fn generate_len_call<'ctx>(
             .module
             .get_function("vp_bitvec_len")
             .ok_or_else(|| "vp_bitvec_len not declared".to_string())?;
-        let result =
-            state.ir_builder.build_call(state.builder, bitvec_len, &[obj_val.into()], "bitvec_len");
-        return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+        let result = state
+            .ir_builder
+            .build_call(state.builder, bitvec_len, &[obj_val.into()], "bitvec_len")
+            .unwrap();
+        
+        // Tag the return value (runtime returns untagged length)
+        let result_tagged = state.builder.build_left_shift(
+            result.into_int_value(),
+            state.context.i64_type().const_int(1, false),
+            "bitvec_len_tagged",
+        ).expect("failed to tag bitvec_len result");
+        
+        return Ok(result_tagged.into());
     } else if is_list {
         // Call vp_list_len for other lists
         let list_len = state
             .module
             .get_function("vp_list_len")
             .ok_or_else(|| "vp_list_len not declared".to_string())?;
-        let result =
-            state.ir_builder.build_call(state.builder, list_len, &[obj_val.into()], "list_len");
-        return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
+        let result = state
+            .ir_builder
+            .build_call(state.builder, list_len, &[obj_val.into()], "list_len")
+            .unwrap();
+        
+        // Tag the return value (runtime returns untagged length)
+        let result_tagged = state.builder.build_left_shift(
+            result.into_int_value(),
+            state.context.i64_type().const_int(1, false),
+            "len_tagged",
+        ).expect("failed to tag len result");
+        
+        return Ok(result_tagged.into());
     }
 
     // Otherwise treat as string (for string literals or variables)

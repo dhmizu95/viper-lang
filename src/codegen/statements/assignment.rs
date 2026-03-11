@@ -1,11 +1,6 @@
 use crate::ast::{BinOp, Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarStorage, VarType};
-use crate::codegen::inline_lists::{
-    inline_bool_list_set,
-    inline_i64_list_set,
-    inline_f64_list_set,
-};
 
 /// Get the type of an expression for assignment type tracking.
 /// Unlike infer_expr_type, this looks up identifier types from var_types.
@@ -424,57 +419,26 @@ pub(crate) fn generate_assign<'ctx>(
                 .build_store(elem_ptr, value_val)
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
         } else {
-            // List index assignment using inline LLVM IR for better performance
-            // This generates direct GEP + store instructions instead of function calls
-            let obj_name = match obj.as_ref() {
-                Expr::Ident(name, _) => Some(name.as_str()),
-                _ => None,
-            };
-            let is_bool_list = obj_name.map(|n| state.is_bool_list(n)).unwrap_or(false);
+            // List index assignment using runtime function call
+            // NOTE: Inline list access disabled for JIT mode due to struct layout issues
+            // Lists store tagged integers, so pass value directly
+            let list_set = state
+                .module
+                .get_function("vp_list_set")
+                .ok_or_else(|| "vp_list_set not declared".to_string())?;
 
-            // Check if this is a float list
-            let is_float_list = {
-                let obj_type = crate::codegen::expressions::infer_expr_type(obj);
-                let obj_type = if let Expr::Ident(name, _) = obj.as_ref() {
-                    state.var_types.get(name).cloned().unwrap_or(obj_type)
-                } else {
-                    obj_type
-                };
-
-                match &obj_type {
-                    Type::List(inner) => match &**inner {
-                        Type::F64 => true,
-                        Type::Var(n) if n == "float" || n == "f64" => true,
-                        _ => false,
-                    },
-                    Type::GenericApp { name, type_args } if (name == "list" || name == "List") && type_args.len() == 1 => {
-                        match &type_args[0] {
-                            Type::F64 => true,
-                            Type::Var(n) if n == "float" || n == "f64" => true,
-                            _ => false,
-                        }
-                    }
-                    _ => false,
-                }
-            };
-
-            let list_ptr = obj_val.into_pointer_value();
-
-            // Use inline list set based on element type
-            if is_bool_list {
-                // Inline bool list set - generates direct LLVM store
-                inline_bool_list_set(state, list_ptr, index_val, value_val)
-                    .map_err(|e| format!("Inline bool list set failed: {:?}", e))?;
-            } else if is_float_list {
-                // Inline f64 list set - generates direct LLVM store
-                inline_f64_list_set(state, list_ptr, index_val, value_val)
-                    .map_err(|e| format!("Inline f64 list set failed: {:?}", e))?;
-            } else {
-                // Inline i64 list set - generates direct LLVM store
-                // Values in lists are tagged integers, so store as-is
-                inline_i64_list_set(state, list_ptr, index_val, value_val)
-                    .map_err(|e| format!("Inline i64 list set failed: {:?}", e))?;
-            }
+            let _result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    list_set,
+                    &[
+                        obj_val.into(),
+                        index_val.into(),
+                        value_val.into(),
+                    ],
+                    "list_set",
+                );
         }
     } else if let Expr::Attribute { obj, attr, .. } = target {
         // Handle attribute assignment: obj.attr = value

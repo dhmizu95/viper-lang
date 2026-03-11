@@ -192,7 +192,9 @@ pub fn generate_index<'ctx>(
 
     // Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
-    if is_pointer_type && is_list {
+    // NOTE: Inline list access disabled for JIT mode due to struct layout issues
+    // Fall back to runtime function calls for correctness
+    if false && is_pointer_type && is_list {
         let list_ptr = obj_val.into_pointer_value();
 
         // Use inline bit vector get for bool lists (more memory efficient)
@@ -223,6 +225,22 @@ pub fn generate_index<'ctx>(
             .map_err(|e| format!("Inline i64 list get failed: {:?}", e))?;
 
         return Ok(i64_val);
+    }
+
+    // Fall back to runtime function call for list indexing
+    // Lists store tagged integers, so the return value is already tagged
+    if is_pointer_type && is_list {
+        let list_get = state
+            .module
+            .get_function("vp_list_get")
+            .ok_or_else(|| "vp_list_get not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(state.builder, list_get, &[obj_val.into(), index_val.into()], "list_get")
+            .expect("vp_list_get call failed");
+
+        return Ok(result);
     }
 
     // For non-list pointers (strings, arrays), use array indexing

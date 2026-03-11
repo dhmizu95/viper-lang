@@ -47,6 +47,14 @@ pub fn generate_binop<'ctx>(
                 // Only generate the element expression and count, not the full list
                 let count_val = generate_expr(state, right)?;
                 let count_int = count_val.into_int_value();
+                
+                // Untag the count integer (tagged ints are shifted left by 1)
+                let count_untagged = state.builder.build_right_shift(
+                    count_int,
+                    state.context.i64_type().const_int(1, false),
+                    false,
+                    "count_untagged",
+                ).expect("failed to untag count");
 
                 let (elem_val, func_name) = match elem {
                     Expr::Bool(true, _) => {
@@ -58,7 +66,9 @@ pub fn generate_binop<'ctx>(
                         (val, "vp_bitvec_repeat")  // Use bit vector for bool lists
                     }
                     Expr::Int(val, _) => {
-                         let val: inkwell::values::BasicMetadataValueEnum = state.ir_builder.i64_const(*val).into();
+                         // Tag the integer value (shift left by 1)
+                         let tagged_val = (*val) << 1;
+                         let val: inkwell::values::BasicMetadataValueEnum = state.ir_builder.i64_const(tagged_val).into();
                          (val, "vp_list_repeat")
                      }
                     Expr::Float(val, _) => {
@@ -94,7 +104,7 @@ pub fn generate_binop<'ctx>(
                     .build_call(
                         state.builder,
                         list_repeat_func,
-                        &[elem_val, count_int.into()],
+                        &[elem_val, count_untagged.into()],
                         "list_repeat",
                     )
                     .expect("list_repeat call");
@@ -206,6 +216,13 @@ pub fn generate_binop<'ctx>(
     // Generate both operands for other operations
     let lhs_val = generate_expr(state, left)?;
     let rhs_val = generate_expr(state, right)?;
+
+    // Check if both operands are i64 (tagged integers) - use tagged int arithmetic
+    if lhs_val.is_int_value() && rhs_val.is_int_value() &&
+       lhs_val.get_type().into_int_type().get_bit_width() == 64 &&
+       rhs_val.get_type().into_int_type().get_bit_width() == 64 {
+        return arithmetic::generate_tagged_int_binop(state, lhs_val, rhs_val, op);
+    }
 
     // Check if either operand is BigInt (pointer type that represents BigInt)
     let is_bigint_left = bigint::is_bigint_expr(left, state);

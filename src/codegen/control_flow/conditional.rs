@@ -40,6 +40,21 @@ fn generate_if_chain<'ctx>(
     let elif_cond_val =
         crate::codegen::expressions::generate_expr(state, elif_cond)?.into_int_value();
 
+    // Convert condition to i1 (boolean) for branch
+    let elif_cond_i1 = if elif_cond_val.get_type().get_bit_width() == 1 {
+        elif_cond_val
+    } else {
+        state
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::NE,
+                elif_cond_val,
+                state.context.i64_type().const_zero(),
+                "elif_cond_bool",
+            )
+            .map_err(|e| format!("Failed to build elif condition: {:?}", e))?
+    };
+
     let elif_then = state.context.append_basic_block(func, "elif_then");
     // Recursively handle remaining elif blocks
     let remaining_elif = &elif_blocks[1..];
@@ -49,7 +64,7 @@ fn generate_if_chain<'ctx>(
         merge_block
     };
 
-    state.ir_builder.build_cond_branch(state.builder, elif_cond_val, elif_then, elif_else);
+    state.ir_builder.build_cond_branch(state.builder, elif_cond_i1, elif_then, elif_else);
 
     // Generate then block for this elif
     state.builder.position_at_end(elif_then);
