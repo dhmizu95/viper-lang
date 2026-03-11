@@ -1,5 +1,5 @@
 //! Tagged integer code generation with automatic overflow detection
-//! 
+//!
 //! Tagged integers use the LSB to distinguish small ints from BigInt:
 //! - LSB = 0: Small integer (i63, stored as value << 1)
 //! - LSB = 1: BigInt pointer (pointer | 1)
@@ -18,10 +18,8 @@ pub fn declare_tagged_int_functions<'ctx>(
 
     // TaggedInt operations return TaggedInt (i64)
     let tagged_op_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
-    
-    // Helper to add optimization attributes to functions
-    // Note: We don't use 'readnone' because tagged int operations can allocate memory
-    // when small ints overflow to BigInt
+
+    // Helper to add aggressive optimization attributes to functions
     let add_opt_attrs = |func: inkwell::values::FunctionValue<'ctx>| {
         // alwaysinline: Force inlining for better performance
         func.add_attribute(
@@ -33,28 +31,38 @@ pub fn declare_tagged_int_functions<'ctx>(
             inkwell::attributes::AttributeLoc::Function,
             context.create_string_attribute("willreturn", ""),
         );
+        //nounwind: Function doesn't throw exceptions
+        func.add_attribute(
+            inkwell::attributes::AttributeLoc::Function,
+            context.create_string_attribute("nounwind", ""),
+        );
+        //uwtable: Function has unwind table
+        func.add_attribute(
+            inkwell::attributes::AttributeLoc::Function,
+            context.create_string_attribute("uwtable", ""),
+        );
     };
 
     // tagged_int_add
     let func = module.add_function("tagged_int_add", tagged_op_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_sub
     let func = module.add_function("tagged_int_sub", tagged_op_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_mul
     let func = module.add_function("tagged_int_mul", tagged_op_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_div
     let func = module.add_function("tagged_int_div", tagged_op_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_mod
     let func = module.add_function("tagged_int_mod", tagged_op_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_pow
     let func = module.add_function("tagged_int_pow", tagged_op_type, None);
     add_opt_attrs(func);
@@ -78,37 +86,37 @@ pub fn declare_tagged_int_functions<'ctx>(
     // tagged_int_bitxor
     let func = module.add_function("tagged_int_bitxor", tagged_op_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_neg (unary)
     let tagged_unary_type = i64_type.fn_type(&[i64_type.into()], false);
     let func = module.add_function("tagged_int_neg", tagged_unary_type, None);
     add_opt_attrs(func);
-    
+
     // Comparison functions return bool (i1)
     let cmp_type = context.bool_type().fn_type(&[i64_type.into(), i64_type.into()], false);
-    
+
     // tagged_int_eq
     let func = module.add_function("tagged_int_eq", cmp_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_lt
     let func = module.add_function("tagged_int_lt", cmp_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_gt
     let func = module.add_function("tagged_int_gt", cmp_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_cmp returns i64 (-1, 0, 1)
     let cmp_ret_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     let func = module.add_function("tagged_int_cmp", cmp_ret_type, None);
     add_opt_attrs(func);
-    
+
     // Utility functions
     // tagged_int_from_i64
     let func = module.add_function("tagged_int_from_i64", tagged_unary_type, None);
     add_opt_attrs(func);
-    
+
     // tagged_int_from_str (has side effects - parses string)
     let from_str_type = i64_type.fn_type(&[ptr_type.into()], false);
     let func = module.add_function("tagged_int_from_str", from_str_type, None);
@@ -121,7 +129,7 @@ pub fn declare_tagged_int_functions<'ctx>(
         inkwell::attributes::AttributeLoc::Function,
         context.create_string_attribute("willreturn", ""),
     );
-    
+
     // tagged_int_to_str returns char* (allocates memory)
     let to_str_type = ptr_type.fn_type(&[i64_type.into()], false);
     let func = module.add_function("tagged_int_to_str", to_str_type, None);
@@ -133,7 +141,7 @@ pub fn declare_tagged_int_functions<'ctx>(
         inkwell::attributes::AttributeLoc::Function,
         context.create_string_attribute("willreturn", ""),
     );
-    
+
     // tagged_int_print (has side effects - I/O)
     let print_type = void_type.fn_type(&[i64_type.into()], false);
     let func = module.add_function("tagged_int_print", print_type, None);
@@ -141,7 +149,7 @@ pub fn declare_tagged_int_functions<'ctx>(
         inkwell::attributes::AttributeLoc::Function,
         context.create_string_attribute("alwaysinline", ""),
     );
-    
+
     // tagged_int_free (has side effects - frees memory)
     let func = module.add_function("tagged_int_free", tagged_unary_type, None);
     func.add_attribute(
@@ -165,12 +173,7 @@ pub fn generate_tagged_int_add<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_add",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_add")
         .expect("tagged_int_add call");
 
     Ok(result.into())
@@ -189,12 +192,7 @@ pub fn generate_tagged_int_sub<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_sub",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_sub")
         .expect("tagged_int_sub call");
 
     Ok(result.into())
@@ -213,12 +211,7 @@ pub fn generate_tagged_int_mul<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_mul",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_mul")
         .expect("tagged_int_mul call");
 
     Ok(result.into())
@@ -237,12 +230,7 @@ pub fn generate_tagged_int_pow<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_pow",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_pow")
         .expect("tagged_int_pow call");
 
     Ok(result.into())
@@ -261,12 +249,7 @@ pub fn generate_tagged_int_lshift<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_lshift",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_lshift")
         .expect("tagged_int_lshift call");
 
     Ok(result.into())
@@ -285,12 +268,7 @@ pub fn generate_tagged_int_rshift<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_rshift",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_rshift")
         .expect("tagged_int_rshift call");
 
     Ok(result.into())
@@ -309,12 +287,7 @@ pub fn generate_tagged_int_bitand<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_bitand",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_bitand")
         .expect("tagged_int_bitand call");
 
     Ok(result.into())
@@ -333,12 +306,7 @@ pub fn generate_tagged_int_bitor<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_bitor",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_bitor")
         .expect("tagged_int_bitor call");
 
     Ok(result.into())
@@ -357,12 +325,7 @@ pub fn generate_tagged_int_bitxor<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_bitxor",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_bitxor")
         .expect("tagged_int_bitxor call");
 
     Ok(result.into())
@@ -381,12 +344,7 @@ pub fn generate_tagged_int_div<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_div",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_div")
         .expect("tagged_int_div call");
 
     Ok(result.into())
@@ -405,12 +363,7 @@ pub fn generate_tagged_int_mod<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_mod",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_mod")
         .expect("tagged_int_mod call");
 
     Ok(result.into())
@@ -428,12 +381,7 @@ pub fn generate_tagged_int_neg<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[operand.into()],
-            "tagged_neg",
-        )
+        .build_call(state.builder, func, &[operand.into()], "tagged_neg")
         .expect("tagged_int_neg call");
 
     Ok(result.into())
@@ -452,12 +400,7 @@ pub fn generate_tagged_int_eq<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_eq",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_eq")
         .expect("tagged_int_eq call");
 
     Ok(result.into())
@@ -476,12 +419,7 @@ pub fn generate_tagged_int_lt<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_lt",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_lt")
         .expect("tagged_int_lt call");
 
     Ok(result.into())
@@ -500,12 +438,7 @@ pub fn generate_tagged_int_gt<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[lhs.into(), rhs.into()],
-            "tagged_gt",
-        )
+        .build_call(state.builder, func, &[lhs.into(), rhs.into()], "tagged_gt")
         .expect("tagged_int_gt call");
 
     Ok(result.into())
@@ -523,12 +456,7 @@ pub fn generate_tagged_int_from_i64<'ctx>(
 
     let result = state
         .ir_builder
-        .build_call(
-            state.builder,
-            func,
-            &[value.into()],
-            "tagged_from_i64",
-        )
+        .build_call(state.builder, func, &[value.into()], "tagged_from_i64")
         .expect("tagged_int_from_i64 call");
 
     Ok(result.into())

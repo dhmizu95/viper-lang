@@ -191,13 +191,13 @@ static void free_temp_bigint(ViperBigInt* bigint) {
 }
 
 TaggedInt tagged_int_add(TaggedInt a, TaggedInt b) {
-    /* Case 1: Both small integers */
-    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+    /* Case 1: Both small integers - HOT path */
+    if (VIPER_LIKELY(tagged_int_is_small(a) && tagged_int_is_small(b))) {
         int64_t a_val = tagged_int_get_small(a);
         int64_t b_val = tagged_int_get_small(b);
 
-        /* Check for overflow */
-        if (would_overflow_add(a_val, b_val)) {
+        /* Check for overflow - most operations don't overflow */
+        if (VIPER_UNLIKELY(would_overflow_add(a_val, b_val))) {
             /* Promote both to BigInt and add */
             ViperBigInt* a_big = tagged_int_to_bigint(a);
             ViperBigInt* b_big = tagged_int_to_bigint(b);
@@ -253,13 +253,13 @@ TaggedInt tagged_int_add(TaggedInt a, TaggedInt b) {
 }
 
 TaggedInt tagged_int_sub(TaggedInt a, TaggedInt b) {
-    /* Case 1: Both small integers */
-    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+    /* Case 1: Both small integers - HOT path */
+    if (VIPER_LIKELY(tagged_int_is_small(a) && tagged_int_is_small(b))) {
         int64_t a_val = tagged_int_get_small(a);
         int64_t b_val = tagged_int_get_small(b);
 
-        /* Check for overflow */
-        if (would_overflow_sub(a_val, b_val)) {
+        /* Check for overflow - most operations don't overflow */
+        if (VIPER_UNLIKELY(would_overflow_sub(a_val, b_val))) {
             /* Promote both to BigInt and subtract */
             ViperBigInt* a_big = tagged_int_to_bigint(a);
             ViperBigInt* b_big = tagged_int_to_bigint(b);
@@ -315,13 +315,13 @@ TaggedInt tagged_int_sub(TaggedInt a, TaggedInt b) {
 }
 
 TaggedInt tagged_int_mul(TaggedInt a, TaggedInt b) {
-    /* Case 1: Both small integers */
-    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+    /* Case 1: Both small integers - HOT path */
+    if (VIPER_LIKELY(tagged_int_is_small(a) && tagged_int_is_small(b))) {
         int64_t a_val = tagged_int_get_small(a);
         int64_t b_val = tagged_int_get_small(b);
 
-        /* Check for overflow */
-        if (would_overflow_mul(a_val, b_val)) {
+        /* Check for overflow - most operations don't overflow */
+        if (VIPER_UNLIKELY(would_overflow_mul(a_val, b_val))) {
             /* Promote both to BigInt and multiply */
             ViperBigInt* a_big = tagged_int_to_bigint(a);
             ViperBigInt* b_big = tagged_int_to_bigint(b);
