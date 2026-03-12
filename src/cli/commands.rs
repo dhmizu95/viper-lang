@@ -18,6 +18,11 @@ pub fn execute(args: Args) -> Result<(), String> {
             compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
         }
         Commands::Run { input, optimize, auto_memoize } => {
+            let current_exe = std::env::current_exe()
+                .map_err(|e| format!("Failed to locate current executable: {}", e))?;
+            compile_and_run_jit_isolated(&current_exe, &input, optimize, auto_memoize)
+        }
+        Commands::RunInternal { input, optimize, auto_memoize } => {
             compile_and_run_jit_with_memo(&input, optimize, auto_memoize)
         }
         Commands::Init { name } => {

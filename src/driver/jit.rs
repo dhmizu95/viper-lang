@@ -4,7 +4,7 @@ use crate::parser;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use std::path::Path;
-use std::process;
+use std::process::{Command, ExitStatus};
 
 /// Run LLVM optimizations on a module for JIT compilation
 /// Note: JIT execution engine applies optimizations automatically via OptimizationLevel
@@ -26,6 +26,35 @@ pub fn compile_and_run(input_path: &str) -> Result<(), String> {
 /// Compile and run using JIT with specified optimization level
 pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
     compile_and_run_jit_with_memo(input_path, opt_level, false)
+}
+
+pub fn compile_and_run_jit_isolated(
+    executable: &Path,
+    input_path: &str,
+    opt_level: u32,
+    auto_memoize: bool,
+) -> Result<(), String> {
+    let mut child = Command::new(executable);
+    child.arg("__run-internal");
+    child.arg(input_path);
+    child.arg("-O");
+    child.arg(opt_level.to_string());
+    if auto_memoize {
+        child.arg("--auto-memoize");
+    }
+
+    let output = child
+        .output()
+        .map_err(|e| format!("Failed to spawn isolated JIT process: {}", e))?;
+
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+
+    if output.status.success() || jit_child_finished_after_output(&output.status, &output.stdout) {
+        return Ok(());
+    }
+
+    Err(format!("Isolated JIT process failed with status {}", output.status))
 }
 
 /// Compile and run using JIT with optional automatic memoization
@@ -149,7 +178,18 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
         }
     }
 
-    // Exit immediately to avoid LLVM 21 MCJIT cleanup crash
-    // This is a known issue with inkwell/LLVM 21 - the destructor causes segfault
-    process::exit(0);
+    Ok(())
+}
+
+fn jit_child_finished_after_output(status: &ExitStatus, stdout: &[u8]) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+
+        if status.signal() == Some(11) {
+            return String::from_utf8_lossy(stdout).contains("✅ Execution complete.");
+        }
+    }
+
+    false
 }

@@ -56,6 +56,17 @@ pub enum Commands {
         #[arg(long)]
         auto_memoize: bool,
     },
+    #[command(name = "__run-internal", hide = true)]
+    RunInternal {
+        #[arg(value_name = "FILE")]
+        input: String,
+
+        #[arg(short = 'O', default_value = "2", value_name = "LEVEL")]
+        optimize: u32,
+
+        #[arg(long)]
+        auto_memoize: bool,
+    },
     /// Initialize a new Viper project
     Init {
         /// Project name
