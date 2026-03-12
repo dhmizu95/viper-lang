@@ -26,3 +26,29 @@ pub enum ViperError {
 }
 
 pub type Result<T> = std::result::Result<T, ViperError>;
+
+impl ViperError {
+    pub fn lexical(message: impl Into<String>, line: usize, column: usize) -> Self {
+        Self::Lexical(message.into(), line, column)
+    }
+
+    pub fn parser(message: impl Into<String>, span: Span) -> Self {
+        Self::Parser(message.into(), span)
+    }
+
+    pub fn type_error(message: impl Into<String>, span: Span) -> Self {
+        Self::TypeError(message.into(), span)
+    }
+
+    pub fn codegen(message: impl Into<String>) -> Self {
+        Self::Codegen(message.into())
+    }
+
+    pub fn driver(message: impl Into<String>) -> Self {
+        Self::Driver(message.into())
+    }
+
+    pub fn cli(message: impl Into<String>) -> Self {
+        Self::Cli(message.into())
+    }
+}

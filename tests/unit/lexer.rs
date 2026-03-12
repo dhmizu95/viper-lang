@@ -254,12 +254,12 @@ fn test_token_error() {
 // Lexer::tokenize Tests
 // ============================================================================
 
-fn tokenize(src: &str) -> Result<Vec<Token>, String> {
+fn tokenize(src: &str) -> viper_lang::error::Result<Vec<Token>> {
     let mut lexer = Lexer::new(src);
     lexer.tokenize()
 }
 
-fn token_kinds(src: &str) -> Result<Vec<TokenKind>, String> {
+fn token_kinds(src: &str) -> viper_lang::error::Result<Vec<TokenKind>> {
     tokenize(src).map(|tokens| tokens.into_iter().map(|t| t.kind).collect())
 }
 

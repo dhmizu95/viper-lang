@@ -10,15 +10,16 @@ use viper_lang::parser::precedence::Precedence;
 // Helper Functions
 // ============================================================================
 
-fn tokenize(src: &str) -> Result<Vec<viper_lang::lexer::Token>, String> {
+fn tokenize(src: &str) -> viper_lang::error::Result<Vec<viper_lang::lexer::Token>> {
     let mut lexer = Lexer::new(src);
     lexer.tokenize()
 }
 
-fn parse_expr(src: &str) -> Result<Expr, String> {
+fn parse_expr(src: &str) -> viper_lang::error::Result<Expr> {
     let tokens = tokenize(src)?;
     let mut parser = PrattParser::new(&tokens);
     parser.parse_expr(Precedence::MIN)
+        .map_err(viper_lang::error::ViperError::driver)
 }
 
 fn assert_is_int(expr: &Expr, expected: i64) {

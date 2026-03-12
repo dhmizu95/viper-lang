@@ -1,13 +1,14 @@
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
+use crate::error::{Result, ViperError};
 use crate::repl::{InputState, LineStatus, ReplSession};
 
-pub fn run_repl() -> Result<(), String> {
+pub fn run_repl() -> Result<()> {
     println!("🐍 Viper REPL {}", env!("CARGO_PKG_VERSION"));
     println!("Type :quit to exit, :clear to clear, :help for commands\n");
 
-    let mut editor = DefaultEditor::new().map_err(|e| e.to_string())?;
+    let mut editor = DefaultEditor::new().map_err(|e| ViperError::cli(e.to_string()))?;
 
     // We intentionally don't load history file here as Viper doesn't have a reliable
     // home directory expansion built-in, but rustyline keeps session history anyway.

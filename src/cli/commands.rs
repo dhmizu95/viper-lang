@@ -1,8 +1,9 @@
 use crate::cli;
 use crate::cli::args::{Args, Commands};
 use crate::driver::*;
+use crate::error::{Result, ViperError};
 
-pub fn execute(args: Args) -> Result<(), String> {
+pub fn execute(args: Args) -> Result<()> {
     match args.command {
         Commands::Build { input, output, optimize, lto, emit_llvm, pgo, auto_memoize: _ } => {
             check_aot_prerequisites()?;
@@ -19,7 +20,7 @@ pub fn execute(args: Args) -> Result<(), String> {
         }
         Commands::Run { input, optimize, auto_memoize } => {
             let current_exe = std::env::current_exe()
-                .map_err(|e| format!("Failed to locate current executable: {}", e))?;
+                .map_err(ViperError::Io)?;
             compile_and_run_jit_isolated(&current_exe, &input, optimize, auto_memoize)
         }
         Commands::RunInternal { input, optimize, auto_memoize } => {
@@ -53,7 +54,7 @@ pub fn execute(args: Args) -> Result<(), String> {
         Commands::Test { input, discover: _, verbose: _, filter: _ } => {
             eprintln!("Error: viper test is not supported yet");
             eprintln!("Input: {:?}", input);
-            Err("test command not available".to_string())
+            Err(ViperError::cli("test command not available"))
         }
     }
 }

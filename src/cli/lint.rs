@@ -1,8 +1,8 @@
 use crate::semantic::type_checker::TypeChecker;
 
-pub fn run_lint(args: &LintArgs) -> Result<(), String> {
+pub fn run_lint(args: &LintArgs) -> crate::error::Result<()> {
     let source = std::fs::read_to_string(&args.input)
-        .map_err(|e| format!("Failed to read '{}': {}", args.input, e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     let mut lexer = crate::lexer::Lexer::new(&source);
     let tokens = lexer.tokenize()?;
@@ -43,7 +43,10 @@ pub fn run_lint(args: &LintArgs) -> Result<(), String> {
         for error in type_checker.errors() {
             eprintln!("Error: {:?}", error);
         }
-        return Err(format!("{} type error(s) found", type_checker.errors().len()));
+        return Err(crate::error::ViperError::cli(format!(
+            "{} type error(s) found",
+            type_checker.errors().len()
+        )));
     }
 
     Ok(())

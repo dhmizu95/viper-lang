@@ -1,5 +1,6 @@
 use crate::lexer::indent_stack::{IndentChange, IndentStack};
 use crate::lexer::tokens::{Token, TokenKind};
+use crate::error::{Result, ViperError};
 use crate::utils::Span;
 
 /// The lexer scans source code and produces a stream of tokens
@@ -32,11 +33,16 @@ impl<'a> Lexer<'a> {
     }
 
     /// Tokenize the entire source, returning all tokens
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, String> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>> {
+        self.tokenize_raw()
+            .map_err(|e| ViperError::lexical(e, self.line, self.column))
+    }
+
+    fn tokenize_raw(&mut self) -> std::result::Result<Vec<Token>, String> {
         let mut tokens = Vec::new();
 
         loop {
-            match self.next_token() {
+            match self.next_token_raw() {
                 Ok(token) => {
                     let is_eof = matches!(token.kind, TokenKind::Eof);
                     tokens.push(token);
@@ -52,7 +58,12 @@ impl<'a> Lexer<'a> {
     }
 
     /// Get the next token from the source
-    pub fn next_token(&mut self) -> Result<Token, String> {
+    pub fn next_token(&mut self) -> Result<Token> {
+        self.next_token_raw()
+            .map_err(|e| ViperError::lexical(e, self.line, self.column))
+    }
+
+    fn next_token_raw(&mut self) -> std::result::Result<Token, String> {
         'retry: loop {
             // Emit pending dedents first
             if self.pending_dedents > 0 {
@@ -433,27 +444,27 @@ impl<'a> Lexer<'a> {
                             return Ok(Token::new(TokenKind::Str("".to_string()), span));
                         }
                     }
-                    let s = self.read_string(quote_char)?;
+                    let s = self.read_string_raw(quote_char)?;
                     TokenKind::Str(s)
                 }
 
                 // Number literals
-                c if c.is_ascii_digit() => self.read_number(c)?,
+                c if c.is_ascii_digit() => self.read_number_raw(c)?,
 
                 // Identifiers and keywords
                 c if c.is_alphabetic() || c == '_' => {
                     if c == 'f' && (self.peek() == Some('"') || self.peek() == Some('\'')) {
                         let quote_char = self.advance();
-                        let s = self.read_string(quote_char)?;
+                        let s = self.read_string_raw(quote_char)?;
                         TokenKind::FString(s)
                     } else if c == 'r' && (self.peek() == Some('"') || self.peek() == Some('\'')) {
                         let quote_char = self.advance();
-                        let s = self.read_raw_string(quote_char)?;
+                        let s = self.read_raw_string_raw(quote_char)?;
                         TokenKind::Str(s)
                     } else if c == 'b' && (self.peek() == Some('"') || self.peek() == Some('\'')) {
                         // Byte literal: b"bytes" or b'bytes'
                         let quote_char = self.advance();
-                        let bytes = self.read_byte_string(quote_char)?;
+                        let bytes = self.read_byte_string_raw(quote_char)?;
                         TokenKind::Bytes(bytes)
                     } else {
                         let mut ident = c.to_string();
@@ -507,7 +518,7 @@ impl<'a> Lexer<'a> {
         self.chars.clone().nth(n)
     }
 
-    fn read_string(&mut self, quote: char) -> Result<String, String> {
+    fn read_string_raw(&mut self, quote: char) -> std::result::Result<String, String> {
         let mut s = String::new();
         let mut escaped = false;
 
@@ -592,7 +603,7 @@ impl<'a> Lexer<'a> {
         Ok(s)
     }
 
-    fn read_raw_string(&mut self, quote: char) -> Result<String, String> {
+    fn read_raw_string_raw(&mut self, quote: char) -> std::result::Result<String, String> {
         let mut s = String::new();
 
         loop {
@@ -613,7 +624,7 @@ impl<'a> Lexer<'a> {
         Ok(s)
     }
 
-    fn read_byte_string(&mut self, quote: char) -> Result<Vec<u8>, String> {
+    fn read_byte_string_raw(&mut self, quote: char) -> std::result::Result<Vec<u8>, String> {
         let mut bytes = Vec::new();
         let mut escaped = false;
 
@@ -700,7 +711,7 @@ impl<'a> Lexer<'a> {
         Ok(bytes)
     }
 
-    fn read_number(&mut self, first: char) -> Result<TokenKind, String> {
+    fn read_number_raw(&mut self, first: char) -> std::result::Result<TokenKind, String> {
         let mut s = first.to_string();
         let mut is_float = false;
 

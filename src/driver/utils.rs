@@ -1,27 +1,28 @@
 use crate::ast::{Module, Stmt};
+use crate::error::{Result, ViperError};
 use crate::semantic::{RecursionAnalyzer, TypeChecker};
 use std::path::Path;
 
 /// Check prerequisites for AOT compilation.
-pub fn check_aot_prerequisites() -> Result<(), String> {
+pub fn check_aot_prerequisites() -> Result<()> {
     if !check_command_exists("opt") {
-        return Err("LLVM opt tool not found in PATH".to_string());
+        return Err(ViperError::driver("LLVM opt tool not found in PATH"));
     }
 
     if !check_command_exists("gcc") {
-        return Err("GCC compiler not found in PATH".to_string());
+        return Err(ViperError::driver("GCC compiler not found in PATH"));
     }
 
     Ok(())
 }
 
 /// Check basic prerequisites for general compiler use.
-pub fn check_basic_prerequisites() -> Result<(), String> {
+pub fn check_basic_prerequisites() -> Result<()> {
     Ok(())
 }
 
 /// Check runtime library exists (only needed for AOT compilation)
-pub fn check_runtime_library() -> Result<(), String> {
+pub fn check_runtime_library() -> Result<()> {
     let runtime_paths = [
         "runtime/obj/libviper.a",
         "../runtime/obj/libviper.a",
@@ -51,7 +52,9 @@ pub fn check_runtime_library() -> Result<(), String> {
     let runtime_found = expanded_paths.iter().any(|p| Path::new(p).exists());
 
     if !runtime_found {
-        return Err("Viper runtime library not found (runtime/obj/libviper.a)".to_string());
+        return Err(ViperError::driver(
+            "Viper runtime library not found (runtime/obj/libviper.a)",
+        ));
     }
 
     Ok(())
@@ -116,12 +119,15 @@ pub fn analyze_recursive_functions(module: &Module) -> (Vec<String>, usize) {
     (warnings, recursive_funcs.len())
 }
 
-pub fn type_check_module(input_path: &Path, ast: &Module) -> Result<TypeChecker, String> {
+pub fn type_check_module(input_path: &Path, ast: &Module) -> Result<TypeChecker> {
     let mut type_checker = TypeChecker::with_input_path(input_path);
     type_checker.check(ast).map_err(|e| {
-        format!(
+        ViperError::type_error(
+            format!(
             "Type errors found:\n{}",
             e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
+            ),
+            crate::utils::Span::default(),
         )
     })?;
     Ok(type_checker)

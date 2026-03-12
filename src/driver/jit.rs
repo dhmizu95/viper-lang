@@ -1,4 +1,5 @@
 use crate::codegen;
+use crate::error::{Result, ViperError};
 use crate::lexer;
 use crate::parser;
 use inkwell::context::Context;
@@ -12,19 +13,19 @@ use std::process::{Command, ExitStatus};
 pub fn run_llvm_optimizations(
     _module: &inkwell::module::Module,
     _opt_level: u32,
-) -> Result<(), String> {
+) -> Result<()> {
     // JIT execution engine handles optimization via OptimizationLevel parameter
     // The mem2reg and other optimizations are applied automatically by the JIT
     Ok(())
 }
 
 /// Compile and run using JIT with default optimization (O0)
-pub fn compile_and_run(input_path: &str) -> Result<(), String> {
+pub fn compile_and_run(input_path: &str) -> Result<()> {
     compile_and_run_jit(input_path, 0)
 }
 
 /// Compile and run using JIT with specified optimization level
-pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
+pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<()> {
     compile_and_run_jit_with_memo(input_path, opt_level, false)
 }
 
@@ -33,7 +34,7 @@ pub fn compile_and_run_jit_isolated(
     input_path: &str,
     opt_level: u32,
     auto_memoize: bool,
-) -> Result<(), String> {
+) -> Result<()> {
     let mut child = Command::new(executable);
     child.arg("__run-internal");
     child.arg(input_path);
@@ -45,7 +46,7 @@ pub fn compile_and_run_jit_isolated(
 
     let output = child
         .output()
-        .map_err(|e| format!("Failed to spawn isolated JIT process: {}", e))?;
+        .map_err(ViperError::Io)?;
 
     print!("{}", String::from_utf8_lossy(&output.stdout));
     eprint!("{}", String::from_utf8_lossy(&output.stderr));
@@ -54,7 +55,10 @@ pub fn compile_and_run_jit_isolated(
         return Ok(());
     }
 
-    Err(format!("Isolated JIT process failed with status {}", output.status))
+    Err(ViperError::driver(format!(
+        "Isolated JIT process failed with status {}",
+        output.status
+    )))
 }
 
 /// Compile and run using JIT with optional automatic memoization
@@ -63,7 +67,7 @@ pub fn compile_and_run_jit_isolated(
 /// The LLVM JIT engine has inherent memory overhead (~60MB base) regardless of program size.
 /// This is due to loading the full JIT infrastructure. For memory-constrained environments,
 /// consider using AOT compilation instead.
-pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memoize: bool) -> Result<(), String> {
+pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memoize: bool) -> Result<()> {
     use inkwell::targets::{InitializationConfig, Target};
 
     println!("🐍 Viper Compiler {} (JIT -O{})", env!("CARGO_PKG_VERSION"), opt_level);
@@ -73,7 +77,7 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     println!("   Running: {}", input_path);
 
     let source = std::fs::read_to_string(input_path)
-        .map_err(|e| format!("Failed to read '{}': {}", input_path, e))?;
+        .map_err(ViperError::Io)?;
 
     let mut lexer = lexer::Lexer::new(&source);
     let tokens = lexer.tokenize()?;
@@ -113,8 +117,8 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
         // The codegen will run its own recursion analysis
     }
 
-    codegen.generate(&ast)?;
-    codegen.verify()?;
+    codegen.generate(&ast).map_err(ViperError::codegen)?;
+    codegen.verify().map_err(ViperError::codegen)?;
 
     // Report BigInt functions (they have optnone attribute for special handling)
     let bigint_funcs = codegen.bigint_functions();
@@ -140,7 +144,7 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     println!("   💡 For memory-constrained environments, use AOT: viper build -O{}", opt_level);
 
     Target::initialize_native(&InitializationConfig::default())
-        .map_err(|e| format!("Failed to initialize native target: {}", e))?;
+        .map_err(|e| ViperError::driver(format!("Failed to initialize native target: {}", e)))?;
 
     // Create JIT execution engine with specified optimization level
     // The JIT applies optimizations on-the-fly during compilation
@@ -160,7 +164,7 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     let execution_engine = codegen
         .module()
         .create_jit_execution_engine(opt)
-        .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
+        .map_err(|e| ViperError::driver(format!("Failed to create JIT engine: {}", e)))?;
 
     // Register all runtime stubs for JIT linking
     crate::jit_stubs::register_stubs(&execution_engine, codegen.module());
@@ -169,12 +173,12 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
         if let Some(_main) = codegen.module().get_function("main") {
             let func = execution_engine
                 .get_function_value("main")
-                .map_err(|e| format!("Failed to find main function in JIT: {}", e))?;
+                .map_err(|e| ViperError::driver(format!("Failed to find main function in JIT: {}", e)))?;
 
             execution_engine.run_function(func, &[]);
             println!("✅ Execution complete.");
         } else {
-            return Err("No main function found to execute".to_string());
+            return Err(ViperError::driver("No main function found to execute"));
         }
     }
 

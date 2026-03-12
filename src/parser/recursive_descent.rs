@@ -1,4 +1,5 @@
 use crate::ast::Module;
+use crate::error::{Result, ViperError};
 use crate::lexer::Token;
 use crate::parser::statements::{parse_statements, StatementParser};
 use crate::utils::Span;
@@ -14,7 +15,11 @@ impl Parser {
     }
 
     /// Parse the token stream into an AST
-    pub fn parse(&mut self) -> Result<Module, String> {
+    pub fn parse(&mut self) -> Result<Module> {
+        self.parse_raw().map_err(ViperError::driver)
+    }
+
+    fn parse_raw(&mut self) -> std::result::Result<Module, String> {
         if self.tokens.is_empty() {
             return Ok(Module { statements: Vec::new(), span: Span::empty(0, 0) });
         }

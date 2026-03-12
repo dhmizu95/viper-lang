@@ -2,15 +2,18 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-pub fn run_bench(args: &BenchArgs) -> Result<(), String> {
+pub fn run_bench(args: &BenchArgs) -> crate::error::Result<()> {
     let benchmark_dir = "benchmark";
 
     if !Path::new(benchmark_dir).exists() {
-        return Err(format!("Benchmark directory '{}' not found", benchmark_dir));
+        return Err(crate::error::ViperError::cli(format!(
+            "Benchmark directory '{}' not found",
+            benchmark_dir
+        )));
     }
 
     let entries = fs::read_dir(benchmark_dir)
-        .map_err(|e| format!("Failed to read benchmark directory: {}", e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     let mut benchmarks: Vec<_> = entries
         .filter_map(|e| e.ok())
@@ -25,7 +28,10 @@ pub fn run_bench(args: &BenchArgs) -> Result<(), String> {
     if let Some(ref file) = args.file {
         let path = Path::new(benchmark_dir).join(file);
         if !path.exists() {
-            return Err(format!("Benchmark file '{}' not found", file));
+            return Err(crate::error::ViperError::cli(format!(
+                "Benchmark file '{}' not found",
+                file
+            )));
         }
         run_single_benchmark(&path, args.iterations)?;
     } else {
@@ -41,13 +47,13 @@ pub fn run_bench(args: &BenchArgs) -> Result<(), String> {
     Ok(())
 }
 
-fn run_single_benchmark(path: &Path, iterations: u32) -> Result<(), String> {
+fn run_single_benchmark(path: &Path, iterations: u32) -> crate::error::Result<()> {
     let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
 
     print!("{}: ", name);
 
     let source = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read '{}': {}", path.display(), e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     let mut total_time = 0.0;
 

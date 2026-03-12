@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::ast::Module;
+use crate::error::{Result, ViperError};
 use crate::parser::Parser;
 
 /// Information about a loaded module
@@ -136,7 +137,7 @@ impl ModuleLoader {
     }
     
     /// Load a module by name
-    pub fn load_module(&mut self, module_name: &str) -> Result<&LoadedModule, String> {
+    pub fn load_module(&mut self, module_name: &str) -> Result<&LoadedModule> {
         // Check if already loaded
         if self.is_loaded(module_name) {
             return Ok(self.loaded_modules.get(module_name).unwrap());
@@ -144,34 +145,34 @@ impl ModuleLoader {
         
         // Check for circular imports
         if self.is_loading(module_name) {
-            return Err(format!(
+            return Err(ViperError::driver(format!(
                 "Circular import detected: {} -> {}",
                 self.loading_stack.join(" -> "),
                 module_name
-            ));
+            )));
         }
         
         // Find module file
         let module_path = self.search_path.find_module(module_name)
-            .ok_or_else(|| format!("Module '{}' not found. Searched in: {:?}", 
+            .ok_or_else(|| ViperError::driver(format!("Module '{}' not found. Searched in: {:?}", 
                 module_name, 
                 self.search_path.paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>()
-            ))?;
+            )))?;
         
         self.loading_stack.push(module_name.to_string());
 
         // Read and parse module
         let source = fs::read_to_string(&module_path)
-            .map_err(|e| format!("Failed to read module '{}': {}", module_path.display(), e))?;
+            .map_err(ViperError::Io)?;
 
         // Tokenize first
         let mut lexer = crate::lexer::Lexer::new(&source);
         let tokens = lexer.tokenize()
-            .map_err(|e| format!("Failed to tokenize module '{}': {}", module_path.display(), e))?;
+            .map_err(|e| ViperError::driver(format!("Failed to tokenize module '{}': {}", module_path.display(), e)))?;
 
         let mut parser = Parser::new(tokens);
         let ast = parser.parse()
-            .map_err(|e| format!("Failed to parse module '{}': {}", module_path.display(), e))?;
+            .map_err(|e| ViperError::driver(format!("Failed to parse module '{}': {}", module_path.display(), e)))?;
         
         // Process imports in the module first
         let import_result = self.process_module_imports(&ast, &module_path);
@@ -192,7 +193,7 @@ impl ModuleLoader {
     }
     
     /// Process imports in a module
-    fn process_module_imports(&mut self, module: &Module, module_path: &Path) -> Result<(), String> {
+    fn process_module_imports(&mut self, module: &Module, module_path: &Path) -> Result<()> {
         // Collect module names to import first (to avoid borrow issues)
         let mut modules_to_import: Vec<String> = Vec::new();
         

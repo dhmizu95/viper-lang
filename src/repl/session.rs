@@ -8,6 +8,7 @@ use std::ptr;
 
 use crate::ast::{Expr, Stmt};
 use crate::codegen::CodeGen;
+use crate::error::{Result, ViperError};
 
 pub struct ReplSession {
     chunk_counter: usize,
@@ -50,7 +51,7 @@ impl ReplSession {
         }
     }
 
-    pub fn execute_chunk(&mut self, source: &str) -> Result<(), String> {
+    pub fn execute_chunk(&mut self, source: &str) -> Result<()> {
         self.chunk_counter += 1;
 
         // 1. Wrap source with declarations for our shadowed variables and function definitions
@@ -79,13 +80,13 @@ impl ReplSession {
         let module_name = format!("repl_chunk_{}", self.chunk_counter);
 
         let mut codegen = CodeGen::new(&context, &module_name);
-        codegen.generate(&ast)?;
-        codegen.verify()?;
+        codegen.generate(&ast).map_err(ViperError::codegen)?;
+        codegen.verify().map_err(ViperError::codegen)?;
 
         let execution_engine = codegen
             .module()
             .create_jit_execution_engine(OptimizationLevel::None)
-            .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
+            .map_err(|e| ViperError::driver(format!("Failed to create JIT engine: {}", e)))?;
 
         crate::jit_stubs::register_stubs(&execution_engine, codegen.module());
 
@@ -95,13 +96,13 @@ impl ReplSession {
             if let Some(_func) = codegen.module().get_function(init_func_name) {
                 let func_val = execution_engine
                     .get_function_value(init_func_name)
-                    .map_err(|e| format!("Failed to find JIT init function: {}", e))?;
+                    .map_err(|e| ViperError::driver(format!("Failed to find JIT init function: {}", e)))?;
 
                 execution_engine.run_function(func_val, &[]);
             } else if let Some(_func) = codegen.module().get_function("main") {
                 let func_val = execution_engine
                     .get_function_value("main")
-                    .map_err(|e| format!("Failed to find JIT main function: {}", e))?;
+                    .map_err(|e| ViperError::driver(format!("Failed to find JIT main function: {}", e)))?;
 
                 execution_engine.run_function(func_val, &[]);
             }

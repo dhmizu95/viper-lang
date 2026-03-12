@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-pub fn run_doc(args: &DocArgs) -> Result<(), String> {
+pub fn run_doc(args: &DocArgs) -> crate::error::Result<()> {
     let source = fs::read_to_string(&args.input)
-        .map_err(|e| format!("Failed to read '{}': {}", args.input, e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     let mut lexer = crate::lexer::Lexer::new(&source);
     let tokens = lexer.tokenize()?;
@@ -16,7 +16,7 @@ pub fn run_doc(args: &DocArgs) -> Result<(), String> {
 
     // Create output directory if it doesn't exist
     fs::create_dir_all(&args.output)
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     // Generate markdown file
     let input_stem =
@@ -36,7 +36,7 @@ pub fn run_doc(args: &DocArgs) -> Result<(), String> {
     }
 
     fs::write(&output_path, content)
-        .map_err(|e| format!("Failed to write documentation: {}", e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     println!("Generated documentation: {}", output_path.display());
 

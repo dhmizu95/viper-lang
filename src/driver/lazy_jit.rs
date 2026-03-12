@@ -27,6 +27,7 @@ use inkwell::{
     targets::{InitializationConfig, Target},
     OptimizationLevel,
 };
+use crate::error::{Result, ViperError};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
@@ -89,7 +90,7 @@ impl<'ctx> LazyJitEngine<'ctx> {
     /// Get or compile a function by name
     ///
     /// Returns the function address, compiling it if necessary.
-    pub fn get_function(&mut self, name: &str) -> Result<u64, String> {
+    pub fn get_function(&mut self, name: &str) -> Result<u64> {
         // Check if already compiled (fast path - no locking needed)
         if let Some(&addr) = self.compiled_functions.get(name) {
             return Ok(addr);
@@ -111,10 +112,10 @@ impl<'ctx> LazyJitEngine<'ctx> {
                 
                 let _func_value = engine
                     .get_function_value(name)
-                    .map_err(|e| format!("Failed to get function {}: {}", name, e))?;
+                    .map_err(|e| ViperError::driver(format!("Failed to get function {}: {}", name, e)))?;
 
                 let addr = engine.get_function_address(name)
-                    .map_err(|e| format!("Failed to get address for {}: {}", name, e))?;
+                    .map_err(|e| ViperError::driver(format!("Failed to get address for {}: {}", name, e)))?;
                 
                 // Record compilation statistics
                 let elapsed_ms = start_time.elapsed().as_millis() as usize;
@@ -134,7 +135,7 @@ impl<'ctx> LazyJitEngine<'ctx> {
             }
         }
 
-        Err(format!("Function '{}' not found", name))
+        Err(ViperError::driver(format!("Function '{}' not found", name)))
     }
 
     /// Get compilation statistics
@@ -158,19 +159,19 @@ impl<'ctx> LazyJitEngine<'ctx> {
     }
 
     /// Initialize the execution engine
-    fn initialize_engine(&mut self) -> Result<(), String> {
+    fn initialize_engine(&mut self) -> Result<()> {
         Target::initialize_native(&InitializationConfig::default())
-            .map_err(|e| format!("Failed to initialize native target: {}", e))?;
+            .map_err(|e| ViperError::driver(format!("Failed to initialize native target: {}", e)))?;
 
         // Create execution engine from the first module
         if let Some(module) = self.pending_modules.first() {
             let engine = module
                 .create_jit_execution_engine(self.opt_level)
-                .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
+                .map_err(|e| ViperError::driver(format!("Failed to create JIT engine: {}", e)))?;
             
             self.execution_engine = Some(engine);
         } else {
-            return Err("No modules available for JIT compilation".to_string());
+            return Err(ViperError::driver("No modules available for JIT compilation"));
         }
 
         Ok(())
@@ -198,7 +199,7 @@ impl<'ctx> LazyJitEngine<'ctx> {
     /// Pre-compile a set of functions (eager compilation)
     /// 
     /// Use this for hot paths where you know functions will be called.
-    pub fn precompile(&mut self, function_names: &[&str]) -> Result<(), String> {
+    pub fn precompile(&mut self, function_names: &[&str]) -> Result<()> {
         for &name in function_names {
             self.get_function(name)?;
         }
@@ -327,7 +328,7 @@ impl<'ctx> TieredJitEngine<'ctx> {
     }
 
     /// Get or compile a function, potentially promoting to optimizing tier
-    pub fn get_function(&mut self, name: &str) -> Result<u64, String> {
+    pub fn get_function(&mut self, name: &str) -> Result<u64> {
         // Check if already promoted to optimizing tier
         if let Some(&addr) = self.promoted_functions.get(name) {
             return Ok(addr);

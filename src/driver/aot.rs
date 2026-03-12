@@ -1,4 +1,5 @@
 use crate::codegen;
+use crate::error::{Result, ViperError};
 use crate::lexer;
 use crate::parser;
 use inkwell::context::Context;
@@ -13,7 +14,7 @@ fn find_llvm_tool(tool: &str) -> String {
 }
 
 #[allow(dead_code)]
-pub fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
+pub fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<()> {
     compile_file_aot(input_path, 0, output_path, false, false, None)
 }
 
@@ -24,7 +25,7 @@ pub fn compile_file_aot(
     lto: bool,
     emit_llvm: bool,
     pgo: Option<&str>,
-) -> Result<(), String> {
+) -> Result<()> {
     println!("🐍 Viper Compiler {} (AOT)", env!("CARGO_PKG_VERSION"));
     println!("   Compiling: {}", input_path);
     println!("   Optimization: -O{}", opt_level);
@@ -39,7 +40,7 @@ pub fn compile_file_aot(
     }
 
     let source = fs::read_to_string(input_path)
-        .map_err(|e| format!("Failed to read '{}': {}", input_path, e))?;
+        .map_err(ViperError::Io)?;
 
     println!("   [1/4] Lexing...");
     let mut lexer = lexer::Lexer::new(&source);
@@ -105,8 +106,8 @@ pub fn compile_file_aot(
     let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
-    codegen.generate(&ast)?;
-    codegen.verify()?;
+    codegen.generate(&ast).map_err(ViperError::codegen)?;
+    codegen.verify().map_err(ViperError::codegen)?;
     println!("   ✓ Generated LLVM IR");
 
     // Report BigInt functions (they have special optimization handling)
@@ -122,7 +123,7 @@ pub fn compile_file_aot(
         let ll_path = format!("{}.ll", module_name);
         module
             .print_to_file(&ll_path)
-            .map_err(|e| format!("Failed to write LLVM IR to '{}': {}", ll_path, e))?;
+            .map_err(|e| ViperError::driver(format!("Failed to write LLVM IR to '{}': {}", ll_path, e)))?;
         println!("   ✓ Emitted LLVM IR: {}", ll_path);
     }
 
@@ -168,24 +169,24 @@ pub fn compile_file_aot(
         let opt_output = std::process::Command::new(find_llvm_tool("opt"))
             .args(&opt_args)
             .output()
-            .map_err(|e| format!("opt failed: {}", e))?;
+            .map_err(ViperError::Io)?;
 
         if !opt_output.status.success() {
             eprintln!("   ⚠ opt stderr: {}", String::from_utf8_lossy(&opt_output.stderr));
-            return Err(format!("opt optimization failed"));
+            return Err(ViperError::driver("opt optimization failed"));
         }
 
         // Use optimized bitcode for object generation
         let context = Context::create();
         let opt_module =
             inkwell::module::Module::parse_bitcode_from_path(Path::new(&opt_bc), &context)
-                .map_err(|e| format!("Failed to load optimized bitcode '{}': {}", opt_bc, e))?;
+                .map_err(|e| ViperError::driver(format!("Failed to load optimized bitcode '{}': {}", opt_bc, e)))?;
 
         // Emit optimized LLVM IR to .ll file if requested (shows optimized IR, not raw)
         if emit_llvm {
             let opt_ll_path = format!("{}.opt.ll", module_name);
             opt_module.print_to_file(&opt_ll_path).map_err(|e| {
-                format!("Failed to write optimized LLVM IR to '{}': {}", opt_ll_path, e)
+                ViperError::driver(format!("Failed to write optimized LLVM IR to '{}': {}", opt_ll_path, e))
             })?;
             println!("   ✓ Emitted optimized LLVM IR: {}", opt_ll_path);
         }
@@ -205,7 +206,7 @@ pub fn emit_object_file(
     opt_level: u32,
     lto: bool,
     pgo: Option<&str>,
-) -> Result<(), String> {
+) -> Result<()> {
     use inkwell::targets::{
         CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple,
     };
@@ -213,10 +214,10 @@ pub fn emit_object_file(
     let target_triple = TargetTriple::create("x86_64-unknown-linux-gnu");
 
     Target::initialize_native(&InitializationConfig::default())
-        .map_err(|e| format!("Failed to initialize native target: {}", e))?;
+        .map_err(|e| ViperError::driver(format!("Failed to initialize native target: {}", e)))?;
 
     let target =
-        Target::from_triple(&target_triple).map_err(|e| format!("Failed to get target: {}", e))?;
+        Target::from_triple(&target_triple).map_err(|e| ViperError::driver(format!("Failed to get target: {}", e)))?;
 
     // Map optimization level to LLVM optimization
     let llvm_opt = match opt_level {
@@ -228,12 +229,12 @@ pub fn emit_object_file(
 
     let target_machine = target
         .create_target_machine(&target_triple, "", "", llvm_opt, RelocMode::PIC, CodeModel::Default)
-        .ok_or_else(|| "Failed to create target machine".to_string())?;
+        .ok_or_else(|| ViperError::driver("Failed to create target machine"))?;
 
     let obj_path = format!("{}.o", output);
     target_machine
         .write_to_file(module, FileType::Object, Path::new(&obj_path))
-        .map_err(|e| format!("Failed to write object file: {}", e))?;
+        .map_err(|e| ViperError::driver(format!("Failed to write object file: {}", e)))?;
 
     println!("   ✓ Generated object: {}", obj_path);
 
@@ -254,7 +255,7 @@ pub fn link_with_gcc(
     lto: bool,
     pgo: Option<&str>,
     opt_level: u32,
-) -> Result<(), String> {
+) -> Result<()> {
     // Check local paths first, then system-wide installation
     let runtime_paths = [
         "runtime/obj",
@@ -278,7 +279,7 @@ pub fn link_with_gcc(
         }
     }
 
-    let runtime_path = runtime_path.ok_or_else(|| "Runtime object files not found".to_string())?;
+    let runtime_path = runtime_path.ok_or_else(|| ViperError::driver("Runtime object files not found"))?;
 
     let mut args = vec![obj_path.to_string()];
 
@@ -334,13 +335,16 @@ pub fn link_with_gcc(
     ]);
 
     println!("   Linking with GCC...");
-    let output = std::process::Command::new("gcc")
+        let output = std::process::Command::new("gcc")
         .args(&args)
         .output()
-        .map_err(|e| format!("GCC linking failed: {}", e))?;
+            .map_err(ViperError::Io)?;
 
     if !output.status.success() {
-        return Err(format!("GCC linking failed: {}", String::from_utf8_lossy(&output.stderr)));
+        return Err(ViperError::driver(format!(
+            "GCC linking failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
     }
 
     println!("   ✓ Linked binary: {}", bin_path);
@@ -369,12 +373,12 @@ pub fn link_with_gcc(
     Ok(())
 }
 
-pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
+pub fn compile_file_optimized(input_path: &str) -> Result<()> {
     println!("🐍 Viper Compiler {} (AOT + opt)", env!("CARGO_PKG_VERSION"));
     println!("   Compiling: {}", input_path);
 
     let source = fs::read_to_string(input_path)
-        .map_err(|e| format!("Failed to read '{}': {}", input_path, e))?;
+        .map_err(ViperError::Io)?;
 
     println!("   [1/5] Lexing...");
     let mut lexer = lexer::Lexer::new(&source);
@@ -396,8 +400,8 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
     let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
-    codegen.generate(&ast)?;
-    codegen.verify()?;
+    codegen.generate(&ast).map_err(ViperError::codegen)?;
+    codegen.verify().map_err(ViperError::codegen)?;
     println!("   ✓ Generated LLVM IR");
 
     let module = codegen.module();
@@ -484,14 +488,17 @@ pub fn compile_file_optimized(input_path: &str) -> Result<(), String> {
                 println!("   $ ./{}_bin", module_name);
             }
             Ok(output) => {
-                return Err(format!("llc failed: {}", String::from_utf8_lossy(&output.stderr)));
+                return Err(ViperError::driver(format!(
+                    "llc failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                )));
             }
             Err(e) => {
-                return Err(format!("llc not found: {}", e));
+                return Err(ViperError::Io(e));
             }
         }
     } else {
-        return Err("Optimization failed - no output".to_string());
+        return Err(ViperError::driver("Optimization failed - no output"));
     }
 
     Ok(())

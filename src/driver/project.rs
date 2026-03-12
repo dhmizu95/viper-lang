@@ -1,5 +1,5 @@
 /// Initialize a new Viper project
-pub fn init_project(name: &str) -> Result<(), String> {
+pub fn init_project(name: &str) -> crate::error::Result<()> {
     use std::fs;
     use std::path::PathBuf;
     
@@ -8,7 +8,7 @@ pub fn init_project(name: &str) -> Result<(), String> {
     for dir in &dirs {
         let path = PathBuf::from(format!("{}/{}", name, dir));
         fs::create_dir_all(&path)
-            .map_err(|e| format!("Failed to create directory {}: {}", path.display(), e))?;
+            .map_err(crate::error::ViperError::Io)?;
     }
 
     // Create vpm.toml
@@ -38,7 +38,7 @@ license = "MIT"
         name
     );
     fs::write(format!("{}/vpm.toml", name), vpm_toml)
-        .map_err(|e| format!("Failed to create vpm.toml: {}", e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     // Create main.vp
     let main_vp = r#"# Viper Project
@@ -47,7 +47,7 @@ def main():
     print("Hello from Viper!")
 "#;
     fs::write(format!("{}/src/main.vp", name), main_vp)
-        .map_err(|e| format!("Failed to create main.vp: {}", e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     // Create .gitignore
     let gitignore = r#"build/
@@ -62,7 +62,7 @@ vendor/
 vpm.lock
 "#;
     fs::write(format!("{}/.gitignore", name), gitignore)
-        .map_err(|e| format!("Failed to create .gitignore: {}", e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     println!("Created Viper project: {}", name);
     println!();

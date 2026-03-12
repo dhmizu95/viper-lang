@@ -1,9 +1,9 @@
 use std::fs;
 use std::io::Write;
 
-pub fn run_fmt(args: &FmtArgs) -> Result<(), String> {
+pub fn run_fmt(args: &FmtArgs) -> crate::error::Result<()> {
     let source = fs::read_to_string(&args.input)
-        .map_err(|e| format!("Failed to read '{}': {}", args.input, e))?;
+        .map_err(crate::error::ViperError::Io)?;
 
     // Parse to check for errors, then pretty-print
     let mut lexer = crate::lexer::Lexer::new(&source);
@@ -17,8 +17,8 @@ pub fn run_fmt(args: &FmtArgs) -> Result<(), String> {
 
     if let Some(ref output) = args.output {
         let mut file = fs::File::create(output)
-            .map_err(|e| format!("Failed to create '{}': {}", output, e))?;
-        file.write_all(formatted.as_bytes()).map_err(|e| format!("Failed to write: {}", e))?;
+            .map_err(crate::error::ViperError::Io)?;
+        file.write_all(formatted.as_bytes()).map_err(crate::error::ViperError::Io)?;
     } else {
         println!("{}", formatted);
     }
