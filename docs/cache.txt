@@ -1,0 +1,5 @@
+​3+ parameters	Low	Rarely needed
+Thread safety	Low	Future enhancement
+BigInt auto-detection	⏳ Future (manual flag for now)
+
+implement step by step

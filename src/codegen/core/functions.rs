@@ -619,9 +619,13 @@ impl<'ctx> CodeGen<'ctx> {
         // Calculate key size: [hash, value1, value2, ...] = (num_params + 1) * sizeof(int64_t)
         let key_size_val = i64_type.const_int(((params.len() + 1) * 8) as u64, false);
         
-        // For now, assume i64 return (is_bigint = 0)
-        // TODO: Detect BigInt return type and set is_bigint = 1
-        let is_bigint_val = self.context.i32_type().const_int(0, false);
+        // Detect BigInt return type from annotation
+        let is_bigint_return = return_type.as_ref()
+            .map_or(false, |t| matches!(t, Type::BigInt));
+        let is_bigint_val = self.context.i32_type().const_int(
+            if is_bigint_return { 1 } else { 0 }, 
+            false
+        );
 
         self.builder.build_call(
             set_func,
