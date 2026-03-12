@@ -10,6 +10,23 @@ use std::collections::HashMap;
 impl<'ctx> CodeGen<'ctx> {
     /// Define all functions recursively (including nested functions)
     pub(crate) fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+        // Run recursion analysis if auto_memoize is enabled
+        let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
+        
+        // Register all function names first
+        for stmt in stmts {
+            if let Stmt::Function { name, .. } = stmt {
+                recursion_analyzer.register_function(name);
+            }
+        }
+        
+        // Analyze each function for recursive calls
+        for stmt in stmts {
+            if let Stmt::Function { name, body, .. } = stmt {
+                recursion_analyzer.analyze_function(name, body);
+            }
+        }
+        
         // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
             if let Stmt::Function { name, params, return_type, body, decorators, .. } = stmt {
@@ -35,13 +52,19 @@ impl<'ctx> CodeGen<'ctx> {
                 }).collect();
 
                 let mangled_name = mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
-                
+
                 // Check for memoization decorators
                 let is_lru_cache = decorators.iter().any(|d| d.name == "lru_cache");
                 let is_cache = decorators.iter().any(|d| d.name == "cache");
                 
-                if is_lru_cache || is_cache {
-                    // Get maxsize from decorator arguments
+                // Check if function is recursive (for auto-memoization)
+                let is_recursive = recursion_analyzer.is_recursive(name);
+                
+                // Determine if we should memoize this function
+                let should_memoize = is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
+
+                if should_memoize {
+                    // Get maxsize from decorator arguments or use default for auto-memoize
                     let maxsize = if is_lru_cache {
                         decorators.iter()
                             .find(|d| d.name == "lru_cache")
@@ -64,9 +87,9 @@ impl<'ctx> CodeGen<'ctx> {
                             })
                             .unwrap_or(128)  // Default maxsize
                     } else {
-                        0  // Unbounded for @cache
+                        0  // Unbounded for @cache or auto-memoize
                     };
-                    
+
                     self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, is_lru_cache, maxsize)?;
                 } else {
                     self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;

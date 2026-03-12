@@ -20,9 +20,16 @@ pub fn compile_and_run(input_path: &str) -> Result<(), String> {
 }
 
 pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
+    compile_and_run_jit_with_memo(input_path, opt_level, false)
+}
+
+pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memoize: bool) -> Result<(), String> {
     use inkwell::targets::{InitializationConfig, Target};
 
     println!("🐍 Viper Compiler {} (JIT -O{})", env!("CARGO_PKG_VERSION"), opt_level);
+    if auto_memoize {
+        println!("   Auto-memoize: enabled");
+    }
     println!("   Running: {}", input_path);
 
     let source = std::fs::read_to_string(input_path)
@@ -84,7 +91,11 @@ pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), Strin
     }
     
     if warned_count > 0 {
-        println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warned_count);
+        if auto_memoize {
+            println!("   ℹ {} recursive function(s) will be auto-memoized", warned_count);
+        } else {
+            println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warned_count);
+        }
     } else if !recursive_funcs.is_empty() {
         println!("   ✓ All recursive functions are memoized");
     } else {
@@ -95,6 +106,14 @@ pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), Strin
     let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
+    
+    // Enable automatic memoization if requested
+    if auto_memoize {
+        codegen.auto_memoize = true;
+        
+        // The codegen will run its own recursion analysis
+    }
+    
     codegen.generate(&ast)?;
     codegen.verify()?;
 
