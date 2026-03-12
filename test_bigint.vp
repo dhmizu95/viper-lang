@@ -1,0 +1,11 @@
+@lru_cache(maxsize=None)
+def fib(n):
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("fib(50) =", fib(50))
+    print("fib(75) =", fib(75))
+    print("fib(75) again =", fib(75))  # Cache hit
+    print("Done!")

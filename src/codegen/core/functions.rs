@@ -59,10 +59,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // Check if function is recursive (for auto-memoization)
                 let is_recursive = recursion_analyzer.is_recursive(name);
-                
+
                 // Check if function returns BigInt (for proper caching)
-                let returns_bigint = recursion_analyzer.get_recursive_function(name)
-                    .map_or(false, |info| info.returns_bigint);
+                // Check both explicit type annotation and inferred from body
+                let returns_bigint = match return_type {
+                    Some(crate::ast::Type::BigInt) => true,  // Explicit annotation
+                    _ => {
+                        // Infer from body analysis
+                        recursion_analyzer.get_recursive_function(name)
+                            .map_or(false, |info| info.returns_bigint)
+                    }
+                };
 
                 // Determine if we should memoize this function
                 let should_memoize = is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
@@ -495,16 +502,16 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.builder.position_at_end(wrapper_entry);
 
-        // Build cache key from parameters
+        // Build cache key from parameters using ARC
         let i64_type = self.context.i64_type();
         let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
-        // Create cache key tuple based on number of parameters
+        // Create cache key using ARC key creation functions (supports 1-8 parameters)
         let key_value = match params.len() {
             1 => {
                 let arg0 = func_value.get_nth_param(0).unwrap();
                 let key_call = self.builder.build_call(
-                    memo_funcs.tuple_create1,
+                    memo_funcs.arc_key_create1,
                     &[arg0.into()],
                     "cache_key",
                 ).expect("Failed to create cache key");
@@ -517,7 +524,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let arg0 = func_value.get_nth_param(0).unwrap();
                 let arg1 = func_value.get_nth_param(1).unwrap();
                 let key_call = self.builder.build_call(
-                    memo_funcs.tuple_create2,
+                    memo_funcs.arc_key_create2,
                     &[arg0.into(), arg1.into()],
                     "cache_key",
                 ).expect("Failed to create cache key");
@@ -526,8 +533,82 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => return Err("Failed to create cache key".to_string()),
                 }
             }
+            3 => {
+                let arg0 = func_value.get_nth_param(0).unwrap();
+                let arg1 = func_value.get_nth_param(1).unwrap();
+                let arg2 = func_value.get_nth_param(2).unwrap();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create3,
+                    &[arg0.into(), arg1.into(), arg2.into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            4 => {
+                let args: Vec<_> = (0..4).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create4,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            5 => {
+                let args: Vec<_> = (0..5).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create5,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            6 => {
+                let args: Vec<_> = (0..6).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create6,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            7 => {
+                let args: Vec<_> = (0..7).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create7,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into(), args[6].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            8 => {
+                let args: Vec<_> = (0..8).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create8,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into(), args[6].into(), args[7].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
             n => {
-                return Err(format!("Memoization supports 1-2 parameters, got {}", n));
+                return Err(format!("Memoization supports up to 8 parameters, got {}", n));
             }
         };
 
@@ -644,22 +725,19 @@ impl<'ctx> CodeGen<'ctx> {
         // Note: cache takes ownership of key_value, don't free it
         let set_func = if is_lru { memo_funcs.lru_cache_set } else { memo_funcs.cache_set };
 
-        // Calculate key size: [hash, value1, value2, ...] = (num_params + 1) * sizeof(int64_t)
-        let key_size_val = i64_type.const_int(((params.len() + 1) * 8) as u64, false);
-
         // Use returns_bigint flag from analysis (includes both annotation and inferred BigInt)
         let is_bigint_val = self.context.i32_type().const_int(
             if returns_bigint { 1 } else { 0 },
             false
         );
 
+        // Note: ARC key embeds key_size, so we don't need to pass it separately
         self.builder.build_call(
             set_func,
             &[
                 loaded_cache.into(),
                 key_value.into(),
                 result_value.into(),
-                key_size_val.into(),
                 is_bigint_val.into(),
             ],
             "",

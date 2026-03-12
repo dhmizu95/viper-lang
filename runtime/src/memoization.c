@@ -1,10 +1,12 @@
 /**
  * Viper Memoization Runtime Implementation
- * 
+ *
  * Implements LRU cache and unbounded cache for memoization decorators.
+ * Uses ARC (Automatic Reference Counting) for memory management.
  */
 
 #include "memoization.h"
+#include "viper_arc.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -16,6 +18,107 @@
 #define INITIAL_HASHMAP_CAPACITY 64
 #define HASHMAP_LOAD_FACTOR 0.75
 
+// Forward declarations
+static int hashmap_resize(HashMap* map);
+static void hashmap_remove_no_free(HashMap* map, uint64_t hash, const ARCCacheKey* key);
+static void hashmap_set_lru(HashMap* map, uint64_t hash, LRUCacheNode* lru_node);
+
+// ============================================================================
+// ARC Key Creation Functions
+// ============================================================================
+
+ARCCacheKey* arc_key_create1(int64_t value) {
+    // Allocate: header + key_size + hash + 1 value = 2 int64_t extra
+    size_t data_size = 2 * sizeof(int64_t);  // [hash, value]
+    size_t total_size = sizeof(ARCCacheKey) + data_size;
+    
+    // Use thread-local allocation (fast path, non-atomic ref count)
+    ARCCacheKey* key = (ARCCacheKey*)vp_arc_alloc_local(total_size);
+    if (!key) return NULL;
+    
+    key->key_size = data_size;
+    key->hash = vp_hash_int(value);
+    key->data[0] = value;
+    
+    return key;
+}
+
+ARCCacheKey* arc_key_create2(int64_t value1, int64_t value2) {
+    size_t data_size = 3 * sizeof(int64_t);  // [hash, v1, v2]
+    size_t total_size = sizeof(ARCCacheKey) + data_size;
+
+    ARCCacheKey* key = (ARCCacheKey*)vp_arc_alloc_local(total_size);
+    if (!key) return NULL;
+
+    int64_t values[2] = {value1, value2};
+    key->key_size = data_size;
+    key->hash = vp_hash_tuple(values, 2);
+    key->data[0] = value1;
+    key->data[1] = value2;
+
+    return key;
+}
+
+ARCCacheKey* arc_key_create3(int64_t v1, int64_t v2, int64_t v3) {
+    int64_t values[3] = {v1, v2, v3};
+    return arc_key_create_n(values, 3);
+}
+
+ARCCacheKey* arc_key_create4(int64_t v1, int64_t v2, int64_t v3, int64_t v4) {
+    int64_t values[4] = {v1, v2, v3, v4};
+    return arc_key_create_n(values, 4);
+}
+
+ARCCacheKey* arc_key_create5(int64_t v1, int64_t v2, int64_t v3, int64_t v4, int64_t v5) {
+    int64_t values[5] = {v1, v2, v3, v4, v5};
+    return arc_key_create_n(values, 5);
+}
+
+ARCCacheKey* arc_key_create6(int64_t v1, int64_t v2, int64_t v3, int64_t v4, int64_t v5, int64_t v6) {
+    int64_t values[6] = {v1, v2, v3, v4, v5, v6};
+    return arc_key_create_n(values, 6);
+}
+
+ARCCacheKey* arc_key_create7(int64_t v1, int64_t v2, int64_t v3, int64_t v4, int64_t v5, int64_t v6, int64_t v7) {
+    int64_t values[7] = {v1, v2, v3, v4, v5, v6, v7};
+    return arc_key_create_n(values, 7);
+}
+
+ARCCacheKey* arc_key_create8(int64_t v1, int64_t v2, int64_t v3, int64_t v4, int64_t v5, int64_t v6, int64_t v7, int64_t v8) {
+    int64_t values[8] = {v1, v2, v3, v4, v5, v6, v7, v8};
+    return arc_key_create_n(values, 8);
+}
+
+ARCCacheKey* arc_key_create_n(const int64_t* values, size_t count) {
+    if (count < 3 || count > 8) {
+        fprintf(stderr, "arc_key_create_n: count must be 3-8, got %zu\n", count);
+        return NULL;
+    }
+    
+    size_t data_size = (count + 1) * sizeof(int64_t);  // [hash, v1, v2, ...]
+    size_t total_size = sizeof(ARCCacheKey) + data_size;
+    
+    ARCCacheKey* key = (ARCCacheKey*)vp_arc_alloc_local(total_size);
+    if (!key) return NULL;
+    
+    key->key_size = data_size;
+    key->hash = vp_hash_tuple(values, count);
+    
+    // Copy all values: data[1..count] = values
+    memcpy(&key->data[1], values, count * sizeof(int64_t));
+    
+    return key;
+}
+
+// Backward compatibility wrappers
+void* vp_tuple_create1(int64_t value) {
+    return arc_key_create1(value);
+}
+
+void* vp_tuple_create2(int64_t value1, int64_t value2) {
+    return arc_key_create2(value1, value2);
+}
+
 // ============================================================================
 // Hash Map Implementation
 // ============================================================================
@@ -23,107 +126,86 @@
 static HashMap* hashmap_create(size_t capacity) {
     HashMap* map = (HashMap*)malloc(sizeof(HashMap));
     if (!map) return NULL;
-    
-    map->buckets = (CacheNode**)calloc(capacity, sizeof(CacheNode*));
+
+    // Round up to power of 2 for fast modulo
+    size_t pow2_capacity = 1;
+    while (pow2_capacity < capacity) {
+        pow2_capacity <<= 1;
+    }
+
+    map->buckets = (CacheNode**)calloc(pow2_capacity, sizeof(CacheNode*));
     if (!map->buckets) {
         free(map);
         return NULL;
     }
-    
-    map->capacity = capacity;
+
+    map->capacity = pow2_capacity;
+    map->capacity_mask = pow2_capacity - 1;  // For fast bitwise AND
     map->size = 0;
     return map;
 }
 
 static void hashmap_destroy(HashMap* map) {
     if (!map) return;
-    
+
     for (size_t i = 0; i < map->capacity; i++) {
         CacheNode* node = map->buckets[i];
         while (node) {
             CacheNode* next = node->next;
-            free(node->key);  // Free the key
-            free(node);       // Free the node (value is stored directly)
+            arc_key_release(node->key);  // ARC release
+            free(node);
             node = next;
         }
     }
-    
+
     free(map->buckets);
     free(map);
 }
 
-static CacheNode* hashmap_get(HashMap* map, uint64_t hash, const void* key) {
-    size_t index = hash % map->capacity;
+static CacheNode* hashmap_get(HashMap* map, uint64_t hash, const ARCCacheKey* key) {
+    size_t index = hash & map->capacity_mask;  // Fast! (~1 cycle vs ~20-50)
     CacheNode* node = map->buckets[index];
-    
+
     while (node) {
-        // Compare hash first, then compare full key data using stored key_size
-        if (node->key_hash == hash && node->key_size > 0 && 
-            memcmp(node->key, key, node->key_size) == 0) {
+        // Compare hash first, then compare key data
+        if (node->key->hash == hash && 
+            node->key->key_size == key->key_size &&
+            memcmp(node->key->data, key->data, key->key_size) == 0) {
             return node;
         }
         node = node->next;
     }
-    
+
     return NULL;
 }
 
-// Forward declaration
-static int hashmap_resize(HashMap* map);
-
-static void hashmap_set_lru(HashMap* map, uint64_t hash, void* key, LRUCacheNode* lru_node, int64_t key_size) {
+static void hashmap_set(HashMap* map, uint64_t hash, ARCCacheKey* key, 
+                        int64_t value, int is_bigint) {
     // Check load factor and resize if needed
     if ((double)(map->size + 1) / map->capacity > HASHMAP_LOAD_FACTOR) {
         hashmap_resize(map);
     }
 
-    size_t index = hash % map->capacity;
+    size_t index = hash & map->capacity_mask;
 
-    // Check if key already exists (using base CacheNode fields)
+    // Check if key exists
     CacheNode* existing = hashmap_get(map, hash, key);
     if (existing) {
-        // Update by replacing the node in the bucket
-        LRUCacheNode* existing_lru = (LRUCacheNode*)existing;
-        // Copy value and is_bigint from new node
-        existing_lru->value = lru_node->value;
-        existing_lru->is_bigint = lru_node->is_bigint;
-        return;
-    }
-
-    // Use the lru_node directly (it starts with CacheNode-compatible fields)
-    lru_node->key = key;
-    lru_node->key_hash = hash;
-    lru_node->key_size = key_size;
-    ((CacheNode*)lru_node)->next = map->buckets[index];
-
-    map->buckets[index] = (CacheNode*)lru_node;
-    map->size++;
-}
-
-static void hashmap_set(HashMap* map, uint64_t hash, void* key, int64_t value, int64_t key_size, int is_bigint) {
-    // Check load factor and resize if needed
-    if ((double)(map->size + 1) / map->capacity > HASHMAP_LOAD_FACTOR) {
-        hashmap_resize(map);
-    }
-
-    size_t index = hash % map->capacity;
-
-    // Check if key already exists
-    CacheNode* existing = hashmap_get(map, hash, key);
-    if (existing) {
-        existing->value.i64_value = value;  // Update value in union
+        existing->value = value;
         existing->is_bigint = is_bigint;
+        arc_key_release(key);  // Release caller's reference (key not needed)
         return;
     }
 
     // Create new node
     CacheNode* node = (CacheNode*)malloc(sizeof(CacheNode));
-    if (!node) return;
+    if (!node) {
+        arc_key_release(key);  // Clean up on failure
+        return;
+    }
 
-    node->key = key;
-    node->value.i64_value = value;  // Store value in union
-    node->key_hash = hash;
-    node->key_size = key_size;
+    node->key = key;  // Takes ownership
+    node->value = value;
     node->is_bigint = is_bigint;
     node->next = map->buckets[index];
 
@@ -131,55 +213,65 @@ static void hashmap_set(HashMap* map, uint64_t hash, void* key, int64_t value, i
     map->size++;
 }
 
-static void* hashmap_remove(HashMap* map, uint64_t hash, const void* key, void** out_value) {
-    size_t index = hash % map->capacity;
+// Remove from hash map without freeing (for LRU eviction)
+static void hashmap_remove_no_free(HashMap* map, uint64_t hash, const ARCCacheKey* key) {
+    size_t index = hash & map->capacity_mask;
     CacheNode* node = map->buckets[index];
     CacheNode* prev = NULL;
-    
+
     while (node) {
-        if (node->key_hash == hash && memcmp(node->key, key, sizeof(int64_t)) == 0) {
+        if (node->key->hash == hash && 
+            node->key->key_size == key->key_size &&
+            memcmp(node->key->data, key->data, key->key_size) == 0) {
             if (prev) {
                 prev->next = node->next;
             } else {
                 map->buckets[index] = node->next;
             }
-            
-            // Note: value is stored directly as int64_t, not a pointer
-            // if (out_value) *out_value = node->value;  // Not used currently
-            void* removed_key = node->key;
-            free(node);
+            // Don't free key or node - caller will handle
             map->size--;
-            return removed_key;
+            return;
         }
         prev = node;
         node = node->next;
     }
-    
-    return NULL;
 }
 
 static int hashmap_resize(HashMap* map) {
-    size_t new_capacity = map->capacity * 2;
+    size_t new_capacity = map->capacity << 1;  // Always power of 2
     CacheNode** new_buckets = (CacheNode**)calloc(new_capacity, sizeof(CacheNode*));
     if (!new_buckets) return -1;
-    
+
     // Rehash all entries
     for (size_t i = 0; i < map->capacity; i++) {
         CacheNode* node = map->buckets[i];
         while (node) {
             CacheNode* next = node->next;
-            size_t new_index = node->key_hash % new_capacity;
+            size_t new_index = node->key->hash & (new_capacity - 1);  // Fast modulo
             node->next = new_buckets[new_index];
             new_buckets[new_index] = node;
             node = next;
         }
     }
-    
+
     free(map->buckets);
     map->buckets = new_buckets;
     map->capacity = new_capacity;
-    
+    map->capacity_mask = new_capacity - 1;
+
     return 0;
+}
+
+// Special version for LRU nodes
+static void hashmap_set_lru(HashMap* map, uint64_t hash, LRUCacheNode* lru_node) {
+    if ((double)(map->size + 1) / map->capacity > HASHMAP_LOAD_FACTOR) {
+        hashmap_resize(map);
+    }
+
+    size_t index = hash & map->capacity_mask;
+    ((CacheNode*)lru_node)->next = map->buckets[index];
+    map->buckets[index] = (CacheNode*)lru_node;
+    map->size++;
 }
 
 // ============================================================================
@@ -189,32 +281,32 @@ static int hashmap_resize(HashMap* map) {
 LRUCache* vp_lru_cache_create(size_t maxsize) {
     LRUCache* cache = (LRUCache*)malloc(sizeof(LRUCache));
     if (!cache) return NULL;
-    
+
     cache->map = hashmap_create(INITIAL_HASHMAP_CAPACITY);
     if (!cache->map) {
         free(cache);
         return NULL;
     }
-    
+
     cache->maxsize = maxsize;
     cache->currsize = 0;
     cache->head = NULL;
     cache->tail = NULL;
-    
+
     return cache;
 }
 
 static void lru_cache_move_to_head(LRUCache* cache, LRUCacheNode* node) {
     if (node == cache->head) return;  // Already at head
-    
+
     // Remove from current position
     if (node->prev) node->prev->next = node->next;
     if (node->next) node->next->prev = node->prev;
-    
+
     if (node == cache->tail) {
         cache->tail = node->prev;
     }
-    
+
     // Move to head
     node->prev = NULL;
     node->next = cache->head;
@@ -222,7 +314,7 @@ static void lru_cache_move_to_head(LRUCache* cache, LRUCacheNode* node) {
         cache->head->prev = node;
     }
     cache->head = node;
-    
+
     if (!cache->tail) {
         cache->tail = node;
     }
@@ -230,9 +322,9 @@ static void lru_cache_move_to_head(LRUCache* cache, LRUCacheNode* node) {
 
 static void lru_cache_evict(LRUCache* cache) {
     if (!cache->tail) return;
-    
+
     LRUCacheNode* node = cache->tail;
-    
+
     // Remove from linked list
     if (node->prev) {
         node->prev->next = NULL;
@@ -241,27 +333,26 @@ static void lru_cache_evict(LRUCache* cache) {
         cache->head = NULL;
         cache->tail = NULL;
     }
-    
-    // Remove from hash map
-    void* old_value;
-    hashmap_remove(cache->map, node->key_hash, node->key, &old_value);
-    
-    // Free node and key
-    free(node->key);
+
+    // Remove from hash map (just removes pointer, doesn't free key)
+    hashmap_remove_no_free(cache->map, node->key->hash, node->key);
+
+    // Release key reference (triggers ARC cleanup)
+    arc_key_release(node->key);
+
+    // Free node
     free(node);
-    
+
     cache->currsize--;
 }
 
-int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found, int* is_bigint) {
+int64_t vp_lru_cache_get(LRUCache* cache, ARCCacheKey* key, int* found, int* is_bigint) {
     if (!cache || !key) {
         if (found) *found = 0;
         return 0;
     }
 
-    // Compute hash from key (key is a tuple with first element as hash)
-    int64_t* key_data = (int64_t*)key;
-    uint64_t hash = (uint64_t)key_data[0];
+    uint64_t hash = key->hash;
 
     CacheNode* base_node = hashmap_get(cache->map, hash, key);
     if (!base_node) {
@@ -269,30 +360,28 @@ int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found, int* is_bigint)
         return 0;
     }
 
-    // Cast to LRU node and move to head
+    // Move to head (LRU update)
     LRUCacheNode* lru_node = (LRUCacheNode*)base_node;
     lru_cache_move_to_head(cache, lru_node);
 
     if (found) *found = 1;
     if (is_bigint) *is_bigint = lru_node->is_bigint;
-    return lru_node->value.i64_value;  // Return value (interpret as pointer if is_bigint)
+    return lru_node->value;  // Return value directly (i64 or BigInt pointer)
 }
 
-void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_size, int is_bigint) {
+void vp_lru_cache_set(LRUCache* cache, ARCCacheKey* key, int64_t value, int is_bigint) {
     if (!cache || !key) return;
 
-    // Compute hash from key
-    int64_t* key_data = (int64_t*)key;
-    uint64_t hash = (uint64_t)key_data[0];
+    uint64_t hash = key->hash;
 
-    // Check if key already exists
-    CacheNode* existing = hashmap_get(cache->map, hash, key);
-    if (existing) {
-        // Update value and move to head
-        LRUCacheNode* lru_node = (LRUCacheNode*)existing;
-        lru_node->value.i64_value = value;  // Store value directly
+    // Check if key exists
+    CacheNode* base_node = hashmap_get(cache->map, hash, key);
+    if (base_node) {
+        LRUCacheNode* lru_node = (LRUCacheNode*)base_node;
+        lru_node->value = value;
         lru_node->is_bigint = is_bigint;
         lru_cache_move_to_head(cache, lru_node);
+        arc_key_release(key);  // Release caller's reference
         return;
     }
 
@@ -301,45 +390,42 @@ void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_siz
         lru_cache_evict(cache);
     }
 
-    // Create new LRU node (with proper size for prev/next pointers)
+    // Create new LRU node
     LRUCacheNode* node = (LRUCacheNode*)malloc(sizeof(LRUCacheNode));
-    if (!node) return;
+    if (!node) {
+        arc_key_release(key);  // Clean up on failure
+        return;
+    }
 
-    node->key = key;
-    node->value.i64_value = value;  // Store value in union
-    node->key_hash = hash;
-    node->key_size = key_size;
+    node->key = key;  // Takes ownership (ref count still 1)
+    node->value = value;
     node->is_bigint = is_bigint;
     node->prev = NULL;
     node->next = cache->head;
 
-    if (cache->head) {
-        cache->head->prev = node;
-    }
+    // Update linked list
+    if (cache->head) cache->head->prev = node;
     cache->head = node;
+    if (!cache->tail) cache->tail = node;
 
-    if (!cache->tail) {
-        cache->tail = node;
-    }
-
-    // Add to hash map using LRU-specific function
-    hashmap_set_lru(cache->map, hash, key, node, key_size);
+    // Add to hash map (transfers ownership)
+    hashmap_set_lru(cache->map, hash, node);
     cache->currsize++;
 }
 
 void vp_lru_cache_destroy(LRUCache* cache) {
     if (!cache) return;
-    
-    // Free all LRU nodes
+
+    // Free all LRU nodes (keys released via ARC)
     LRUCacheNode* node = cache->head;
     while (node) {
         LRUCacheNode* next = node->next;
-        free(node->key);
+        arc_key_release(node->key);  // Release key (triggers free)
         free(node);
         node = next;
     }
-    
-    // Free hash map structure (not the values, they're the same as nodes)
+
+    // Free hash map structure
     free(cache->map->buckets);
     free(cache->map);
     free(cache);
@@ -347,22 +433,29 @@ void vp_lru_cache_destroy(LRUCache* cache) {
 
 void vp_lru_cache_clear(LRUCache* cache) {
     if (!cache) return;
-    
-    // Free all LRU nodes
+
+    // Free all LRU nodes (keys released via ARC)
     LRUCacheNode* node = cache->head;
     while (node) {
         LRUCacheNode* next = node->next;
-        free(node->key);
+        arc_key_release(node->key);
         free(node);
         node = next;
     }
-    
+
     // Clear hash map
     memset(cache->map->buckets, 0, cache->map->capacity * sizeof(CacheNode*));
     cache->map->size = 0;
     cache->currsize = 0;
     cache->head = NULL;
     cache->tail = NULL;
+}
+
+void vp_lru_cache_info(LRUCache* cache, size_t* hits, size_t* misses) {
+    // Stub - would need to track hits/misses in cache struct
+    (void)cache;  // Suppress unused warning
+    if (hits) *hits = 0;
+    if (misses) *misses = 0;
 }
 
 // ============================================================================
@@ -372,26 +465,24 @@ void vp_lru_cache_clear(LRUCache* cache) {
 Cache* vp_cache_create(void) {
     Cache* cache = (Cache*)malloc(sizeof(Cache));
     if (!cache) return NULL;
-    
+
     cache->map = hashmap_create(INITIAL_HASHMAP_CAPACITY);
     if (!cache->map) {
         free(cache);
         return NULL;
     }
-    
+
     cache->currsize = 0;
     return cache;
 }
 
-int64_t vp_cache_get(Cache* cache, void* key, int* found, int* is_bigint) {
+int64_t vp_cache_get(Cache* cache, ARCCacheKey* key, int* found, int* is_bigint) {
     if (!cache || !key) {
         if (found) *found = 0;
         return 0;
     }
 
-    // Compute hash from key
-    int64_t* key_data = (int64_t*)key;
-    uint64_t hash = (uint64_t)key_data[0];
+    uint64_t hash = key->hash;
 
     CacheNode* node = hashmap_get(cache->map, hash, key);
     if (!node) {
@@ -401,44 +492,32 @@ int64_t vp_cache_get(Cache* cache, void* key, int* found, int* is_bigint) {
 
     if (found) *found = 1;
     if (is_bigint) *is_bigint = node->is_bigint;
-    return node->value.i64_value;
+    return node->value;
 }
 
-void vp_cache_set(Cache* cache, void* key, int64_t value, int64_t key_size, int is_bigint) {
+void vp_cache_set(Cache* cache, ARCCacheKey* key, int64_t value, int is_bigint) {
     if (!cache || !key) return;
 
-    // Compute hash from key
-    int64_t* key_data = (int64_t*)key;
-    uint64_t hash = (uint64_t)key_data[0];
-
-    // Set in hash map
-    hashmap_set(cache->map, hash, key, value, key_size, is_bigint);
+    uint64_t hash = key->hash;
+    hashmap_set(cache->map, hash, key, value, is_bigint);
     cache->currsize++;
 }
 
 void vp_cache_destroy(Cache* cache) {
     if (!cache) return;
-    
-    hashmap_destroy(cache->map);  // Free keys and nodes
+
+    hashmap_destroy(cache->map);  // Frees all keys via ARC
     free(cache);
 }
 
 void vp_cache_clear(Cache* cache) {
     if (!cache) return;
+
+    // Free all keys via hashmap_destroy
+    hashmap_destroy(cache->map);
     
-    // Free all keys
-    for (size_t i = 0; i < cache->map->capacity; i++) {
-        CacheNode* node = cache->map->buckets[i];
-        while (node) {
-            CacheNode* next = node->next;
-            free(node->key);
-            free(node);
-            node = next;
-        }
-    }
-    
-    memset(cache->map->buckets, 0, cache->map->capacity * sizeof(CacheNode*));
-    cache->map->size = 0;
+    // Reinitialize hash map
+    cache->map = hashmap_create(INITIAL_HASHMAP_CAPACITY);
     cache->currsize = 0;
 }
 
@@ -458,35 +537,11 @@ uint64_t vp_hash_int(int64_t key) {
 uint64_t vp_hash_tuple(const int64_t* values, size_t count) {
     // FNV-1a hash for tuples
     uint64_t hash = 14695981039346656037ULL;
-    
+
     for (size_t i = 0; i < count; i++) {
         hash ^= (uint64_t)values[i];
         hash *= 1099511628211ULL;
     }
-    
+
     return hash;
-}
-
-void* vp_tuple_create1(int64_t value) {
-    // Allocate tuple: [hash, value]
-    int64_t* tuple = (int64_t*)malloc(2 * sizeof(int64_t));
-    if (!tuple) return NULL;
-    
-    tuple[0] = (int64_t)vp_hash_int(value);  // Hash
-    tuple[1] = value;                         // Value
-    
-    return tuple;
-}
-
-void* vp_tuple_create2(int64_t value1, int64_t value2) {
-    // Allocate tuple: [hash, value1, value2]
-    int64_t* tuple = (int64_t*)malloc(3 * sizeof(int64_t));
-    if (!tuple) return NULL;
-    
-    int64_t values[2] = {value1, value2};
-    tuple[0] = (int64_t)vp_hash_tuple(values, 2);  // Hash
-    tuple[1] = value1;                              // Value 1
-    tuple[2] = value2;                              // Value 2
-    
-    return tuple;
 }
