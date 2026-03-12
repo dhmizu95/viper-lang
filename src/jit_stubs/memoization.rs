@@ -17,13 +17,13 @@ extern "C" {
     // LRU Cache functions
     fn vp_lru_cache_create(maxsize: u64) -> *mut LRUCache;
     fn vp_lru_cache_get(cache: *mut LRUCache, key: *mut c_void, found: *mut c_int) -> i64;
-    fn vp_lru_cache_set(cache: *mut LRUCache, key: *mut c_void, value: i64);
+    fn vp_lru_cache_set(cache: *mut LRUCache, key: *mut c_void, value: i64, key_size: i64);
     fn vp_lru_cache_destroy(cache: *mut LRUCache);
-    
+
     // Unbounded Cache functions
     fn vp_cache_create() -> *mut Cache;
     fn vp_cache_get(cache: *mut Cache, key: *mut c_void, found: *mut c_int) -> i64;
-    fn vp_cache_set(cache: *mut Cache, key: *mut c_void, value: i64);
+    fn vp_cache_set(cache: *mut Cache, key: *mut c_void, value: i64, key_size: i64);
     fn vp_cache_destroy(cache: *mut Cache);
     
     // Tuple creation for cache keys (implemented in C runtime)
@@ -46,8 +46,8 @@ pub extern "C" fn vp_lru_cache_get_stub(cache: *mut c_void, key: *mut c_void, fo
 }
 
 #[no_mangle]
-pub extern "C" fn vp_lru_cache_set_stub(cache: *mut c_void, key: *mut c_void, value: i64) {
-    unsafe { vp_lru_cache_set(cache as *mut LRUCache, key, value) }
+pub extern "C" fn vp_lru_cache_set_stub(cache: *mut c_void, key: *mut c_void, value: i64, key_size: i64) {
+    unsafe { vp_lru_cache_set(cache as *mut LRUCache, key, value, key_size) }
 }
 
 #[no_mangle]
@@ -66,8 +66,8 @@ pub extern "C" fn vp_cache_get_stub(cache: *mut c_void, key: *mut c_void, found:
 }
 
 #[no_mangle]
-pub extern "C" fn vp_cache_set_stub(cache: *mut c_void, key: *mut c_void, value: i64) {
-    unsafe { vp_cache_set(cache as *mut Cache, key, value) }
+pub extern "C" fn vp_cache_set_stub(cache: *mut c_void, key: *mut c_void, value: i64, key_size: i64) {
+    unsafe { vp_cache_set(cache as *mut Cache, key, value, key_size) }
 }
 
 #[no_mangle]

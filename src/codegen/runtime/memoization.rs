@@ -40,7 +40,7 @@ pub fn declare_memoization_functions<'ctx>(
     let lru_cache_get = module.add_function("vp_lru_cache_get", lru_cache_get_type, None);
 
     let lru_cache_set_type = void_type.fn_type(
-        &[i8_ptr_type.into(), i8_ptr_type.into(), i64_type.into()],
+        &[i8_ptr_type.into(), i8_ptr_type.into(), i64_type.into(), i64_type.into()],
         false,
     );
     let lru_cache_set = module.add_function("vp_lru_cache_set", lru_cache_set_type, None);
@@ -56,7 +56,7 @@ pub fn declare_memoization_functions<'ctx>(
     let cache_get = module.add_function("vp_cache_get", cache_get_type, None);
 
     let cache_set_type = void_type.fn_type(
-        &[i8_ptr_type.into(), i8_ptr_type.into(), i64_type.into()],
+        &[i8_ptr_type.into(), i8_ptr_type.into(), i64_type.into(), i64_type.into()],
         false,
     );
     let cache_set = module.add_function("vp_cache_set", cache_set_type, None);

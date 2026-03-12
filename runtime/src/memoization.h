@@ -28,6 +28,7 @@ typedef struct CacheNode {
     void* key;              // Cached argument tuple (allocated)
     int64_t value;          // Cached return value (stored directly)
     uint64_t key_hash;      // Pre-computed hash for faster lookup
+    int64_t key_size;       // Size of key in bytes (for memcmp)
     struct CacheNode* next; // Collision chain
 } CacheNode;
 
@@ -52,6 +53,7 @@ typedef struct LRUCacheNode {
     void* key;                  // Cached argument tuple (allocated)
     int64_t value;              // Cached return value (stored directly)
     uint64_t key_hash;          // Pre-computed hash
+    int64_t key_size;           // Size of key in bytes
     struct LRUCacheNode* prev;  // Previous in LRU order (older)
     struct LRUCacheNode* next;  // Next in LRU order (newer)
 } LRUCacheNode;
@@ -104,8 +106,9 @@ int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found);
  * @param cache The cache
  * @param key The key (argument tuple)
  * @param value The value to cache (stored directly as int64_t)
+ * @param key_size Size of the key in bytes
  */
-void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value);
+void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_size);
 
 /**
  * Destroy an LRU cache and free all memory
@@ -151,8 +154,9 @@ int64_t vp_cache_get(Cache* cache, void* key, int* found);
  * @param cache The cache
  * @param key The key (argument tuple)
  * @param value The value to cache (stored directly as int64_t)
+ * @param key_size Size of the key in bytes
  */
-void vp_cache_set(Cache* cache, void* key, int64_t value);
+void vp_cache_set(Cache* cache, void* key, int64_t value, int64_t key_size);
 
 /**
  * Destroy an unbounded cache and free all memory

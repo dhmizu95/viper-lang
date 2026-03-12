@@ -467,22 +467,40 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.builder.position_at_end(wrapper_entry);
 
-        // Build cache key from first parameter (single int for now)
+        // Build cache key from parameters
         let i64_type = self.context.i64_type();
         let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
-        // Get first argument
-        let first_arg = func_value.get_nth_param(0).unwrap();
-
-        // Create cache key tuple
-        let key_call = self.builder.build_call(
-            memo_funcs.tuple_create1,
-            &[first_arg.into()],
-            "cache_key",
-        ).expect("Failed to create cache key call");
-        let key_value = match key_call.try_as_basic_value() {
-            inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-            _ => return Err("Failed to create cache key".to_string()),
+        // Create cache key tuple based on number of parameters
+        let key_value = match params.len() {
+            1 => {
+                let arg0 = func_value.get_nth_param(0).unwrap();
+                let key_call = self.builder.build_call(
+                    memo_funcs.tuple_create1,
+                    &[arg0.into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            2 => {
+                let arg0 = func_value.get_nth_param(0).unwrap();
+                let arg1 = func_value.get_nth_param(1).unwrap();
+                let key_call = self.builder.build_call(
+                    memo_funcs.tuple_create2,
+                    &[arg0.into(), arg1.into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            n => {
+                return Err(format!("Memoization supports 1-2 parameters, got {}", n));
+            }
         };
 
         // Load cache pointer
@@ -596,12 +614,17 @@ impl<'ctx> CodeGen<'ctx> {
         // Cache the result - pass integer directly
         // Note: cache takes ownership of key_value, don't free it
         let set_func = if is_lru { memo_funcs.lru_cache_set } else { memo_funcs.cache_set };
+        
+        // Calculate key size: [hash, value1, value2, ...] = (num_params + 1) * sizeof(int64_t)
+        let key_size_val = i64_type.const_int(((params.len() + 1) * 8) as u64, false);
+        
         self.builder.build_call(
             set_func,
             &[
                 loaded_cache.into(),
                 key_value.into(),
                 result_value.into(),
+                key_size_val.into(),
             ],
             "",
         ).unwrap();

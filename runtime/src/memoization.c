@@ -57,8 +57,9 @@ static CacheNode* hashmap_get(HashMap* map, uint64_t hash, const void* key) {
     CacheNode* node = map->buckets[index];
     
     while (node) {
-        // Compare hash first, then compare full key data (hash + value = 2 int64_t)
-        if (node->key_hash == hash && memcmp(node->key, key, 2 * sizeof(int64_t)) == 0) {
+        // Compare hash first, then compare full key data using stored key_size
+        if (node->key_hash == hash && node->key_size > 0 && 
+            memcmp(node->key, key, node->key_size) == 0) {
             return node;
         }
         node = node->next;
@@ -70,7 +71,7 @@ static CacheNode* hashmap_get(HashMap* map, uint64_t hash, const void* key) {
 // Forward declaration
 static int hashmap_resize(HashMap* map);
 
-static void hashmap_set_lru(HashMap* map, uint64_t hash, void* key, LRUCacheNode* lru_node) {
+static void hashmap_set_lru(HashMap* map, uint64_t hash, void* key, LRUCacheNode* lru_node, int64_t key_size) {
     // Check load factor and resize if needed
     if ((double)(map->size + 1) / map->capacity > HASHMAP_LOAD_FACTOR) {
         hashmap_resize(map);
@@ -91,13 +92,14 @@ static void hashmap_set_lru(HashMap* map, uint64_t hash, void* key, LRUCacheNode
     // Use the lru_node directly (it starts with CacheNode-compatible fields)
     lru_node->key = key;
     lru_node->key_hash = hash;
+    lru_node->key_size = key_size;
     ((CacheNode*)lru_node)->next = map->buckets[index];
     
     map->buckets[index] = (CacheNode*)lru_node;
     map->size++;
 }
 
-static void hashmap_set(HashMap* map, uint64_t hash, void* key, int64_t value) {
+static void hashmap_set(HashMap* map, uint64_t hash, void* key, int64_t value, int64_t key_size) {
     // Check load factor and resize if needed
     if ((double)(map->size + 1) / map->capacity > HASHMAP_LOAD_FACTOR) {
         hashmap_resize(map);
@@ -119,6 +121,7 @@ static void hashmap_set(HashMap* map, uint64_t hash, void* key, int64_t value) {
     node->key = key;
     node->value = value;  // Store value directly as int64_t
     node->key_hash = hash;
+    node->key_size = key_size;
     node->next = map->buckets[index];
     
     map->buckets[index] = node;
@@ -271,13 +274,13 @@ int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found) {
     return lru_node->value;  // Return value directly as int64_t
 }
 
-void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value) {
+void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_size) {
     if (!cache || !key) return;
     
     // Compute hash from key
     int64_t* key_data = (int64_t*)key;
     uint64_t hash = (uint64_t)key_data[0];
-    
+
     // Check if key already exists
     CacheNode* existing = hashmap_get(cache->map, hash, key);
     if (existing) {
@@ -287,33 +290,34 @@ void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value) {
         lru_cache_move_to_head(cache, lru_node);
         return;
     }
-    
+
     // Evict if necessary
     if (cache->maxsize > 0 && cache->currsize >= cache->maxsize) {
         lru_cache_evict(cache);
     }
-    
+
     // Create new LRU node (with proper size for prev/next pointers)
     LRUCacheNode* node = (LRUCacheNode*)malloc(sizeof(LRUCacheNode));
     if (!node) return;
-    
+
     node->key = key;
     node->value = value;  // Store value directly as int64_t
     node->key_hash = hash;
+    node->key_size = key_size;
     node->prev = NULL;
     node->next = cache->head;
-    
+
     if (cache->head) {
         cache->head->prev = node;
     }
     cache->head = node;
-    
+
     if (!cache->tail) {
         cache->tail = node;
     }
-    
+
     // Add to hash map using LRU-specific function
-    hashmap_set_lru(cache->map, hash, key, node);
+    hashmap_set_lru(cache->map, hash, key, node, key_size);
     cache->currsize++;
 }
 
@@ -401,25 +405,25 @@ int64_t vp_cache_get(Cache* cache, void* key, int* found) {
     return node->value;
 }
 
-void vp_cache_set(Cache* cache, void* key, int64_t value) {
+void vp_cache_set(Cache* cache, void* key, int64_t value, int64_t key_size) {
     if (!cache || !key) {
         fprintf(stderr, "[CACHE_SET] NULL cache=%p key=%p\n", (void*)cache, (void*)key);
         fflush(stderr);
         return;
     }
-    
+
     // Compute hash from key
     int64_t* key_data = (int64_t*)key;
     uint64_t hash = (uint64_t)key_data[0];
-    
-    fprintf(stderr, "[CACHE_SET] key=[%ld,%ld] hash=%lu value=%ld cache=%p\n", 
-            key_data[0], key_data[1], hash, value, (void*)cache);
+
+    fprintf(stderr, "[CACHE_SET] key=[%ld,%ld] hash=%lu value=%ld cache=%p key_size=%zu\n",
+            key_data[0], key_data[1], hash, value, (void*)cache, key_size);
     fflush(stderr);
-    
+
     // Set in hash map
-    hashmap_set(cache->map, hash, key, value);
+    hashmap_set(cache->map, hash, key, value, key_size);
     cache->currsize++;
-    
+
     fprintf(stderr, "[CACHE_SET] DONE size=%zu\n", cache->currsize);
     fflush(stderr);
 }
