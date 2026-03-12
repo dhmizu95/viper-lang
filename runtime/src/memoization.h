@@ -21,14 +21,23 @@ extern "C" {
 // ============================================================================
 
 /**
+ * Cache value - can be either i64 or BigInt pointer
+ */
+typedef union CacheValue {
+    int64_t i64_value;    // For regular integers
+    void* bigint_ptr;     // For BigInt (tagged integer pointer)
+} CacheValue;
+
+/**
  * Hash map node - stores key-value pairs
- * Note: value is stored as int64_t directly for efficiency
+ * Note: value is stored directly for efficiency
  */
 typedef struct CacheNode {
     void* key;              // Cached argument tuple (allocated)
-    int64_t value;          // Cached return value (stored directly)
+    CacheValue value;       // Cached return value (i64 or BigInt pointer)
     uint64_t key_hash;      // Pre-computed hash for faster lookup
     int64_t key_size;       // Size of key in bytes (for memcmp)
+    int is_bigint;          // 1 if value is BigInt pointer, 0 if i64
     struct CacheNode* next; // Collision chain
 } CacheNode;
 
@@ -47,13 +56,14 @@ typedef struct HashMap {
 
 /**
  * LRU Cache Node - extends CacheNode with doubly-linked list for LRU tracking
- * Note: value is stored as int64_t directly for efficiency
+ * Note: value is stored directly for efficiency
  */
 typedef struct LRUCacheNode {
     void* key;                  // Cached argument tuple (allocated)
-    int64_t value;              // Cached return value (stored directly)
+    CacheValue value;           // Cached return value (i64 or BigInt pointer)
     uint64_t key_hash;          // Pre-computed hash
     int64_t key_size;           // Size of key in bytes
+    int is_bigint;              // 1 if value is BigInt pointer, 0 if i64
     struct LRUCacheNode* prev;  // Previous in LRU order (older)
     struct LRUCacheNode* next;  // Next in LRU order (newer)
 } LRUCacheNode;
@@ -97,18 +107,20 @@ LRUCache* vp_lru_cache_create(size_t maxsize);
  * @param cache The cache
  * @param key The key (argument tuple)
  * @param found Output: pointer to int that will be set to 1 if found, 0 if not
- * @return Cached value (undefined if not found, check 'found' parameter)
+ * @param is_bigint Output: pointer to int that will be set to 1 if value is BigInt, 0 if i64
+ * @return Cached value as int64_t (for i64) or pointer (for BigInt). Check is_bigint to interpret.
  */
-int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found);
+int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found, int* is_bigint);
 
 /**
  * Set a value in the LRU cache
  * @param cache The cache
  * @param key The key (argument tuple)
- * @param value The value to cache (stored directly as int64_t)
+ * @param value The value to cache (i64 value or BigInt pointer)
  * @param key_size Size of the key in bytes
+ * @param is_bigint 1 if value is BigInt pointer, 0 if i64
  */
-void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_size);
+void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_size, int is_bigint);
 
 /**
  * Destroy an LRU cache and free all memory
@@ -145,18 +157,20 @@ Cache* vp_cache_create(void);
  * @param cache The cache
  * @param key The key (argument tuple)
  * @param found Output: pointer to int that will be set to 1 if found, 0 if not
- * @return Cached value (undefined if not found, check 'found' parameter)
+ * @param is_bigint Output: pointer to int that will be set to 1 if value is BigInt, 0 if i64
+ * @return Cached value as int64_t (for i64) or pointer (for BigInt). Check is_bigint to interpret.
  */
-int64_t vp_cache_get(Cache* cache, void* key, int* found);
+int64_t vp_cache_get(Cache* cache, void* key, int* found, int* is_bigint);
 
 /**
  * Set a value in the unbounded cache
  * @param cache The cache
  * @param key The key (argument tuple)
- * @param value The value to cache (stored directly as int64_t)
+ * @param value The value to cache (i64 value or BigInt pointer)
  * @param key_size Size of the key in bytes
+ * @param is_bigint 1 if value is BigInt pointer, 0 if i64
  */
-void vp_cache_set(Cache* cache, void* key, int64_t value, int64_t key_size);
+void vp_cache_set(Cache* cache, void* key, int64_t value, int64_t key_size, int is_bigint);
 
 /**
  * Destroy an unbounded cache and free all memory

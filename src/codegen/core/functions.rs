@@ -558,15 +558,16 @@ impl<'ctx> CodeGen<'ctx> {
         // Call cache_get - returns i64 directly and sets found flag
         let get_func = if is_lru { memo_funcs.lru_cache_get } else { memo_funcs.cache_get };
         
-        // Allocate space for 'found' flag
+        // Allocate space for 'found' and 'is_bigint' flags
         let found_ptr = self.builder.build_alloca(self.context.i32_type(), "found_ptr").expect("alloca found");
-        
+        let is_bigint_ptr = self.builder.build_alloca(self.context.i32_type(), "is_bigint_ptr").expect("alloca is_bigint");
+
         let cached_call = self.builder.build_call(
             get_func,
-            &[loaded_cache.into(), key_value.into(), found_ptr.into()],
+            &[loaded_cache.into(), key_value.into(), found_ptr.into(), is_bigint_ptr.into()],
             "cached_value",
         ).expect("Cache get failed");
-        
+
         // Extract the return value (i64) from the call
         let cached_value = match cached_call.try_as_basic_value() {
             inkwell::values::ValueKind::Basic(bv) => bv,
@@ -614,10 +615,14 @@ impl<'ctx> CodeGen<'ctx> {
         // Cache the result - pass integer directly
         // Note: cache takes ownership of key_value, don't free it
         let set_func = if is_lru { memo_funcs.lru_cache_set } else { memo_funcs.cache_set };
-        
+
         // Calculate key size: [hash, value1, value2, ...] = (num_params + 1) * sizeof(int64_t)
         let key_size_val = i64_type.const_int(((params.len() + 1) * 8) as u64, false);
         
+        // For now, assume i64 return (is_bigint = 0)
+        // TODO: Detect BigInt return type and set is_bigint = 1
+        let is_bigint_val = self.context.i32_type().const_int(0, false);
+
         self.builder.build_call(
             set_func,
             &[
@@ -625,6 +630,7 @@ impl<'ctx> CodeGen<'ctx> {
                 key_value.into(),
                 result_value.into(),
                 key_size_val.into(),
+                is_bigint_val.into(),
             ],
             "",
         ).unwrap();

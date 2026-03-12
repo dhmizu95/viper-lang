@@ -76,54 +76,57 @@ static void hashmap_set_lru(HashMap* map, uint64_t hash, void* key, LRUCacheNode
     if ((double)(map->size + 1) / map->capacity > HASHMAP_LOAD_FACTOR) {
         hashmap_resize(map);
     }
-    
+
     size_t index = hash % map->capacity;
-    
+
     // Check if key already exists (using base CacheNode fields)
     CacheNode* existing = hashmap_get(map, hash, key);
     if (existing) {
         // Update by replacing the node in the bucket
         LRUCacheNode* existing_lru = (LRUCacheNode*)existing;
-        // Copy value from new node
+        // Copy value and is_bigint from new node
         existing_lru->value = lru_node->value;
+        existing_lru->is_bigint = lru_node->is_bigint;
         return;
     }
-    
+
     // Use the lru_node directly (it starts with CacheNode-compatible fields)
     lru_node->key = key;
     lru_node->key_hash = hash;
     lru_node->key_size = key_size;
     ((CacheNode*)lru_node)->next = map->buckets[index];
-    
+
     map->buckets[index] = (CacheNode*)lru_node;
     map->size++;
 }
 
-static void hashmap_set(HashMap* map, uint64_t hash, void* key, int64_t value, int64_t key_size) {
+static void hashmap_set(HashMap* map, uint64_t hash, void* key, int64_t value, int64_t key_size, int is_bigint) {
     // Check load factor and resize if needed
     if ((double)(map->size + 1) / map->capacity > HASHMAP_LOAD_FACTOR) {
         hashmap_resize(map);
     }
-    
+
     size_t index = hash % map->capacity;
-    
+
     // Check if key already exists
     CacheNode* existing = hashmap_get(map, hash, key);
     if (existing) {
-        existing->value = value;  // Update value directly
+        existing->value.i64_value = value;  // Update value in union
+        existing->is_bigint = is_bigint;
         return;
     }
-    
+
     // Create new node
     CacheNode* node = (CacheNode*)malloc(sizeof(CacheNode));
     if (!node) return;
-    
+
     node->key = key;
-    node->value = value;  // Store value directly as int64_t
+    node->value.i64_value = value;  // Store value in union
     node->key_hash = hash;
     node->key_size = key_size;
+    node->is_bigint = is_bigint;
     node->next = map->buckets[index];
-    
+
     map->buckets[index] = node;
     map->size++;
 }
@@ -250,33 +253,34 @@ static void lru_cache_evict(LRUCache* cache) {
     cache->currsize--;
 }
 
-int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found) {
+int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found, int* is_bigint) {
     if (!cache || !key) {
         if (found) *found = 0;
         return 0;
     }
-    
+
     // Compute hash from key (key is a tuple with first element as hash)
     int64_t* key_data = (int64_t*)key;
     uint64_t hash = (uint64_t)key_data[0];
-    
+
     CacheNode* base_node = hashmap_get(cache->map, hash, key);
     if (!base_node) {
         if (found) *found = 0;
         return 0;
     }
-    
+
     // Cast to LRU node and move to head
     LRUCacheNode* lru_node = (LRUCacheNode*)base_node;
     lru_cache_move_to_head(cache, lru_node);
-    
+
     if (found) *found = 1;
-    return lru_node->value;  // Return value directly as int64_t
+    if (is_bigint) *is_bigint = lru_node->is_bigint;
+    return lru_node->value.i64_value;  // Return value (interpret as pointer if is_bigint)
 }
 
-void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_size) {
+void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_size, int is_bigint) {
     if (!cache || !key) return;
-    
+
     // Compute hash from key
     int64_t* key_data = (int64_t*)key;
     uint64_t hash = (uint64_t)key_data[0];
@@ -286,7 +290,8 @@ void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_siz
     if (existing) {
         // Update value and move to head
         LRUCacheNode* lru_node = (LRUCacheNode*)existing;
-        lru_node->value = value;  // Store value directly
+        lru_node->value.i64_value = value;  // Store value directly
+        lru_node->is_bigint = is_bigint;
         lru_cache_move_to_head(cache, lru_node);
         return;
     }
@@ -301,9 +306,10 @@ void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value, int64_t key_siz
     if (!node) return;
 
     node->key = key;
-    node->value = value;  // Store value directly as int64_t
+    node->value.i64_value = value;  // Store value in union
     node->key_hash = hash;
     node->key_size = key_size;
+    node->is_bigint = is_bigint;
     node->prev = NULL;
     node->next = cache->head;
 
@@ -377,55 +383,37 @@ Cache* vp_cache_create(void) {
     return cache;
 }
 
-int64_t vp_cache_get(Cache* cache, void* key, int* found) {
+int64_t vp_cache_get(Cache* cache, void* key, int* found, int* is_bigint) {
     if (!cache || !key) {
         if (found) *found = 0;
         return 0;
     }
-    
+
     // Compute hash from key
     int64_t* key_data = (int64_t*)key;
     uint64_t hash = (uint64_t)key_data[0];
-    
-    fprintf(stderr, "[CACHE_GET] key=[%ld,%ld] hash=%lu cache=%p\n", 
-            key_data[0], key_data[1], hash, (void*)cache);
-    fflush(stderr);
-    
+
     CacheNode* node = hashmap_get(cache->map, hash, key);
     if (!node) {
-        fprintf(stderr, "[CACHE_GET] MISS\n");
-        fflush(stderr);
         if (found) *found = 0;
         return 0;
     }
-    
-    fprintf(stderr, "[CACHE_GET] HIT value=%ld\n", node->value);
-    fflush(stderr);
+
     if (found) *found = 1;
-    return node->value;
+    if (is_bigint) *is_bigint = node->is_bigint;
+    return node->value.i64_value;
 }
 
-void vp_cache_set(Cache* cache, void* key, int64_t value, int64_t key_size) {
-    if (!cache || !key) {
-        fprintf(stderr, "[CACHE_SET] NULL cache=%p key=%p\n", (void*)cache, (void*)key);
-        fflush(stderr);
-        return;
-    }
+void vp_cache_set(Cache* cache, void* key, int64_t value, int64_t key_size, int is_bigint) {
+    if (!cache || !key) return;
 
     // Compute hash from key
     int64_t* key_data = (int64_t*)key;
     uint64_t hash = (uint64_t)key_data[0];
 
-    fprintf(stderr, "[CACHE_SET] key=[%ld,%ld] hash=%lu value=%ld cache=%p key_size=%zu\n",
-            key_data[0], key_data[1], hash, value, (void*)cache, key_size);
-    fflush(stderr);
-
     // Set in hash map
-    hashmap_set(cache->map, hash, key, value, key_size);
+    hashmap_set(cache->map, hash, key, value, key_size, is_bigint);
     cache->currsize++;
-
-    fprintf(stderr, "[CACHE_SET] DONE size=%zu\n", cache->currsize);
-    fflush(stderr);
 }
 
 void vp_cache_destroy(Cache* cache) {
