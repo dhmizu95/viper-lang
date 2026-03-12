@@ -3,6 +3,7 @@ use inkwell::targets::{InitializationConfig, Target};
 use inkwell::OptimizationLevel;
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::path::PathBuf;
 use std::ptr;
 
 use crate::ast::{Expr, Stmt};
@@ -10,6 +11,7 @@ use crate::codegen::CodeGen;
 
 pub struct ReplSession {
     chunk_counter: usize,
+    input_path: PathBuf,
     // Persistent shadow store of REPL variables
     pub int_vars: HashMap<String, i64>,
     pub float_vars: HashMap<String, f64>,
@@ -26,11 +28,19 @@ unsafe impl Sync for ReplSession {}
 
 impl ReplSession {
     pub fn new() -> Self {
+        let input_path = std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("__repl__.vp");
+        Self::with_input_path(input_path)
+    }
+
+    pub fn with_input_path(input_path: PathBuf) -> Self {
         Target::initialize_native(&InitializationConfig::default())
             .expect("Failed to initialize native target");
 
         Self {
             chunk_counter: 0,
+            input_path,
             int_vars: HashMap::new(),
             float_vars: HashMap::new(),
             bool_vars: HashMap::new(),
@@ -62,13 +72,7 @@ impl ReplSession {
         self.extract_definitions_and_assignments(source);
 
         // Type checking
-        let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
-        type_checker.check(&ast).map_err(|e| {
-            format!(
-                "Type errors found:\n{}",
-                e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
-            )
-        })?;
+        let _type_checker = crate::driver::type_check_module(self.input_path.as_path(), &ast)?;
 
         // 3. JIT Compile
         let context = Context::create();

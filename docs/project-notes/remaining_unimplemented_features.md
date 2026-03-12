@@ -18,6 +18,7 @@
 - State persistence is based on shadow stores plus source replay, not a true persistent runtime environment.
 - Complex values are only tracked loosely.
 - Runtime parity with file-based execution is still partial.
+- Imported modules now resolve relative to the REPL working path during checking, but imported symbols are not yet fully materialized into persistent REPL runtime state.
 - Safety isolation is still weaker than `viper run`.
 
 ## Verification
