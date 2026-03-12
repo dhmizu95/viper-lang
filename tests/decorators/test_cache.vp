@@ -1,0 +1,38 @@
+# Test for @cache decorator (unbounded memoization)
+# Factorial with automatic caching
+
+@cache
+def factorial(n):
+    """Calculate n! with memoization."""
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+@cache
+def ackermann(m, n):
+    """Ackermann function - heavily recursive."""
+    if m == 0:
+        return n + 1
+    if n == 0:
+        return ackermann(m - 1, 1)
+    return ackermann(m - 1, ackermann(m, n - 1))
+
+def main():
+    # Test factorial
+    print("factorial(5) =", factorial(5))
+    print("factorial(10) =", factorial(10))
+    
+    assert factorial(5) == 120
+    assert factorial(10) == 3628800
+    
+    # Test Ackermann (small values due to rapid growth)
+    print("ackermann(2, 2) =", ackermann(2, 2))
+    print("ackermann(3, 2) =", ackermann(3, 2))
+    
+    assert ackermann(2, 2) == 7
+    assert ackermann(3, 2) == 29
+    
+    print("All cache tests passed!")
+    return 0
+
+main()

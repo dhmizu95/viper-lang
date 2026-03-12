@@ -2,7 +2,7 @@
 
 use crate::ast::Type;
 use inkwell::context::Context;
-use inkwell::values::{FunctionValue, GlobalValue};
+use inkwell::values::{FunctionValue, GlobalValue, PointerValue};
 use std::collections::{HashMap, HashSet};
 
 use crate::codegen::builder::IRBuilder;
@@ -36,6 +36,12 @@ pub struct CodeGen<'ctx> {
     pub(crate) current_function: Option<String>,
     pub(crate) current_class: Option<String>,  // Current class context for super() and methods
     pub(crate) in_classmethod: bool,  // True when generating code for a @classmethod
+    /// Functions decorated with @lru_cache or @memoize - maps function name to cache global pointer
+    pub(crate) memoized_functions: HashMap<String, PointerValue<'ctx>>,
+    /// Enable automatic memoization for pure recursive functions
+    pub(crate) auto_memoize: bool,
+    /// Warn about non-memoized recursive functions (default: true)
+    pub(crate) memoize_warn: bool,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -67,6 +73,9 @@ impl<'ctx> CodeGen<'ctx> {
             current_function: None,
             current_class: None,
             in_classmethod: false,
+            memoized_functions: HashMap::new(),
+            auto_memoize: false,  // Disabled by default - users must opt-in via @lru_cache
+            memoize_warn: true,   // Warn about non-memoized recursion by default
         }
     }
 

@@ -1,0 +1,15 @@
+# Fibonacci WITHOUT memoization - for performance comparison
+def fib(n):
+    """Calculate nth Fibonacci number WITHOUT memoization."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("Calculating fib(30) without cache...")
+    result = fib(30)
+    print(f"fib(30) = {result}")
+    print("Done (check time in output above)")
+    return 0
+
+main()

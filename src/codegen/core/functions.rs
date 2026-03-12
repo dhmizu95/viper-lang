@@ -11,7 +11,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub(crate) fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
         // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
-            if let Stmt::Function { name, params, return_type, body, .. } = stmt {
+            if let Stmt::Function { name, params, return_type, body, decorators, .. } = stmt {
                 // Get closure info to determine nonlocal variables
                 let closure_info = self.closure_analyzer.get_closure_info(name);
                 let nonlocal_vars: Vec<String> = closure_info
@@ -21,7 +21,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // Compute mangled name including closure info
                 // Rename user's main to __user_main to match declaration
                 let func_name = if name == "main" { "__user_main" } else { name };
-                
+
                 // Use type annotations directly if present, otherwise default to I64
                 // This must match the logic in declare_function_with_closure
                 let param_types: Vec<Type> = params.iter().map(|p| {
@@ -32,9 +32,44 @@ impl<'ctx> CodeGen<'ctx> {
                         Type::I64
                     }
                 }).collect();
-                
+
                 let mangled_name = mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
-                self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
+                
+                // Check for memoization decorators
+                let is_lru_cache = decorators.iter().any(|d| d.name == "lru_cache");
+                let is_cache = decorators.iter().any(|d| d.name == "cache");
+                
+                if is_lru_cache || is_cache {
+                    // Get maxsize from decorator arguments
+                    let maxsize = if is_lru_cache {
+                        decorators.iter()
+                            .find(|d| d.name == "lru_cache")
+                            .and_then(|d| {
+                                // Check for maxsize keyword argument
+                                for (key, val) in &d.keywords {
+                                    if key == "maxsize" {
+                                        if let Expr::Int(v, _) = val {
+                                            return Some(*v);
+                                        }
+                                    }
+                                }
+                                // Check for positional argument
+                                d.args.first().and_then(|arg| {
+                                    if let Expr::Int(v, _) = arg {
+                                        return Some(*v);
+                                    }
+                                    None
+                                })
+                            })
+                            .unwrap_or(128)  // Default maxsize
+                    } else {
+                        0  // Unbounded for @cache
+                    };
+                    
+                    self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, is_lru_cache, maxsize)?;
+                } else {
+                    self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
+                }
             }
         }
         // Second pass: define nested functions in compound statements
@@ -310,6 +345,40 @@ impl<'ctx> CodeGen<'ctx> {
         self.current_function = saved_current_function;
 
         Ok(())
+    }
+
+    /// Define a memoized function (with @lru_cache or @cache decorator)
+    pub(crate) fn define_memoized_function(
+        &mut self,
+        mangled_name: &str,
+        original_name: &str,
+        params: &[crate::ast::Param],
+        return_type: &Option<Type>,
+        body: &[Stmt],
+        nonlocal_vars_param: &[String],
+        is_lru: bool,
+        _maxsize: i64,
+    ) -> Result<(), String> {
+        use crate::codegen::runtime::memoization;
+
+        // Declare memoization runtime functions
+        let memo_funcs = memoization::declare_memoization_functions(self.context, &mut self.module)
+            .map_err(|e| format!("Failed to declare memoization functions: {}", e))?;
+
+        // Create global cache for this function
+        let cache_global = memoization::create_cache_global(self.context, &mut self.module, original_name, is_lru);
+        
+        // Store cache global for later use
+        self.memoized_functions.insert(original_name.to_string(), cache_global);
+
+        // For now, generate normal function body
+        // The cache lookup/insert will be added at call sites
+        // This is a simplified implementation - full version would:
+        // 1. Create wrapper function that does cache lookup
+        // 2. Rename original to __func_body
+        // 3. Generate cache miss path that calls __func_body
+        
+        self.define_function(mangled_name, original_name, params, return_type, body, nonlocal_vars_param)
     }
 
     /// Check whether any of the given statements contain a direct or indirect call to `main()`.

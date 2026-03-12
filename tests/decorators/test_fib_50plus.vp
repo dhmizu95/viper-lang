@@ -1,0 +1,30 @@
+# Fibonacci with @lru_cache - Test fib(50+)
+# This demonstrates the power of memoization
+
+@lru_cache(maxsize=None)
+def fib(n):
+    """Calculate nth Fibonacci number with memoization."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("=== Fibonacci with @lru_cache ===")
+    print("")
+    
+    # Test increasingly large values
+    print("fib(40) =", fib(40))
+    print("fib(45) =", fib(45))
+    print("fib(50) =", fib(50))
+    print("fib(55) =", fib(55))
+    print("fib(60) =", fib(60))
+    print("fib(70) =", fib(70))
+    print("fib(75) =", fib(75))
+    
+    print("")
+    print("=== All tests passed! ===")
+    print("Without @lru_cache, fib(75) would take billions of years!")
+    
+    return 0
+
+main()

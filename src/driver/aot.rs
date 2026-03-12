@@ -102,6 +102,56 @@ pub fn compile_file_aot(
         println!("   ✓ Constant folding complete");
     }
 
+    // Run Recursion Analysis to detect recursive functions
+    println!("   [2.4/4] Running recursion analysis...");
+    let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
+    
+    // Register all function names first
+    for stmt in &ast.statements {
+        if let crate::ast::Stmt::Function { name, .. } = stmt {
+            recursion_analyzer.register_function(name);
+        }
+    }
+    
+    // Analyze each function for recursive calls
+    for stmt in &ast.statements {
+        if let crate::ast::Stmt::Function { name, body, .. } = stmt {
+            recursion_analyzer.analyze_function(name, body);
+        }
+    }
+    
+    // Detect mutual recursion
+    recursion_analyzer.detect_mutual_recursion();
+    
+    // Emit warnings for non-memoized recursive functions
+    let recursive_funcs = recursion_analyzer.get_recursive_functions();
+    let mut warned_count = 0;
+    for (name, _info) in recursive_funcs {
+        if let Some(warning) = recursion_analyzer.generate_warning(name) {
+            // Only warn if function doesn't have @lru_cache or @cache decorator
+            let has_memo_decorator = ast.statements.iter().any(|stmt| {
+                if let crate::ast::Stmt::Function { decorators, .. } = stmt {
+                    decorators.iter().any(|d| d.name == "lru_cache" || d.name == "cache")
+                } else {
+                    false
+                }
+            });
+            
+            if !has_memo_decorator {
+                eprintln!("   {}", warning);
+                warned_count += 1;
+            }
+        }
+    }
+    
+    if warned_count > 0 {
+        println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warned_count);
+    } else if !recursive_funcs.is_empty() {
+        println!("   ✓ All recursive functions are memoized");
+    } else {
+        println!("   ✓ No recursive functions detected");
+    }
+
     // Apply Dead Code Elimination optimization
     if opt_level >= 1 {
         println!("   [2.5/4] Running DCE optimization...");

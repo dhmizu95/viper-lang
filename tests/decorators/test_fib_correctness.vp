@@ -1,0 +1,34 @@
+# Fibonacci with @lru_cache - Test for correctness
+# Note: Full cache wrapper codegen is still in progress
+
+@lru_cache(maxsize=None)
+def fib(n):
+    """Calculate nth Fibonacci number with memoization."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("=== Fibonacci with @lru_cache ===")
+    print("Testing correctness (cache wrapper pending full implementation)")
+    print("")
+    
+    # Test values that complete quickly even without full caching
+    print("fib(10) =", fib(10))
+    print("fib(15) =", fib(15))
+    print("fib(20) =", fib(20))
+    
+    # Verify correctness
+    assert fib(10) == 55, "fib(10) should be 55"
+    assert fib(15) == 610, "fib(15) should be 610"
+    assert fib(20) == 6765, "fib(20) should be 6765"
+    
+    print("")
+    print("=== Correctness tests passed! ===")
+    print("")
+    print("Note: For full performance (fib(50+)), the cache wrapper codegen")
+    print("needs to be completed in src/codegen/core/functions.rs")
+    
+    return 0
+
+main()
