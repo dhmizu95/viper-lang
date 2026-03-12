@@ -56,10 +56,14 @@ impl<'ctx> CodeGen<'ctx> {
                 // Check for memoization decorators
                 let is_lru_cache = decorators.iter().any(|d| d.name == "lru_cache");
                 let is_cache = decorators.iter().any(|d| d.name == "cache");
-                
+
                 // Check if function is recursive (for auto-memoization)
                 let is_recursive = recursion_analyzer.is_recursive(name);
                 
+                // Check if function returns BigInt (for proper caching)
+                let returns_bigint = recursion_analyzer.get_recursive_function(name)
+                    .map_or(false, |info| info.returns_bigint);
+
                 // Determine if we should memoize this function
                 let should_memoize = is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
 
@@ -90,7 +94,7 @@ impl<'ctx> CodeGen<'ctx> {
                         0  // Unbounded for @cache or auto-memoize
                     };
 
-                    self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, is_lru_cache, maxsize)?;
+                    self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, is_lru_cache, maxsize, returns_bigint)?;
                 } else {
                     self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
                 }
@@ -383,6 +387,7 @@ impl<'ctx> CodeGen<'ctx> {
         nonlocal_vars_param: &[String],
         is_lru: bool,
         maxsize: i64,
+        returns_bigint: bool,
     ) -> Result<(), String> {
         use crate::codegen::runtime::memoization;
         use inkwell::types::BasicType;
@@ -641,12 +646,10 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Calculate key size: [hash, value1, value2, ...] = (num_params + 1) * sizeof(int64_t)
         let key_size_val = i64_type.const_int(((params.len() + 1) * 8) as u64, false);
-        
-        // Detect BigInt return type from annotation
-        let is_bigint_return = return_type.as_ref()
-            .map_or(false, |t| matches!(t, Type::BigInt));
+
+        // Use returns_bigint flag from analysis (includes both annotation and inferred BigInt)
         let is_bigint_val = self.context.i32_type().const_int(
-            if is_bigint_return { 1 } else { 0 }, 
+            if returns_bigint { 1 } else { 0 },
             false
         );
 

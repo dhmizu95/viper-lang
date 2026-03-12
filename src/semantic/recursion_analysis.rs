@@ -22,6 +22,8 @@ pub struct RecursiveFunctionInfo {
     pub params_are_hashable: bool,
     /// Recommendation: should suggest memoization
     pub should_memoize: bool,
+    /// Return type is BigInt (needs special caching)
+    pub returns_bigint: bool,
 }
 
 /// Analyze recursion in functions
@@ -53,13 +55,16 @@ impl RecursionAnalyzer {
     pub fn analyze_function(&mut self, name: &str, body: &[Stmt]) {
         let mut called_functions = Vec::new();
         let mut recursive_calls = 0;
-        
+
         Self::collect_function_calls(body, &mut called_functions, name, &mut recursive_calls);
-        
+
         self.call_graph.insert(name.to_string(), called_functions);
-        
+
         // Check if directly recursive
         if recursive_calls > 0 {
+            // Detect if function returns BigInt by analyzing return statements
+            let returns_bigint = Self::detect_bigint_return(body);
+            
             self.recursive_functions.insert(
                 name.to_string(),
                 RecursiveFunctionInfo {
@@ -71,8 +76,59 @@ impl RecursionAnalyzer {
                     appears_pure: Self::check_purity(body),
                     params_are_hashable: true, // Simplified - assume all params hashable
                     should_memoize: recursive_calls > 0,
+                    returns_bigint,
                 },
             );
+        }
+    }
+
+    /// Detect if a function returns BigInt by analyzing return statements
+    fn detect_bigint_return(body: &[Stmt]) -> bool {
+        for stmt in body {
+            if let Stmt::Return { value: Some(expr), .. } = stmt {
+                if Self::expr_returns_bigint(expr) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Check if an expression returns a BigInt value
+    fn expr_returns_bigint(expr: &Expr) -> bool {
+        match expr {
+            // BigInt literal
+            Expr::BigInt(_, _) => true,
+            
+            // Binary operations that can produce BigInt
+            Expr::BinOp { op, left, right, .. } => {
+                // Check if either operand is BigInt
+                if Self::expr_returns_bigint(left) || Self::expr_returns_bigint(right) {
+                    // These operations preserve BigInt
+                    matches!(op, crate::ast::BinOp::Add | crate::ast::BinOp::Sub | 
+                             crate::ast::BinOp::Mul | crate::ast::BinOp::Div | 
+                             crate::ast::BinOp::Mod)
+                } else {
+                    false
+                }
+            }
+            
+            // Recursive call - check if it's a call to a BigInt-returning function
+            Expr::Call { func, .. } => {
+                if let Expr::Ident(name, _) = func.as_ref() {
+                    // Common BigInt-returning functions
+                    matches!(name.as_str(), "bigint" | "int")
+                } else {
+                    false
+                }
+            }
+            
+            // Conditional - check both branches
+            Expr::Conditional { then_expr, else_expr, .. } => {
+                Self::expr_returns_bigint(then_expr) || Self::expr_returns_bigint(else_expr)
+            }
+            
+            _ => false,
         }
     }
 
@@ -319,6 +375,11 @@ impl RecursionAnalyzer {
     /// Get all detected recursive functions
     pub fn get_recursive_functions(&self) -> &HashMap<String, RecursiveFunctionInfo> {
         &self.recursive_functions
+    }
+
+    /// Get info for a specific recursive function
+    pub fn get_recursive_function(&self, name: &str) -> Option<&RecursiveFunctionInfo> {
+        self.recursive_functions.get(name)
     }
 
     /// Check if a function is recursive

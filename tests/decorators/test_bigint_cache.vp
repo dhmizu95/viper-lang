@@ -1,0 +1,33 @@
+# Simple BigInt caching test
+
+@lru_cache(maxsize=None)
+def factorial(n):
+    """Calculate factorial - returns BigInt for large n."""
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+def main():
+    print("=== BigInt Caching Test ===")
+    print("")
+    
+    # These should fit in i64
+    print("factorial(10) =", factorial(10))
+    print("factorial(15) =", factorial(15))
+    
+    # This exceeds i64 and becomes BigInt
+    print("factorial(20) =", factorial(20))
+    print("factorial(25) =", factorial(25))
+    
+    # Test cache hits
+    print("")
+    print("Testing cache hits...")
+    print("factorial(25) again =", factorial(25))
+    print("factorial(20) again =", factorial(20))
+    
+    print("")
+    print("=== Test complete ===")
+    
+    return 0
+
+main()
