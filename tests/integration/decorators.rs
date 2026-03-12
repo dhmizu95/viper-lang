@@ -129,3 +129,34 @@ main()
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("6"), "increment(5) should equal 6, got: {}", stdout);
 }
+
+#[test]
+fn test_decorator_lru_cache_non_recursive_program() {
+    let code = r#"
+@lru_cache(maxsize=128)
+def double(n):
+    return n * 2
+
+def main():
+    print("double(5) =", double(5))
+    print("double(10) =", double(10))
+    print("double(5) again =", double(5))
+    return 0
+
+main()
+"#;
+
+    let test_file = write_temp_viper_file("test_simple_cache", code);
+    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
+        .args(["run"])
+        .arg(&test_file)
+        .output()
+        .expect("Failed to execute viper compiler");
+    let _ = fs::remove_file(&test_file);
+
+    assert!(output.status.success(), "decorator program should run successfully");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("double(5) ="), "unexpected stdout: {}", stdout);
+    assert!(stdout.contains("double(10) ="), "unexpected stdout: {}", stdout);
+}
