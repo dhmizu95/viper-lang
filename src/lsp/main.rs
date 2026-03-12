@@ -25,7 +25,7 @@ pub struct ResponseError {
 }
 
 fn main() {
-    println!("Viper Language Server v0.2.3");
+    println!("Viper Language Server v{}", env!("CARGO_PKG_VERSION"));
     println!("Started on stdin/stdout");
 
     let stdin = io::stdin();
@@ -89,7 +89,7 @@ fn handle_initialize(id: Option<i64>) -> Response {
             },
             "serverInfo": {
                 "name": "viper-lsp",
-                "version": "0.2.3"
+                "version": env!("CARGO_PKG_VERSION")
             }
         })),
         error: None,
