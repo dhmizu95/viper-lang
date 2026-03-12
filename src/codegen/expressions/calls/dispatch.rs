@@ -91,6 +91,23 @@ pub fn generate_call<'ctx>(
             return generate_user_main_call(state, args);
         }
 
+        // MEMOIZATION: Redirect recursive calls in memoized functions to __func_body
+        // This prevents infinite recursion where the wrapper calls itself
+        // Check if current function name ends with _body (memoized function body)
+        if let Some(current_func) = state.current_function {
+            // Check for __func_name_body pattern
+            if let Some(base_name) = current_func.strip_prefix("__").and_then(|s| s.strip_suffix("_body")) {
+                if name == base_name {
+                    // We're in a memoized function body calling itself recursively
+                    // Call the body function instead of the wrapper
+                    let body_func_name = format!("__{}_body", name);
+                    if let Some(body_func) = state.functions.get(&body_func_name).copied() {
+                        return generate_direct_call(state, body_func, args);
+                    }
+                }
+            }
+        }
+
         if name == "print" {
             return generate_print_call(state, args);
         }
@@ -615,17 +632,35 @@ fn should_inline_call<'ctx>(func_val: inkwell::values::FunctionValue<'ctx>, args
     let attrs = func_val.attributes(inkwell::attributes::AttributeLoc::Function);
     let has_always_inline = attrs.iter()
         .any(|attr| attr.is_string() && attr.get_string_kind_id().to_str() == Ok("alwaysinline"));
-    
+
     if has_always_inline {
         return true;
     }
-    
+
     // Check if function is small (few parameters and simple)
     let param_count = func_val.count_params();
     if param_count < 3 && args.len() < 3 {
         // Small function - recommend inlining
         return true;
     }
-    
+
     false
 }
+
+/// Generate a direct call to a function value (used for memoized function recursive calls)
+fn generate_direct_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    func_val: inkwell::values::FunctionValue<'ctx>,
+    args: &[crate::ast::Expr],
+) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+    let arg_values: Vec<_> = args
+        .iter()
+        .map(|a| {
+            generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+        })
+        .collect::<Result<_, _>>()?;
+
+    let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "memo_call");
+    Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
+}
+

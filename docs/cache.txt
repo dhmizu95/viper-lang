@@ -1,0 +1,60 @@
+​3+ parameters	Low	Rarely needed
+Thread safety	Low	Future enhancement
+BigInt auto-detection	⏳ Future (manual flag for now)
+
+implement step by step
+
+
+Current Implementation Status
+Option	Status	Details
+Option 1: Warning	✅ Implemented	Warns about non-memoized recursion
+Option 2: Automatic	❌ Not Implemented	Infrastructure exists, auto-wrap missing
+Option 3: Explicit	✅ Implemented	@lru_cache decorator works
+What’s Working (Option 1)
+$ viper run fib.vp
+   [2.4/4] Running recursion analysis...
+   warning: function 'fib' is recursive (2 recursive call(s)) but not memoized
+   --> consider adding @lru_cache decorator for significant performance improvement
+   ℹ 1 recursive function(s) could benefit from @lru_cache
+The compiler detects recursive functions and warns you, but doesn’t auto-apply caching.
+
+What’s Missing (Option 2)
+To implement automatic memoization, we need to:
+
+Add --auto-memoize CLI flag - Not added to CLI parser
+Auto-wrap recursive functions - The codegen only wraps functions with explicit @lru_cache decorator
+Purity checking - Ensure function has no side effects before auto-caching
+Infrastructure That Exists
+// src/codegen/core/context.rs - Config flags exist
+pub(crate) auto_memoize: bool,      // ✅ Exists, not used
+pub(crate) memoize_warn: bool,      // ✅ Exists, used for warnings
+
+// src/semantic/recursion_analysis.rs - Detection works
+pub struct RecursionAnalyzer {      // ✅ Fully implemented
+    recursive_functions: HashMap<String, RecursiveFunctionInfo>,
+}
+What Needs to Be Added
+// In define_all_functions (functions.rs)
+// Current code - only wraps decorated functions:
+if is_lru_cache || is_cache {
+    self.define_memoized_function(...);  // ✅ Only for explicit @lru_cache
+} else {
+    self.define_function(...);  // ❌ Should also check auto_memoize + is_recursive
+}
+
+// Needs to become:
+if is_lru_cache || is_cache {
+    self.define_memoized_function(...);
+} else if self.auto_memoize && recursion_analyzer.is_recursive(name) {
+    // ❌ TODO: Auto-wrap with cache
+    self.define_memoized_function(...);
+} else {
+    self.define_function(...);
+}
+How to Enable (When Implemented)
+# Future usage (not working yet)
+viper compile --auto-memoize program.vp
+
+# Or via vpm.toml (not working yet)
+[compiler]
+auto_memoize = true

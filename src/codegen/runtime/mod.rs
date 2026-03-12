@@ -10,6 +10,7 @@ pub mod lists;
 pub mod logging;
 pub mod math;
 pub mod memory;
+pub mod memoization;
 pub mod print;
 pub mod random;
 pub mod re;
@@ -18,3 +19,4 @@ pub mod tuples;
 pub mod typing;
 
 pub use core::declare_runtime_functions;
+pub use memoization::declare_memoization_functions;

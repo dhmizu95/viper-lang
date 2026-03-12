@@ -1,0 +1,28 @@
+@lru_cache(maxsize=None)
+def fib_cached(n):
+    if n <= 1:
+        return n
+    return fib_cached(n - 1) + fib_cached(n - 2)
+
+def fib_uncached(n):
+    if n <= 1:
+        return n
+    return fib_uncached(n - 1) + fib_uncached(n - 2)
+
+def main():
+    import time
+    
+    # Test cached version (should be instant)
+    start = time.time()
+    result1 = fib_cached(35)
+    end = time.time()
+    print("Cached fib(35):", result1, "in", (end-start)*1000, "ms")
+    
+    # Test uncached version (should be slow)
+    start = time.time()
+    result2 = fib_uncached(35)
+    end = time.time()
+    print("Uncached fib(35):", result2, "in", (end-start)*1000, "ms")
+    
+    # Verify same result
+    print("Results match:", result1 == result2)

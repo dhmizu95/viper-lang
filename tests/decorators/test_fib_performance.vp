@@ -1,0 +1,34 @@
+# Fibonacci with @lru_cache - Performance Test
+# Tests values that fit in i64
+
+@lru_cache(maxsize=None)
+def fib(n):
+    """Calculate nth Fibonacci number with memoization."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("=== Fibonacci with @lru_cache ===")
+    print("")
+    
+    # Test values that fit in i64 (up to fib(92))
+    print("fib(40) =", fib(40))
+    print("fib(50) =", fib(50))
+    print("fib(60) =", fib(60))
+    print("fib(70) =", fib(70))
+    print("fib(80) =", fib(80))
+    print("fib(90) =", fib(90))
+    
+    # Verify correctness
+    assert fib(40) == 102334155
+    assert fib(50) == 12586269025
+    assert fib(60) == 1548008755920
+    
+    print("")
+    print("=== All tests passed! ===")
+    print("Without @lru_cache, fib(90) would take billions of years!")
+    
+    return 0
+
+main()

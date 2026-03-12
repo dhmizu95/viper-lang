@@ -1,0 +1,31 @@
+# Test automatic memoization with --auto-memoize flag
+# This function has NO @lru_cache decorator
+
+def fib(n):
+    """Recursive Fibonacci without explicit @lru_cache."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("=== Testing Automatic Memoization ===")
+    print("")
+    
+    # Without --auto-memoize, this would be slow
+    # With --auto-memoize, it should be fast
+    print("fib(30) =", fib(30))
+    print("fib(35) =", fib(35))
+    print("fib(40) =", fib(40))
+    
+    # Test cache hits
+    print("")
+    print("Testing cache hits...")
+    print("fib(40) again =", fib(40))
+    print("fib(35) again =", fib(35))
+    
+    print("")
+    print("=== Test complete ===")
+    
+    return 0
+
+main()

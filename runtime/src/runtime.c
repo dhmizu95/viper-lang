@@ -17,28 +17,34 @@
 
 void vp_print_i64(int64_t val) {
     printf("%ld", (long)val);
+    fflush(stdout);
 }
 
 void vp_print_f64(double val) {
     printf("%g", val);
+    fflush(stdout);
 }
 
 void vp_print_str(ViperString* val) {
     if (!val) {
         printf("(null)");
+        fflush(stdout);
         return;
     }
 
     const char* data = vp_str_data_inline(val);
     printf("%s", data);
+    fflush(stdout);
 }
 
 void vp_print_bool(bool val) {
     printf("%s", val ? "True" : "False");
+    fflush(stdout);
 }
 
 void vp_print_newline(void) {
     printf("\n");
+    fflush(stdout);
 }
 
 void vp_print_list(ViperList* list) {

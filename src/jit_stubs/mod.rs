@@ -18,6 +18,7 @@ pub mod bitvec;
 pub mod logging;
 pub mod math;
 pub mod math_mod;
+pub mod memoization;
 pub mod memory;
 pub mod os;
 pub mod random_mod;

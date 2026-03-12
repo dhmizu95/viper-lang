@@ -1,0 +1,38 @@
+# Fibonacci with BigInt - Test fib(75)
+# fib(75) = 2111485077978050 which exceeds i64 range
+
+@lru_cache(maxsize=None)
+def fib(n):
+    """Calculate nth Fibonacci number with memoization."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("=== Fibonacci BigInt Test ===")
+    print("")
+    
+    # Test increasingly large values
+    print("fib(50) =", fib(50))
+    print("fib(60) =", fib(60))
+    print("fib(70) =", fib(70))
+    print("fib(75) =", fib(75))
+    
+    # Verify correctness (known values)
+    assert fib(50) == 12586269025
+    assert fib(60) == 1548008755920
+    assert fib(70) == 190392490709135
+    assert fib(75) == 2111485077978050
+    
+    # Test cache hits
+    print("")
+    print("Testing cache hits...")
+    print("fib(75) again =", fib(75))
+    print("fib(70) again =", fib(70))
+    
+    print("")
+    print("=== BigInt caching test passed! ===")
+    
+    return 0
+
+main()

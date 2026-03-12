@@ -41,6 +41,10 @@ pub struct CodeGenState<'a, 'ctx> {
     pub current_function: Option<&'a str>,
     pub current_class: Option<String>,  // Current class context for super() and methods
     pub in_classmethod: bool,  // True when generating code for a @classmethod
+    /// True when generating code for a memoized function body (not the wrapper)
+    pub in_memoized_body: bool,
+    /// Name of the memoized function (without __body suffix)
+    pub memoized_func_name: Option<String>,
     /// Variables that are captured by nested functions (need closure cells)
     pub captured_vars: HashSet<String>,
     /// Closure cells passed from enclosing function (for nested functions)
@@ -85,6 +89,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_function: None,
             current_class: None,
             in_classmethod: false,
+            in_memoized_body: false,
+            memoized_func_name: None,
             captured_vars: HashSet::new(),
             closure_cells,
         }
@@ -129,6 +135,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_function: Some(current_function),
             current_class: None,
             in_classmethod: false,
+            in_memoized_body: false,
+            memoized_func_name: None,
             captured_vars: HashSet::new(),
             closure_cells,
         }
@@ -174,6 +182,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             current_function: Some(current_function),
             current_class: None,
             in_classmethod: false,
+            in_memoized_body: false,
+            memoized_func_name: None,
             captured_vars: HashSet::new(),
             closure_cells,
         }

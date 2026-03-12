@@ -1,0 +1,43 @@
+# Fibonacci BigInt Test - fib(75)
+# Tests caching with large BigInt values
+
+@lru_cache(maxsize=None)
+def fib(n):
+    """Calculate nth Fibonacci number with memoization."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print("=== Testing fib(75) with BigInt ===")
+    print("")
+    
+    # Build up to fib(75) gradually to test caching
+    print("fib(50) =", fib(50))
+    print("fib(60) =", fib(60))
+    print("fib(70) =", fib(70))
+    
+    # This is the big test - fib(75) = 2111485077978050
+    print("Calculating fib(75)...")
+    result = fib(75)
+    print("fib(75) =", result)
+    
+    # Verify against known value
+    expected = 2111485077978050
+    if result == expected:
+        print("✓ Correct!")
+    else:
+        print("✗ Wrong! Expected", expected)
+    
+    # Test cache hit
+    print("")
+    print("Testing cache hit...")
+    print("fib(75) again =", fib(75))
+    print("fib(70) again =", fib(70))
+    
+    print("")
+    print("=== Test complete ===")
+    
+    return 0
+
+main()

@@ -5,13 +5,31 @@ use crate::ast::{Expr, Stmt, Type};
 use crate::codegen::core::context::CodeGen;
 use crate::codegen::variables::{VarInfo, VarType};
 use crate::utils::mangling::mangle_function_name_with_closure;
+use std::collections::HashMap;
 
 impl<'ctx> CodeGen<'ctx> {
     /// Define all functions recursively (including nested functions)
     pub(crate) fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+        // Run recursion analysis if auto_memoize is enabled
+        let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
+        
+        // Register all function names first
+        for stmt in stmts {
+            if let Stmt::Function { name, .. } = stmt {
+                recursion_analyzer.register_function(name);
+            }
+        }
+        
+        // Analyze each function for recursive calls
+        for stmt in stmts {
+            if let Stmt::Function { name, body, .. } = stmt {
+                recursion_analyzer.analyze_function(name, body);
+            }
+        }
+        
         // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
-            if let Stmt::Function { name, params, return_type, body, .. } = stmt {
+            if let Stmt::Function { name, params, return_type, body, decorators, .. } = stmt {
                 // Get closure info to determine nonlocal variables
                 let closure_info = self.closure_analyzer.get_closure_info(name);
                 let nonlocal_vars: Vec<String> = closure_info
@@ -21,7 +39,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // Compute mangled name including closure info
                 // Rename user's main to __user_main to match declaration
                 let func_name = if name == "main" { "__user_main" } else { name };
-                
+
                 // Use type annotations directly if present, otherwise default to I64
                 // This must match the logic in declare_function_with_closure
                 let param_types: Vec<Type> = params.iter().map(|p| {
@@ -32,9 +50,61 @@ impl<'ctx> CodeGen<'ctx> {
                         Type::I64
                     }
                 }).collect();
-                
+
                 let mangled_name = mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
-                self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
+
+                // Check for memoization decorators
+                let is_lru_cache = decorators.iter().any(|d| d.name == "lru_cache");
+                let is_cache = decorators.iter().any(|d| d.name == "cache");
+
+                // Check if function is recursive (for auto-memoization)
+                let is_recursive = recursion_analyzer.is_recursive(name);
+
+                // Check if function returns BigInt (for proper caching)
+                // Check both explicit type annotation and inferred from body
+                let returns_bigint = match return_type {
+                    Some(crate::ast::Type::BigInt) => true,  // Explicit annotation
+                    _ => {
+                        // Infer from body analysis
+                        recursion_analyzer.get_recursive_function(name)
+                            .map_or(false, |info| info.returns_bigint)
+                    }
+                };
+
+                // Determine if we should memoize this function
+                let should_memoize = is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
+
+                if should_memoize {
+                    // Get maxsize from decorator arguments or use default for auto-memoize
+                    let maxsize = if is_lru_cache {
+                        decorators.iter()
+                            .find(|d| d.name == "lru_cache")
+                            .and_then(|d| {
+                                // Check for maxsize keyword argument
+                                for (key, val) in &d.keywords {
+                                    if key == "maxsize" {
+                                        if let Expr::Int(v, _) = val {
+                                            return Some(*v);
+                                        }
+                                    }
+                                }
+                                // Check for positional argument
+                                d.args.first().and_then(|arg| {
+                                    if let Expr::Int(v, _) = arg {
+                                        return Some(*v);
+                                    }
+                                    None
+                                })
+                            })
+                            .unwrap_or(128)  // Default maxsize
+                    } else {
+                        0  // Unbounded for @cache or auto-memoize
+                    };
+
+                    self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, is_lru_cache, maxsize, returns_bigint)?;
+                } else {
+                    self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
+                }
             }
         }
         // Second pass: define nested functions in compound statements
@@ -308,6 +378,373 @@ impl<'ctx> CodeGen<'ctx> {
         self.bigint_vars = saved_bigint_vars;
         self.var_types = saved_var_types;
         self.current_function = saved_current_function;
+
+        Ok(())
+    }
+
+    /// Define a memoized function (with @lru_cache or @cache decorator)
+    /// Generates a wrapper function that checks cache before calling the original
+    pub(crate) fn define_memoized_function(
+        &mut self,
+        mangled_name: &str,
+        original_name: &str,
+        params: &[crate::ast::Param],
+        return_type: &Option<Type>,
+        body: &[Stmt],
+        nonlocal_vars_param: &[String],
+        is_lru: bool,
+        maxsize: i64,
+        returns_bigint: bool,
+    ) -> Result<(), String> {
+        use crate::codegen::runtime::memoization;
+        use inkwell::types::BasicType;
+        use inkwell::values::BasicValue;
+
+        // Declare memoization runtime functions
+        let memo_funcs = memoization::declare_memoization_functions(self.context, &mut self.module)
+            .map_err(|e| format!("Failed to declare memoization functions: {}", e))?;
+
+        // Create global cache for this function
+        let cache_global = memoization::create_cache_global(self.context, &mut self.module, original_name, is_lru);
+
+        // Store cache global for later use
+        self.memoized_functions.insert(original_name.to_string(), cache_global);
+
+        // Get the function value (wrapper)
+        let func_value = self.functions.get(mangled_name).copied()
+            .ok_or_else(|| format!("Function {} not found", mangled_name))?;
+        let fn_type = func_value.get_type();
+
+        // Create the "body" function (renamed to __func_body)
+        let body_func_name = format!("__{}_body", original_name);
+        let body_func = self.module.add_function(&body_func_name, fn_type, None);
+
+        // Generate the original function body in body_func
+        // Save current state
+        let saved_variables = std::mem::take(&mut self.variables);
+        let saved_loop_stack = std::mem::take(&mut self.loop_stack);
+        let saved_list_vars = std::mem::take(&mut self.list_vars);
+        let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
+        let saved_var_types = std::mem::take(&mut self.var_types);
+        let saved_current_function = self.current_function.clone();
+
+        self.current_function = Some(body_func_name.clone());
+
+        // Set up body_func entry block
+        let body_entry = self.context.append_basic_block(body_func, "entry");
+        self.builder.position_at_end(body_entry);
+
+        // Set up parameters for body function (including closure parameters)
+        let total_params = params.len() + nonlocal_vars_param.len();
+        for i in 0..total_params {
+            let param_value = body_func.get_nth_param(i as u32).unwrap();
+            let param_name = if i < params.len() {
+                &params[i].name
+            } else {
+                &nonlocal_vars_param[i - params.len()]
+            };
+
+            let alloca = self.builder.build_alloca(param_value.get_type(), param_name).expect("alloca");
+            self.builder.build_store(alloca, param_value).expect("store");
+
+            let var_type = if param_value.is_pointer_value() {
+                VarType::Pointer
+            } else if param_value.is_float_value() {
+                VarType::Float
+            } else {
+                VarType::Int
+            };
+            self.variables.insert(param_name.clone(), VarInfo::new_stack(alloca, var_type));
+        }
+
+        // Generate body statements with current_function set
+        // We need to use a state that preserves current_function for recursive call detection
+        let mut closure_cells_body = HashMap::new();
+        let mut state_body = crate::codegen::state::CodeGenState::with_closure_analysis(
+            self.context,
+            &self.module,
+            &self.builder,
+            &self.ir_builder,
+            &mut self.variables,
+            &self.functions,
+            &mut self.global_constants,
+            &mut self.loop_stack,
+            &mut self.list_vars,
+            &mut self.dict_vars,
+            &mut self.bool_list_vars,
+            &mut self.bigint_vars,
+            &mut self.var_types,
+            &mut self.escape_analyzer,
+            &body_func_name,  // Set current_function for recursive call detection
+            &self.closure_analyzer,
+            &mut closure_cells_body,
+        );
+        
+        for stmt in body {
+            crate::codegen::statements::generate_stmt_internal(&mut state_body, stmt)?;
+        }
+
+        // Restore state (including builder position will be reset when we position at wrapper_entry)
+        self.variables = saved_variables;
+        self.loop_stack = saved_loop_stack;
+        self.list_vars = saved_list_vars;
+        self.bigint_vars = saved_bigint_vars;
+        self.var_types = saved_var_types;
+        self.current_function = saved_current_function;
+
+        // Now generate the wrapper function with cache logic
+        // Create blocks for wrapper
+        let wrapper_entry = self.context.append_basic_block(func_value, "wrapper_entry");
+        let init_cache_block = self.context.append_basic_block(func_value, "init_cache");
+        let do_lookup_block = self.context.append_basic_block(func_value, "do_lookup");
+        let cache_hit_block = self.context.append_basic_block(func_value, "cache_hit");
+        let cache_miss_block = self.context.append_basic_block(func_value, "cache_miss");
+
+        self.builder.position_at_end(wrapper_entry);
+
+        // Build cache key from parameters using ARC
+        let i64_type = self.context.i64_type();
+        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+
+        // Create cache key using ARC key creation functions (supports 1-8 parameters)
+        let key_value = match params.len() {
+            1 => {
+                let arg0 = func_value.get_nth_param(0).unwrap();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create1,
+                    &[arg0.into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            2 => {
+                let arg0 = func_value.get_nth_param(0).unwrap();
+                let arg1 = func_value.get_nth_param(1).unwrap();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create2,
+                    &[arg0.into(), arg1.into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            3 => {
+                let arg0 = func_value.get_nth_param(0).unwrap();
+                let arg1 = func_value.get_nth_param(1).unwrap();
+                let arg2 = func_value.get_nth_param(2).unwrap();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create3,
+                    &[arg0.into(), arg1.into(), arg2.into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            4 => {
+                let args: Vec<_> = (0..4).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create4,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            5 => {
+                let args: Vec<_> = (0..5).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create5,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            6 => {
+                let args: Vec<_> = (0..6).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create6,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            7 => {
+                let args: Vec<_> = (0..7).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create7,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into(), args[6].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            8 => {
+                let args: Vec<_> = (0..8).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self.builder.build_call(
+                    memo_funcs.arc_key_create8,
+                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into(), args[6].into(), args[7].into()],
+                    "cache_key",
+                ).expect("Failed to create cache key");
+                match key_call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                    _ => return Err("Failed to create cache key".to_string()),
+                }
+            }
+            n => {
+                return Err(format!("Memoization supports up to 8 parameters, got {}", n));
+            }
+        };
+
+        // Load cache pointer
+        let cache_ptr = self.builder.build_load(i8_ptr_type, cache_global, "cache_ptr").expect("load cache").into_pointer_value();
+
+        // Check if cache is initialized - convert pointer to int for comparison
+        let cache_ptr_int = self.builder.build_ptr_to_int(cache_ptr, i64_type, "cache_ptr_int").expect("ptr to int");
+        let cache_is_null = self.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            cache_ptr_int,
+            i64_type.const_int(0, false),
+            "cache_is_null",
+        );
+
+        self.builder.build_conditional_branch(cache_is_null.expect("compare"), init_cache_block, do_lookup_block).unwrap();
+
+        // Initialize cache if needed
+        self.builder.position_at_end(init_cache_block);
+
+        let new_cache_ptr = if is_lru {
+            // Create LRU cache with maxsize
+            let maxsize_val = if maxsize <= 0 { i64_type.const_int(0, false) } else { i64_type.const_int(maxsize as u64, false) };
+            let call = self.builder.build_call(
+                memo_funcs.lru_cache_create,
+                &[maxsize_val.into()],
+                "new_cache",
+            ).expect("Failed to create cache");
+            match call.try_as_basic_value() {
+                inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                _ => return Err("Failed to create cache".to_string()),
+            }
+        } else {
+            // Create unbounded cache
+            let call = self.builder.build_call(
+                memo_funcs.cache_create,
+                &[],
+                "new_cache",
+            ).expect("Failed to create cache");
+            match call.try_as_basic_value() {
+                inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
+                _ => return Err("Failed to create cache".to_string()),
+            }
+        };
+
+        self.builder.build_store(cache_global, new_cache_ptr).unwrap();
+
+        // Branch to lookup
+        self.builder.build_unconditional_branch(do_lookup_block).unwrap();
+
+        // Do cache lookup
+        self.builder.position_at_end(do_lookup_block);
+
+        let loaded_cache = self.builder.build_load(i8_ptr_type, cache_global, "loaded_cache").expect("load cache").into_pointer_value();
+
+        // Call cache_get - returns i64 directly and sets found flag
+        let get_func = if is_lru { memo_funcs.lru_cache_get } else { memo_funcs.cache_get };
+        
+        // Allocate space for 'found' and 'is_bigint' flags
+        let found_ptr = self.builder.build_alloca(self.context.i32_type(), "found_ptr").expect("alloca found");
+        let is_bigint_ptr = self.builder.build_alloca(self.context.i32_type(), "is_bigint_ptr").expect("alloca is_bigint");
+
+        let cached_call = self.builder.build_call(
+            get_func,
+            &[loaded_cache.into(), key_value.into(), found_ptr.into(), is_bigint_ptr.into()],
+            "cached_value",
+        ).expect("Cache get failed");
+
+        // Extract the return value (i64) from the call
+        let cached_value = match cached_call.try_as_basic_value() {
+            inkwell::values::ValueKind::Basic(bv) => bv,
+            _ => return Err("Cache get must return a value".to_string()),
+        };
+
+        // Load the found flag
+        let found_val = self.builder.build_load(self.context.i32_type(), found_ptr, "found").expect("load found");
+        let is_hit = self.builder.build_int_compare(
+            inkwell::IntPredicate::NE,
+            found_val.into_int_value(),
+            self.context.i32_type().const_int(0, false),
+            "is_hit_bool",
+        ).expect("compare found");
+
+        self.builder.build_conditional_branch(is_hit, cache_hit_block, cache_miss_block).unwrap();
+
+        // Cache hit block - return cached value
+        self.builder.position_at_end(cache_hit_block);
+
+        // cached_value is already i64, just return it
+        // Note: key was consumed by cache, don't free it
+        self.builder.build_return(Some(&cached_value)).expect("return");
+
+        // Cache miss block - call body function and cache result
+        self.builder.position_at_end(cache_miss_block);
+
+        // Build arguments for body_func call
+        let total_params = params.len() + nonlocal_vars_param.len();
+        let arg_values: Vec<_> = (0..total_params)
+            .map(|i| func_value.get_nth_param(i as u32).unwrap().into())
+            .collect();
+
+        // Call body function
+        let body_call = self.builder.build_call(
+            body_func,
+            &arg_values,
+            "body_result",
+        ).expect("Body call failed");
+        let result_value = match body_call.try_as_basic_value() {
+            inkwell::values::ValueKind::Basic(bv) => bv,
+            _ => return Err("Body function must return a value".to_string()),
+        };
+
+        // Cache the result - pass integer directly
+        // Note: cache takes ownership of key_value, don't free it
+        let set_func = if is_lru { memo_funcs.lru_cache_set } else { memo_funcs.cache_set };
+
+        // Use returns_bigint flag from analysis (includes both annotation and inferred BigInt)
+        let is_bigint_val = self.context.i32_type().const_int(
+            if returns_bigint { 1 } else { 0 },
+            false
+        );
+
+        // Note: ARC key embeds key_size, so we don't need to pass it separately
+        self.builder.build_call(
+            set_func,
+            &[
+                loaded_cache.into(),
+                key_value.into(),
+                result_value.into(),
+                is_bigint_val.into(),
+            ],
+            "",
+        ).unwrap();
+
+        // Return the result
+        self.builder.build_return(Some(&result_value)).expect("return");
 
         Ok(())
     }

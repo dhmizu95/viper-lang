@@ -925,19 +925,23 @@ const char* vp_str_data_inline(MinimalViperString* s) {
 void vp_print_cstr(const char* val) {
     if (!val) {
         printf("(null)");
+        fflush(stdout);
         return;
     }
     printf("%s", val);
+    fflush(stdout);
 }
 
 /* Print a ViperString (for use by print() builtin with str() result) */
 void vp_print_viper_str(MinimalViperString* val) {
     if (!val) {
         printf("(null)");
+        fflush(stdout);
         return;
     }
     const char* c_str = vp_str_data_inline(val);
     printf("%s", c_str);
+    fflush(stdout);
 }
 
 /* Concatenate two ViperStrings */

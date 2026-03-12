@@ -37,6 +37,10 @@ pub enum Commands {
         /// Profile-Guided Optimization mode: "instrument" (phase 1) or "use" (phase 2)
         #[arg(long, value_name = "MODE", value_parser = parse_pgo_mode)]
         pgo: Option<String>,
+
+        /// Automatically memoize pure recursive functions
+        #[arg(long)]
+        auto_memoize: bool,
     },
     /// Build and run a Viper source file
     Run {
@@ -59,6 +63,10 @@ pub enum Commands {
         /// Profile-Guided Optimization mode: "instrument" (phase 1) or "use" (phase 2)
         #[arg(long, value_name = "MODE", value_parser = parse_pgo_mode)]
         pgo: Option<String>,
+
+        /// Automatically memoize pure recursive functions
+        #[arg(long)]
+        auto_memoize: bool,
     },
     /// Initialize a new Viper project
     Init {

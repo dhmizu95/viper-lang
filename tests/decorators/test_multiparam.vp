@@ -1,0 +1,38 @@
+# Test multi-parameter @lru_cache
+# Tests gcd function with 2 parameters
+
+@lru_cache(maxsize=128)
+def gcd(a, b):
+    """Calculate GCD of two numbers using Euclidean algorithm."""
+    if b == 0:
+        return a
+    return gcd(b, a % b)
+
+def main():
+    print("=== Multi-parameter @lru_cache Test ===")
+    print("")
+    
+    # Test GCD
+    print("gcd(48, 18) =", gcd(48, 18))
+    print("gcd(100, 35) =", gcd(100, 35))
+    print("gcd(144, 60) =", gcd(144, 60))
+    print("gcd(1071, 462) =", gcd(1071, 462))
+    
+    # Verify correctness
+    assert gcd(48, 18) == 6
+    assert gcd(100, 35) == 5
+    assert gcd(144, 60) == 12
+    assert gcd(1071, 462) == 21
+    
+    # Test cache hits
+    print("")
+    print("Testing cache hits...")
+    print("gcd(48, 18) again =", gcd(48, 18))
+    print("gcd(1071, 462) again =", gcd(1071, 462))
+    
+    print("")
+    print("=== All multi-parameter tests passed! ===")
+    
+    return 0
+
+main()

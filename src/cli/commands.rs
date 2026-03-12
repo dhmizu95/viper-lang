@@ -4,7 +4,7 @@ use crate::driver::*;
 
 pub fn execute(args: Args) -> Result<(), String> {
     match args.command {
-        Commands::Build { input, output, optimize, lto, emit_llvm, pgo } => {
+        Commands::Build { input, output, optimize, lto, emit_llvm, pgo, auto_memoize: _ } => {
             // Check runtime library for AOT compilation
             if let Err(e) = check_runtime_library() {
                 eprintln!("Error: {}", e);
@@ -15,8 +15,8 @@ pub fn execute(args: Args) -> Result<(), String> {
             }
             compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
         }
-        Commands::Run { input, optimize, lto: _, emit_llvm: _, pgo: _ } => {
-            compile_and_run_jit(&input, optimize)
+        Commands::Run { input, optimize, lto: _, emit_llvm: _, pgo: _, auto_memoize } => {
+            compile_and_run_jit_with_memo(&input, optimize, auto_memoize)
         }
         Commands::Init { name } => {
             let project_name = name.unwrap_or_else(|| "viper_project".to_string());

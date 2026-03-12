@@ -17,6 +17,9 @@ pub fn register_stubs(execution_engine: &ExecutionEngine, module: &Module) {
     // Register math stubs (bigint, decimal, math)
     super::math::register_math_stubs(execution_engine, module);
 
+    // Register memoization stubs (lru_cache, cache)
+    super::memoization::register_memoization_stubs(execution_engine, module);
+
     // Register concurrency stubs (channels, tasks, asyncio)
     super::concurrency::register_concurrency_stubs(execution_engine, module);
 

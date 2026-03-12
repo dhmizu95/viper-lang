@@ -1,0 +1,49 @@
+# Comparison: With vs Without @lru_cache
+
+# WITHOUT cache - normal recursive function
+def fib_no_cache(n):
+    """No caching - recomputes every time."""
+    if n <= 1:
+        return n
+    return fib_no_cache(n - 1) + fib_no_cache(n - 2)
+
+# WITH cache - memoized function
+@lru_cache(maxsize=None)
+def fib_cached(n):
+    """With caching - results stored."""
+    if n <= 1:
+        return n
+    return fib_cached(n - 1) + fib_cached(n - 2)
+
+def main():
+    print("=== Comparison Test ===")
+    print("")
+    
+    # Test WITHOUT cache (will be slow for large n)
+    print("WITHOUT @lru_cache:")
+    print("fib_no_cache(30) =", fib_no_cache(30))
+    print("fib_no_cache(35) =", fib_no_cache(35))
+    # fib_no_cache(40) would take ~10+ seconds!
+    
+    print("")
+    print("WITH @lru_cache:")
+    print("fib_cached(30) =", fib_cached(30))
+    print("fib_cached(35) =", fib_cached(35))
+    print("fib_cached(40) =", fib_cached(40))
+    print("fib_cached(45) =", fib_cached(45))
+    print("fib_cached(50) =", fib_cached(50))
+    
+    # Test cache hits
+    print("")
+    print("Cache hits (instant):")
+    print("fib_cached(50) again =", fib_cached(50))
+    print("fib_cached(45) again =", fib_cached(45))
+    
+    print("")
+    print("=== Summary ===")
+    print("Without @lru_cache: Every call recomputes (SLOW)")
+    print("With @lru_cache: First call computes, rest are instant (FAST)")
+    
+    return 0
+
+main()

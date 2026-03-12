@@ -33,6 +33,7 @@ pub struct MethodInfo {
     pub is_class_method: bool,
     pub is_property: bool,
     pub is_property_setter: bool,  // @name.setter
+    pub is_abstract: bool,  // @abstractmethod
     pub property_name: Option<String>,  // For setters, the property name
     pub params: Vec<(String, Type)>,
     pub return_type: Type,
@@ -478,7 +479,8 @@ pub fn generate_class_metadata(
         } = stmt {
             let is_static = decorators.iter().any(|d| d.name == "staticmethod");
             let is_class_method = decorators.iter().any(|d| d.name == "classmethod");
-            
+            let is_abstract = decorators.iter().any(|d| d.name == "abstractmethod");
+
             // Check for property getter (@property) or setter (@name.setter)
             let is_property = decorators.iter().any(|d| d.name == "property");
             let mut is_property_setter = false;
@@ -509,6 +511,7 @@ pub fn generate_class_metadata(
                 is_class_method,
                 is_property,
                 is_property_setter,
+                is_abstract,
                 property_name: property_name.clone(),
                 params: param_types,
                 return_type: return_type.clone().unwrap_or(Type::None),
@@ -628,6 +631,24 @@ pub fn generate_class_instantiation<'ctx>(
     let metadata = with_class_registry(|r| {
         r.get_class(class_name).cloned()
     }).ok_or_else(|| format!("Class '{}' not found", class_name))?;
+
+    // Check if class has abstract methods
+    let abstract_methods: Vec<&MethodInfo> = metadata.methods.iter()
+        .filter(|m| m.is_abstract)
+        .collect();
+    
+    if !abstract_methods.is_empty() {
+        // Check if this is a direct instantiation (not from subclass)
+        // For now, emit a runtime error for abstract class instantiation
+        let abstract_names: Vec<&str> = abstract_methods.iter()
+            .map(|m| m.name.as_str())
+            .collect();
+        
+        eprintln!("   warning: Class '{}' has abstract methods: {}", 
+                  class_name, abstract_names.join(", "));
+        // In a full implementation, this would generate a runtime check
+        // For now, we just warn and allow instantiation (for subclassing)
+    }
 
     // Allocate memory for the instance
     let instance_ptr = allocate_instance(state, &metadata)?;
@@ -1082,6 +1103,7 @@ fn generate_dataclass_init_method(
         is_class_method: false,
         is_property: false,
         is_property_setter: false,
+        is_abstract: false,
         property_name: None,
         params,
         return_type: Type::None,
@@ -1101,6 +1123,7 @@ fn generate_dataclass_repr_method(
         is_class_method: false,
         is_property: false,
         is_property_setter: false,
+        is_abstract: false,
         property_name: None,
         params: vec![("self".to_string(), Type::Instance(class_name.to_string()))],
         return_type: Type::Str,
@@ -1120,6 +1143,7 @@ fn generate_dataclass_eq_method(
         is_class_method: false,
         is_property: false,
         is_property_setter: false,
+        is_abstract: false,
         property_name: None,
         params: vec![
             ("self".to_string(), Type::Instance(class_name.to_string())),
