@@ -101,8 +101,9 @@ typedef struct LRUCacheNode {
     ARCCacheKey* key;       // ARC-managed key
     int64_t value;          // Cached return value (i64 or BigInt pointer)
     int is_bigint;          // 1 if value is BigInt pointer, 0 if i64
-    struct LRUCacheNode* prev;  // Previous in LRU order (older)
-    struct LRUCacheNode* next;  // Next in LRU order (newer)
+    struct LRUCacheNode* hash_next; // Collision chain in hash map bucket
+    struct LRUCacheNode* lru_prev;  // Previous in LRU order (older)
+    struct LRUCacheNode* lru_next;  // Next in LRU order (newer)
 } LRUCacheNode;
 
 /**
