@@ -4,6 +4,8 @@
 //! 1. Removes unused variable declarations and computations
 //! 2. Eliminates dead stores (redundant assignments)
 //! 3. Uses escape analysis information for better optimization
+//! 4. Removes unreachable code after return/break/continue statements
+//! 5. Eliminates dead branches in control flow
 
 use crate::ast::{Expr, Module, Stmt};
 use std::collections::{HashMap, HashSet};
@@ -60,7 +62,10 @@ impl DeadCodeEliminator {
         // Fourth pass: mark completely dead code
         self.mark_dead_code(&module.statements);
 
-        // Fifth pass: remove dead code
+        // Fifth pass: mark unreachable code (after return/break/continue)
+        self.mark_unreachable_code(&module.statements);
+
+        // Sixth pass: remove dead code
         self.remove_dead(module)
     }
 
@@ -90,7 +95,10 @@ impl DeadCodeEliminator {
         // Fifth pass: mark completely dead code
         self.mark_dead_code(&module.statements);
 
-        // Sixth pass: remove dead code
+        // Sixth pass: mark unreachable code (after return/break/continue)
+        self.mark_unreachable_code(&module.statements);
+
+        // Seventh pass: remove dead code
         self.remove_dead(module)
     }
 
@@ -478,6 +486,60 @@ impl DeadCodeEliminator {
                             }
                         }
                     }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Mark unreachable code after return/break/continue statements
+    /// This is control-flow-aware DCE that removes code that can never execute
+    fn mark_unreachable_code(&mut self, stmts: &[Stmt]) {
+        self.mark_unreachable_in_block(stmts, false);
+    }
+
+    /// Mark unreachable code in a block, tracking if we've hit a terminator
+    fn mark_unreachable_in_block(&mut self, stmts: &[Stmt], mut reached_terminator: bool) {
+        for (idx, stmt) in stmts.iter().enumerate() {
+            if reached_terminator {
+                // All statements after a terminator are unreachable
+                self.dead_stmts.insert(idx);
+                continue;
+            }
+
+            // Check if this statement is a terminator
+            match stmt {
+                Stmt::Return { .. } => {
+                    reached_terminator = true;
+                }
+                Stmt::Break { .. } | Stmt::Continue { .. } => {
+                    // break/continue only terminate within loops
+                    // For top-level analysis, mark subsequent statements as unreachable
+                    reached_terminator = true;
+                }
+                Stmt::Raise { .. } => {
+                    // Exception raising is a terminator
+                    reached_terminator = true;
+                }
+                // Control flow statements - analyze branches
+                Stmt::If { body, elif_blocks, else_body, .. } => {
+                    // Analyze if body
+                    self.mark_unreachable_in_block(body, false);
+                    
+                    // Analyze elif blocks
+                    for (_, elif_body) in elif_blocks {
+                        self.mark_unreachable_in_block(elif_body, false);
+                    }
+                    
+                    // Analyze else body
+                    if let Some(else_body) = else_body {
+                        self.mark_unreachable_in_block(else_body, false);
+                    }
+                }
+                Stmt::While { body, .. } | Stmt::For { body, .. } => {
+                    // Loop bodies are executed multiple times
+                    // Don't mark code after loops as unreachable (loop might not terminate)
+                    self.mark_unreachable_in_block(body, false);
                 }
                 _ => {}
             }

@@ -6,6 +6,9 @@ use inkwell::OptimizationLevel;
 use std::path::Path;
 use std::process;
 
+/// Run LLVM optimizations on a module for JIT compilation
+/// Note: JIT execution engine applies optimizations automatically via OptimizationLevel
+/// This function is kept for API compatibility with AOT driver
 pub fn run_llvm_optimizations(
     _module: &inkwell::module::Module,
     _opt_level: u32,
@@ -15,14 +18,22 @@ pub fn run_llvm_optimizations(
     Ok(())
 }
 
+/// Compile and run using JIT with default optimization (O0)
 pub fn compile_and_run(input_path: &str) -> Result<(), String> {
     compile_and_run_jit(input_path, 0)
 }
 
+/// Compile and run using JIT with specified optimization level
 pub fn compile_and_run_jit(input_path: &str, opt_level: u32) -> Result<(), String> {
     compile_and_run_jit_with_memo(input_path, opt_level, false)
 }
 
+/// Compile and run using JIT with optional automatic memoization
+/// 
+/// # Memory Usage Note
+/// The LLVM JIT engine has inherent memory overhead (~60MB base) regardless of program size.
+/// This is due to loading the full JIT infrastructure. For memory-constrained environments,
+/// consider using AOT compilation instead.
 pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memoize: bool) -> Result<(), String> {
     use inkwell::targets::{InitializationConfig, Target};
 
@@ -52,24 +63,24 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
 
     // Run Recursion Analysis to detect recursive functions
     let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
-    
+
     // Register all function names first
     for stmt in &ast.statements {
         if let crate::ast::Stmt::Function { name, .. } = stmt {
             recursion_analyzer.register_function(name);
         }
     }
-    
+
     // Analyze each function for recursive calls
     for stmt in &ast.statements {
         if let crate::ast::Stmt::Function { name, body, .. } = stmt {
             recursion_analyzer.analyze_function(name, body);
         }
     }
-    
+
     // Detect mutual recursion
     recursion_analyzer.detect_mutual_recursion();
-    
+
     // Emit warnings for non-memoized recursive functions
     let recursive_funcs = recursion_analyzer.get_recursive_functions();
     let mut warned_count = 0;
@@ -82,14 +93,14 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
                     false
                 }
             });
-            
+
             if !has_memo_decorator {
                 eprintln!("   {}", warning);
                 warned_count += 1;
             }
         }
     }
-    
+
     if warned_count > 0 {
         if auto_memoize {
             println!("   ℹ {} recursive function(s) will be auto-memoized", warned_count);
@@ -106,14 +117,14 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
-    
+
     // Enable automatic memoization if requested
     if auto_memoize {
         codegen.auto_memoize = true;
-        
+
         // The codegen will run its own recursion analysis
     }
-    
+
     codegen.generate(&ast)?;
     codegen.verify()?;
 
@@ -124,6 +135,11 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     }
 
     // Use optimization level for JIT
+    // OptimizationLevel mapping:
+    // - None: No optimization (fastest compilation, slowest execution)
+    // - Less: Basic optimizations (-O1 equivalent)
+    // - Default: Standard optimizations (-O2 equivalent)
+    // - Aggressive: All optimizations (-O3 equivalent)
     let opt = match opt_level {
         0 => OptimizationLevel::None,
         1 => OptimizationLevel::Less,
@@ -136,12 +152,14 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("Failed to initialize native target: {}", e))?;
 
+    // Create JIT execution engine with specified optimization level
+    // The JIT applies optimizations on-the-fly during compilation
     let execution_engine = codegen
         .module()
         .create_jit_execution_engine(opt)
         .map_err(|e| format!("Failed to create JIT engine: {}", e))?;
 
-    // Register all runtime stubs
+    // Register all runtime stubs for JIT linking
     crate::jit_stubs::register_stubs(&execution_engine, codegen.module());
 
     unsafe {

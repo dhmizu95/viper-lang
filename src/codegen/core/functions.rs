@@ -182,13 +182,13 @@ impl<'ctx> CodeGen<'ctx> {
         // Get variables that need closure cells (captured by nested functions)
         let _captured_vars: Vec<String> = self.closure_analyzer.get_closure_cells_to_create(original_name);
 
-        // Set up parameters with alloca
+        // Set up parameters - use SSA registers for non-escaping variables, alloca for escaping
         let num_regular_params = params.len();
         for (i, param) in params.iter().enumerate() {
             let param_value = func.get_nth_param(i as u32).unwrap();
 
             // Check escape analysis for this parameter
-            let _can_stack_alloc = self.escape_analyzer.can_stack_allocate(original_name, &param.name);
+            let can_stack_alloc = self.escape_analyzer.can_stack_allocate(original_name, &param.name);
 
             // Determine if parameter is a reference type (pointer)
             let is_ref_type = param_value.is_pointer_value();
@@ -196,15 +196,10 @@ impl<'ctx> CodeGen<'ctx> {
             // Mark parameter as reference type in escape analyzer
             self.escape_analyzer.set_reference_type(original_name, &param.name, is_ref_type);
 
-            // Always allocate on stack for now (escape analysis informs optimization decisions)
-            // In a more advanced implementation, we might skip alloca for non-escaping params
-            let alloca =
-                self.builder.build_alloca(param_value.get_type(), &param.name).expect("alloca");
-            self.builder.build_store(alloca, param_value).expect("store");
-            // Determine VarType from the type annotation if present, otherwise from the LLVM parameter type
-            // This ensures correct type handling even if there's a mismatch in the function signature
+            // PERFORMANCE OPTIMIZATION: Use SSA registers for non-escaping variables
+            // This eliminates alloca/load/store overhead for local variables that don't escape
+            // Variables that escape (shared with nested functions, returned, etc.) use alloca
             let var_type = if let Some(ref ty) = param.type_ann {
-                // Use type annotation to determine VarType
                 match ty {
                     Type::F32 | Type::F64 => VarType::Float,
                     Type::Bool => VarType::Bool,
@@ -221,7 +216,18 @@ impl<'ctx> CodeGen<'ctx> {
             } else {
                 VarType::Int
             };
-            self.variables.insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
+
+            // Use register allocation for non-escaping value types
+            // Reference types (pointers) always use alloca for consistency with rest of codegen
+            if can_stack_alloc && !is_ref_type {
+                // SSA register allocation - no alloca, store value directly
+                self.variables.insert(param.name.clone(), VarInfo::new_register(param_value, var_type));
+            } else {
+                // Stack allocation using alloca for escaping variables and all reference types
+                let alloca = self.builder.build_alloca(param_value.get_type(), &param.name).expect("alloca");
+                self.builder.build_store(alloca, param_value).expect("store");
+                self.variables.insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
+            }
 
             // Store the parameter's type annotation in var_types for type inference
             if let Some(ref ty) = param.type_ann {

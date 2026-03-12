@@ -2,6 +2,7 @@
 .PHONY: bench-all bench-fibonacci bench-quicksort bench-compare
 .PHONY: bench-aot-test bench-opt-compare bench-aot-compare
 .PHONY: bench-safe bench-safe-one bench-safe-fib bench-safe-sort
+.PHONY: pgo pgo-clean pgo-bench
 
 # Default target: build the compiler
 build:
@@ -91,3 +92,46 @@ bench-safe-quicksort:
 # Helper for AOT compilation
 aot: build runtime
 	@echo "AOT compilation ready. Use 'viper build <file>'"
+
+# PGO (Profile-Guided Optimization) targets
+# PGO improves performance by 10-30% by optimizing for typical workloads
+
+# Clean PGO data
+pgo-clean:
+	rm -rf target/pgo-data
+	mkdir -p target/pgo-data
+	@echo "PGO data directory cleaned"
+
+# Build PGO-instrumented compiler
+pgo-instrument: pgo-clean
+	LLVM_PROFILE_FILE="target/pgo-data/viper-%p-%m.profraw" cargo build --profile pgo-instrument
+	@echo "PGO-instrumented compiler built"
+
+# Run benchmarks with instrumented compiler to collect profiles
+pgo-run: pgo-instrument
+	@echo "Running instrumented compiler on benchmarks..."
+	LLVM_PROFILE_FILE="target/pgo-data/viper-%p-%m.profraw" cargo run --profile pgo-instrument -- run benchmarks/viper/*.vp
+	@echo "Profile data collected"
+
+# Merge PGO profiles
+pgo-merge:
+	@echo "Merging PGO profiles..."
+	llvm-profdata merge -sparse target/pgo-data/*.profraw -o target/pgo-data/merged.profdata
+	@echo "Profiles merged to target/pgo-data/merged.profdata"
+
+# Build PGO-optimized compiler
+pgo: pgo-run pgo-merge
+	RUSTFLAGS="-Cprofile-use=target/pgo-data/merged.profdata" cargo build --profile pgo
+	@echo "PGO-optimized compiler built successfully"
+	@echo "Binary: target/pgo/viper"
+
+# Quick PGO build (skip instrumented run, use existing profiles)
+pgo-quick:
+	RUSTFLAGS="-Cprofile-use=target/pgo-data/merged.profdata" cargo build --profile pgo
+	@echo "PGO-optimized compiler built (using existing profiles)"
+
+# Benchmark PGO vs regular release
+pgo-bench: pgo
+	@echo "Running benchmarks with PGO-optimized compiler..."
+	./target/pgo/viper bench
+	@echo "PGO benchmark complete"
