@@ -207,13 +207,18 @@ pub fn compile_file_aot(
         // -O0: No optimization (debug builds)
         // -O1: Basic optimizations for fast compilation
         // -O2: Balanced optimizations for production builds
-        // -O3: Aggressive optimizations including full loop unrolling
+        // -O3: Aggressive optimizations with tuned parameters to avoid regressions
         // Note: LLVM 21 default<O1/O2/O3> passes include comprehensive optimization pipelines
+        // Custom O3 pipeline avoids aggressive loop unrolling that can cause code bloat
         let passes = match opt_level {
             0 => "verify",
             1 => "default<O1>",
             2 => "default<O2>",
-            3 => "default<O3>",
+            3 => {
+                // Custom O3 pipeline: aggressive inlining + vectorization without excessive loop unrolling
+                // This avoids the O3 regression where default<O3> is slower than O2 on some benchmarks
+                "mem2reg,instcombine,simplifycfg,inline,loop-vectorize,slp-vectorize,gvn,licm,loop-unroll(max-unroll=4)"
+            }
             _ => "default<O1>",
         };
 

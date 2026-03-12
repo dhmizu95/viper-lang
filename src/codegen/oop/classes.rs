@@ -777,8 +777,8 @@ fn generate_field_access<'ctx>(
     let value = if field.ty == Type::F64 {
         // Float field - load as f64 then bitcast to i64 for uniform handling
         let field_f64_ptr = state.builder.build_bit_cast(
-            field_ptr, 
-            state.context.f64_type().ptr_type(AddressSpace::default()), 
+            field_ptr,
+            state.context.ptr_type(AddressSpace::default()),
             "field_f64_ptr"
         ).map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
         .into_pointer_value();
@@ -793,8 +793,8 @@ fn generate_field_access<'ctx>(
     } else if field.ty == Type::Bool {
         // Bool field - load as i8 then zero-extend to i64
         let field_bool_ptr = state.builder.build_bit_cast(
-            field_ptr, 
-            state.context.i8_type().ptr_type(AddressSpace::default()), 
+            field_ptr,
+            state.context.ptr_type(AddressSpace::default()),
             "field_bool_ptr"
         ).map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
         .into_pointer_value();

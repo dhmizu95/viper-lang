@@ -299,15 +299,8 @@ pub fn generate_index<'ctx>(
             }
         } else {
             // Array indexing - need to cast pointer to correct element type first
-            let elem_ptr_type = match elem_type {
-                inkwell::types::BasicTypeEnum::IntType(it) => it.ptr_type(inkwell::AddressSpace::default()),
-                inkwell::types::BasicTypeEnum::FloatType(ft) => ft.ptr_type(inkwell::AddressSpace::default()),
-                inkwell::types::BasicTypeEnum::ArrayType(at) => at.ptr_type(inkwell::AddressSpace::default()),
-                inkwell::types::BasicTypeEnum::VectorType(vt) => vt.ptr_type(inkwell::AddressSpace::default()),
-                inkwell::types::BasicTypeEnum::StructType(st) => st.ptr_type(inkwell::AddressSpace::default()),
-                inkwell::types::BasicTypeEnum::PointerType(pt) => pt,
-                inkwell::types::BasicTypeEnum::ScalableVectorType(svt) => svt.ptr_type(inkwell::AddressSpace::default()),
-            };
+            // LLVM 15+: all pointers use the same type, use context.ptr_type()
+            let elem_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
             
             let typed_ptr = state.builder.build_pointer_cast(
                 obj_ptr,

@@ -8,7 +8,6 @@
 
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::BasicType;
 use inkwell::values::{FunctionValue, PointerValue};
 
 /// Memoization runtime functions
@@ -49,7 +48,8 @@ pub fn declare_memoization_functions<'ctx>(
     let i64_type = context.i64_type();
     let i32_type = context.i32_type();
     let void_type = context.void_type();
-    let i32_ptr_type = i32_type.ptr_type(inkwell::AddressSpace::default());
+    // LLVM 15+: use context.ptr_type() instead of i32_type.ptr_type()
+    let i32_ptr_type = context.ptr_type(inkwell::AddressSpace::default());
 
     // ARC key creation functions (return ARCCacheKey*)
     let arc_key_create1_type = i8_ptr_type.fn_type(&[i64_type.into()], false);

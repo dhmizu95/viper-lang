@@ -583,7 +583,7 @@ pub fn declare_function_with_closure<'ctx>(
     let param_types: Vec<Type> = params.iter().map(|p| {
         if let Some(ref ty) = p.type_ann {
             ty.clone()
-        } else if let Some(body) = body {
+        } else if let Some(_body) = body {
             // Infer from body for unannotated parameters
             // For now, default to I64 for unannotated params to maintain backward compatibility
             Type::I64

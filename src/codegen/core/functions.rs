@@ -159,10 +159,6 @@ impl<'ctx> CodeGen<'ctx> {
         if body.len() < 10 && params.len() < 3 {
             let always_inline_attr = self.context.create_string_attribute("alwaysinline", "");
             func.add_attribute(inkwell::attributes::AttributeLoc::Function, always_inline_attr);
-        } else if body.len() < 5 {
-            // Even smaller functions always benefit from inlining
-            let always_inline_attr = self.context.create_string_attribute("alwaysinline", "");
-            func.add_attribute(inkwell::attributes::AttributeLoc::Function, always_inline_attr);
         }
 
         // PERFORMANCE OPTIMIZATION: Add purity attributes for pure functions
@@ -389,7 +385,7 @@ impl<'ctx> CodeGen<'ctx> {
         mangled_name: &str,
         original_name: &str,
         params: &[crate::ast::Param],
-        return_type: &Option<Type>,
+        _return_type: &Option<Type>,
         body: &[Stmt],
         nonlocal_vars_param: &[String],
         is_lru: bool,
@@ -397,8 +393,7 @@ impl<'ctx> CodeGen<'ctx> {
         returns_bigint: bool,
     ) -> Result<(), String> {
         use crate::codegen::runtime::memoization;
-        use inkwell::types::BasicType;
-        use inkwell::values::BasicValue;
+        // Removed unused imports: BasicType, BasicValue
 
         // Declare memoization runtime functions
         let memo_funcs = memoization::declare_memoization_functions(self.context, &mut self.module)
