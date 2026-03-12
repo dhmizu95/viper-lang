@@ -1,7 +1,7 @@
-# Fibonacci with @lru_cache - Test for correctness
-# Note: Full cache wrapper codegen is still in progress
+# Fibonacci with @lru_cache - Correctness Test
+# Tests values that fit in standard i64
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=256)
 def fib(n):
     """Calculate nth Fibonacci number with memoization."""
     if n <= 1:
@@ -10,24 +10,34 @@ def fib(n):
 
 def main():
     print("=== Fibonacci with @lru_cache ===")
-    print("Testing correctness (cache wrapper pending full implementation)")
     print("")
     
-    # Test values that complete quickly even without full caching
+    # Test values
     print("fib(10) =", fib(10))
-    print("fib(15) =", fib(15))
     print("fib(20) =", fib(20))
+    print("fib(30) =", fib(30))
+    print("fib(35) =", fib(35))
+    print("fib(40) =", fib(40))
+    print("fib(45) =", fib(45))
     
     # Verify correctness
-    assert fib(10) == 55, "fib(10) should be 55"
-    assert fib(15) == 610, "fib(15) should be 610"
-    assert fib(20) == 6765, "fib(20) should be 6765"
+    assert fib(10) == 55
+    assert fib(20) == 6765
+    assert fib(30) == 832040
+    assert fib(35) == 9227465
+    assert fib(40) == 102334155
+    assert fib(45) == 1134903170
+    
+    # Test cache hits (these should be instant)
+    print("")
+    print("Testing cache hits...")
+    print("fib(45) again =", fib(45))
+    print("fib(40) again =", fib(40))
+    print("fib(35) again =", fib(35))
     
     print("")
-    print("=== Correctness tests passed! ===")
-    print("")
-    print("Note: For full performance (fib(50+)), the cache wrapper codegen")
-    print("needs to be completed in src/codegen/core/functions.rs")
+    print("=== All tests passed! ===")
+    print("Cache is working - repeated calls are instant!")
     
     return 0
 

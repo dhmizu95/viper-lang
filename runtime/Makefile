@@ -58,6 +58,7 @@ LOGGING_SRC = $(SRC_DIR)/logging.c
 GC_SRC = $(SRC_DIR)/gc.c
 GMP_BRIDGE_SRC = $(SRC_DIR)/gmp_bridge.c
 TAGGED_INT_SRC = $(SRC_DIR)/tagged_int.c
+MEMOIZATION_SRC = $(SRC_DIR)/memoization.c
 
 # Object files
 OBJ_DIR = obj
@@ -139,7 +140,7 @@ endif
 # ============================================
 
 # Core sources
-CORE_SRCS = $(SRC_DIR)/runtime.c
+CORE_SRCS = $(SRC_DIR)/runtime.c $(MEMOIZATION_SRC)
 
 # Memory management
 MEMORY_SRCS = $(wildcard $(SRC_DIR)/memory/*.c)

@@ -22,10 +22,11 @@ extern "C" {
 
 /**
  * Hash map node - stores key-value pairs
+ * Note: value is stored as int64_t directly for efficiency
  */
 typedef struct CacheNode {
-    void* key;              // Cached argument tuple
-    void* value;            // Cached return value
+    void* key;              // Cached argument tuple (allocated)
+    int64_t value;          // Cached return value (stored directly)
     uint64_t key_hash;      // Pre-computed hash for faster lookup
     struct CacheNode* next; // Collision chain
 } CacheNode;
@@ -45,10 +46,11 @@ typedef struct HashMap {
 
 /**
  * LRU Cache Node - extends CacheNode with doubly-linked list for LRU tracking
+ * Note: value is stored as int64_t directly for efficiency
  */
 typedef struct LRUCacheNode {
-    void* key;                  // Cached argument tuple
-    void* value;                // Cached return value
+    void* key;                  // Cached argument tuple (allocated)
+    int64_t value;              // Cached return value (stored directly)
     uint64_t key_hash;          // Pre-computed hash
     struct LRUCacheNode* prev;  // Previous in LRU order (older)
     struct LRUCacheNode* next;  // Next in LRU order (newer)
@@ -92,17 +94,18 @@ LRUCache* vp_lru_cache_create(size_t maxsize);
  * Get a value from the LRU cache
  * @param cache The cache
  * @param key The key (argument tuple)
- * @return Pointer to cached value, or NULL if not found
+ * @param found Output: pointer to int that will be set to 1 if found, 0 if not
+ * @return Cached value (undefined if not found, check 'found' parameter)
  */
-void* vp_lru_cache_get(LRUCache* cache, void* key);
+int64_t vp_lru_cache_get(LRUCache* cache, void* key, int* found);
 
 /**
  * Set a value in the LRU cache
  * @param cache The cache
  * @param key The key (argument tuple)
- * @param value The value to cache
+ * @param value The value to cache (stored directly as int64_t)
  */
-void vp_lru_cache_set(LRUCache* cache, void* key, void* value);
+void vp_lru_cache_set(LRUCache* cache, void* key, int64_t value);
 
 /**
  * Destroy an LRU cache and free all memory
@@ -138,17 +141,18 @@ Cache* vp_cache_create(void);
  * Get a value from the unbounded cache
  * @param cache The cache
  * @param key The key (argument tuple)
- * @return Pointer to cached value, or NULL if not found
+ * @param found Output: pointer to int that will be set to 1 if found, 0 if not
+ * @return Cached value (undefined if not found, check 'found' parameter)
  */
-void* vp_cache_get(Cache* cache, void* key);
+int64_t vp_cache_get(Cache* cache, void* key, int* found);
 
 /**
  * Set a value in the unbounded cache
  * @param cache The cache
  * @param key The key (argument tuple)
- * @param value The value to cache
+ * @param value The value to cache (stored directly as int64_t)
  */
-void vp_cache_set(Cache* cache, void* key, void* value);
+void vp_cache_set(Cache* cache, void* key, int64_t value);
 
 /**
  * Destroy an unbounded cache and free all memory
