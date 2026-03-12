@@ -2,6 +2,9 @@
 //! Tests for: Span (new, empty, merge, Display), mangle_function_name
 
 use viper_lang::ast::Type;
+use viper_lang::driver::analyze_recursive_functions;
+use viper_lang::lexer::Lexer;
+use viper_lang::parser::Parser;
 use viper_lang::utils::{mangle_function_name, Span};
 
 // ============================================================================
@@ -304,4 +307,31 @@ fn test_mangle_nested_types() {
         mangle_function_name("nested", &params),
         "nested_list_list_i64_dict_str_list_i64"
     );
+}
+
+#[test]
+fn test_recursive_warning_is_per_function() {
+    let source = r#"
+@cache
+def cached_fib(n):
+    if n <= 1:
+        return n
+    return cached_fib(n - 1) + cached_fib(n - 2)
+
+def slow_fact(n):
+    if n <= 1:
+        return 1
+    return n * slow_fact(n - 1)
+"#;
+
+    let mut lexer = Lexer::new(source);
+    let tokens = lexer.tokenize().unwrap();
+    let mut parser = Parser::new(tokens);
+    let ast = parser.parse().unwrap();
+
+    let (warnings, recursive_count) = analyze_recursive_functions(&ast);
+
+    assert_eq!(recursive_count, 2);
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0].contains("slow_fact"));
 }

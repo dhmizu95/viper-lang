@@ -10,7 +10,7 @@ fn run_viper_code(code: &str) -> Result<String, String> {
     let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
     let test_file = temp_dir.join(format!("viper_test_{}.vp", timestamp));
     fs::write(&test_file, code).map_err(|e| format!("Failed to write: {}", e))?;
-    let output = Command::new("cargo").args(["run", "--quiet", "--bin", "viper", "run"]).arg(&test_file).output()
+    let output = Command::new(env!("CARGO_BIN_EXE_viper")).args(["run"]).arg(&test_file).output()
         .map_err(|e| format!("Failed to run: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -44,7 +44,9 @@ def test():
     print(div(10, 5))
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("15"));
+    assert!(output.contains("5"));
 }
 
 // Temperature Converter
@@ -62,7 +64,9 @@ def test():
     print(fahrenheit_to_celsius(212))
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("212"));
+    assert!(output.contains("100"));
 }
 
 // Factorial Table
@@ -98,5 +102,6 @@ def test():
     print("ok")
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("ok"));
 }

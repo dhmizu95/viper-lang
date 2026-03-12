@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(name = "viper")]
 #[command(author = "Viper Team")]
-#[command(version = "0.2.3")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Viper Programming Language Compiler", long_about = None)]
 pub struct Args {
     #[command(subcommand)]
@@ -51,18 +51,6 @@ pub enum Commands {
         /// Optimization level (0, 1, 2, or 3)
         #[arg(short = 'O', default_value = "2", value_name = "LEVEL")]
         optimize: u32,
-
-        /// Enable Link-Time Optimization
-        #[arg(long)]
-        lto: bool,
-
-        /// Emit LLVM IR to .ll file for inspection
-        #[arg(long)]
-        emit_llvm: bool,
-
-        /// Profile-Guided Optimization mode: "instrument" (phase 1) or "use" (phase 2)
-        #[arg(long, value_name = "MODE", value_parser = parse_pgo_mode)]
-        pgo: Option<String>,
 
         /// Automatically memoize pure recursive functions
         #[arg(long)]
@@ -119,6 +107,7 @@ pub enum Commands {
         output: String,
     },
     /// Run tests
+    #[command(hide = true)]
     Test {
         /// Test file or directory to run
         #[arg(value_name = "FILE", default_value = "tests")]

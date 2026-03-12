@@ -263,6 +263,22 @@ fn token_kinds(src: &str) -> Result<Vec<TokenKind>, String> {
     tokenize(src).map(|tokens| tokens.into_iter().map(|t| t.kind).collect())
 }
 
+#[test]
+fn test_number_followed_by_dot_keeps_dot_token() {
+    let kinds = token_kinds("1.foo").unwrap();
+    assert_eq!(kinds[0], TokenKind::Int(1));
+    assert_eq!(kinds[1], TokenKind::Dot);
+    assert_eq!(kinds[2], TokenKind::Ident("foo".to_string()));
+}
+
+#[test]
+fn test_range_like_syntax_preserves_double_dot() {
+    let kinds = token_kinds("1..2").unwrap();
+    assert_eq!(kinds[0], TokenKind::Int(1));
+    assert_eq!(kinds[1], TokenKind::DotDot);
+    assert_eq!(kinds[2], TokenKind::Int(2));
+}
+
 // --- Literal Tests ---
 
 #[test]
@@ -662,9 +678,7 @@ fn test_lexer_operator_not_in() {
 #[test]
 fn test_lexer_operator_dot_dot() {
     let kinds = token_kinds("..").unwrap();
-    // Lexer returns two separate Dot tokens
-    assert_eq!(kinds[0], TokenKind::Dot);
-    assert_eq!(kinds[1], TokenKind::Dot);
+    assert_eq!(kinds[0], TokenKind::DotDot);
 }
 
 // --- Delimiter Tests ---

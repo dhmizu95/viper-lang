@@ -415,8 +415,6 @@ impl Default for RecursionAnalyzer {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_detect_direct_recursion() {
         // This would test detection of:

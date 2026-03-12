@@ -10,7 +10,6 @@ fn main() {
     let runtime_dir = manifest_dir.join("runtime").join("obj");
 
     println!("cargo:rustc-link-search=native={}", runtime_dir.display());
-    println!("cargo:rustc-link-search=native={}/obj", runtime_dir.display());
 
     // Link against Viper runtime library (for non-BigInt runtime functions)
     println!("cargo:rustc-link-lib=static=viper");

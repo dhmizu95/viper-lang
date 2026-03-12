@@ -1,8 +1,13 @@
+use crate::ast::{Module, Stmt};
+use crate::semantic::{RecursionAnalyzer, TypeChecker};
 use std::path::Path;
 
-/// Check basic prerequisites (LLVM, GCC)
-pub fn check_basic_prerequisites() -> Result<(), String> {
-    // Check GCC for AOT linking
+/// Check prerequisites for AOT compilation.
+pub fn check_aot_prerequisites() -> Result<(), String> {
+    if !check_command_exists("opt") {
+        return Err("LLVM opt tool not found in PATH".to_string());
+    }
+
     if !check_command_exists("gcc") {
         return Err("GCC compiler not found in PATH".to_string());
     }
@@ -10,12 +15,17 @@ pub fn check_basic_prerequisites() -> Result<(), String> {
     Ok(())
 }
 
+/// Check basic prerequisites for general compiler use.
+pub fn check_basic_prerequisites() -> Result<(), String> {
+    Ok(())
+}
+
 /// Check runtime library exists (only needed for AOT compilation)
 pub fn check_runtime_library() -> Result<(), String> {
     let runtime_paths = [
-        "runtime/libviper.a",
-        "../runtime/libviper.a",
-        "../../runtime/libviper.a",
+        "runtime/obj/libviper.a",
+        "../runtime/obj/libviper.a",
+        "../../runtime/obj/libviper.a",
         "/usr/local/lib/viper/libviper.a",
         "/usr/lib/viper/libviper.a",
         "/opt/viper/lib/libviper.a",
@@ -41,7 +51,7 @@ pub fn check_runtime_library() -> Result<(), String> {
     let runtime_found = expanded_paths.iter().any(|p| Path::new(p).exists());
 
     if !runtime_found {
-        return Err("Viper runtime library not found (runtime/libviper.a)".to_string());
+        return Err("Viper runtime library not found (runtime/obj/libviper.a)".to_string());
     }
 
     Ok(())
@@ -72,6 +82,67 @@ pub fn show_info() {
     println!("  viper init <project>      Create new project");
     println!("  viper info                Show this information");
 }
+
+pub fn analyze_recursive_functions(module: &Module) -> (Vec<String>, usize) {
+    let mut recursion_analyzer = RecursionAnalyzer::new();
+
+    for stmt in &module.statements {
+        if let Stmt::Function { name, .. } = stmt {
+            recursion_analyzer.register_function(name);
+        }
+    }
+
+    for stmt in &module.statements {
+        if let Stmt::Function { name, body, .. } = stmt {
+            recursion_analyzer.analyze_function(name, body);
+        }
+    }
+
+    recursion_analyzer.detect_mutual_recursion();
+
+    let recursive_funcs = recursion_analyzer.get_recursive_functions();
+    let mut warnings = Vec::new();
+
+    for (name, _info) in recursive_funcs {
+        if function_has_memoization_decorator(module, name) {
+            continue;
+        }
+
+        if let Some(warning) = recursion_analyzer.generate_warning(name) {
+            warnings.push(warning);
+        }
+    }
+
+    (warnings, recursive_funcs.len())
+}
+
+pub fn type_check_module(input_path: &Path, ast: &Module) -> Result<TypeChecker, String> {
+    let mut type_checker = TypeChecker::with_input_path(input_path);
+    type_checker.check(ast).map_err(|e| {
+        format!(
+            "Type errors found:\n{}",
+            e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
+        )
+    })?;
+    Ok(type_checker)
+}
+
+fn function_has_memoization_decorator(module: &Module, function_name: &str) -> bool {
+    module.statements.iter().any(|stmt| {
+        matches!(
+            stmt,
+            Stmt::Function {
+                name,
+                decorators,
+                ..
+            } if name == function_name
+                && decorators
+                    .iter()
+                    .any(|d| d.name == "lru_cache" || d.name == "cache")
+        )
+    })
+}
+
 #[allow(dead_code)]
 pub fn get_opt_level(args: &[String]) -> u32 {
     for (i, arg) in args.iter().enumerate() {

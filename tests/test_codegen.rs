@@ -10,7 +10,7 @@ fn run_viper_code(code: &str) -> Result<String, String> {
     let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
     let test_file = temp_dir.join(format!("viper_test_{}.vp", timestamp));
     fs::write(&test_file, code).map_err(|e| format!("Failed to write: {}", e))?;
-    let output = Command::new("cargo").args(["run", "--quiet", "--bin", "viper", "run"]).arg(&test_file).output()
+    let output = Command::new(env!("CARGO_BIN_EXE_viper")).args(["run"]).arg(&test_file).output()
         .map_err(|e| format!("Failed to run: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -36,7 +36,11 @@ def test():
     print(d)
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("20"));
+    assert!(output.contains("30"));
+    assert!(output.contains("25"));
+    assert!(output.contains("2"));
 }
 
 #[test]
@@ -49,7 +53,9 @@ def test():
     print(b)
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("6"));
+    assert!(output.contains("2.5"));
 }
 
 // Comparison Codegen
@@ -65,7 +71,9 @@ def test():
     print(5 >= 5)
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("True"));
+    assert!(output.contains("False"));
 }
 
 // Logical Codegen
@@ -79,7 +87,8 @@ def test():
     print(not False)
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("False"));
 }
 
 // Branch Codegen
@@ -92,7 +101,8 @@ def test():
         print("branch1")
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("branch1"));
 }
 
 #[test]
@@ -106,7 +116,8 @@ def test():
         print("less")
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("less"));
 }
 
 // Loop Codegen
@@ -120,7 +131,8 @@ def test():
     print(i)
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("\n5\n") || output.ends_with("5\n"));
 }
 
 #[test]
@@ -137,7 +149,8 @@ def test():
     print(i)
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("\n3\n") || output.ends_with("3\n"));
 }
 
 // Function Codegen
@@ -151,7 +164,8 @@ def test():
     print(add(10, 20))
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("30"));
 }
 
 #[test]
@@ -178,5 +192,6 @@ def test():
     print(f(21))
 test()
 "#;
-    assert!(run_viper_code(code).is_ok());
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("42"));
 }

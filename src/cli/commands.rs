@@ -5,6 +5,8 @@ use crate::driver::*;
 pub fn execute(args: Args) -> Result<(), String> {
     match args.command {
         Commands::Build { input, output, optimize, lto, emit_llvm, pgo, auto_memoize: _ } => {
+            check_aot_prerequisites()?;
+
             // Check runtime library for AOT compilation
             if let Err(e) = check_runtime_library() {
                 eprintln!("Error: {}", e);
@@ -15,7 +17,7 @@ pub fn execute(args: Args) -> Result<(), String> {
             }
             compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
         }
-        Commands::Run { input, optimize, lto: _, emit_llvm: _, pgo: _, auto_memoize } => {
+        Commands::Run { input, optimize, auto_memoize } => {
             compile_and_run_jit_with_memo(&input, optimize, auto_memoize)
         }
         Commands::Init { name } => {
@@ -44,8 +46,7 @@ pub fn execute(args: Args) -> Result<(), String> {
             cli::doc::run_doc(&args)
         }
         Commands::Test { input, discover: _, verbose: _, filter: _ } => {
-            // Test module not implemented yet
-            eprintln!("Error: test command not implemented yet");
+            eprintln!("Error: viper test is not supported yet");
             eprintln!("Input: {:?}", input);
             Err("test command not available".to_string())
         }

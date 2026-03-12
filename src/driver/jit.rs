@@ -52,62 +52,21 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     let mut parser = parser::Parser::new(tokens);
     let ast = parser.parse()?;
 
-    // Semantic Analysis (Type Checking)
-    let mut type_checker = crate::semantic::type_checker::TypeChecker::new();
-    type_checker.check(&ast).map_err(|e| {
-        format!(
-            "Type errors found:\n{}",
-            e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
-        )
-    })?;
+    let _type_checker = crate::driver::type_check_module(Path::new(input_path), &ast)?;
 
     // Run Recursion Analysis to detect recursive functions
-    let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
-
-    // Register all function names first
-    for stmt in &ast.statements {
-        if let crate::ast::Stmt::Function { name, .. } = stmt {
-            recursion_analyzer.register_function(name);
-        }
+    let (warnings, recursive_func_count) = crate::driver::analyze_recursive_functions(&ast);
+    for warning in &warnings {
+        eprintln!("   {}", warning);
     }
 
-    // Analyze each function for recursive calls
-    for stmt in &ast.statements {
-        if let crate::ast::Stmt::Function { name, body, .. } = stmt {
-            recursion_analyzer.analyze_function(name, body);
-        }
-    }
-
-    // Detect mutual recursion
-    recursion_analyzer.detect_mutual_recursion();
-
-    // Emit warnings for non-memoized recursive functions
-    let recursive_funcs = recursion_analyzer.get_recursive_functions();
-    let mut warned_count = 0;
-    for (name, _info) in recursive_funcs {
-        if let Some(warning) = recursion_analyzer.generate_warning(name) {
-            let has_memo_decorator = ast.statements.iter().any(|stmt| {
-                if let crate::ast::Stmt::Function { decorators, .. } = stmt {
-                    decorators.iter().any(|d| d.name == "lru_cache" || d.name == "cache")
-                } else {
-                    false
-                }
-            });
-
-            if !has_memo_decorator {
-                eprintln!("   {}", warning);
-                warned_count += 1;
-            }
-        }
-    }
-
-    if warned_count > 0 {
+    if !warnings.is_empty() {
         if auto_memoize {
-            println!("   ℹ {} recursive function(s) will be auto-memoized", warned_count);
+            println!("   ℹ {} recursive function(s) will be auto-memoized", warnings.len());
         } else {
-            println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warned_count);
+            println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warnings.len());
         }
-    } else if !recursive_funcs.is_empty() {
+    } else if recursive_func_count > 0 {
         println!("   ✓ All recursive functions are memoized");
     } else {
         println!("   ✓ No recursive functions detected");

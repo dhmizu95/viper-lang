@@ -66,7 +66,7 @@ impl ModuleSearchPath {
     }
     
     pub fn add_path(&mut self, path: PathBuf) {
-        if path.exists() {
+        if path.exists() && !self.paths.contains(&path) {
             self.paths.push(path);
         }
     }
@@ -158,6 +158,8 @@ impl ModuleLoader {
                 self.search_path.paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>()
             ))?;
         
+        self.loading_stack.push(module_name.to_string());
+
         // Read and parse module
         let source = fs::read_to_string(&module_path)
             .map_err(|e| format!("Failed to read module '{}': {}", module_path.display(), e))?;
@@ -171,14 +173,10 @@ impl ModuleLoader {
         let ast = parser.parse()
             .map_err(|e| format!("Failed to parse module '{}': {}", module_path.display(), e))?;
         
-        // Mark as loading
-        self.loading_stack.push(module_name.to_string());
-        
         // Process imports in the module first
-        self.process_module_imports(&ast, &module_path)?;
-        
-        // Remove from loading stack
+        let import_result = self.process_module_imports(&ast, &module_path);
         self.loading_stack.pop();
+        import_result?;
         
         // Store loaded module
         let loaded = LoadedModule {
@@ -214,23 +212,10 @@ impl ModuleLoader {
         for mod_name in modules_to_import {
             // Resolve relative to current module's directory
             if let Some(parent) = module_path.parent() {
-                let mut search_path = self.search_path.clone();
-                search_path.add_path(parent.to_path_buf());
-                
-                // Create a temporary loader with the updated search path
-                let mut temp_loader = ModuleLoader::with_search_path(search_path);
-                
-                // Move loaded modules to temp loader
-                let loaded = std::mem::take(&mut self.loaded_modules);
-                temp_loader.loaded_modules = loaded;
-                
-                // Try to load (ignore errors for now - will be caught by type checker)
-                let _ = temp_loader.load_module(&mod_name);
-                
-                // Move back
-                self.loaded_modules = temp_loader.loaded_modules;
+                self.search_path.add_path(parent.to_path_buf());
+                self.load_module(&mod_name)?;
             } else {
-                let _ = self.load_module(&mod_name);
+                self.load_module(&mod_name)?;
             }
         }
         Ok(())

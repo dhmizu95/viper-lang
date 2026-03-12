@@ -1,7 +1,6 @@
 use crate::codegen;
 use crate::lexer;
 use crate::parser;
-use crate::module::{ModuleLoader, ModuleSearchPath};
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use std::fs;
@@ -52,47 +51,15 @@ pub fn compile_file_aot(
     let mut ast = parser.parse()?;
     println!("   ✓ Parsed {} statements", ast.statements.len());
 
-    // Module Loading - Process imports
     println!("   [2.1/4] Loading modules...");
-    let input_dir = Path::new(input_path).parent().unwrap_or(Path::new("."));
-    let mut search_path = ModuleSearchPath::new();
-    search_path.add_path(input_dir.to_path_buf());
-    
-    let mut loader = ModuleLoader::with_search_path(search_path);
-    
-    // Process imports in the main file
-    for stmt in &ast.statements {
-        match stmt {
-            crate::ast::Stmt::Import { module, .. } => {
-                if let Err(e) = loader.load_module(module) {
-                    eprintln!("   ⚠ Warning: Failed to load module '{}': {}", module, e);
-                }
-            }
-            crate::ast::Stmt::FromImport { module, .. } => {
-                if let Err(e) = loader.load_module(module) {
-                    eprintln!("   ⚠ Warning: Failed to load module '{}': {}", module, e);
-                }
-            }
-            _ => {}
-        }
-    }
-    
-    let loaded_count = loader.loaded_modules().len();
+    println!("   [2.2/4] Type checking...");
+    let type_checker = crate::driver::type_check_module(Path::new(input_path), &ast)?;
+    let loaded_count = type_checker.module_loader.loaded_modules().len();
     if loaded_count > 0 {
         println!("   ✓ Loaded {} module(s)", loaded_count);
     } else {
         println!("   ✓ No external modules imported");
     }
-
-    // Semantic Analysis (Type Checking)
-    println!("   [2.2/4] Type checking...");
-    let mut type_checker = crate::semantic::type_checker::TypeChecker::with_input_path(Path::new(input_path));
-    type_checker.check(&ast).map_err(|e| {
-        format!(
-            "Type errors found:\n{}",
-            e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
-        )
-    })?;
 
     // Apply Constant Folding optimization
     if opt_level >= 1 {
@@ -104,49 +71,14 @@ pub fn compile_file_aot(
 
     // Run Recursion Analysis to detect recursive functions
     println!("   [2.4/4] Running recursion analysis...");
-    let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
-    
-    // Register all function names first
-    for stmt in &ast.statements {
-        if let crate::ast::Stmt::Function { name, .. } = stmt {
-            recursion_analyzer.register_function(name);
-        }
+    let (warnings, recursive_func_count) = crate::driver::analyze_recursive_functions(&ast);
+    for warning in &warnings {
+        eprintln!("   {}", warning);
     }
-    
-    // Analyze each function for recursive calls
-    for stmt in &ast.statements {
-        if let crate::ast::Stmt::Function { name, body, .. } = stmt {
-            recursion_analyzer.analyze_function(name, body);
-        }
-    }
-    
-    // Detect mutual recursion
-    recursion_analyzer.detect_mutual_recursion();
-    
-    // Emit warnings for non-memoized recursive functions
-    let recursive_funcs = recursion_analyzer.get_recursive_functions();
-    let mut warned_count = 0;
-    for (name, _info) in recursive_funcs {
-        if let Some(warning) = recursion_analyzer.generate_warning(name) {
-            // Only warn if function doesn't have @lru_cache or @cache decorator
-            let has_memo_decorator = ast.statements.iter().any(|stmt| {
-                if let crate::ast::Stmt::Function { decorators, .. } = stmt {
-                    decorators.iter().any(|d| d.name == "lru_cache" || d.name == "cache")
-                } else {
-                    false
-                }
-            });
-            
-            if !has_memo_decorator {
-                eprintln!("   {}", warning);
-                warned_count += 1;
-            }
-        }
-    }
-    
-    if warned_count > 0 {
-        println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warned_count);
-    } else if !recursive_funcs.is_empty() {
+
+    if !warnings.is_empty() {
+        println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warnings.len());
+    } else if recursive_func_count > 0 {
         println!("   ✓ All recursive functions are memoized");
     } else {
         println!("   ✓ No recursive functions detected");

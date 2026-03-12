@@ -234,7 +234,14 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 ';' => TokenKind::Semi,
-                '.' => TokenKind::Dot,
+                '.' => {
+                    if self.peek() == Some('.') {
+                        self.advance();
+                        TokenKind::DotDot
+                    } else {
+                        TokenKind::Dot
+                    }
+                }
                 '@' => TokenKind::At,
                 '+' => {
                     if self.peek() == Some('+') {
@@ -494,6 +501,10 @@ impl<'a> Lexer<'a> {
 
     fn peek(&mut self) -> Option<char> {
         self.chars.peek().copied()
+    }
+
+    fn peek_n(&self, n: usize) -> Option<char> {
+        self.chars.clone().nth(n)
     }
 
     fn read_string(&mut self, quote: char) -> Result<String, String> {
@@ -771,16 +782,12 @@ impl<'a> Lexer<'a> {
             } else if c.is_ascii_digit() {
                 s.push(self.advance());
             } else if c == '.' && !is_float {
-                // Check if next char is a digit (to distinguish from method call)
-                self.advance();
-                if self.peek().map_or(false, |c| c.is_ascii_digit()) {
+                // Only consume '.' when it truly starts a fractional part.
+                if self.peek_n(1).is_some_and(|next| next.is_ascii_digit()) {
+                    self.advance();
                     s.push('.');
                     is_float = true;
                 } else {
-                    // It's an integer followed by a dot - probably a method call
-                    // Put back the dot by not consuming it
-                    self.pos -= 1;
-                    self.column -= 1;
                     break;
                 }
             } else if c == 'e' || c == 'E' {
@@ -952,4 +959,3 @@ impl<'a> Lexer<'a> {
         }
     }
 }
-
