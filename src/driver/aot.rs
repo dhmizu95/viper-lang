@@ -152,6 +152,14 @@ pub fn compile_file_aot(
         println!("   ✓ No recursive functions detected");
     }
 
+    // Apply Loop Invariant Code Motion (LICM) optimization
+    if opt_level >= 2 {
+        println!("   [2.4/4] Running LICM (Loop Invariant Code Motion)...");
+        let mut licm = codegen::LicmPass::new();
+        licm.run(&mut ast);
+        println!("   ✓ LICM complete");
+    }
+
     // Apply Dead Code Elimination optimization
     if opt_level >= 1 {
         println!("   [2.5/4] Running DCE optimization...");

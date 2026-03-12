@@ -6,6 +6,7 @@ pub mod dce;
 pub mod expressions;
 pub mod functions;
 pub mod inline_lists;
+pub mod licm;
 pub mod oop;
 pub mod runtime;
 pub mod state;
@@ -14,4 +15,5 @@ pub mod types;
 pub mod variables;
 
 pub use dce::DeadCodeEliminator;
+pub use licm::LicmPass;
 pub use core::CodeGen;

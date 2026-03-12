@@ -148,12 +148,27 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     };
 
     println!("   Executing via JIT (O{})...", opt_level);
+    println!("   ⚠ JIT mode has ~60MB memory overhead (LLVM infrastructure)");
+    println!("   💡 For memory-constrained environments, use AOT: viper build -O{}", opt_level);
 
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("Failed to initialize native target: {}", e))?;
 
     // Create JIT execution engine with specified optimization level
     // The JIT applies optimizations on-the-fly during compilation
+    // 
+    // Memory Optimization Note:
+    // The LLVM JIT engine has inherent memory overhead (~60MB base) regardless of program size.
+    // This is due to loading the full JIT infrastructure including:
+    // - LLVM IR optimizer
+    // - Target machine code generator  
+    // - MCJIT memory manager
+    // - Symbol resolver
+    //
+    // Future optimization: Implement lazy compilation using ORC-JIT with:
+    // - Compile functions on first call only (not all at once)
+    // - Use memory manager with page-based deallocation
+    // - Implement tiered compilation (interpreter → baseline → optimizing)
     let execution_engine = codegen
         .module()
         .create_jit_execution_engine(opt)

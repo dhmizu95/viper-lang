@@ -6,17 +6,11 @@ pub mod recursion_analysis;
 pub mod symbol_table;
 pub mod type_checker;
 
-#[allow(unused_imports)]
+// Re-export commonly used items
 pub use closure_analysis::{CapturedVarInfo, ClosureAnalyzer, ClosureInfo};
-#[allow(unused_imports)]
 pub use constant_folding::ConstantFolder;
-#[allow(unused_imports)]
 pub use escape_analysis::{EscapeAnalyzer, EscapeState, FunctionEscapeContext, VariableEscapeInfo};
-#[allow(unused_imports)]
 pub use monomorphization::{Monomorphizer, MonomorphizedFunction};
-#[allow(unused_imports)]
 pub use recursion_analysis::RecursionAnalyzer;
-#[allow(unused_imports)]
 pub use symbol_table::{Symbol, SymbolKind, SymbolTable};
-#[allow(unused_imports)]
 pub use type_checker::TypeChecker;
