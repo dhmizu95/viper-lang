@@ -1,6 +1,6 @@
 # Viper Benchmark Report
 
-**Date:** 2026-03-12 22:25:53  
+**Date:** 2026-03-13 00:03:39  
 **Iterations:** 3  
 **Max Memory Limit:** 4096MB  
 **Max Time Limit:** 300s  
@@ -18,24 +18,24 @@
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go |
 |-----------|-----|--------|--------|--------|---|------|-----|
-| 01_fibonacci | 29 | 8 | 9 | 9 | 17 | 28 | 44 |
-| 02_prime_sieve | 27 | 9 | 10 | 11 | 8 | 8 | 8 |
-| 03_matrix_mul | 27 | 14 | 11 | 16 | 9 | 7 | 10 |
-| 04_quicksort | 37 | 7 | 7 | 10 | 8 | 9 | 9 |
-| 05_matrix_mul | 30 | 11 | 7 | 9 | 7 | 11 | 6 |
-| 06_prime_sieve | 29 | 9 | 9 | 9 | 9 | 9 | 9 |
-| 07_string_ops | 28 | 9 | 10 | 8 | 9 | 6 | 7 |
+| 01_fibonacci | 45 | 7 | 8 | 8 | 21 | 27 | 42 |
+| 02_prime_sieve | 29 | 9 | 10 | 10 | 5 | 9 | 9 |
+| 03_matrix_mul | 29 | 15 | 14 | 13 | 8 | 7 | 8 |
+| 04_quicksort | 29 | 8 | 8 | 9 | 7 | 8 | 7 |
+| 05_matrix_mul | 30 | 10 | 9 | 9 | 7 | 7 | 6 |
+| 06_prime_sieve | 27 | 8 | 8 | 8 | 5 | 7 | 8 |
+| 07_string_ops | 27 | 8 | 11 | 11 | 7 | 7 | 8 |
 
 ## Memory (Peak RSS in KB)
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go |
 |-----------|-----|--------|--------|--------|---|------|-----|
-| 01_fibonacci | 67157 | 2133 | 2176 | 2176 | 1408 | 1920 | 1578 |
-| 02_prime_sieve | 67114 | 2176 | 2176 | 2176 | 1408 | 1962 | 1664 |
-| 03_matrix_mul | 66858 | 2560 | 2560 | 2560 | 1408 | 1920 | 1621 |
+| 01_fibonacci | 67029 | 2176 | 2090 | 2176 | 1408 | 1962 | 1536 |
+| 02_prime_sieve | 66986 | 2176 | 2176 | 2176 | 1408 | 1962 | 1664 |
+| 03_matrix_mul | 66901 | 2560 | 2560 | 2560 | 1408 | 1962 | 1664 |
 | 04_quicksort | 67328 | 2176 | 2176 | 2176 | 1408 | 2048 | 1664 |
-| 05_matrix_mul | 67157 | 2304 | 2304 | 2304 | 1536 | 2048 | 1749 |
-| 06_prime_sieve | 66986 | 2133 | 2176 | 2133 | 1408 | 2048 | 1621 |
+| 05_matrix_mul | 67200 | 2304 | 2304 | 2304 | 1536 | 2048 | 1664 |
+| 06_prime_sieve | 66986 | 2176 | 2176 | 2176 | 1408 | 2048 | 1706 |
 | 07_string_ops | 67029 | 2176 | 2176 | 2176 | 1536 | 2048 | 1792 |
 
 ## Status
@@ -58,52 +58,52 @@
 
 | Benchmark | JIT vs C | AOT-O1 vs C | AOT-O2 vs C | AOT-O3 vs C |
 |-----------|----------|-------------|-------------|-------------|
-| 01_fibonacci | 1.7× | 0.5× | 0.5× | 0.5× |
-| 02_prime_sieve | 3.4× | 1.1× | 1.2× | 1.4× |
-| 03_matrix_mul | 3.0× | 1.6× | 1.2× | 1.8× |
-| 04_quicksort | 4.6× | 0.9× | 0.9× | 1.2× |
-| 05_matrix_mul | 4.3× | 1.6× | 1.0× | 1.3× |
-| 06_prime_sieve | 3.2× | 1.0× | 1.0× | 1.0× |
-| 07_string_ops | 3.1× | 1.0× | 1.1× | 0.9× |
+| 01_fibonacci | 2.1× | 0.3× | 0.4× | 0.4× |
+| 02_prime_sieve | 5.8× | 1.8× | 2.0× | 2.0× |
+| 03_matrix_mul | 3.6× | 1.9× | 1.8× | 1.6× |
+| 04_quicksort | 4.1× | 1.1× | 1.1× | 1.3× |
+| 05_matrix_mul | 4.3× | 1.4× | 1.3× | 1.3× |
+| 06_prime_sieve | 5.4× | 1.6× | 1.6× | 1.6× |
+| 07_string_ops | 3.9× | 1.1× | 1.6× | 1.6× |
 
 ### Performance Ratio vs Rust
 
 | Benchmark | JIT vs Rust | AOT-O1 vs Rust | AOT-O2 vs Rust | AOT-O3 vs Rust |
 |-----------|-------------|----------------|----------------|----------------|
-| 01_fibonacci | 1.0× | 0.3× | 0.3× | 0.3× |
-| 02_prime_sieve | 3.4× | 1.1× | 1.2× | 1.4× |
-| 03_matrix_mul | 3.9× | 2.0× | 1.6× | 2.3× |
-| 04_quicksort | 4.1× | 0.8× | 0.8× | 1.1× |
-| 05_matrix_mul | 2.7× | 1.0× | 0.6× | 0.8× |
-| 06_prime_sieve | 3.2× | 1.0× | 1.0× | 1.0× |
-| 07_string_ops | 4.7× | 1.5× | 1.7× | 1.3× |
+| 01_fibonacci | 1.7× | 0.3× | 0.3× | 0.3× |
+| 02_prime_sieve | 3.2× | 1.0× | 1.1× | 1.1× |
+| 03_matrix_mul | 4.1× | 2.1× | 2.0× | 1.9× |
+| 04_quicksort | 3.6× | 1.0× | 1.0× | 1.1× |
+| 05_matrix_mul | 4.3× | 1.4× | 1.3× | 1.3× |
+| 06_prime_sieve | 3.9× | 1.1× | 1.1× | 1.1× |
+| 07_string_ops | 3.9× | 1.1× | 1.6× | 1.6× |
 
 ### Performance Ratio vs Go
 
 | Benchmark | JIT vs Go | AOT-O1 vs Go | AOT-O2 vs Go | AOT-O3 vs Go |
 |-----------|-----------|--------------|--------------|--------------|
-| 01_fibonacci | 0.7× | 0.2× | 0.2× | 0.2× |
-| 02_prime_sieve | 3.4× | 1.1× | 1.2× | 1.4× |
-| 03_matrix_mul | 2.7× | 1.4× | 1.1× | 1.6× |
-| 04_quicksort | 4.1× | 0.8× | 0.8× | 1.1× |
-| 05_matrix_mul | 5.0× | 1.8× | 1.2× | 1.5× |
-| 06_prime_sieve | 3.2× | 1.0× | 1.0× | 1.0× |
-| 07_string_ops | 4.0× | 1.3× | 1.4× | 1.1× |
+| 01_fibonacci | 1.1× | 0.2× | 0.2× | 0.2× |
+| 02_prime_sieve | 3.2× | 1.0× | 1.1× | 1.1× |
+| 03_matrix_mul | 3.6× | 1.9× | 1.8× | 1.6× |
+| 04_quicksort | 4.1× | 1.1× | 1.1× | 1.3× |
+| 05_matrix_mul | 5.0× | 1.7× | 1.5× | 1.5× |
+| 06_prime_sieve | 3.4× | 1.0× | 1.0× | 1.0× |
+| 07_string_ops | 3.4× | 1.0× | 1.4× | 1.4× |
 
 ### Memory Efficiency
 
 | Mode | Avg Memory (KB) | vs C |
 |------|-----------------|------|
-| Viper JIT | 67089 | 46.5× |
-| Viper AOT-O1 | 2236 | 1.5× |
-| Viper AOT-O2 | 2249 | 1.6× |
-| Viper AOT-O3 | 2243 | 1.6× |
+| Viper JIT | 67065 | 46.4× |
+| Viper AOT-O1 | 2249 | 1.6× |
+| Viper AOT-O2 | 2236 | 1.5× |
+| Viper AOT-O3 | 2249 | 1.6× |
 
 ### Key Findings
 
 1. **AOT-O1** typically offers the best performance/memory balance
-2. **JIT mode** has ~46.4× memory overhead (67089KB vs C's ~1444KB)
-3. **AOT memory** is ~1.6× C baseline (2243KB vs ~1444KB)
+2. **JIT mode** has ~46.4× memory overhead (67065KB vs C's ~1444KB)
+3. **AOT memory** is ~1.6× C baseline (2245KB vs ~1444KB)
 4. Performance varies by workload - see individual benchmark ratios above
 
 ---

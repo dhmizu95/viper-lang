@@ -3,7 +3,7 @@
 //! This module provides infrastructure for lazy compilation to reduce JIT memory overhead:
 //! - Compile functions on first call only (not all at once)
 //! - Reduce initial memory footprint by deferring compilation
-//! - Enable tiered compilation (interpreter → baseline → optimizing)
+//! - Enable tiered compilation (baseline → optimizing)
 //!
 //! # Memory Savings
 //! Standard JIT: ~60MB base overhead (all functions compiled upfront)
@@ -11,11 +11,13 @@
 //!
 //! # Usage
 //! ```rust,no_run
-//! let lazy_engine = LazyJitEngine::new(opt_level);
+//! use viper_lang::driver::LazyJitEngine;
+//!
+//! let lazy_engine = LazyJitEngine::new(&context, 3);
 //! lazy_engine.add_module(module);
-//! 
+//!
 //! // Functions are compiled on first call
-//! let result = lazy_engine.call_function("my_func", args);
+//! let addr = lazy_engine.get_function("my_func")?;
 //! ```
 
 use inkwell::{
@@ -26,9 +28,11 @@ use inkwell::{
     OptimizationLevel,
 };
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Instant;
 
 /// Lazy JIT execution engine
-/// 
+///
 /// Defers compilation of functions until they are first called,
 /// reducing initial memory footprint.
 pub struct LazyJitEngine<'ctx> {
@@ -42,6 +46,19 @@ pub struct LazyJitEngine<'ctx> {
     compiled_functions: HashMap<String, u64>,
     /// Execution engine (created on first compilation)
     execution_engine: Option<ExecutionEngine<'ctx>>,
+    /// Track compilation statistics
+    stats: CompilationStats,
+}
+
+/// Compilation statistics for monitoring
+#[derive(Debug, Default)]
+struct CompilationStats {
+    /// Total functions compiled
+    pub total_compiled: AtomicUsize,
+    /// Time when first function was compiled
+    pub first_compilation: std::sync::Mutex<Option<Instant>>,
+    /// Total compilation time in milliseconds
+    pub total_compilation_time_ms: AtomicUsize,
 }
 
 impl<'ctx> LazyJitEngine<'ctx> {
@@ -51,7 +68,7 @@ impl<'ctx> LazyJitEngine<'ctx> {
             0 => OptimizationLevel::None,
             1 => OptimizationLevel::Less,
             2 => OptimizationLevel::Default,
-            _ => OptimizationLevel::Aggressive,
+            3 | _ => OptimizationLevel::Aggressive,
         };
 
         Self {
@@ -60,6 +77,7 @@ impl<'ctx> LazyJitEngine<'ctx> {
             pending_modules: Vec::new(),
             compiled_functions: HashMap::new(),
             execution_engine: None,
+            stats: CompilationStats::default(),
         }
     }
 
@@ -69,10 +87,10 @@ impl<'ctx> LazyJitEngine<'ctx> {
     }
 
     /// Get or compile a function by name
-    /// 
+    ///
     /// Returns the function address, compiling it if necessary.
     pub fn get_function(&mut self, name: &str) -> Result<u64, String> {
-        // Check if already compiled
+        // Check if already compiled (fast path - no locking needed)
         if let Some(&addr) = self.compiled_functions.get(name) {
             return Ok(addr);
         }
@@ -87,18 +105,56 @@ impl<'ctx> LazyJitEngine<'ctx> {
             if let Some(_func) = module.get_function(name) {
                 // Compile this function
                 let engine = self.execution_engine.as_ref().unwrap();
+                
+                // Track compilation time
+                let start_time = Instant::now();
+                
                 let _func_value = engine
                     .get_function_value(name)
                     .map_err(|e| format!("Failed to get function {}: {}", name, e))?;
 
                 let addr = engine.get_function_address(name)
                     .map_err(|e| format!("Failed to get address for {}: {}", name, e))?;
+                
+                // Record compilation statistics
+                let elapsed_ms = start_time.elapsed().as_millis() as usize;
+                self.stats.total_compiled.fetch_add(1, Ordering::Relaxed);
+                self.stats.total_compilation_time_ms.fetch_add(elapsed_ms, Ordering::Relaxed);
+                
+                // Record first compilation time
+                {
+                    let mut first_time = self.stats.first_compilation.lock().unwrap();
+                    if first_time.is_none() {
+                        *first_time = Some(Instant::now());
+                    }
+                }
+                
                 self.compiled_functions.insert(name.to_string(), addr as u64);
                 return Ok(addr as u64);
             }
         }
 
         Err(format!("Function '{}' not found", name))
+    }
+
+    /// Get compilation statistics
+    pub fn get_compilation_stats(&self) -> CompilationStatsSummary {
+        let first_compilation = self.stats.first_compilation.lock().unwrap();
+        CompilationStatsSummary {
+            total_compiled: self.stats.total_compiled.load(Ordering::Relaxed),
+            total_compilation_time_ms: self.stats.total_compilation_time_ms.load(Ordering::Relaxed),
+            avg_compilation_time_ms: {
+                let total = self.stats.total_compiled.load(Ordering::Relaxed);
+                if total > 0 {
+                    self.stats.total_compilation_time_ms.load(Ordering::Relaxed) / total
+                } else {
+                    0
+                }
+            },
+            time_since_first_compilation: first_compilation
+                .map(|i| i.elapsed().as_secs_f64())
+                .unwrap_or(0.0),
+        }
     }
 
     /// Initialize the execution engine
@@ -147,6 +203,29 @@ impl<'ctx> LazyJitEngine<'ctx> {
             self.get_function(name)?;
         }
         Ok(())
+    }
+}
+
+/// Compilation statistics summary
+#[derive(Debug, Default)]
+pub struct CompilationStatsSummary {
+    /// Total functions compiled
+    pub total_compiled: usize,
+    /// Total compilation time in milliseconds
+    pub total_compilation_time_ms: usize,
+    /// Average compilation time per function in milliseconds
+    pub avg_compilation_time_ms: usize,
+    /// Time since first compilation in seconds
+    pub time_since_first_compilation: f64,
+}
+
+impl std::fmt::Display for CompilationStatsSummary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Compilation Statistics:")?;
+        writeln!(f, "  Total compiled: {}", self.total_compiled)?;
+        writeln!(f, "  Total time: {} ms", self.total_compilation_time_ms)?;
+        writeln!(f, "  Avg per function: {} ms", self.avg_compilation_time_ms)?;
+        writeln!(f, "  Time since first: {:.2}s", self.time_since_first_compilation)
     }
 }
 
@@ -203,7 +282,7 @@ impl CompilationTier {
 }
 
 /// Tiered JIT engine with profiling
-/// 
+///
 /// Starts with baseline compilation and re-compiles hot functions
 /// with full optimization.
 pub struct TieredJitEngine<'ctx> {
@@ -215,6 +294,8 @@ pub struct TieredJitEngine<'ctx> {
     call_counts: HashMap<String, usize>,
     /// Threshold for promoting to optimizing tier
     promotion_threshold: usize,
+    /// Functions already promoted to optimizing tier
+    promoted_functions: HashMap<String, u64>,
 }
 
 impl<'ctx> TieredJitEngine<'ctx> {
@@ -225,18 +306,33 @@ impl<'ctx> TieredJitEngine<'ctx> {
             optimizing_engine: None,
             call_counts: HashMap::new(),
             promotion_threshold: 100, // Promote after 100 calls
+            promoted_functions: HashMap::new(),
+        }
+    }
+
+    /// Create a new tiered JIT engine with custom promotion threshold
+    pub fn with_threshold(context: &'ctx Context, promotion_threshold: usize) -> Self {
+        Self {
+            baseline_engine: LazyJitEngine::new(context, 1),
+            optimizing_engine: None,
+            call_counts: HashMap::new(),
+            promotion_threshold,
+            promoted_functions: HashMap::new(),
         }
     }
 
     /// Add a module to both engines
     pub fn add_module(&mut self, module: Module<'ctx>) {
-        // Clone the module for the optimizing engine
-        // Note: This is a simplification - real implementation would use LLVM's module cloning
         self.baseline_engine.add_module(module);
     }
 
     /// Get or compile a function, potentially promoting to optimizing tier
     pub fn get_function(&mut self, name: &str) -> Result<u64, String> {
+        // Check if already promoted to optimizing tier
+        if let Some(&addr) = self.promoted_functions.get(name) {
+            return Ok(addr);
+        }
+
         // Increment call count
         let count = self.call_counts.entry(name.to_string()).or_insert(0);
         *count += 1;
@@ -251,8 +347,10 @@ impl<'ctx> TieredJitEngine<'ctx> {
 
             // Try to get from optimizing engine
             if let Some(opt_engine) = &mut self.optimizing_engine {
-                // Pre-compile this function in optimizing engine
+                // Compile this function in optimizing engine
                 if let Ok(addr) = opt_engine.get_function(name) {
+                    // Cache the promoted function address
+                    self.promoted_functions.insert(name.to_string(), addr);
                     return Ok(addr);
                 }
             }
@@ -271,6 +369,21 @@ impl<'ctx> TieredJitEngine<'ctx> {
                 .iter()
                 .filter(|(_, &count)| count >= self.promotion_threshold)
                 .count(),
+            promoted_functions: self.promoted_functions.len(),
+        }
+    }
+
+    /// Get compilation statistics for both tiers
+    pub fn get_compilation_stats(&self) -> TieredCompilationStats {
+        TieredCompilationStats {
+            baseline: self.baseline_engine.get_compilation_stats(),
+            optimizing: self.optimizing_engine.as_ref().map(|e| e.get_compilation_stats()),
+            total_calls: self.call_counts.values().sum(),
+            hot_functions: self.call_counts
+                .iter()
+                .filter(|(_, &count)| count >= self.promotion_threshold)
+                .count(),
+            promoted_functions: self.promoted_functions.len(),
         }
     }
 }
@@ -281,8 +394,10 @@ pub struct TieredMemoryStats {
     pub baseline: MemoryStats,
     /// Optimizing tier statistics (if initialized)
     pub optimizing: Option<MemoryStats>,
-    /// Number of hot functions (promoted to optimizing tier)
+    /// Number of hot functions (call count >= threshold)
     pub hot_functions: usize,
+    /// Number of functions promoted to optimizing tier
+    pub promoted_functions: usize,
 }
 
 impl std::fmt::Display for TieredMemoryStats {
@@ -294,6 +409,36 @@ impl std::fmt::Display for TieredMemoryStats {
             writeln!(f, "\nOptimizing Tier:")?;
             writeln!(f, "{}", opt)?;
         }
-        writeln!(f, "\nHot functions (promoted): {}", self.hot_functions)
+        writeln!(f, "\nHot functions: {}", self.hot_functions)?;
+        writeln!(f, "Promoted functions: {}", self.promoted_functions)
+    }
+}
+
+/// Compilation statistics for tiered JIT
+pub struct TieredCompilationStats {
+    /// Baseline tier statistics
+    pub baseline: CompilationStatsSummary,
+    /// Optimizing tier statistics (if initialized)
+    pub optimizing: Option<CompilationStatsSummary>,
+    /// Total function calls
+    pub total_calls: usize,
+    /// Number of hot functions (call count >= threshold)
+    pub hot_functions: usize,
+    /// Number of functions promoted to optimizing tier
+    pub promoted_functions: usize,
+}
+
+impl std::fmt::Display for TieredCompilationStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Tiered JIT Compilation Statistics:")?;
+        writeln!(f, "\nBaseline Tier:")?;
+        writeln!(f, "{}", self.baseline)?;
+        if let Some(ref opt) = self.optimizing {
+            writeln!(f, "\nOptimizing Tier:")?;
+            writeln!(f, "{}", opt)?;
+        }
+        writeln!(f, "\nTotal calls: {}", self.total_calls)?;
+        writeln!(f, "Hot functions: {}", self.hot_functions)?;
+        writeln!(f, "Promoted functions: {}", self.promoted_functions)
     }
 }
