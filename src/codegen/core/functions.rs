@@ -68,6 +68,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let should_memoize = is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
 
                 if should_memoize {
+                    let mut use_lru_cache = is_lru_cache;
                     // Get maxsize from decorator arguments or use default for auto-memoize
                     let maxsize = if is_lru_cache {
                         decorators.iter()
@@ -76,6 +77,10 @@ impl<'ctx> CodeGen<'ctx> {
                                 // Check for maxsize keyword argument
                                 for (key, val) in &d.keywords {
                                     if key == "maxsize" {
+                                        if matches!(val, Expr::None(_)) {
+                                            use_lru_cache = false;
+                                            return Some(0);
+                                        }
                                         if let Expr::Int(v, _) = val {
                                             return Some(*v);
                                         }
@@ -83,6 +88,10 @@ impl<'ctx> CodeGen<'ctx> {
                                 }
                                 // Check for positional argument
                                 d.args.first().and_then(|arg| {
+                                    if matches!(arg, Expr::None(_)) {
+                                        use_lru_cache = false;
+                                        return Some(0);
+                                    }
                                     if let Expr::Int(v, _) = arg {
                                         return Some(*v);
                                     }
@@ -94,7 +103,7 @@ impl<'ctx> CodeGen<'ctx> {
                         0  // Unbounded for @cache or auto-memoize
                     };
 
-                    self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, is_lru_cache, maxsize, returns_bigint)?;
+                    self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, use_lru_cache, maxsize, returns_bigint)?;
                 } else {
                     self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
                 }

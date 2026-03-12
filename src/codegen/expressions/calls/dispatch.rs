@@ -91,23 +91,6 @@ pub fn generate_call<'ctx>(
             return generate_user_main_call(state, args);
         }
 
-        // MEMOIZATION: Redirect recursive calls in memoized functions to __func_body
-        // This prevents infinite recursion where the wrapper calls itself
-        // Check if current function name ends with _body (memoized function body)
-        if let Some(current_func) = state.current_function {
-            // Check for __func_name_body pattern
-            if let Some(base_name) = current_func.strip_prefix("__").and_then(|s| s.strip_suffix("_body")) {
-                if name == base_name {
-                    // We're in a memoized function body calling itself recursively
-                    // Call the body function instead of the wrapper
-                    let body_func_name = format!("__{}_body", name);
-                    if let Some(body_func) = state.functions.get(&body_func_name).copied() {
-                        return generate_direct_call(state, body_func, args);
-                    }
-                }
-            }
-        }
-
         if name == "print" {
             return generate_print_call(state, args);
         }

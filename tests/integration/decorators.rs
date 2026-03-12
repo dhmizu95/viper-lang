@@ -131,6 +131,40 @@ main()
 }
 
 #[test]
+fn test_lru_cache_large_fibonacci() {
+    let code = r#"
+@lru_cache(maxsize=None)
+def fib(n):
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    print(fib(75))
+    return 0
+
+main()
+"#;
+
+    let test_file = write_temp_viper_file("test_large_fib_cache", code);
+    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
+        .args(["run"])
+        .arg(&test_file)
+        .output()
+        .expect("Failed to execute viper compiler");
+    let _ = fs::remove_file(&test_file);
+
+    assert!(output.status.success(), "large fibonacci cache program should run successfully");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("2111485077978050"),
+        "fib(75) should equal 2111485077978050, got: {}",
+        stdout
+    );
+}
+
+#[test]
 fn test_decorator_lru_cache_non_recursive_program() {
     let code = r#"
 @lru_cache(maxsize=128)
