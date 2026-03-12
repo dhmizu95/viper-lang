@@ -542,6 +542,66 @@ fn find_best_overload<'a>(
     best_match
 }
 
+pub(crate) fn infer_named_call_return_type<'ctx>(
+    state: &CodeGenState<'_, 'ctx>,
+    name: &str,
+    args: &[Expr],
+) -> Option<Type> {
+    let arg_types: Vec<Type> = args
+        .iter()
+        .map(|a| match a {
+            Expr::Ident(name, _) => state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a)),
+            _ => infer_expr_type(a),
+        })
+        .collect();
+
+    let mangled_name = mangle_function_name(name, &arg_types);
+    let func_val = state.functions.get(&mangled_name).copied().or_else(|| {
+        let overloads: Vec<_> = state
+            .functions
+            .iter()
+            .filter(|(k, _)| k == &&name.to_string() || k.starts_with(&format!("{}_", name)))
+            .collect();
+
+        if overloads.is_empty() {
+            return None;
+        }
+
+        if overloads.len() == 1 {
+            return Some(*overloads[0].1);
+        }
+
+        find_best_overload(&arg_types, &overloads)
+            .or_else(|| {
+                overloads
+                    .iter()
+                    .find(|(mangled, _)| mangled.chars().filter(|c| *c == '_').count() == arg_types.len())
+                    .map(|(mangled, _)| *mangled)
+            })
+            .and_then(|mangled| state.functions.get(mangled).copied())
+    })?;
+
+    let return_type = func_val.get_type().get_return_type()?;
+    if return_type.is_float_type() {
+        return Some(Type::F64);
+    }
+    if return_type.is_pointer_type() {
+        return Some(Type::Infer);
+    }
+    if return_type.is_int_type() {
+        let int_type = return_type.into_int_type();
+        return Some(match int_type.get_bit_width() {
+            1 => Type::Bool,
+            8 => Type::I8,
+            16 => Type::I16,
+            32 => Type::I32,
+            _ => Type::Int,
+        });
+    }
+
+    Some(Type::Infer)
+}
+
 /// Convert a mangled type string back to a Type
 fn mangled_str_to_type(s: &str) -> Type {
     match s {
@@ -663,4 +723,3 @@ fn generate_direct_call<'ctx>(
     let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "memo_call");
     Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()))
 }
-

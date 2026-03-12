@@ -195,6 +195,11 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 if name == "print" || name == "len" || name == "range" {
                     return if name == "len" { Type::I64 } else { Type::None };
                 }
+                if let Some(return_type) =
+                    crate::codegen::expressions::calls::infer_named_call_return_type(state, name, args)
+                {
+                    return return_type;
+                }
                 let arg_types: Vec<Type> = args.iter().map(|a| infer_type_with_state(state, a)).collect();
                 Type::Fn(arg_types, Box::new(Type::Infer))
             } else {

@@ -10,7 +10,7 @@ fn get_expr_type_for_assignment(state: &CodeGenState, expr: &Expr) -> Type {
             // Look up the type from var_types first
             state.var_types.get(name).cloned().unwrap_or(Type::Infer)
         }
-        _ => crate::codegen::expressions::core::infer_expr_type(expr),
+        _ => crate::codegen::expressions::core::infer_type_with_state(state, expr),
     }
 }
 

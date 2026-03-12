@@ -42,14 +42,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // Use type annotations directly if present, otherwise default to I64
                 // This must match the logic in declare_function_with_closure
-                let param_types: Vec<Type> = params.iter().map(|p| {
-                    if let Some(ref ty) = p.type_ann {
-                        ty.clone()
-                    } else {
-                        // Default to I64 for unannotated parameters (backward compatible)
-                        Type::I64
-                    }
-                }).collect();
+                let param_types = crate::codegen::functions::infer_param_types_from_body(params, body);
 
                 let mangled_name = mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
 
@@ -183,6 +176,7 @@ impl<'ctx> CodeGen<'ctx> {
         let _captured_vars: Vec<String> = self.closure_analyzer.get_closure_cells_to_create(original_name);
 
         // Set up parameters - use SSA registers for non-escaping variables, alloca for escaping
+        let resolved_param_types = crate::codegen::functions::infer_param_types_from_body(params, body);
         let num_regular_params = params.len();
         for (i, param) in params.iter().enumerate() {
             let param_value = func.get_nth_param(i as u32).unwrap();
@@ -199,22 +193,29 @@ impl<'ctx> CodeGen<'ctx> {
             // PERFORMANCE OPTIMIZATION: Use SSA registers for non-escaping variables
             // This eliminates alloca/load/store overhead for local variables that don't escape
             // Variables that escape (shared with nested functions, returned, etc.) use alloca
-            let var_type = if let Some(ref ty) = param.type_ann {
-                match ty {
-                    Type::F32 | Type::F64 => VarType::Float,
-                    Type::Bool => VarType::Bool,
-                    Type::Bytes => VarType::Bytes,
-                    Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_)
-                    | Type::Fn(_, _) | Type::Optional(_) | Type::Chan(_) | Type::WaitGroup
-                    | Type::Future(_) => VarType::Pointer,
-                    _ => VarType::Int,
-                }
-            } else if param_value.is_pointer_value() {
+            let resolved_type = resolved_param_types
+                .get(i)
+                .cloned()
+                .or_else(|| param.type_ann.clone())
+                .unwrap_or(Type::Infer);
+
+            let inferred_var_type = match &resolved_type {
+                Type::F32 | Type::F64 => VarType::Float,
+                Type::Bool => VarType::Bool,
+                Type::Bytes => VarType::Bytes,
+                Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_)
+                | Type::Fn(_, _) | Type::Optional(_) | Type::Chan(_) | Type::WaitGroup
+                | Type::Future(_) => VarType::Pointer,
+                _ => VarType::Int,
+            };
+            let var_type = if matches!(resolved_type, Type::Infer) && param_value.is_pointer_value() {
                 VarType::Pointer
-            } else if param_value.is_float_value() {
+            } else if matches!(resolved_type, Type::Infer) && param_value.is_float_value() {
                 VarType::Float
-            } else {
+            } else if matches!(resolved_type, Type::Infer) {
                 VarType::Int
+            } else {
+                inferred_var_type
             };
 
             // Use register allocation for non-escaping value types
@@ -230,15 +231,13 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
             // Store the parameter's type annotation in var_types for type inference
-            if let Some(ref ty) = param.type_ann {
-                self.var_types.insert(param.name.clone(), ty.clone());
-            }
+            self.var_types.insert(param.name.clone(), resolved_type.clone());
 
             // If parameter is a pointer type, mark it as a list or BigInt for indexing purposes
             // This is needed because list/BigInt parameters passed from callers are pointers
             if param_value.is_pointer_value() {
                 // Check if it's a BigInt parameter based on type annotation or inferred type
-                let is_bigint_param = matches!(param.type_ann, Some(Type::BigInt))
+                let is_bigint_param = matches!(resolved_type, Type::BigInt)
                     || matches!(self.var_types.get(&param.name), Some(Type::BigInt));
                 if is_bigint_param {
                     self.bigint_vars.insert(param.name.clone());
@@ -333,7 +332,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(Type::None) => {
                     self.ir_builder.build_return(&self.builder, None);
                 }
-                Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) => {
+                Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) | Some(Type::Int) | Some(Type::BigInt) => {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
                 }
@@ -436,6 +435,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(body_entry);
 
         // Set up parameters for body function (including closure parameters)
+        let resolved_param_types = crate::codegen::functions::infer_param_types_from_body(params, body);
         let total_params = params.len() + nonlocal_vars_param.len();
         for i in 0..total_params {
             let param_value = body_func.get_nth_param(i as u32).unwrap();
@@ -456,6 +456,15 @@ impl<'ctx> CodeGen<'ctx> {
                 VarType::Int
             };
             self.variables.insert(param_name.clone(), VarInfo::new_stack(alloca, var_type));
+
+            if i < params.len() {
+                let resolved_type = resolved_param_types
+                    .get(i)
+                    .cloned()
+                    .or_else(|| params[i].type_ann.clone())
+                    .unwrap_or(Type::Infer);
+                self.var_types.insert(param_name.clone(), resolved_type);
+            }
         }
 
         // Generate body statements with current_function set

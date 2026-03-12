@@ -34,11 +34,11 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
     use crate::ast::BinOp;
 
     match expr {
-        Expr::Int(_, _) => Type::I64,
+        Expr::Int(_, _) => Type::Int,
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
-        Expr::BigInt(_, _) => Type::BigInt,
+        Expr::BigInt(_, _) => Type::Int,
         Expr::None(_) => Type::None,
         Expr::Ident(name, _) => param_types
             .iter()
@@ -73,24 +73,24 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
                 let rt = infer_type_from_expr(right, param_types);
                 if lt == Type::Str && rt == Type::Str {
                     Type::Str
-                } else if lt == Type::BigInt || rt == Type::BigInt {
-                    Type::BigInt
+                } else if lt == Type::BigInt || rt == Type::BigInt || lt == Type::Int || rt == Type::Int {
+                    Type::Int
                 } else if lt == Type::F64 || rt == Type::F64 {
                     Type::F64
                 } else {
-                    Type::I64
+                    Type::Int
                 }
             }
             _ => {
                 let lt = infer_type_from_expr(left, param_types);
                 let rt = infer_type_from_expr(right, param_types);
                 // BigInt operations return BigInt
-                if lt == Type::BigInt || rt == Type::BigInt {
-                    Type::BigInt
+                if lt == Type::BigInt || rt == Type::BigInt || lt == Type::Int || rt == Type::Int {
+                    Type::Int
                 } else if lt == Type::F64 || rt == Type::F64 {
                     Type::F64
                 } else {
-                    Type::I64
+                    Type::Int
                 }
             }
         },
@@ -128,11 +128,10 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return Type::List(Box::new(Type::Infer));
             }
 
-            // Check if parameter is used in arithmetic/comparison operations (indicating scalar)
-            // Disabled for now - passing to functions like print() shouldn't indicate scalar
-            // if param_is_used_as_scalar(&param.name, body) {
-            //     return Type::I64;
-            // }
+            // Arithmetic/comparison usage indicates the language-level int type.
+            if param_is_used_as_scalar(&param.name, body) {
+                return Type::Int;
+            }
 
             // Check if parameter is used with BigInt (assigned or compared with BigInt literals)
             if param_is_used_as_bigint(&param.name, body) {
@@ -580,18 +579,11 @@ pub fn declare_function_with_closure<'ctx>(
     let normalized_return_type = return_type.as_ref().map(|t| normalize_type(t));
 
     // Use type annotations directly if present, otherwise infer from body
-    let param_types: Vec<Type> = params.iter().map(|p| {
-        if let Some(ref ty) = p.type_ann {
-            ty.clone()
-        } else if let Some(_body) = body {
-            // Infer from body for unannotated parameters
-            // For now, default to I64 for unannotated params to maintain backward compatibility
-            Type::I64
-        } else {
-            // Default to I64 for unannotated parameters (backward compatible)
-            Type::I64
-        }
-    }).collect();
+    let param_types: Vec<Type> = if let Some(body) = body {
+        infer_param_types_from_body(params, body)
+    } else {
+        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Str)).collect()
+    };
 
     // Build LLVM parameter types for regular params
     let mut param_llvm_types: Vec<_> = param_types
