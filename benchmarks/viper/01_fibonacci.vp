@@ -1,7 +1,7 @@
 # Fibonacci Benchmark - Viper Implementation
 # Recursive Fibonacci with Memoization
 
-@lru_cache(maxsize=None)
+# @lru_cache(maxsize=None)
 def fib(n):
     """Calculate nth Fibonacci number recursively with memoization."""
     if n <= 1:
