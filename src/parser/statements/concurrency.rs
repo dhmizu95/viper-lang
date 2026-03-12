@@ -3,7 +3,7 @@ use crate::ast::{Expr, Stmt};
 use crate::lexer::TokenKind;
 use crate::utils::Span;
 
-pub fn parse_sync_block(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_sync_block(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Sync)?;
     parser.expect(&TokenKind::Colon)?;
@@ -12,7 +12,7 @@ pub fn parse_sync_block(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::Sync { body, span })
 }
 
-pub fn parse_task_spawn(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_task_spawn(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Task)?;
     let call = parse_expression(parser)?;

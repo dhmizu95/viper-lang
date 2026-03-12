@@ -4,7 +4,7 @@ use crate::lexer::TokenKind;
 use crate::utils::Span;
 
 /// Parse tuple literal (including empty tuple)
-pub fn parse_tuple_literal(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_tuple_literal(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance(); // consume LParen
 
     // Check for empty tuple
@@ -48,7 +48,7 @@ pub fn parse_tuple_literal(parser: &mut StatementParser, span: Span) -> Result<E
 }
 
 /// Parse list, array, or list comprehension
-pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance(); // consume LBracket
     let mut elements = Vec::new();
     let mut size: Option<usize> = None;
@@ -75,13 +75,13 @@ pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> Result<E
             match &size_token.kind {
                 TokenKind::Int(n) => {
                     if *n < 0 || *n > usize::MAX as i128 {
-                        return Err(format!("Array size must be a positive usize: {}", n));
+                        return crate::parser::parse_error(format!("Array size must be a positive usize: {}", n));
                     }
                     size = Some(*n as usize);
                     parser.advance();
                 }
                 _ => {
-                    return Err(format!(
+                    return crate::parser::parse_error(format!(
                         "Expected integer size for array, found {:?}",
                         size_token.kind
                     ))
@@ -113,7 +113,7 @@ pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> Result<E
 }
 
 /// Parse dict literal
-pub fn parse_dict_literal(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_dict_literal(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance(); // consume LBrace
     let mut pairs = Vec::new();
 

@@ -19,7 +19,6 @@ fn parse_expr(src: &str) -> viper_lang::error::Result<Expr> {
     let tokens = tokenize(src)?;
     let mut parser = PrattParser::new(&tokens);
     parser.parse_expr(Precedence::MIN)
-        .map_err(viper_lang::error::ViperError::driver)
 }
 
 fn assert_is_int(expr: &Expr, expected: i64) {

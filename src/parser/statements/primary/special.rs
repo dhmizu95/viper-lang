@@ -4,7 +4,7 @@ use crate::lexer::TokenKind;
 use crate::utils::Span;
 
 /// Parse lambda/fn expression: fn(x, y) : body or lambda x, y: body
-pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     let mut params = Vec::new();
 
     // Handle optional parentheses around parameters: fn(x, y: expr) or fn(x: expr)
@@ -19,7 +19,7 @@ pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> Result<Exp
                 // Empty parameter list like fn(): expr
                 break;
             } else {
-                return Err("Expected parameter name in lambda".to_string());
+                return crate::parser::parse_error("Expected parameter name in lambda".to_string());
             }
 
             if parser.match_token(&TokenKind::Comma) {
@@ -60,7 +60,7 @@ pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> Result<Exp
 }
 
 /// Parse type alias: type Name = Type
-pub fn parse_type_alias(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_type_alias(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Type)?;
 

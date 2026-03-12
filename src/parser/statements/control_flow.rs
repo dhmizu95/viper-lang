@@ -4,7 +4,7 @@ use crate::ast::{
 };
 use crate::lexer::TokenKind;
 
-pub fn parse_unless_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_unless_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Unless)?;
 
@@ -23,7 +23,7 @@ pub fn parse_unless_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::If { condition: negated_condition, body, elif_blocks: vec![], else_body: None, span })
 }
 
-pub fn parse_if_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_if_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::If)?;
 
@@ -51,7 +51,7 @@ pub fn parse_if_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::If { condition, body, elif_blocks, else_body, span })
 }
 
-pub fn parse_while_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_while_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::While)?;
 
@@ -71,7 +71,7 @@ pub fn parse_while_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::While { condition, body, else_body, span })
 }
 
-pub fn parse_for_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_for_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::For)?;
 
@@ -107,7 +107,7 @@ pub fn parse_for_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     })
 }
 
-pub fn parse_async_for_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_async_for_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Async)?;
     parser.expect(&TokenKind::For)?;
@@ -143,7 +143,7 @@ pub fn parse_async_for_stmt(parser: &mut StatementParser) -> Result<Stmt, String
         span,
     })
 }
-pub fn parse_try_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_try_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Try)?;
     parser.expect(&TokenKind::Colon)?;
@@ -189,7 +189,7 @@ pub fn parse_try_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
 
     Ok(Stmt::Try { body, handlers, else_body, finally_body, span })
 }
-pub fn parse_match_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_match_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Match)?;
 
@@ -266,7 +266,7 @@ pub fn parse_match_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::Match { subject: Box::new(subject), cases, span })
 }
 
-pub fn parse_select_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_select_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Select)?;
     parser.expect(&TokenKind::Colon)?;
@@ -308,10 +308,10 @@ pub fn parse_select_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
                 parser.advance();
                 SelectCaseKind::Default
             } else {
-                return Err("Expected 'recv', 'send', or 'default' in select case".to_string());
+                return crate::parser::parse_error("Expected 'recv', 'send', or 'default' in select case".to_string());
             }
         } else {
-            return Err("Expected 'recv', 'send', or 'default' in select case".to_string());
+            return crate::parser::parse_error("Expected 'recv', 'send', or 'default' in select case".to_string());
         };
 
         parser.expect(&TokenKind::Colon)?;
@@ -348,7 +348,7 @@ pub fn parse_select_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::Select { cases, span })
 }
 
-pub fn parse_match_pattern(parser: &mut StatementParser) -> Result<MatchPattern, String> {
+pub fn parse_match_pattern(parser: &mut StatementParser) -> crate::error::Result<MatchPattern> {
     let token = parser.current().clone();
 
     match token.kind {
@@ -403,11 +403,11 @@ pub fn parse_match_pattern(parser: &mut StatementParser) -> Result<MatchPattern,
                 Ok(MatchPattern::Variable(name))
             }
         }
-        _ => Err(format!("Unexpected token in pattern: {:?}", token.kind)),
+        _ => crate::parser::parse_error(format!("Unexpected token in pattern: {:?}", token.kind)),
     }
 }
 
-pub fn parse_match_list_pattern(parser: &mut StatementParser) -> Result<MatchPattern, String> {
+pub fn parse_match_list_pattern(parser: &mut StatementParser) -> crate::error::Result<MatchPattern> {
     parser.expect(&TokenKind::LBracket)?;
 
     let mut elements = Vec::new();
@@ -432,7 +432,7 @@ pub fn parse_match_list_pattern(parser: &mut StatementParser) -> Result<MatchPat
     Ok(MatchPattern::List { elements, rest })
 }
 
-pub fn parse_match_tuple_pattern(parser: &mut StatementParser) -> Result<MatchPattern, String> {
+pub fn parse_match_tuple_pattern(parser: &mut StatementParser) -> crate::error::Result<MatchPattern> {
     parser.expect(&TokenKind::LParen)?;
 
     let mut elements = Vec::new();
@@ -453,7 +453,7 @@ pub fn parse_match_tuple_pattern(parser: &mut StatementParser) -> Result<MatchPa
 pub fn parse_match_type_pattern(
     parser: &mut StatementParser,
     type_name: &str,
-) -> Result<MatchPattern, String> {
+) -> crate::error::Result<MatchPattern> {
     parser.expect(&TokenKind::LParen)?;
 
     // Check if there's a binding identifier

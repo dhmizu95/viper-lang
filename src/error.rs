@@ -52,3 +52,15 @@ impl ViperError {
         Self::Cli(message.into())
     }
 }
+
+impl From<String> for ViperError {
+    fn from(value: String) -> Self {
+        ViperError::Driver(value)
+    }
+}
+
+impl From<&str> for ViperError {
+    fn from(value: &str) -> Self {
+        ViperError::Driver(value.to_string())
+    }
+}

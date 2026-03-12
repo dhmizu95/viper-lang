@@ -8,7 +8,7 @@ pub fn parse_list_comprehension(
     parser: &mut StatementParser,
     element: Expr,
     span: Span,
-) -> Result<Expr, String> {
+) -> crate::error::Result<Expr> {
     // This is a list comprehension
     parser.advance(); // consume 'for'
 
@@ -18,7 +18,7 @@ pub fn parse_list_comprehension(
         parser.advance();
         name
     } else {
-        return Err("Expected variable name in list comprehension".to_string());
+        return crate::parser::parse_error("Expected variable name in list comprehension".to_string());
     };
 
     // Expect 'in' keyword

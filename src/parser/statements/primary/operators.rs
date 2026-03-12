@@ -3,7 +3,7 @@ use crate::ast::{Expr, UnaryOp};
 use crate::utils::Span;
 
 /// Parse unary minus expression: -expr
-pub fn parse_neg_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_neg_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     let operand = super::parse_primary_expr(parser)?;
     let neg_span = span.merge(operand.span());
@@ -15,7 +15,7 @@ pub fn parse_neg_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, 
 }
 
 /// Parse unary not expression: not expr
-pub fn parse_not_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_not_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     let operand = super::parse_primary_expr(parser)?;
     let not_span = span.merge(operand.span());
@@ -27,7 +27,7 @@ pub fn parse_not_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, 
 }
 
 /// Parse unary invert expression: ~expr
-pub fn parse_invert_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_invert_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     let operand = super::parse_primary_expr(parser)?;
     let tilde_span = span.merge(operand.span());
@@ -39,7 +39,7 @@ pub fn parse_invert_expr(parser: &mut StatementParser, span: Span) -> Result<Exp
 }
 
 /// Parse unary plus expression: +expr
-pub fn parse_pos_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_pos_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     let operand = super::parse_primary_expr(parser)?;
     let plus_span = span.merge(operand.span());
@@ -51,7 +51,7 @@ pub fn parse_pos_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, 
 }
 
 /// Parse pre-increment expression: ++expr
-pub fn parse_pre_inc_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_pre_inc_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     let operand = super::parse_primary_expr(parser)?;
     let inc_span = span.merge(operand.span());
@@ -63,7 +63,7 @@ pub fn parse_pre_inc_expr(parser: &mut StatementParser, span: Span) -> Result<Ex
 }
 
 /// Parse pre-decrement expression: --expr
-pub fn parse_pre_dec_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_pre_dec_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     let operand = super::parse_primary_expr(parser)?;
     let dec_span = span.merge(operand.span());

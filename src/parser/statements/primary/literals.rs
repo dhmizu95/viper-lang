@@ -102,7 +102,7 @@ pub fn parse_super_expr(parser: &mut StatementParser, span: Span) -> Expr {
 }
 
 /// Parse await expression
-pub fn parse_await_expr(parser: &mut StatementParser, span: Span) -> Result<Expr, String> {
+pub fn parse_await_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     let future = super::parse_primary_expr(parser)?;
     Ok(Expr::Await {
         future: Box::new(future),

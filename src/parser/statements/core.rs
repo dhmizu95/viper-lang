@@ -42,12 +42,12 @@ impl<'a> StatementParser<'a> {
         }
     }
 
-    pub(crate) fn expect(&mut self, kind: &TokenKind) -> Result<(), String> {
+    pub(crate) fn expect(&mut self, kind: &TokenKind) -> crate::error::Result<()> {
         if std::mem::discriminant(&self.current().kind) == std::mem::discriminant(kind) {
             self.advance();
             Ok(())
         } else {
-            Err(format!(
+            crate::parser::parse_error(format!(
                 "Expected {:?}, found {:?} at line {}",
                 kind,
                 self.current().kind,
@@ -56,7 +56,7 @@ impl<'a> StatementParser<'a> {
         }
     }
 
-    pub(crate) fn expect_ident(&mut self) -> Result<String, String> {
+    pub(crate) fn expect_ident(&mut self) -> crate::error::Result<String> {
         // Accept regular identifiers
         if let TokenKind::Ident(name) = &self.current().kind {
             let name = name.clone();
@@ -71,7 +71,7 @@ impl<'a> StatementParser<'a> {
             self.advance();
             Ok(name)
         } else {
-            Err(format!(
+            crate::parser::parse_error(format!(
                 "Expected identifier, found {:?} at line {}",
                 self.current().kind,
                 self.current().span.line
@@ -85,7 +85,7 @@ impl<'a> StatementParser<'a> {
 }
 
 /// Parse all statements until EOF
-pub fn parse_statements(parser: &mut StatementParser) -> Result<Vec<Stmt>, String> {
+pub fn parse_statements(parser: &mut StatementParser) -> crate::error::Result<Vec<Stmt>> {
     let mut stmts = Vec::new();
 
     while !parser.is_at_end() {
@@ -104,7 +104,7 @@ pub fn parse_statements(parser: &mut StatementParser) -> Result<Vec<Stmt>, Strin
     Ok(stmts)
 }
 
-pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_statement(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let token = parser.current().clone();
 
     match &token.kind {
@@ -238,7 +238,7 @@ pub fn parse_statement(parser: &mut StatementParser) -> Result<Stmt, String> {
         }
     }
 }
-pub fn parse_return_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_return_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Return)?;
 
@@ -266,7 +266,7 @@ pub fn parse_return_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::Return { value, span })
 }
 
-pub fn parse_import(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_import(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Import)?;
 
@@ -276,7 +276,7 @@ pub fn parse_import(parser: &mut StatementParser) -> Result<Stmt, String> {
 
     Ok(Stmt::Import { module, alias, span })
 }
-pub fn parse_from_import(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_from_import(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::From)?;
 
@@ -304,14 +304,14 @@ pub fn parse_from_import(parser: &mut StatementParser) -> Result<Stmt, String> {
 
     Ok(Stmt::FromImport { module, names, span })
 }
-pub fn parse_expression(parser: &mut StatementParser) -> Result<Expr, String> {
+pub fn parse_expression(parser: &mut StatementParser) -> crate::error::Result<Expr> {
     let current_pos = parser.pos;
     parser.expr_parser.set_pos(current_pos);
     let expr = parser.expr_parser.parse_expr(crate::parser::precedence::Precedence::MIN)?;
     parser.pos = parser.expr_parser.pos();
     Ok(expr)
 }
-pub fn parse_block(parser: &mut StatementParser) -> Result<Vec<Stmt>, String> {
+pub fn parse_block(parser: &mut StatementParser) -> crate::error::Result<Vec<Stmt>> {
     // Expect indent after colon
     if !parser.match_token(&TokenKind::Indent) {
         // Single statement on same line
@@ -340,7 +340,7 @@ pub fn parse_block(parser: &mut StatementParser) -> Result<Vec<Stmt>, String> {
 }
 
 /// Parse assert statement: assert condition or assert condition, message
-pub fn parse_assert_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_assert_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Assert)?;
 
@@ -356,7 +356,7 @@ pub fn parse_assert_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
 }
 
 /// Parse delete statement: del target1, target2, ...
-pub fn parse_delete_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_delete_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Del)?;
 
@@ -369,7 +369,7 @@ pub fn parse_delete_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
 }
 
 /// Parse raise statement: raise or raise Exception() or raise Exception() from cause
-pub fn parse_raise_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_raise_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Raise)?;
 
@@ -396,7 +396,7 @@ pub fn parse_raise_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
 /// Parse with statement: with expr as var: body or with expr1 as v1, expr2 as v2: body
 /// If is_async is true, parses: async with expr as var: body
 /// Note: When is_async is true, the 'async' token has already been consumed
-pub fn parse_with_stmt(parser: &mut StatementParser, is_async: bool) -> Result<Stmt, String> {
+pub fn parse_with_stmt(parser: &mut StatementParser, is_async: bool) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::With)?;
 
@@ -424,7 +424,7 @@ pub fn parse_with_stmt(parser: &mut StatementParser, is_async: bool) -> Result<S
 }
 
 /// Parse yield statement: yield or yield expr
-pub fn parse_yield_stmt(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_yield_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Yield)?;
 

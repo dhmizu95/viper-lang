@@ -8,7 +8,7 @@ pub fn parse_ident_expr(
     parser: &mut StatementParser,
     name: String,
     span: Span,
-) -> Result<Expr, String> {
+) -> crate::error::Result<Expr> {
     parser.advance();
     // Check for attribute access or function call
     let mut expr = Expr::Ident(name, span);
@@ -69,7 +69,7 @@ pub fn parse_ident_expr(
 pub fn parse_send_expr(
     parser: &mut StatementParser,
     span: Span,
-) -> Result<Expr, String> {
+) -> crate::error::Result<Expr> {
     parser.advance();
     // Treat as identifier "send" for function call syntax
     let mut expr = Expr::Ident("send".to_string(), span);
@@ -127,7 +127,7 @@ pub fn parse_send_expr(
 pub fn parse_recv_expr(
     parser: &mut StatementParser,
     span: Span,
-) -> Result<Expr, String> {
+) -> crate::error::Result<Expr> {
     parser.advance();
     // Treat as identifier "recv" for function call syntax
     let mut expr = Expr::Ident("recv".to_string(), span);
@@ -186,7 +186,7 @@ fn parse_slice_expr(
     parser: &mut StatementParser,
     obj: Expr,
     span: Span,
-) -> Result<Expr, String> {
+) -> crate::error::Result<Expr> {
     let mut start: Option<Box<Expr>> = None;
     let mut end: Option<Box<Expr>> = None;
     let mut step: Option<Box<Expr>> = None;

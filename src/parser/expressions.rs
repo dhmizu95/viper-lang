@@ -27,7 +27,7 @@ impl<'a> PrattParser<'a> {
         &mut self,
         mut left: Expr,
         min_prec: Precedence,
-    ) -> Result<Expr, String> {
+    ) -> crate::error::Result<Expr> {
         // Handle postfix operators (function calls, indexing, attribute access)
         loop {
             // Stop at statement boundaries (newlines, dedents, etc.)
@@ -114,7 +114,7 @@ impl<'a> PrattParser<'a> {
                     let attr_span = left.span().merge(self.previous().span);
                     left = Expr::Attribute { obj: Box::new(left), attr, span: attr_span };
                 } else {
-                    return Err("Expected attribute name after '.'".to_string());
+                    return crate::parser::parse_error("Expected attribute name after '.'".to_string());
                 }
             } else if self.match_token(&TokenKind::PlusPlus) {
                 // Postfix increment: x++
@@ -162,7 +162,7 @@ impl<'a> PrattParser<'a> {
                     let target_span = left.span();
                     let target = match &left {
                         Expr::Ident(name, _) => name.clone(),
-                        _ => return Err("Walrus operator requires an identifier on the left side".to_string()),
+                        _ => return crate::parser::parse_error("Walrus operator requires an identifier on the left side".to_string()),
                     };
                     
                     // Parse the value expression
@@ -253,13 +253,13 @@ impl<'a> PrattParser<'a> {
     }
 
     /// Parse an expression with minimum precedence
-    pub fn parse_expr(&mut self, min_prec: Precedence) -> Result<Expr, String> {
+    pub fn parse_expr(&mut self, min_prec: Precedence) -> crate::error::Result<Expr> {
         // Parse prefix expression
         let left = self.parse_prefix()?;
         self.parse_expr_with_left(left, min_prec)
     }
 
-    fn parse_prefix(&mut self) -> Result<Expr, String> {
+    fn parse_prefix(&mut self) -> crate::error::Result<Expr> {
         let token = self.current();
         let _kind = token.kind.clone();
         let span = token.span;
@@ -366,7 +366,7 @@ impl<'a> PrattParser<'a> {
                             // Empty parameter list like fn(): expr
                             break;
                         } else {
-                            return Err("Expected parameter name in lambda".to_string());
+                            return crate::parser::parse_error("Expected parameter name in lambda".to_string());
                         }
 
                         if self.match_token(&TokenKind::Comma) {
@@ -484,7 +484,7 @@ impl<'a> PrattParser<'a> {
                             self.advance();
                             name
                         } else {
-                            return Err("Expected variable name in list comprehension".to_string());
+                            return crate::parser::parse_error("Expected variable name in list comprehension".to_string());
                         };
 
                         // Expect 'in' keyword
@@ -521,7 +521,7 @@ impl<'a> PrattParser<'a> {
                                 self.advance();
                             }
                             _ => {
-                                return Err(format!(
+                                return crate::parser::parse_error(format!(
                                     "Expected integer size for array, found {:?}",
                                     size_token.kind
                                 ))
@@ -654,11 +654,11 @@ impl<'a> PrattParser<'a> {
                     span: merged_span,
                 })
             }
-            _ => Err(format!("Unexpected token in expression: {:?}", token.kind)),
+            _ => crate::parser::parse_error(format!("Unexpected token in expression: {:?}", token.kind)),
         }
     }
 
-    fn parse_infix_op(&mut self) -> Result<BinOp, String> {
+    fn parse_infix_op(&mut self) -> crate::error::Result<BinOp> {
         let kind = self.current().kind.clone();
         self.advance();
 
@@ -688,7 +688,7 @@ impl<'a> PrattParser<'a> {
             TokenKind::In => BinOp::In,
             TokenKind::NotIn => BinOp::NotIn,
             TokenKind::DoubleQuestion => BinOp::NullCoalesce,
-            _ => return Err("Unknown infix operator".to_string()),
+            _ => return crate::parser::parse_error("Unknown infix operator".to_string()),
         };
 
         Ok(op)
@@ -758,15 +758,15 @@ impl<'a> PrattParser<'a> {
         }
     }
 
-    fn expect(&mut self, kind: &TokenKind) -> Result<(), String> {
+    fn expect(&mut self, kind: &TokenKind) -> crate::error::Result<()> {
         if self.pos >= self.tokens.len() {
-            return Err(format!("Expected {:?}, but reached end of tokens", kind));
+            return crate::parser::parse_error(format!("Expected {:?}, but reached end of tokens", kind));
         }
         if std::mem::discriminant(&self.current().kind) == std::mem::discriminant(kind) {
             self.advance();
             Ok(())
         } else {
-            Err(format!("Expressions: Expected {:?}, found {:?}", kind, self.current().kind))
+            crate::parser::parse_error(format!("Expressions: Expected {:?}, found {:?}", kind, self.current().kind))
         }
     }
 

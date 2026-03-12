@@ -7,7 +7,7 @@ use crate::parser::statements::{parse_expression, parse_type_annotation};
 
 /// Parse global variable declaration: global x, y, z
 /// Python syntax: global x (inside function to refer to module-level x)
-pub fn parse_global_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_global_decl(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Global)?;
 
@@ -22,7 +22,7 @@ pub fn parse_global_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
 
 /// Parse nonlocal variable declaration: nonlocal x, y
 /// Python syntax: nonlocal x (inside nested function to refer to enclosing scope x)
-pub fn parse_nonlocal_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_nonlocal_decl(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Nonlocal)?;
 
@@ -36,7 +36,7 @@ pub fn parse_nonlocal_decl(parser: &mut StatementParser) -> Result<Stmt, String>
 }
 
 /// Parse constant declaration: const PI = 3.14
-pub fn parse_const_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_const_decl(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let span = parser.current().span;
     parser.expect(&TokenKind::Const)?;
 
@@ -44,7 +44,7 @@ pub fn parse_const_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
 
     // Constants must have an initializer
     if !parser.match_token(&TokenKind::Eq) {
-        return Err("Constant declaration must have an initializer".to_string());
+        return crate::parser::parse_error("Constant declaration must have an initializer".to_string());
     }
 
     let value = parse_expression(parser)?;
@@ -52,7 +52,7 @@ pub fn parse_const_decl(parser: &mut StatementParser) -> Result<Stmt, String> {
     Ok(Stmt::Const { name, value, span })
 }
 
-pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, String> {
+pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     // Parse the left-hand side (could be identifier, tuple, or attribute access)
     let expr = parse_primary_expr(parser)?;
 
@@ -111,7 +111,7 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, St
         let value = parse_value_expr(parser)?;
         let span = target.span().merge(value.span());
         if type_ann.is_some() {
-            return Err("Cannot use type annotation with augmented assignment".to_string());
+            return crate::parser::parse_error("Cannot use type annotation with augmented assignment".to_string());
         }
         Ok(Stmt::AugAssign {
             target: Box::new(target),
@@ -159,7 +159,7 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> Result<Stmt, St
     }
 }
 
-pub fn parse_value_expr_with_left(parser: &mut StatementParser, left: Expr) -> Result<Expr, String> {
+pub fn parse_value_expr_with_left(parser: &mut StatementParser, left: Expr) -> crate::error::Result<Expr> {
     parser.expr_parser.set_pos(parser.pos);
 
     if matches!(
@@ -183,7 +183,7 @@ pub fn parse_value_expr_with_left(parser: &mut StatementParser, left: Expr) -> R
     Ok(full_expr)
 }
 
-pub fn parse_value_expr(parser: &mut StatementParser) -> Result<Expr, String> {
+pub fn parse_value_expr(parser: &mut StatementParser) -> crate::error::Result<Expr> {
     // Parse a value expression (primary + postfix operators + binary operators)
     let expr = parse_primary_expr(parser)?;
 
@@ -262,7 +262,7 @@ pub fn parse_value_expr(parser: &mut StatementParser) -> Result<Expr, String> {
 /// Parse a value expression or tuple of values
 /// Used for assignment right-hand sides: a, b = 1, 2
 /// Also supports expressions in tuples: a, b = x + 1, y + 2
-pub fn parse_value_or_tuple(parser: &mut StatementParser) -> Result<Expr, String> {
+pub fn parse_value_or_tuple(parser: &mut StatementParser) -> crate::error::Result<Expr> {
     // Parse first element as a full expression (not just primary)
     let first = parse_value_expr(parser)?;
 
@@ -286,7 +286,7 @@ pub fn parse_value_or_tuple(parser: &mut StatementParser) -> Result<Expr, String
     Ok(first)
 }
 
-pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> {
+pub fn parse_primary_expr(parser: &mut StatementParser) -> crate::error::Result<Expr> {
     // Parse only primary expressions (identifiers, literals, etc.) without operators
     let token = parser.current();
     let span = token.span;
@@ -382,7 +382,7 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> Result<Expr, String> 
             parser.advance();
             return crate::parser::statements::primary::special::parse_lambda_expr(parser, span);
         }
-        _ => return Err(format!("Unexpected token in expression: {:?}", token.kind)),
+        _ => return crate::parser::parse_error(format!("Unexpected token in expression: {:?}", token.kind)),
     };
 
     Ok(expr)
