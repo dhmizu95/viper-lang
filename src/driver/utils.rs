@@ -3,10 +3,26 @@ use crate::error::{Result, ViperError};
 use crate::semantic::{RecursionAnalyzer, TypeChecker};
 use std::path::Path;
 
+fn check_command_exists_any(commands: &[&str]) -> bool {
+    commands.iter().any(|cmd| which::which(cmd).is_ok())
+}
+
 /// Check prerequisites for AOT compilation.
 pub fn check_aot_prerequisites() -> Result<()> {
-    if !check_command_exists("opt") {
-        return Err(ViperError::driver("LLVM opt tool not found in PATH"));
+    if !check_command_exists_any(&[
+        "opt",
+        "opt-21",
+        "opt-20",
+        "opt-19",
+        "opt-18",
+        "opt-17",
+        "opt-16",
+        "opt-15",
+        "opt-14",
+    ]) {
+        return Err(ViperError::driver(
+            "LLVM opt tool not found in PATH (looked for opt and versioned opt-* binaries)",
+        ));
     }
 
     if !check_command_exists("gcc") {

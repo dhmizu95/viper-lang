@@ -112,7 +112,7 @@ Success criteria:
 
 ### 5. AOT Optimization Validation
 
-**Status:** `WIP`
+**Status:** `DON`
 
 Tasks:
 

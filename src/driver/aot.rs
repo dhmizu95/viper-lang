@@ -9,8 +9,27 @@ use std::path::Path;
 
 /// Find LLVM tool path - checks environment variable first, then uses default
 fn find_llvm_tool(tool: &str) -> String {
-    std::env::var(format!("LLVM_{}_PATH", tool.to_uppercase()))
-        .unwrap_or_else(|_| format!("/usr/lib/llvm-21/bin/{}", tool))
+    if let Ok(path) = std::env::var(format!("LLVM_{}_PATH", tool.to_uppercase())) {
+        return path;
+    }
+
+    if let Ok(path) = which::which(tool) {
+        return path.to_string_lossy().into_owned();
+    }
+
+    for version in ["21", "20", "19", "18", "17", "16", "15", "14"] {
+        let versioned_tool = format!("{}-{}", tool, version);
+        if let Ok(path) = which::which(&versioned_tool) {
+            return path.to_string_lossy().into_owned();
+        }
+
+        let llvm_dir_tool = format!("/usr/lib/llvm-{}/bin/{}", version, tool);
+        if Path::new(&llvm_dir_tool).exists() {
+            return llvm_dir_tool;
+        }
+    }
+
+    format!("/usr/lib/llvm-21/bin/{}", tool)
 }
 
 #[allow(dead_code)]
@@ -146,22 +165,15 @@ pub fn compile_file_aot(
         let mut opt_args =
             vec!["-mtriple=x86_64-pc-linux-gnu", "-mcpu=native", &bc_path, "-o", &opt_bc];
 
-        // Build the passes string based on optimization level
-        // -O0: No optimization (debug builds)
-        // -O1: Basic optimizations for fast compilation
-        // -O2: Balanced optimizations for production builds
-        // -O3: Aggressive optimizations with tuned parameters to avoid regressions
-        // Note: LLVM 21 default<O1/O2/O3> passes include comprehensive optimization pipelines
-        // Custom O3 pipeline avoids aggressive loop unrolling that can cause code bloat
+        // Build the passes string based on optimization level.
+        // Stick to LLVM's default pipelines here so the driver remains compatible
+        // across toolchain versions such as LLVM 21, where some legacy/custom pass
+        // spellings are no longer accepted by `opt --passes=...`.
         let passes = match opt_level {
             0 => "verify",
             1 => "default<O1>",
             2 => "default<O2>",
-            3 => {
-                // Custom O3 pipeline: aggressive inlining + vectorization without excessive loop unrolling
-                // This avoids the O3 regression where default<O3> is slower than O2 on some benchmarks
-                "mem2reg,instcombine,simplifycfg,inline,loop-vectorize,slp-vectorize,gvn,licm,loop-unroll(max-unroll=4)"
-            }
+            3 => "default<O3>",
             _ => "default<O1>",
         };
 
