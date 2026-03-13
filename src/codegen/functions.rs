@@ -11,20 +11,41 @@ use crate::codegen::types::TypeMapper;
 
 fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) -> Option<Type> {
     for stmt in body {
-        if let Stmt::Return { value, .. } = stmt {
-            if let Some(expr) = value {
+        match stmt {
+            Stmt::Return { value: Some(expr), .. } => {
                 return Some(infer_type_from_expr(expr, param_types));
             }
-        }
-        if let Stmt::If { body, else_body, .. } = stmt {
-            if let Some(rt) = infer_return_type_from_body(body, param_types) {
-                return Some(rt);
-            }
-            if let Some(else_stmts) = else_body {
-                if let Some(rt) = infer_return_type_from_body(else_stmts, param_types) {
+            Stmt::If {
+                body,
+                elif_blocks,
+                else_body,
+                ..
+            } => {
+                if let Some(rt) = infer_return_type_from_body(body, param_types) {
                     return Some(rt);
                 }
+                for (_, elif_body) in elif_blocks {
+                    if let Some(rt) = infer_return_type_from_body(elif_body, param_types) {
+                        return Some(rt);
+                    }
+                }
+                if let Some(else_stmts) = else_body {
+                    if let Some(rt) = infer_return_type_from_body(else_stmts, param_types) {
+                        return Some(rt);
+                    }
+                }
             }
+            Stmt::While { body, else_body, .. } | Stmt::For { body, else_body, .. } => {
+                if let Some(rt) = infer_return_type_from_body(body, param_types) {
+                    return Some(rt);
+                }
+                if let Some(else_stmts) = else_body {
+                    if let Some(rt) = infer_return_type_from_body(else_stmts, param_types) {
+                        return Some(rt);
+                    }
+                }
+            }
+            _ => {}
         }
     }
     None

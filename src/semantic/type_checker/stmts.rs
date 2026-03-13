@@ -3,6 +3,53 @@ use crate::semantic::symbol_table::{Symbol, SymbolKind};
 use crate::semantic::type_checker::{TypeChecker, TypeError};
 
 impl TypeChecker {
+    fn infer_return_type_from_stmts(&mut self, body: &[Stmt]) -> Option<Type> {
+        for stmt in body {
+            match stmt {
+                Stmt::Return { value: Some(val), .. } => {
+                    let val_type = self.check_expr(val);
+                    if let Some(vt) = val_type {
+                        if vt != Type::Infer && vt != Type::None {
+                            return Some(vt);
+                        }
+                    }
+                }
+                Stmt::If {
+                    body,
+                    elif_blocks,
+                    else_body,
+                    ..
+                } => {
+                    if let Some(vt) = self.infer_return_type_from_stmts(body) {
+                        return Some(vt);
+                    }
+                    for (_, elif_body) in elif_blocks {
+                        if let Some(vt) = self.infer_return_type_from_stmts(elif_body) {
+                            return Some(vt);
+                        }
+                    }
+                    if let Some(else_body) = else_body {
+                        if let Some(vt) = self.infer_return_type_from_stmts(else_body) {
+                            return Some(vt);
+                        }
+                    }
+                }
+                Stmt::While { body, else_body, .. } | Stmt::For { body, else_body, .. } => {
+                    if let Some(vt) = self.infer_return_type_from_stmts(body) {
+                        return Some(vt);
+                    }
+                    if let Some(else_body) = else_body {
+                        if let Some(vt) = self.infer_return_type_from_stmts(else_body) {
+                            return Some(vt);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
     /// Collect instance fields from __init__ method body
     fn collect_instance_fields(body: &[Stmt], fields: &mut Vec<(String, Type)>) {
         for stmt in body {
@@ -328,18 +375,7 @@ impl TypeChecker {
                 // FIX: If no return type annotation, infer from return statements
                 let mut inferred_return_type = return_type.clone();
                 if inferred_return_type.is_none() {
-                    // Look for return statements to infer return type
-                    for stmt in body {
-                        if let Stmt::Return { value: Some(val), .. } = stmt {
-                            let val_type = self.check_expr(val);
-                            if let Some(vt) = val_type {
-                                if vt != Type::Infer && vt != Type::None {
-                                    inferred_return_type = Some(vt);
-                                    break;
-                                }
-                            }
-                        }
-                    }
+                    inferred_return_type = self.infer_return_type_from_stmts(body);
                 }
 
                 self.current_return_type = inferred_return_type.clone();

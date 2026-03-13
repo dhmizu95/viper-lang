@@ -356,3 +356,37 @@ test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+#[test]
+fn test_while_else_with_return_in_else_body() {
+    let code = r#"
+def classify(n: int) -> int:
+    while n > 0:
+        return 1
+    else:
+        return 2
+
+    print(classify(1))
+print(classify(0))
+"#;
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("1"));
+    assert!(output.contains("2"));
+}
+
+#[test]
+fn test_for_else_with_return_in_else_body() {
+    let code = r#"
+def first_or_default(n: int) -> int:
+    for i in range(n):
+        return i
+    else:
+        return 99
+
+print(first_or_default(0))
+print(first_or_default(3))
+"#;
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("\n99\n"));
+    assert!(output.contains("\n0\n"));
+}

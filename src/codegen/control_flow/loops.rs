@@ -87,10 +87,10 @@ fn generate_while_simple<'ctx>(
     }
     
     // Generate else block if it exists
-    if let Some(else_stmts) = else_body {
-        state.builder.position_at_end(else_block.unwrap());
-        for stmt in else_stmts {
-            crate::codegen::statements::generate_stmt(
+        if let Some(else_stmts) = else_body {
+            state.builder.position_at_end(else_block.unwrap());
+            for stmt in else_stmts {
+                crate::codegen::statements::generate_stmt(
                 state.context,
                 state.module,
                 state.builder,
@@ -104,12 +104,14 @@ fn generate_while_simple<'ctx>(
                 state.bool_list_vars,
                 state.bigint_vars,
                 state.var_types,
-                stmt,
-            )?;
+                    stmt,
+                )?;
+            }
+            // After else block, jump to exit
+            if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                state.ir_builder.build_branch(state.builder, exit_block);
+            }
         }
-        // After else block, jump to exit
-        state.ir_builder.build_branch(state.builder, exit_block);
-    }
     
     state.builder.position_at_end(exit_block);
     Ok(())
@@ -297,7 +299,9 @@ fn generate_for_with_iterator<'ctx>(
                     )?;
                 }
             }
-            state.ir_builder.build_branch(state.builder, exit_block);
+            if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                state.ir_builder.build_branch(state.builder, exit_block);
+            }
         }
         
         // Exit block
@@ -526,7 +530,9 @@ pub fn generate_for<'ctx>(
                         )?;
                     }
                     // After else block, jump to exit
-                    state.ir_builder.build_branch(state.builder, exit_block);
+                    if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                        state.ir_builder.build_branch(state.builder, exit_block);
+                    }
                 }
 
                 state.builder.position_at_end(exit_block);

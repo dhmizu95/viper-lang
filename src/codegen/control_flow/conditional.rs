@@ -28,7 +28,7 @@ fn generate_if_chain<'ctx>(
             // The current block should branch to merge_block
             // But first check if we're already at the merge_block (shouldn't happen, but be safe)
             let current_block = state.builder.get_insert_block().unwrap();
-            if current_block != merge_block {
+            if current_block != merge_block && current_block.get_terminator().is_none() {
                 state.ir_builder.build_branch(state.builder, merge_block);
             }
             return Ok(false);
