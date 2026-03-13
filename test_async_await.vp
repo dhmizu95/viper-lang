@@ -1,0 +1,86 @@
+# ============================================
+# Viper Async/Await Syntax Examples
+# ============================================
+
+# Basic async function
+async def fetch_data(url):
+    # Simulate async I/O
+    await sleep(100)
+    return "data from " + url
+
+# Async function with multiple awaits
+async def fetch_all(urls):
+    results = []
+    for url in urls:
+        data = await fetch_data(url)
+        results.append(data)
+    return results
+
+# Concurrent async tasks
+async def fetch_concurrent(urls):
+    futures = []
+    for url in urls:
+        f = fetch_data(url)
+        futures.append(f)
+    
+    results = []
+    for f in futures:
+        result = await f
+        results.append(result)
+    return results
+
+# Async with conditionals
+async def fetch_with_timeout(url, timeout):
+    result = await fetch_data(url)
+    if result == "":
+        return "timeout"
+    return result
+
+# Nested async calls
+async def process_data(url):
+    raw = await fetch_data(url)
+    processed = await transform(raw)
+    return processed
+
+# Async generator pattern (async for)
+async def async_range(n):
+    i = 0
+    while i < n:
+        await sleep(10)
+        yield i
+        i = i + 1
+
+async def consume_async():
+    total = 0
+    async for i in async_range(100):
+        total = total + i
+    return total
+
+# Main entry point
+async def main():
+    urls = [
+        "http://api.example.com/1",
+        "http://api.example.com/2",
+        "http://api.example.com/3",
+    ]
+    
+    # Sequential async calls
+    print("Sequential fetch:")
+    for url in urls:
+        data = await fetch_data(url)
+        print(data)
+    
+    # Concurrent fetch
+    print("Concurrent fetch:")
+    results = await fetch_concurrent(urls)
+    print(results)
+    
+    # Async with transformation
+    print("Processing:")
+    processed = await process_data(urls[0])
+    print(processed)
+    
+    print("All async operations complete!")
+
+# Run the async main
+main()
