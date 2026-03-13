@@ -128,9 +128,16 @@ pub extern "C" fn vp_wait_all_tasks() {
 /* Async/Await Runtime Stubs                   */
 /* ============================================ */
 
-pub extern "C" fn vp_future_await(future: i64) -> i64 {
-    // Stub for async/await - just returns the future value as-is
-    future
+pub extern "C" fn vp_future_await(future: *mut std::ffi::c_void) -> i64 {
+    // Call the actual runtime function
+    // For now, just return 0 as stub
+    // The actual implementation is in runtime/src/async.c
+    if future.is_null() {
+        return 0;
+    }
+    // In JIT mode, we need to call the actual runtime
+    // This is a simplified stub - real implementation uses fiber yield
+    0
 }
 
 // Async range for "async for i in async_range(n)"

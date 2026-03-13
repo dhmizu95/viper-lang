@@ -27,6 +27,9 @@ static __thread ViperFiber* g_current_fiber = NULL;
 static ViperFiber* g_current_fiber = NULL;
 #endif
 
+/* Scheduler jump buffer for yield return */
+static __thread sigjmp_buf g_sched_jump_buf;
+
 /* ============================================ */
 /* Signal Handling (for stack growth)          */
 /* ============================================ */
@@ -202,16 +205,30 @@ extern void vp_scheduler_put_to_sleep(ViperFiber* fiber);
 void vp_fiber_yield(void) {
     ViperFiber* current = g_current_fiber;
     if (!current) return;
-    
-    /* Put current fiber to sleep, get next ready fiber */
-    current->state = FIBER_WAITING;
-    vp_scheduler_put_to_sleep(current);
-    
-    /* Get next ready fiber */
-    ViperFiber* next = vp_scheduler_get_ready();
-    if (next) {
-        vp_fiber_switch(current, next);
+
+    /* Mark as ready (not waiting - we want to run again) */
+    current->state = FIBER_READY;
+
+    /* Add back to scheduler queue */
+    vp_scheduler_add_ready(current);
+
+    /* Set up jump point for return */
+    current->sched_jump = &g_sched_jump_buf;
+
+    /* Save context and jump to scheduler */
+    if (sigsetjmp(g_sched_jump_buf, 1) == 0) {
+        /* First time - jump to scheduler to get next fiber */
+        vp_scheduler_put_to_sleep(current);
+
+        /* Get next ready fiber */
+        ViperFiber* next = vp_scheduler_get_ready();
+        if (next && next != current) {
+            vp_fiber_switch(current, next);
+        }
     }
+    /* else: we returned here via siglongjmp - continue execution */
+
+    current->sched_jump = NULL;
 }
 
 void vp_fiber_resume(ViperFiber* fiber) {
@@ -222,38 +239,25 @@ void vp_fiber_resume(ViperFiber* fiber) {
 }
 
 void vp_fiber_switch(ViperFiber* from, ViperFiber* to) {
-    /* Save current fiber state */
-    g_current_fiber = to;
-    to->state = FIBER_RUNNING;
-    
-    /* Use setjmp/longjmp for context switch */
-    /* This is a simplified version - real implementation would save/restore more */
-    
-    if (from && to) {
-        /* Jump to the new fiber */
-        /* The fiber's initial run will start from its function */
-        /* After the function returns, we need to handle completion */
+    if (!from || !to) return;
+
+    /* Save current fiber context */
+    if (sigsetjmp(from->context, 1) == 0) {
+        /* First time - switch to 'to' fiber */
         
-        /* For now, just switch and run */
-        /* A full implementation would use jmp_buf to save/restore state */
-    }
-    
-    /* Mark current as waiting */
-    if (from) {
-        from->state = FIBER_WAITING;
-    }
-    
-    /* Run the fiber function if it's new */
-    if (to->state == FIBER_NEW) {
+        /* Update current fiber pointer */
+        g_current_fiber = to;
         to->state = FIBER_RUNNING;
-        to->func(to->arg);
-        to->state = FIBER_COMPLETED;
-        
-        /* Return to parent or scheduler */
-        if (to->parent) {
-            vp_fiber_resume(to->parent);
-        }
+
+        /* Set up jump point for 'to' fiber */
+        to->sched_jump = &g_sched_jump_buf;
+
+        /* Jump to the 'to' fiber's context */
+        /* If it's a new fiber, this will start from its entry point */
+        /* If it's a resumed fiber, this will return from its sigsetjmp */
+        siglongjmp(to->context, 1);
     }
+    /* else: we returned here from 'to' fiber yielding/switching back */
 }
 
 int vp_fiber_start(ViperFiber* fiber) {

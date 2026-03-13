@@ -24,6 +24,9 @@
 /* Forward declare for pending ops check */
 extern int64_t vp_event_loop_pending_ops(ViperEventLoop* loop);
 
+/* External: current fiber from fiber.c */
+extern __thread ViperFiber* g_current_fiber;
+
 /* Global fiber pool for efficient allocation */
 static ViperFiberPool* g_fiber_pool = NULL;
 
@@ -259,26 +262,54 @@ static void* scheduler_worker(void* arg) {
                 atomic_fetch_add(&g_scheduler->total_context_switches, 1);
             }
 
-            /* Run the fiber */
+            /* Run the fiber with proper context switching */
             if (current->state == FIBER_NEW || current->state == FIBER_READY) {
-                current->state = FIBER_RUNNING;
-                current->func(current->arg);
-                current->state = FIBER_COMPLETED;
-                if (g_scheduler) {
-                    atomic_fetch_add(&g_scheduler->fibers_completed, 1);
-                    atomic_fetch_sub(&g_scheduler->pending_tasks, 1);
-                }
+                /* Set up jump point for yield return */
+                sigjmp_buf jump_buf;
+                current->sched_jump = &jump_buf;
 
-                if (current->parent) {
-                    vp_scheduler_add_ready(current->parent);
-                }
+                /* Initialize context for new fibers */
+                if (current->state == FIBER_NEW) {
+                    if (sigsetjmp(current->context, 1) == 0) {
+                        /* First time - run the fiber function */
+                        current->state = FIBER_RUNNING;
+                        g_current_fiber = current;
+                        current->func(current->arg);
+                        
+                        /* Fiber completed */
+                        current->state = FIBER_COMPLETED;
+                        if (g_scheduler) {
+                            atomic_fetch_add(&g_scheduler->fibers_completed, 1);
+                            atomic_fetch_sub(&g_scheduler->pending_tasks, 1);
+                        }
 
-                /* Return fiber to pool instead of freeing */
-                if (current->pool) {
-                    vp_fiber_pool_free(current->pool, current);
+                        if (current->parent) {
+                            vp_scheduler_add_ready(current->parent);
+                        }
+
+                        /* Return fiber to pool */
+                        if (current->pool) {
+                            vp_fiber_pool_free(current->pool, current);
+                        } else {
+                            vp_fiber_free(current);
+                        }
+                        
+                        g_current_fiber = NULL;
+                        current->sched_jump = NULL;
+                        continue;
+                    }
                 } else {
-                    vp_fiber_free(current);
+                    /* Resuming an existing fiber */
+                    if (sigsetjmp(current->context, 1) == 0) {
+                        current->state = FIBER_RUNNING;
+                        g_current_fiber = current;
+                        /* Jump back to where fiber yielded */
+                        siglongjmp(current->context, 1);
+                    }
                 }
+                
+                /* If we get here, fiber yielded and will be re-scheduled */
+                current->sched_jump = NULL;
             }
 
             atomic_fetch_add(&st->fibers_run, 1);

@@ -1,7 +1,7 @@
 /**
  * Viper Async Runtime
  * Basic async/await support with event loop
- * 
+ *
  * Supports unlimited tasks via dynamic allocation
  */
 
@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "viper_stdlib.h"
+#include "fiber.h"
+#include "scheduler.h"
 
 #define ASYNC_INITIAL_CAPACITY 256
 #define ASYNC_STACK_SIZE 8192
@@ -32,6 +34,7 @@ typedef struct ViperFuture {
     int64_t result;
     void (*callback)(struct ViperFuture*);
     void* user_data;
+    ViperFiber* waiting_fiber;    /* NEW: Fiber awaiting this future */
 } ViperFuture;
 
 /* ============================================ */
@@ -84,9 +87,17 @@ void vp_future_free(ViperFuture* future) {
 
 void vp_future_set_result(ViperFuture* future, int64_t result) {
     if (!future) return;
+    
     future->result = result;
     future->state = ASYNC_COMPLETED;
-    
+
+    /* Wake up waiting fiber (if any) */
+    if (future->waiting_fiber) {
+        future->waiting_fiber->state = FIBER_READY;
+        vp_scheduler_add_ready(future->waiting_fiber);
+    }
+
+    /* Invoke callback if registered */
     if (future->callback) {
         future->callback(future);
     }
@@ -94,12 +105,31 @@ void vp_future_set_result(ViperFuture* future, int64_t result) {
 
 int64_t vp_future_await(ViperFuture* future) {
     if (!future) return 0;
-    
-    /* For simple implementation, just spin until ready */
-    while (future->state != ASYNC_COMPLETED && future->state != ASYNC_ERROR) {
-        /* Yield to scheduler */
+
+    /* Fast path: future already ready */
+    if (future->state == ASYNC_COMPLETED || future->state == ASYNC_ERROR) {
+        return future->result;
     }
-    
+
+    /* Register current fiber as waiting on this future */
+    ViperFiber* current = vp_fiber_current();
+    if (current) {
+        current->waiting_on = future;
+        future->waiting_fiber = current;
+    }
+
+    /* Wait until future is ready, yielding fiber each iteration */
+    while (future->state != ASYNC_COMPLETED && future->state != ASYNC_ERROR) {
+        /* Yield to scheduler - this is the key change for async/await! */
+        vp_fiber_yield();
+    }
+
+    /* Clear waiting references */
+    if (current) {
+        current->waiting_on = NULL;
+    }
+    future->waiting_fiber = NULL;
+
     return future->result;
 }
 

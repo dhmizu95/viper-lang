@@ -1,0 +1,10 @@
+# Simple async test
+async def simple():
+    return 42
+
+async def main():
+    f = simple()
+    result = await f
+    print("result:", result)
+
+main()

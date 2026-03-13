@@ -70,10 +70,9 @@ pub fn declare_concurrency_functions<'ctx>(
     let scheduler_spawn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_scheduler_spawn", scheduler_spawn_type, None);
 
-    // Async/await runtime function (stub)
-    // For now, accepts i64 and returns i64 to work with simple types
-    // A full implementation would use Future[T] pointer types
-    let future_await_type = i64_type.fn_type(&[i64_type.into()], false);
+    // Async/await runtime function
+    // Takes Future* pointer and returns i64 result
+    let future_await_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_future_await", future_await_type, None);
 
     // Async runtime functions

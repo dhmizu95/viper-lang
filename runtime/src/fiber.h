@@ -1,6 +1,6 @@
 /**
  * Viper Fiber Runtime
- * 
+ *
  * Stackful coroutines (goroutines) for supporting millions of concurrent tasks.
  * Features:
  * - M:N scheduling (M fibers on N threads)
@@ -15,6 +15,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <signal.h>
+#include <setjmp.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,6 +85,13 @@ struct ViperFiber {
 
     /* Debug info */
     const char* name;
+
+    /* Context switching - NEW for async/await */
+    sigjmp_buf context;         /* Saved context for switch */
+    sigjmp_buf* sched_jump;     /* Jump point for yield return */
+
+    /* Async/await support - NEW */
+    void* waiting_on;           /* What fiber is waiting on (Future, Channel, etc.) */
 };
 
 /* ============================================ */
@@ -113,7 +122,8 @@ int vp_fiber_start(ViperFiber* fiber);
 
 /**
  * Yield execution to scheduler
- * Called automatically on I/O wait, channel ops, etc.
+ * Called automatically on I/O wait, channel ops, await, etc.
+ * Saves current context and jumps to scheduler to pick next ready fiber.
  */
 void vp_fiber_yield(void);
 
