@@ -19,8 +19,8 @@ Located in `src/parser/statements/concurrency.rs`:
 
 ### Code Generation
 Located in `src/codegen/statements/concurrency.rs`:
-- `generate_sync()` - lines 6-21
-- `generate_task()` - lines 23-150
+- `generate_sync()` - lines 5-20
+- `generate_task()` - lines 22-150+
 
 ### Runtime Implementation
 Located in `runtime/src/`:
@@ -33,21 +33,24 @@ Located in `runtime/src/`:
 ### 1. Task Arguments Not Working
 **Status**: ✅ FIXED (2026-03-13)
 **Error**: `Call parameter type does not match function signature`
-**Root Cause**: 
-- Function parameters were defaulting to `Type::Str` (pointer) instead of `Type::Int` (i64 tagged int)
-- The task wrapper was using argument value types instead of function parameter types for struct packing
+**Root Cause**:
+- Function parameters were being incorrectly inferred due to overly aggressive "passed to list function" heuristic
+- Parameters passed to ANY function (including recursive calls) were treated as evidence of list/reference type
+- This caused recursive functions like `power(base, exp)` to get wrong parameter types
 
 **Fix**:
-1. Changed default parameter type from `Type::Str` to `Type::Int` in `src/codegen/functions.rs`
-2. Fixed task wrapper to use function's actual parameter types from LLVM signature
+1. Removed overly aggressive `param_is_passed_to_list_function` check in `src/codegen/functions.rs`
+2. Added targeted `param_is_passed_to_collection_function` check that only triggers for known collection functions (`sum`, `min`, `max`, `len`, etc.)
+3. Fixed task wrapper to use function's actual parameter types from LLVM signature
 
 **Example that now works**:
 ```python
-def worker(id):
-    print("Worker", id)
-    return id
+def power(base, exp):
+    if exp == 0:
+        return 1
+    return base * power(base, exp - 1)
 
-task worker(42)  # ✅ WORKS - arguments correctly passed
+task power(2, 10)  # ✅ WORKS - parameters correctly inferred as Int
 ```
 
 ### 2. AOT stdout Not Showing Output
@@ -82,14 +85,35 @@ def worker():
 def main():
     global counter
     counter = 0
-    
+
     for i in range(100):
         task worker()
-    
+
     sync:
         pass
-    
+
     print("Counter:", counter)  # Prints 100 ✅
+```
+
+### 4. sum()/min()/max() JIT Runtime Segfault
+**Status**: ✅ FIXED (2026-03-13)
+**Error**: `SIGSEGV` when calling `sum([1,2,3])` in JIT mode
+**Root Cause**:
+- JIT stubs for `vp_list_sum`, `vp_list_min`, `vp_list_max` were not registered
+- The runtime library had the functions but JIT couldn't link them
+
+**Fix**:
+1. Added `vp_list_sum_stub()`, `vp_list_min_stub()`, `vp_list_max_stub()` in `src/jit_stubs/lists.rs`
+2. Registered stubs in `src/jit_stubs/registry/collections.rs`
+
+**Example that now works**:
+```python
+def total(xs):
+    return sum(xs)
+
+def main():
+    nums = [1, 2, 3, 4, 5]
+    print(total(nums))  # ✅ Prints 15
 ```
 
 ## Performance Benchmarks
@@ -197,11 +221,36 @@ func main() {
 ## Next Steps
 
 All known issues have been resolved:
-1. ✅ Task argument passing fixed
+1. ✅ Task argument passing fixed (recursive function parameter inference)
 2. ✅ AOT stdout issue fixed
 3. ✅ Sync block behavior verified
+4. ✅ `sum()`/`min()`/`max()` JIT runtime stubs added
 
-Future improvements:
-- Add proper benchmarking with timing and memory measurement
-- Investigate the suspicious ~0ms timing for 1M tasks in AOT mode
-- Add more comprehensive concurrency tests
+### Future Improvements
+
+#### High Priority
+- **AOT race condition bug**: AOT mode loses counter increments (~99,981/100,000) while JIT mode works correctly (100,000/100,000).
+  - **Root cause**: LLVM optimizes away "redundant" memory operations; missing memory barriers
+  - **Current status**: Volatile loads/stores attempted but not available in current Inkwell/LLVM version
+  - **Required fix**: Implement atomic operations (`atomic_add`, `atomic_load`, `atomic_store`) for thread-safe shared state access
+- **Atomic operations module**: Add `atomic` module with primitives:
+  - `atomic_add(global, value)` - Atomic add with memory barrier
+  - `atomic_load(global)` - Atomic load with acquire semantics  
+  - `atomic_store(global, value)` - Atomic store with release semantics
+  - `atomic_compare_exchange(global, expected, desired)` - CAS operation
+- **Add proper benchmarking**: Implement consistent timing and memory measurement across JIT/AOT/Go comparisons
+
+#### Medium Priority
+- **Channel select statement**: Implement `select` for multiplexing channel operations (already partially parsed)
+- **Buffered channels**: Add support for `chan(capacity)` with non-blocking send/recv
+- **Context cancellation**: Add context-based task cancellation for graceful shutdown
+- **Worker pool pattern**: Add built-in worker pool abstraction for common concurrent patterns
+
+#### Low Priority
+- **Deadlock detection**: Static analysis or runtime detection of potential deadlocks
+- **Task priorities**: Add priority levels for task scheduling
+- **Task groups**: Structured concurrency with task groups (like Python's `asyncio.TaskGroup`)
+- **Performance optimizations**: 
+  - Reduce fiber stack size for memory efficiency
+  - Implement work-stealing improvements
+  - Add lock-free data structures for hot paths
