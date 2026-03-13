@@ -95,20 +95,20 @@ Success criteria:
 - all existing integer and BigInt behavior remains correct
 - overflow transitions still promote to BigInt correctly
 
-### 4. Type-Specialized `i64` Fast Path
+### 4. Explicit `i64` Boundary
 
-**Status:** `INF`
+**Status:** `DON`
 
 Tasks:
 
-1. Audit where hot code can remain in `Type::I64` instead of widening to `Type::Int`.
-2. Tighten inference and codegen so explicitly typed `i64` loops and accumulators stay native.
-3. Avoid accidental promotion of obviously fixed-width arithmetic back into tagged-int paths.
+1. Keep language-level optimization work focused on Python-compatible `int`.
+2. Avoid broadening compiler work in ways that make plain `int` drift toward fixed-width semantics.
+3. Treat `i64` as an explicit opt-in path rather than an optimization target for general integer code.
 
 Success criteria:
 
-- explicitly typed `i64` arithmetic stays on native LLVM integer ops
-- hot loops can be written in a way that reliably bypasses tagged-int overhead
+- Python-compatible `int` remains the primary integer optimization target
+- fixed-width behavior is not introduced implicitly while chasing arithmetic performance
 
 ### 5. AOT Optimization Validation
 

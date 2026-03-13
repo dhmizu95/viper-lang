@@ -28,7 +28,7 @@
 | Runtime fallback preserved | `DON` | Slow path remains the existing tagged-int runtime helpers; mixed BigInt slow-path cleanup applied in runtime |
 | Regression tests added | `DON` | Added focused overflow, negative-value, shift, bitwise, unary-negation, and mixed BigInt coverage |
 | AOT benchmark validation completed | `DON` | JIT `-O3` and AOT `-O1`/`-O2`/`-O3` spot checks ran after fixing LLVM tool discovery and the `-O3` pass pipeline |
-| `i64` specialization tightened | `INF` | Make explicit fixed-width arithmetic stay native |
+| Explicit `i64` boundary agreed and documented | `DON` | Keep optimization work centered on Python-compatible `int`; do not broaden `i64` specialization work |
 
 ## File Targets
 
@@ -45,4 +45,4 @@
 
 1. `BLK` Recover or regenerate a comparable arithmetic baseline if historical numbers are needed for before/after reporting.
 2. `INF` Refresh benchmark reporting once a defensible baseline strategy is chosen.
-3. `INF` Tighten `i64` specialization in hot paths that still widen to tagged `int`.
+3. `INF` Continue optimizing the Python-compatible `int` implementation without changing its semantics.
