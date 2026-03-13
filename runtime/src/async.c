@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "viper_stdlib.h"
+#include "tagged_int.h"
+#include "gmp_bridge.h"
 #include "fiber.h"
 #include "scheduler.h"
 
@@ -362,14 +364,24 @@ typedef struct ViperAsyncRange {
 /* Magic tag to validate async range pointers */
 #define VIPER_ASYNC_RANGE_MAGIC 0x5650525F41524E47ULL  /* "VPR_ARNG" */
 
+static int64_t tagged_to_i64(TaggedInt value) {
+    if (tagged_int_is_small(value)) {
+        return tagged_int_get_small(value);
+    }
+    return vp_bigint_to_i64(tagged_int_get_bigint(value));
+}
+
 /* Create an async range iterator */
 ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step) {
     ViperAsyncRange* range = (ViperAsyncRange*)malloc(sizeof(ViperAsyncRange));
     if (!range) return NULL;
     range->magic = VIPER_ASYNC_RANGE_MAGIC;
-    range->current = start;
-    range->end = end;
-    range->step = step;
+    range->current = tagged_to_i64((TaggedInt)start);
+    range->end = tagged_to_i64((TaggedInt)end);
+    range->step = tagged_to_i64((TaggedInt)step);
+    if (range->step == 0) {
+        range->step = 1;
+    }
     return range;
 }
 
@@ -389,8 +401,8 @@ int64_t vp_async_range_next(ViperAsyncRange* range) {
     
     int64_t result = range->current;
     range->current += range->step;
-    
-    return result;
+
+    return tagged_int_from_i64(result);
 }
 
 /* Free async range */

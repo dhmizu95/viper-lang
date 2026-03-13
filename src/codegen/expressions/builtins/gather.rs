@@ -38,12 +38,20 @@ pub fn generate_gather_call<'ctx>(
     
     // Store each future pointer in the array (as i64)
     for (i, future_val) in future_vals.iter().enumerate() {
-        let gep = unsafe { state.builder.build_in_bounds_gep(
-            futures_array_type,
-            futures_array,
-            &[state.context.i32_type().const_int(i as u64, false)],
-            &format!("future_gep{}", i),
-        ).unwrap() };
+        let gep = unsafe {
+            state
+                .builder
+                .build_in_bounds_gep(
+                    futures_array_type,
+                    futures_array,
+                    &[
+                        state.context.i32_type().const_zero(),
+                        state.context.i32_type().const_int(i as u64, false),
+                    ],
+                    &format!("future_gep{}", i),
+                )
+                .unwrap()
+        };
         
         // Convert pointer to i64 for the gather function
         let future_i64 = if future_val.is_pointer_value() {
@@ -60,12 +68,20 @@ pub fn generate_gather_call<'ctx>(
     }
     
     // Get pointer to first element (as i64 pointer)
-    let futures_ptr = unsafe { state.builder.build_in_bounds_gep(
-        futures_array_type,
-        futures_array,
-        &[state.context.i32_type().const_zero()],
-        "futures_ptr",
-    ).unwrap() };
+    let futures_ptr = unsafe {
+        state
+            .builder
+            .build_in_bounds_gep(
+                futures_array_type,
+                futures_array,
+                &[
+                    state.context.i32_type().const_zero(),
+                    state.context.i32_type().const_zero(),
+                ],
+                "futures_ptr",
+            )
+            .unwrap()
+    };
     
     // Call vp_future_gather(futures_ptr, count)
     let gather_func = state.module.get_function("vp_future_gather")
@@ -97,20 +113,25 @@ pub fn generate_gather_call<'ctx>(
     ).unwrap().into_pointer_value();
     
     // Unpack results and append to list
-    let results_array_type = i64_type.array_type(args.len() as u32);
+    let i64_ptr_type = i64_type.ptr_type(inkwell::AddressSpace::default());
     let results_array_ptr = state.builder.build_int_to_ptr(
         results_ptr,
-        results_array_type.ptr_type(inkwell::AddressSpace::default()),
+        i64_ptr_type,
         "results_array_ptr",
     ).unwrap();
     
     for i in 0..args.len() {
-        let result_gep = unsafe { state.builder.build_in_bounds_gep(
-            results_array_type,
-            results_array_ptr,
-            &[state.context.i32_type().const_int(i as u64, false)],
-            &format!("result_gep{}", i),
-        ).unwrap() };
+        let result_gep = unsafe {
+            state
+                .builder
+                .build_in_bounds_gep(
+                    i64_type,
+                    results_array_ptr,
+                    &[state.context.i32_type().const_int(i as u64, false)],
+                    &format!("result_gep{}", i),
+                )
+                .unwrap()
+        };
         
         let result_val = state.builder.build_load(
             i64_type,

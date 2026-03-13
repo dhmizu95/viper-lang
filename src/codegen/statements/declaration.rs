@@ -102,6 +102,7 @@ pub(crate) fn generate_declare<'ctx>(
                     if func_name == "vp_list_create"
                         || func_name == "vp_list_create_f64"
                         || func_name == "vp_list_create_with_capacity"
+                        || func_name == "gather"
                     {
                         true
                     // Built-in string functions - not lists

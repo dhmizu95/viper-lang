@@ -242,6 +242,7 @@ pub(crate) fn generate_assign<'ctx>(
                     if func_name == "vp_list_create"
                         || func_name == "vp_list_create_f64"
                         || func_name == "vp_list_create_with_capacity"
+                        || func_name == "gather"
                     {
                         true
                     // Identity functions (copy, identity) - check the argument type

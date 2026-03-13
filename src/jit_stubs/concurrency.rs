@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
+use crate::jit_stubs::bigint::vp_bigint_to_i64_stub;
+use crate::jit_stubs::tagged_int::tagged_int_from_i64;
 
 // Concurrency runtime stubs for JIT (Phase 3)
 // Proper implementations using channels and synchronization
@@ -35,6 +37,17 @@ impl JitConcurrency {
 
 lazy_static::lazy_static! {
     static ref JIT_CONCURRENCY: Mutex<JitConcurrency> = Mutex::new(JitConcurrency::new());
+}
+
+#[inline(always)]
+fn tagged_to_i64(val: i64) -> i64 {
+    if (val & 1) == 0 {
+        val >> 1
+    } else {
+        // BigInt pointer with tag bit set
+        let ptr = (val & !1) as *mut std::ffi::c_void;
+        unsafe { vp_bigint_to_i64_stub(ptr as *mut _) }
+    }
 }
 
 pub extern "C" fn vp_chan_create(_capacity: i64) -> *mut std::ffi::c_void {
@@ -187,12 +200,18 @@ pub extern "C" fn vp_future_create() -> *mut std::ffi::c_void {
 // Async range for "async for i in async_range(n)"
 pub extern "C" fn vp_async_range_create(start: i64, end: i64, step: i64) -> *mut std::ffi::c_void {
     // Allocate a simple range struct
+    let raw_start = tagged_to_i64(start);
+    let raw_end = tagged_to_i64(end);
+    let raw_step = {
+        let s = tagged_to_i64(step);
+        if s == 0 { 1 } else { s }
+    };
     let range =
         Box::new(JitAsyncRange { 
             magic: JIT_ASYNC_RANGE_MAGIC,
-            current: start, 
-            end, 
-            step: if step == 0 { 1 } else { step } 
+            current: raw_start, 
+            end: raw_end, 
+            step: raw_step, 
         });
     Box::into_raw(range) as *mut std::ffi::c_void
 }
@@ -213,7 +232,7 @@ pub extern "C" fn vp_async_range_next(range_ptr: *mut std::ffi::c_void) -> i64 {
 
     let value = range.current;
     range.current += range.step;
-    value
+    tagged_int_from_i64(value)
 }
 
 pub extern "C" fn vp_async_range_free(range_ptr: *mut std::ffi::c_void) {
@@ -255,7 +274,7 @@ pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
     
     let value = range.current;
     range.current += range.step;
-    value
+    tagged_int_from_i64(value)
 }
 
 pub extern "C" fn vp_async_spawn(
