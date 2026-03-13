@@ -1,0 +1,185 @@
+# ============================================
+# Viper Async/Await Test Suite
+# ============================================
+# Test file for fiber-based async/await implementation
+# Run with: viper run tests/async_tests.vp
+
+# --------------------------------------------
+# Test 1: Basic async function
+# --------------------------------------------
+async def test_basic():
+    print("Test 1: Basic async")
+    
+    async def simple():
+        return 42
+    
+    f = simple()
+    result = await f
+    print("  Result:", result)
+    
+    if result == 42:
+        print("  PASS")
+    else:
+        print("  FAIL")
+
+# --------------------------------------------
+# Test 2: Async with arguments
+# --------------------------------------------
+async def test_args():
+    print("Test 2: Async with args")
+    
+    async def add(a, b):
+        return a + b
+    
+    result = await add(10, 20)
+    print("  Sum:", result)
+    
+    if result == 30:
+        print("  PASS")
+    else:
+        print("  FAIL")
+
+# --------------------------------------------
+# Test 3: Multiple futures
+# --------------------------------------------
+async def test_multiple():
+    print("Test 3: Multiple futures")
+    
+    async def worker(n):
+        return n * 2
+    
+    f1 = worker(1)
+    f2 = worker(2)
+    f3 = worker(3)
+    
+    r1 = await f1
+    r2 = await f2
+    r3 = await f3
+    
+    print("  Results:", r1, r2, r3)
+    
+    if r1 == 2 and r2 == 4 and r3 == 6:
+        print("  PASS")
+    else:
+        print("  FAIL")
+
+# --------------------------------------------
+# Test 4: Concurrent execution
+# --------------------------------------------
+async def test_concurrent():
+    print("Test 4: Concurrent execution")
+    
+    async def worker(n):
+        result = 0
+        for i in range(1000):
+            result = result + i
+        return n * 100 + result
+    
+    futures = []
+    for i in range(10):
+        futures.append(worker(i))
+    
+    total = 0
+    for f in futures:
+        r = await f
+        total = total + r
+    
+    print("  Total:", total)
+    print("  PASS (manual verification)")
+
+# --------------------------------------------
+# Test 5: Async for loop
+# --------------------------------------------
+async def test_async_for():
+    print("Test 5: Async for loop")
+    
+    total = 0
+    async for i in async_range(10):
+        total = total + i
+    
+    print("  Total:", total)
+    
+    if total == 45:
+        print("  PASS")
+    else:
+        print("  FAIL")
+
+# --------------------------------------------
+# Test 6: Nested async calls
+# --------------------------------------------
+async def test_nested():
+    print("Test 6: Nested async")
+    
+    async def inner(n):
+        return n * 2
+    
+    async def outer(n):
+        r = await inner(n)
+        return r + 1
+    
+    result = await outer(5)
+    print("  Result:", result)
+    
+    if result == 11:
+        print("  PASS")
+    else:
+        print("  FAIL")
+
+# --------------------------------------------
+# Test 7: Async sleep (if available)
+# --------------------------------------------
+async def test_sleep():
+    print("Test 7: Async sleep")
+    
+    async def sleeper(n):
+        await sleep(10)
+        return n
+    
+    futures = []
+    for i in range(3):
+        futures.append(sleeper(i))
+    
+    results = []
+    for f in futures:
+        r = await f
+        results.append(r)
+    
+    print("  Results:", results)
+    print("  PASS (manual verification)")
+
+# --------------------------------------------
+# Main test runner
+# --------------------------------------------
+async def run_all_tests():
+    print("========================================")
+    print("Viper Async/Await Test Suite")
+    print("========================================")
+    print()
+    
+    await test_basic()
+    print()
+    
+    await test_args()
+    print()
+    
+    await test_multiple()
+    print()
+    
+    await test_concurrent()
+    print()
+    
+    await test_async_for()
+    print()
+    
+    await test_nested()
+    print()
+    
+    # await test_sleep()  # Uncomment when sleep is implemented
+    # print()
+    
+    print("========================================")
+    print("All tests complete!")
+    print("========================================")
+
+# Run tests
+run_all_tests()

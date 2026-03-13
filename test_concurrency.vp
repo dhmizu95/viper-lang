@@ -1,22 +1,22 @@
-def heavy(n):
-    # Example "complicated" work: sum of squares with some branching
-    acc = 0
-    for i in range(10_000):
-        if (i ^ n) & 7 == 0:
-            acc = acc + i * i
-        else:
-            acc = acc + i
-    return acc
+# ============================================
+# Viper Concurrency Test
+# ============================================
+# Test file for task/sync concurrency
+# Run with: viper run test_concurrency.vp
 
-def worker(id):
-    # Do the work and maybe log a small sample
-    result = heavy(id)
-    if id % 250 == 0:
-        print("done", id, "result", result)
+def worker():
+    result = 0
+    for i in range(1000):
+        result = result + i
+    return result
 
 def main():
-    for i in range(1000):
-        task worker(i)
+    # Spawn 1 million concurrent tasks
+    for i in range(1_000_000):
+        task worker()
+    
+    # Wait for all to complete
     sync:
-        print("waiting for tasks...")
+        pass
+    
     print("all tasks complete")

@@ -1,0 +1,83 @@
+# ============================================
+# Viper Concurrency Comparison
+# ============================================
+# Compare task/sync vs async/await models
+# Run with: viper run tests/concurrency_compare.vp
+
+# --------------------------------------------
+# Model 1: task/sync (Fire-and-forget)
+# --------------------------------------------
+counter_task = 0
+
+def task_worker(n):
+    global counter_task
+    counter_task = counter_task + 1
+
+def test_task_sync():
+    global counter_task
+    print("=== task/sync Model ===")
+    counter_task = 0
+    
+    for i in range(1000):
+        task task_worker(i)
+    
+    sync:
+        pass
+    
+    print("Counter:", counter_task)
+    if counter_task == 1000:
+        print("PASS")
+    else:
+        print("FAIL")
+
+# --------------------------------------------
+# Model 2: async/await (With results)
+# --------------------------------------------
+async def async_worker(n):
+    return n
+
+async def test_async_await():
+    print("=== async/await Model ===")
+    
+    futures = []
+    for i in range(1000):
+        futures.append(async_worker(i))
+    
+    total = 0
+    for f in futures:
+        r = await f
+        total = total + r
+    
+    # Sum of 0..999 = 499500
+    expected = 499500
+    print("Total:", total)
+    print("Expected:", expected)
+    
+    if total == expected:
+        print("PASS")
+    else:
+        print("FAIL")
+
+# --------------------------------------------
+# Comparison
+# --------------------------------------------
+def main():
+    print("========================================")
+    print("Concurrency Model Comparison")
+    print("========================================")
+    print()
+    
+    # task/sync is synchronous, call directly
+    test_task_sync()
+    print()
+    
+    # async/await needs to be called
+    await test_async_await()
+    print()
+    
+    print("========================================")
+    print("Comparison complete!")
+    print("========================================")
+
+# Run comparison
+main()

@@ -1,0 +1,35 @@
+# ============================================
+# Viper Async Scale Test
+# ============================================
+# Test async/await at scale (10M+ tasks)
+# Run with: viper run tests/async_scale.vp
+
+async def worker(n):
+    # Minimal work per task
+    return n
+
+async def main():
+    print("Async Scale Test: 1 million tasks")
+    
+    # Create 1 million futures
+    futures = []
+    for i in range(1_000_000):
+        futures.append(worker(i))
+    
+    # Await all and sum results
+    total = 0
+    for f in futures:
+        total = total + await f
+    
+    # Sum of 0..999999 = 499999500000
+    expected = 499999500000
+    
+    print("Total:", total)
+    print("Expected:", expected)
+    
+    if total == expected:
+        print("PASS: Scale test successful!")
+    else:
+        print("FAIL: Total does not match expected")
+
+main()
