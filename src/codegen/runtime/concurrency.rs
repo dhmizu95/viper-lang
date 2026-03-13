@@ -109,6 +109,14 @@ pub fn declare_concurrency_functions<'ctx>(
     let async_sleep_type = i64_type.fn_type(&[i64_type.into()], false);
     module.add_function("vp_async_sleep", async_sleep_type, None);
 
+    // vp_future_gather(futures_ptr, count) - gather multiple futures
+    let gather_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_future_gather", gather_type, None);
+
+    // vp_future_gather_free(results_ptr, count) - free gather results
+    let gather_free_type = void_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_future_gather_free", gather_free_type, None);
+
     // vp_async_context_enter(context) - calls __aenter__, returns result
     let async_context_enter_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_async_context_enter", async_context_enter_type, None);

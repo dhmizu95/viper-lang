@@ -20,6 +20,7 @@ use crate::codegen::expressions::builtins::r#struct::{
 use crate::codegen::expressions::builtins::str::{
     generate_bytes_call, generate_str_call, generate_type_convert,
 };
+use crate::codegen::expressions::builtins::gather::generate_gather_call;
 use crate::codegen::expressions::calls::methods::generate_dict_call;
 use crate::codegen::expressions::collections::{
     generate_list_call, generate_set_call, generate_tuple_call,
@@ -117,6 +118,11 @@ pub fn generate_call<'ctx>(
         // Type conversion functions
         if name == "float" || name == "int" || name == "bool" {
             return generate_type_convert(state, name, args);
+        }
+
+        // Async/await gather
+        if name == "gather" {
+            return generate_gather_call(state, args);
         }
 
         // BigInt functions - removed, use int type instead

@@ -313,6 +313,35 @@ ViperFuture* vp_async_ready(int64_t value) {
     return future;
 }
 
+/* Gather multiple futures and return array of results */
+typedef struct GatherResult {
+    int64_t* results;
+    int64_t count;
+} GatherResult;
+
+int64_t vp_future_gather(int64_t* futures_ptr, int64_t count) {
+    if (!futures_ptr || count <= 0) return 0;
+    
+    // Allocate result array
+    int64_t* results = (int64_t*)malloc(sizeof(int64_t) * count);
+    if (!results) return 0;
+    
+    // Wait for all futures and collect results
+    for (int64_t i = 0; i < count; i++) {
+        ViperFuture* future = (ViperFuture*)(uintptr_t)futures_ptr[i];
+        results[i] = vp_future_await(future);
+    }
+    
+    // Return pointer to results as i64
+    return (int64_t)(uintptr_t)results;
+}
+
+void vp_future_gather_free(int64_t results_ptr, int64_t count) {
+    if (results_ptr) {
+        free((void*)(uintptr_t)results_ptr);
+    }
+}
+
 /* ============================================ */
 /* Async Iteration                              */
 /* ============================================ */

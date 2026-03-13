@@ -273,6 +273,48 @@ pub extern "C" fn vp_async_sleep(milliseconds: i64) -> i64 {
     Box::into_raw(future) as i64
 }
 
+pub extern "C" fn vp_future_gather(futures_ptr: i64, count: i64) -> i64 {
+    // Gather multiple futures and return array of results
+    if futures_ptr == 0 || count <= 0 {
+        return 0;
+    }
+
+    unsafe {
+        let futures = std::slice::from_raw_parts(futures_ptr as *const i64, count as usize);
+        let mut results = Vec::with_capacity(count as usize);
+
+        for &f in futures {
+            let future = f as *mut JitFuture;
+            if !future.is_null() {
+                // Wait for future to complete
+                while (*future).state != 3 && (*future).state != 4 {
+                    std::hint::spin_loop();
+                }
+                results.push((*future).result);
+            } else {
+                results.push(0);
+            }
+        }
+
+        // Return pointer to results (convert Vec to raw pointer)
+        let results_ptr = results.as_mut_ptr();
+        std::mem::forget(results);  // Don't drop, we're transferring ownership
+        results_ptr as i64
+    }
+}
+
+pub extern "C" fn vp_future_gather_free(results_ptr: i64, _count: i64) {
+    if results_ptr != 0 {
+        unsafe {
+            // Cast through thin pointer first
+            let raw = results_ptr as *mut i64;
+            // We don't know the length, so just free the memory
+            // This is safe because we allocated with Vec which uses the global allocator
+            let _ = Box::from_raw(raw);
+        }
+    }
+}
+
 // Internal struct for async range
 struct JitAsyncRange {
     current: i64,
