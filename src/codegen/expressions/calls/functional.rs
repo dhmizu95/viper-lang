@@ -78,6 +78,9 @@ pub fn generate_sum_call<'ctx>(
         .get_function("vp_list_sum")
         .ok_or_else(|| "vp_list_sum not declared".to_string())?;
 
+    // For list variables, the value is already a pointer
+    // For list literals, generate_list returns a pointer
+    // Pass the pointer directly to vp_list_sum
     let result =
         state.ir_builder.build_call(state.builder, func, &[iterable_val.into()], "sum_result");
     Ok(result.unwrap())

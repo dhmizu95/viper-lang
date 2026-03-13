@@ -163,6 +163,54 @@ pub extern "C" fn vp_list_len_stub(list: *mut std::ffi::c_void) -> i64 {
     }
 }
 
+pub extern "C" fn vp_list_sum_stub(list: *mut std::ffi::c_void) -> i64 {
+    if list.is_null() {
+        return 0;
+    }
+    unsafe {
+        let list_ref = &*(list as *mut ViperListStub);
+        let mut total: i64 = 0;
+        for i in 0..list_ref.length {
+            total += *list_ref.data.add(i as usize);
+        }
+        total
+    }
+}
+
+pub extern "C" fn vp_list_min_stub(list: *mut std::ffi::c_void) -> i64 {
+    if list.is_null() || unsafe { (*(list as *mut ViperListStub)).length } == 0 {
+        return 0;
+    }
+    unsafe {
+        let list_ref = &*(list as *mut ViperListStub);
+        let mut min_val = *list_ref.data.add(0);
+        for i in 1..list_ref.length {
+            let val = *list_ref.data.add(i as usize);
+            if val < min_val {
+                min_val = val;
+            }
+        }
+        min_val
+    }
+}
+
+pub extern "C" fn vp_list_max_stub(list: *mut std::ffi::c_void) -> i64 {
+    if list.is_null() || unsafe { (*(list as *mut ViperListStub)).length } == 0 {
+        return 0;
+    }
+    unsafe {
+        let list_ref = &*(list as *mut ViperListStub);
+        let mut max_val = *list_ref.data.add(0);
+        for i in 1..list_ref.length {
+            let val = *list_ref.data.add(i as usize);
+            if val > max_val {
+                max_val = val;
+            }
+        }
+        max_val
+    }
+}
+
 pub extern "C" fn vp_list_set_stub(list: *mut std::ffi::c_void, index: i64, val: i64) {
     if list.is_null() {
         return;

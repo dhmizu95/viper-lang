@@ -154,10 +154,15 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
             }
 
             // Check if parameter is only returned (identity function pattern like copy(x))
-            // For identity functions, use Type::Int as the ABI type
-            // The pointer↔i64 conversion happens at call sites
+            // For identity functions, use Type::Infer since they are inlined at call sites
             if param_is_only_returned(&param.name, body) {
                 return infer_param_type_for_identity(&param.name, body);
+            }
+
+            // Check if parameter is passed to collection-processing functions (sum, min, max, etc.)
+            // This indicates the parameter is a list/iterable type
+            if param_is_passed_to_collection_function(&param.name, body) {
+                return Type::List(Box::new(Type::Infer));
             }
 
             // Default to Int (tagged integer) for unannotated parameters
@@ -184,6 +189,109 @@ fn param_is_only_returned(param_name: &str, body: &[Stmt]) -> bool {
 /// This avoids type conversion issues - the argument type flows through unchanged
 fn infer_param_type_for_identity(_param_name: &str, _body: &[Stmt]) -> Type {
     Type::Infer
+}
+
+/// Collection-processing functions that accept list/iterable arguments
+/// Parameters passed to these functions should be inferred as list types
+fn is_collection_function(name: &str) -> bool {
+    matches!(name,
+        "sum" | "min" | "max" | "len" | "avg" | "mean" | "median" | "mode"
+        | "sorted" | "reversed" | "enumerate" | "zip" | "map" | "filter"
+        | "all" | "any" | "count" | "index"
+        | "reduce" | "fold" | "accumulate"
+        | "vp_list_sum" | "vp_list_min" | "vp_list_max" | "vp_list_len"
+    )
+}
+
+/// Check if a parameter is passed as argument to a collection-processing function
+/// This indicates the parameter is a list/iterable type
+fn param_is_passed_to_collection_function(param_name: &str, body: &[Stmt]) -> bool {
+    for stmt in body {
+        if stmt_contains_collection_function_call_with_param(param_name, stmt) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check if a statement contains a collection function call where the parameter is passed
+fn stmt_contains_collection_function_call_with_param(param_name: &str, stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::Expr(expr) => expr_contains_collection_function_call_with_param(param_name, expr),
+        Stmt::Assign { value, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, value)
+        }
+        Stmt::Declare { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_collection_function_call_with_param(param_name, v))
+        }
+        Stmt::If { condition, body, else_body, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, condition)
+                || body.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+                || else_body.as_ref().map_or(false, |eb| {
+                    eb.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+                })
+        }
+        Stmt::While { condition, body, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, condition)
+                || body.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+        }
+        Stmt::Return { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_collection_function_call_with_param(param_name, v))
+        }
+        Stmt::Function { body, .. } => {
+            body.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+        }
+        Stmt::For { body, .. } => {
+            body.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+        }
+        Stmt::AugAssign { value, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, value)
+        }
+        _ => false,
+    }
+}
+
+/// Check if an expression contains a collection function call where the parameter is passed
+fn expr_contains_collection_function_call_with_param(param_name: &str, expr: &Expr) -> bool {
+    match expr {
+        Expr::Call { func, args, .. } => {
+            // Check if this is a collection function and the parameter is an argument
+            let is_collection_func = if let Expr::Ident(func_name, _) = func.as_ref() {
+                is_collection_function(func_name)
+            } else {
+                false
+            };
+
+            if is_collection_func {
+                // Check if any argument is the parameter
+                let param_is_arg = args.iter().any(|arg| {
+                    if let Expr::Ident(name, _) = arg {
+                        name == param_name
+                    } else {
+                        false
+                    }
+                });
+                if param_is_arg {
+                    return true;
+                }
+            }
+            // Also check nested calls in arguments
+            args.iter().any(|arg| expr_contains_collection_function_call_with_param(param_name, arg))
+        }
+        Expr::BinOp { left, right, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, left)
+                || expr_contains_collection_function_call_with_param(param_name, right)
+        }
+        Expr::UnaryOp { operand, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, operand)
+        }
+        Expr::Attribute { obj, .. } => expr_contains_collection_function_call_with_param(param_name, obj),
+        Expr::Index { obj, index, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, obj)
+                || expr_contains_collection_function_call_with_param(param_name, index)
+        }
+        _ => false,
+    }
 }
 
 /// Check if a parameter is used as a list (indexed with [])

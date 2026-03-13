@@ -31,6 +31,9 @@ pub fn register_collection_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_list_concat" => super::super::lists::vp_list_concat_stub,
         "vp_list_sorted" => super::super::lists::vp_list_sorted_stub,
         "vp_list_reversed" => super::super::lists::vp_list_reversed_stub,
+        "vp_list_sum" => super::super::lists::vp_list_sum_stub,
+        "vp_list_min" => super::super::lists::vp_list_min_stub,
+        "vp_list_max" => super::super::lists::vp_list_max_stub,
     ]);
 
     // Float list functions (f64)
