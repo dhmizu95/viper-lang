@@ -115,20 +115,20 @@ void vp_fiber_yield(void);
 void vp_fiber_yield(void) {
     ViperFiber* current = vp_fiber_current();
     if (!current) return;
-    
-    // Mark as ready to run again
+
+    // Mark as yielded and place on the local deque before jumping away.
     current->state = FIBER_READY;
-    
-    // Add back to scheduler's ready queue
-    vp_scheduler_add_ready(current);
-    
-    // Jump to scheduler to pick next fiber
-    // sched_jump is set when fiber starts running
+    vp_scheduler_push_local_current(current);
+
+    // Hand off to scheduler on the same worker to avoid cross-queue races.
     if (current->sched_jump != NULL) {
+        vp_fiber_set_current(NULL);   // Clear TLS to avoid stale accesses
         siglongjmp(*current->sched_jump, 1);
     }
 }
 ```
+
+`vp_scheduler_push_local_current` is a thin helper that appends to the current worker's deque without taking global locks; cross-thread wake-ups continue to use `vp_scheduler_push_external`.
 
 #### 1.2 Add Scheduler Jump Point to Fiber Struct
 
@@ -149,6 +149,7 @@ typedef struct ViperFiber {
     /* Context switching */
     sigjmp_buf context;
     sigjmp_buf* sched_jump;  /* NEW: Jump point for yield return */
+    ViperFuture* waiting_on; /* NEW: future this fiber is parked on */
     
     /* Parent fiber (for nested spawning) */
     struct ViperFiber* parent;
@@ -157,6 +158,8 @@ typedef struct ViperFiber {
     ViperFiberPool* pool;
 } ViperFiber;
 ```
+
+`waiting_on` lets the async runtime park a yielded fiber off the ready queues; the wake path (future resolution or timer) sets the fiber back to `FIBER_READY` and enqueues via the scheduler's external push.
 
 #### 1.3 Initialize sched_jump in Scheduler
 
@@ -177,20 +180,26 @@ static void* scheduler_worker(void* arg) {
             if (sigsetjmp(jump_buf, 1) == 0) {
                 // First entry - run the fiber
                 current->state = FIBER_RUNNING;
+                vp_fiber_set_current(current);
                 current->func(current->arg);
                 current->state = FIBER_COMPLETED;
             } else {
-                // Returned via yield - continue loop
+                // Returned via yield - requeue was handled in yielded path
+                current = NULL; // Skip completion cleanup
             }
             
-            current->sched_jump = NULL;
-            // ... rest of fiber completion logic
+            if (current) {
+                current->sched_jump = NULL;
+                // ... rest of fiber completion logic
+            }
         }
         
         // ... rest of scheduler loop
     }
 }
 ```
+
+**Scheduler note:** yielded fibers are re-queued on the *local* worker deque via `vp_scheduler_push_local` to preserve cache locality and keep stealing semantics intact; cross-thread enqueue only happens when the event loop wakes a fiber (timer/I/O completion).
 
 **Tests:** See [Test Suite](#test-suite) - Test 1
 
@@ -218,6 +227,8 @@ typedef struct ViperFuture {
     struct ViperFuture* next;       /* NEW: for multiple awaiters */
 } ViperFuture;
 ```
+
+`waiting_fiber` is the head of a singly linked waiter list; when a future resolves the resolver walks the list, marks each fiber READY, and enqueues via `vp_scheduler_push_external` so wake-ups can cross threads safely.
 
 #### 2.2 Update `vp_future_await` to Yield
 
@@ -459,6 +470,13 @@ fn generate_async_function_wrapper(
 **Estimated Effort:** 6-8 hours  
 **Risk:** High - requires careful handling of captured variables and state
 
+**State machine details:**
+- Each `async fn` lowers to a struct `{ state: i32, locals…, temporaries… }` plus a trampoline that dispatches on `state`.
+- Suspension points assign monotonically increasing `state` IDs; `await` stores the next resume label before yielding and reloads it on wake.
+- Drops/RAII: lower with per-state cleanup blocks so partial drops run on cancellation/early return.
+- No dynamic stack pinning: large temporaries are heap-allocated or moved into the state struct to keep fiber stacks small.
+- Resume entry sets `vp_fiber_set_current` and clears it before returning to scheduler to keep TLS consistent.
+
 ---
 
 ### Phase 4: Event Loop Integration
@@ -488,11 +506,12 @@ static void* scheduler_worker(void* arg) {
             
             if (sigsetjmp(jump_buf, 1) == 0) {
                 current->state = FIBER_RUNNING;
+                vp_fiber_set_current(current);
                 current->func(current->arg);
                 current->state = FIBER_COMPLETED;
                 
                 if (current->parent) {
-                    vp_scheduler_add_ready(current->parent);
+                    vp_scheduler_push_local(st, current->parent); // local push, stealable tail
                 }
                 
                 if (current->pool) {
@@ -501,10 +520,13 @@ static void* scheduler_worker(void* arg) {
                     vp_fiber_free(current);
                 }
             } else {
-                // Returned via yield - fiber will be re-scheduled
+                // Returned via yield - requeue occurred on yield path; skip completion
+                current = NULL;
             }
             
-            current->sched_jump = NULL;
+            if (current) {
+                current->sched_jump = NULL;
+            }
             atomic_fetch_add(&st->fibers_run, 1);
             continue;
         }
@@ -621,12 +643,13 @@ pub fn generate_async_for(
     // Get async iterator
     let iter_val = generate_expr(state, iter_expr)?;
     let aiter_func = state.module.get_function("vp_async_aiter").unwrap();
-    let iterator = state.builder.build_call(
-        state.builder,
-        aiter_func,
-        &[iter_val.into()],
-        "async_iter",
-    ).unwrap();
+    let iterator = state
+        .builder
+        .build_call(aiter_func, &[iter_val.into()], "async_iter")
+        .expect("call aiter")
+        .try_as_basic_value()
+        .left()
+        .unwrap();
     
     // Create loop blocks
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
@@ -640,12 +663,14 @@ pub fn generate_async_for(
     // Loop block: get next item
     state.builder.position_at_end(loop_block);
     let anext_func = state.module.get_function("vp_async_anext").unwrap();
-    let item = state.builder.build_call(
-        state.builder,
-        anext_func,
-        &[iterator.into()],
-        "async_next",
-    ).unwrap().into_int_value();
+    let item = state
+        .builder
+        .build_call(anext_func, &[iterator.into()], "async_next")
+        .expect("call anext")
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
     
     // Check for StopAsyncIteration (-1)
     let is_end = state.builder.build_int_compare(
@@ -667,7 +692,7 @@ pub fn generate_async_for(
     // Store item in target variable
     state.store_variable(target, item.into());
     
-    // Generate body statements
+    // Generate body statements (they may contain await => can change insertion block)
     for stmt in body {
         generate_stmt_internal(state, stmt)?;
     }
@@ -692,6 +717,8 @@ pub fn generate_async_for(
 ```
 
 **Tests:** See [Test Suite](#test-suite) - Test 5
+
+**Note:** `await` inside the loop body can split the function into additional resume blocks; codegen must refresh the insertion point after each stmt to ensure the back-edge targets the latest basic block.
 
 **Estimated Effort:** 3-4 hours  
 **Risk:** Low - follows Python's async iterator protocol
@@ -966,18 +993,21 @@ async def worker(n):
     return n
 
 async def main():
-        futures = []
-        for i in range(1_000_000):
-            futures.append(worker(i))
-        
-        total = 0
-        for f in futures:
+    # keep memory bounded: run in batches of 1000 futures
+    total = 0
+    start = 0
+    while start < 1_000_000:
+        batch = []
+        end = start + 1000
+        for i in range(start, end):
+            batch.append(worker(i))
+        for f in batch:
             total = total + await f
-        
-        print("total:", total)
-    
-    main()
-    "#;
+        start = end
+    print("total:", total)
+
+main()
+"#;
     
     let output = run_code(code).unwrap();
     // Sum of 0..999999 = 499999500000
