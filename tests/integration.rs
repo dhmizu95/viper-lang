@@ -12,6 +12,8 @@ mod decorators;
 mod expressions;
 #[path = "integration/functions.rs"]
 mod functions;
+#[path = "integration/hashlib.rs"]
+mod hashlib;
 #[path = "integration/literals.rs"]
 mod literals;
 #[path = "integration/operators.rs"]
