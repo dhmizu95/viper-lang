@@ -39,7 +39,20 @@ BENCHMARKS=(
     "05_matrix_mul"
     "06_prime_sieve"
     "07_string_ops"
+    "08_int_hotloop"
+    "09_i64_hotloop"
+    "10_function_calls"
+    "11_string_concat_scan"
+    "12_bigint_overflow"
 )
+
+if command -v python3 &> /dev/null; then
+    PYTHON_BIN="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_BIN="python"
+else
+    PYTHON_BIN=""
+fi
 
 # Results storage - store in memory, output to markdown
 declare -A RESULTS
@@ -176,6 +189,7 @@ run_benchmark_safe() {
     local c_file="$SCRIPT_DIR/c/${name}.c"
     local rust_file="$SCRIPT_DIR/rust/${name}.rs"
     local go_file="$SCRIPT_DIR/go/${name}.go"
+    local py_file="$SCRIPT_DIR/python/${name}.py"
 
     log "${MAGENTA}========================================${NC}"
     log "${MAGENTA}Benchmark: $name${NC}"
@@ -325,6 +339,18 @@ run_benchmark_safe() {
         RESULTS["${name}_go"]="SKIPPED"
     fi
     log
+
+    # Python (reference)
+    log "  Python:"
+    if [ -n "$PYTHON_BIN" ] && [ -f "$py_file" ]; then
+        local py_result
+        py_result=$(measure_benchmark "$PYTHON_BIN $py_file" "$ITERATIONS" "${name}_py" 2>&1 | tee /dev/stderr | tail -1)
+        RESULTS["${name}_py"]="$py_result"
+    else
+        log "    ${YELLOW}Skipped${NC}"
+        RESULTS["${name}_py"]="SKIPPED"
+    fi
+    log
 }
 
 run_all_safe() {
@@ -402,7 +428,7 @@ EOF
     # Count successes and failures
     local total=0 passed=0 crashed=0
     for bench in "${BENCHMARKS[@]}"; do
-        for lang in jit o1 o2 o3 c rust go; do
+        for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
             local result="${RESULTS[$key]:-N/A}"
             if [[ "$result" =~ ^[0-9]+, ]]; then
@@ -425,12 +451,12 @@ EOF
     # Time table
     log_md "## Performance (Time in ms)"
     log_md ""
-    log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go |"
-    log_md "|-----------|-----|--------|--------|--------|---|------|-----|"
+    log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |"
+    log_md "|-----------|-----|--------|--------|--------|---|------|-----|--------|"
     
     for bench in "${BENCHMARKS[@]}"; do
         local row="| $bench |"
-        for lang in jit o1 o2 o3 c rust go; do
+        for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
             local result="${RESULTS[$key]:-N/A}"
             local time_val="N/A"
@@ -452,12 +478,12 @@ EOF
     # Memory table
     log_md "## Memory (Peak RSS in KB)"
     log_md ""
-    log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go |"
-    log_md "|-----------|-----|--------|--------|--------|---|------|-----|"
+    log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |"
+    log_md "|-----------|-----|--------|--------|--------|---|------|-----|--------|"
     
     for bench in "${BENCHMARKS[@]}"; do
         local row="| $bench |"
-        for lang in jit o1 o2 o3 c rust go; do
+        for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
             local result="${RESULTS[$key]:-N/A}"
             local mem_val="N/A"
@@ -475,12 +501,12 @@ EOF
     # Status table
     log_md "## Status"
     log_md ""
-    log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go |"
-    log_md "|-----------|:---:|:------:|:------:|:------:|:-:|:----:|:---:|"
+    log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |"
+    log_md "|-----------|:---:|:------:|:------:|:------:|:-:|:----:|:---:|:------:|"
 
     for bench in "${BENCHMARKS[@]}"; do
         local row="| $bench |"
-        for lang in jit o1 o2 o3 c rust go; do
+        for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
             local result="${RESULTS[$key]:-N/A}"
             local status="❓"

@@ -1,37 +1,31 @@
 # String Operations Benchmark - Viper Implementation
-# Character counting in byte array
+# String concatenation and character scanning
 
 def main():
-    # Benchmark parameter
-    n = 9000
-    
-    # Create array with repeating pattern
-    s = [0] * n
+    repeats = 400
+    chunk = "alpha,beta,gamma,delta;"
+    text = ""
+
     i = 0
-    while i < n:
-        # Simple pattern: alternating values
-        s[i] = (i * 7 + 3) % 128
+    while i < repeats:
+        text = text + chunk
         i = i + 1
-    
-    # Count occurrences of specific values
-    count1 = 0
-    count2 = 0
-    count3 = 0
-    count4 = 0
+
+    count_a = 0
+    count_comma = 0
+    count_semicolon = 0
     i = 0
-    while i < n:
-        if s[i] == 65:
-            count1 = count1 + 1
-        elif s[i] == 66:
-            count2 = count2 + 1
-        elif s[i] == 67:
-            count3 = count3 + 1
-        elif s[i] == 68:
-            count4 = count4 + 1
+    while i < len(text):
+        ch = text[i]
+        if ch == "a":
+            count_a = count_a + 1
+        elif ch == ",":
+            count_comma = count_comma + 1
+        elif ch == ";":
+            count_semicolon = count_semicolon + 1
         i = i + 1
-    
-    # Calculate checksum
-    checksum = n + count1 + count2 + count3 + count4
+
+    checksum = len(text) + count_a + count_comma + count_semicolon
     print(checksum)
 
 main()

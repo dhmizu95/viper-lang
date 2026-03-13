@@ -1,0 +1,16 @@
+# BigInt Overflow Path Benchmark - Viper Implementation
+
+def main():
+    value = 1267650600228229401496703205376
+    checksum = 0
+    i = 0
+
+    while i < 200000:
+        value = value + 123456789
+        value = value - 98765432
+        checksum = checksum + (value % 97)
+        i = i + 1
+
+    print(checksum)
+
+main()

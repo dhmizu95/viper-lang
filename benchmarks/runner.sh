@@ -28,6 +28,11 @@ BENCHMARKS=(
     "05_matrix_mul"
     "06_prime_sieve"
     "07_string_ops"
+    "08_int_hotloop"
+    "09_i64_hotloop"
+    "10_function_calls"
+    "11_string_concat_scan"
+    "12_bigint_overflow"
 )
 
 # Check prerequisites
@@ -47,6 +52,15 @@ check_prereqs() {
     if ! command -v go &> /dev/null; then
         echo -e "${RED}Error: go not found${NC}"
         exit 1
+    fi
+
+    if command -v python3 &> /dev/null; then
+        PYTHON_BIN="python3"
+    elif command -v python &> /dev/null; then
+        PYTHON_BIN="python"
+    else
+        echo -e "${YELLOW}Warning: python3/python not found, Python benchmarks disabled${NC}"
+        PYTHON_BIN=""
     fi
 
     if ! command -v /usr/bin/time &> /dev/null; then
@@ -126,6 +140,7 @@ run_benchmark_full() {
     local c_file="$SCRIPT_DIR/c/${name}.c"
     local rust_file="$SCRIPT_DIR/rust/${name}.rs"
     local go_file="$SCRIPT_DIR/go/${name}.go"
+    local py_file="$SCRIPT_DIR/python/${name}.py"
 
     echo -e "${MAGENTA}========================================${NC}"
     echo -e "${MAGENTA}Benchmark: $name${NC}"
@@ -216,22 +231,29 @@ run_benchmark_full() {
 
     # Print time table
     printf "\n  ${CYAN}Time (ms):${NC}\n"
-    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
-        "Language" "JIT" "O1" "O2" "O3" "C" "Rust" "Go"
-    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
-        "------------------" "--------" "--------" "--------" "--------" "--------" "--------" "--------"
-    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
-        "Time" "$viper_jit_time" "$viper_o1_time" "$viper_o2_time" "$viper_o3_time" "$c_time" "$rust_time" "$go_time"
+    py_result="N/A,-"
+    if [ -n "${PYTHON_BIN:-}" ] && [ -f "$py_file" ]; then
+        py_result=$(run_bench_with_mem "$PYTHON_BIN $py_file" "$ITERATIONS")
+    fi
+    py_time=$(echo "$py_result" | cut -d',' -f1)
+    py_mem=$(echo "$py_result" | cut -d',' -f2)
+
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "Language" "JIT" "O1" "O2" "O3" "C" "Rust" "Go" "Python"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "------------------" "--------" "--------" "--------" "--------" "--------" "--------" "--------" "--------"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "Time" "$viper_jit_time" "$viper_o1_time" "$viper_o2_time" "$viper_o3_time" "$c_time" "$rust_time" "$go_time" "$py_time"
     echo
 
     # Print memory table
     printf "  ${CYAN}Memory (KB):${NC}\n"
-    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
-        "Language" "JIT" "O1" "O2" "O3" "C" "Rust" "Go"
-    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
-        "------------------" "--------" "--------" "--------" "--------" "--------" "--------" "--------"
-    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s\n" \
-        "Memory" "$viper_jit_mem" "$viper_o1_mem" "$viper_o2_mem" "$viper_o3_mem" "$c_mem" "$rust_mem" "$go_mem"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "Language" "JIT" "O1" "O2" "O3" "C" "Rust" "Go" "Python"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "------------------" "--------" "--------" "--------" "--------" "--------" "--------" "--------" "--------"
+    printf "  %-18s %8s %8s %8s %8s %8s %8s %8s %8s\n" \
+        "Memory" "$viper_jit_mem" "$viper_o1_mem" "$viper_o2_mem" "$viper_o3_mem" "$c_mem" "$rust_mem" "$go_mem" "$py_mem"
     echo
 }
 
@@ -239,7 +261,7 @@ run_benchmark_full() {
 run_all_full() {
     echo -e "${MAGENTA}========================================${NC}"
     echo -e "${MAGENTA}Cross-Language Benchmark Suite${NC}"
-    echo -e "${MAGENTA}(JIT + AOT O1/O2/O3 + C/Rust/Go)${NC}"
+    echo -e "${MAGENTA}(JIT + AOT O1/O2/O3 + C/Rust/Go/Python)${NC}"
     echo -e "${MAGENTA}Iterations: $ITERATIONS${NC}"
     echo -e "${MAGENTA}Date: $(date '+%Y-%m-%d %H:%M:%S')${NC}"
     echo -e "${MAGENTA}========================================${NC}"

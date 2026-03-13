@@ -1,0 +1,18 @@
+# Integer Arithmetic Hot Loop Benchmark - Viper Implementation
+
+def main():
+    n = 2000000
+    acc = 1
+    i = 1
+
+    while i <= n:
+        acc = acc + i
+        acc = acc - (i % 7)
+        acc = acc + (i * 3) % 11
+        if i % 5 == 0:
+            acc = acc // 2 + 17
+        i = i + 1
+
+    print(acc)
+
+main()

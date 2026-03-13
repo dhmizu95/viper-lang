@@ -1,0 +1,29 @@
+# String Concat and Scan Benchmark - Viper Implementation
+
+def main():
+    n = 250
+    text = ""
+    i = 0
+
+    while i < n:
+        text = text + "item=" + str(i) + ";"
+        i = i + 1
+
+    digits = 0
+    equals = 0
+    semicolons = 0
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch >= "0" and ch <= "9":
+            digits = digits + 1
+        elif ch == "=":
+            equals = equals + 1
+        elif ch == ";":
+            semicolons = semicolons + 1
+        i = i + 1
+
+    checksum = len(text) + digits + equals + semicolons
+    print(checksum)
+
+main()
