@@ -87,11 +87,27 @@ pub(crate) fn generate_assign<'ctx>(
             }
         }
 
+        // Check if this is an identity function call with BigInt argument
+        let is_identity_bigint = if let Expr::Call { func, args, .. } = value {
+            if let Expr::Ident(fname, _) = func.as_ref() {
+                if fname == "copy" || fname == "identity" || fname == "id" {
+                    args.first().map_or(false, |arg| is_bigint_expr(arg, state))
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         let is_bigint = inferred_type == crate::ast::Type::BigInt
             || is_bigint_expr(value, state)
             || (inferred_type == crate::ast::Type::Infer
                 && val.is_pointer_value()
-                && !matches!(value, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "str" || name == "str_bigint")));
+                && !matches!(value, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "str" || name == "str_bigint")))
+            || is_identity_bigint;
 
         if is_bigint {
             state.mark_as_bigint(name.clone());
@@ -113,7 +129,7 @@ pub(crate) fn generate_assign<'ctx>(
             Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
                 matches!(left.as_ref(), Expr::List { .. } | Expr::Array { .. })
             }
-            Expr::Call { func, .. } => {
+            Expr::Call { func, args, .. } => {
                 // Check if calling a list-returning function
                 if let Expr::Ident(func_name, _) = func.as_ref() {
                     // Built-in list functions
@@ -122,10 +138,16 @@ pub(crate) fn generate_assign<'ctx>(
                         || func_name == "vp_list_create_with_capacity"
                     {
                         true
+                    // Identity functions (copy, identity) - check the argument type
+                    } else if func_name == "copy" || func_name == "identity" || func_name == "id" {
+                        // Propagate list type from argument
+                        args.first().map(|arg| match arg {
+                            Expr::Ident(arg_name, _) => state.is_list(arg_name),
+                            Expr::List { .. } | Expr::ListComprehension { .. } => true,
+                            _ => false,
+                        }).unwrap_or(false)
                     // Built-in string functions - not lists
-                    } else if func_name.starts_with("vp_str_") || func_name == "str"
-                    // str() conversion returns string, not list
-                    {
+                    } else if func_name.starts_with("vp_str_") || func_name == "str" {
                         false
                     } else {
                         false
@@ -142,7 +164,21 @@ pub(crate) fn generate_assign<'ctx>(
         }
 
         // Store the inferred type in var_types for future lookups
-        let value_type = get_expr_type_for_assignment(state, value);
+        // For identity functions (copy, identity), propagate the argument's type
+        let value_type = if let Expr::Call { func, args, .. } = value {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                if func_name == "copy" || func_name == "identity" || func_name == "id" {
+                    // Use the argument's type instead of the function's return type
+                    args.first().map(|arg| get_expr_type_for_assignment(state, arg)).unwrap_or(Type::Infer)
+                } else {
+                    get_expr_type_for_assignment(state, value)
+                }
+            } else {
+                get_expr_type_for_assignment(state, value)
+            }
+        } else {
+            get_expr_type_for_assignment(state, value)
+        };
         eprintln!("DEBUG assignment: name={}, value_type={:?}", name, value_type);
         if value_type != crate::ast::Type::Infer {
             state.var_types.insert(name.clone(), value_type);
@@ -203,9 +239,20 @@ pub(crate) fn generate_assign<'ctx>(
         let is_dict = match value {
             Expr::Dict { .. } => true,
             Expr::Ident(other, _) => state.is_dict(other),
-            Expr::Call { func, .. } => {
+            Expr::Call { func, args, .. } => {
                 if let Expr::Ident(func_name, _) = func.as_ref() {
-                    func_name == "vp_dict_create" || func_name == "vp_dict_create_with_capacity"
+                    if func_name == "vp_dict_create" || func_name == "vp_dict_create_with_capacity" {
+                        true
+                    // Identity functions - propagate dict type from argument
+                    } else if func_name == "copy" || func_name == "identity" || func_name == "id" {
+                        args.first().map(|arg| match arg {
+                            Expr::Ident(arg_name, _) => state.is_dict(arg_name),
+                            Expr::Dict { .. } => true,
+                            _ => false,
+                        }).unwrap_or(false)
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }

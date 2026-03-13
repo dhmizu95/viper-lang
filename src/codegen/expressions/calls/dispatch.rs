@@ -368,6 +368,15 @@ pub fn generate_call<'ctx>(
             })
             .collect();
 
+        // Check for identity function pattern (def f(x): return x) and inline it
+        // This avoids type conversion issues for generic helpers like copy(x)
+        if args.len() == 1 {
+            if is_identity_function_name(name) {
+                // Inline: just return the argument directly without calling the function
+                return generate_expr(state, &args[0]);
+            }
+        }
+
         // First try exact match with mangled name
         let mangled_name = mangle_function_name(name, &arg_types);
         let func_val = state.functions.get(&mangled_name).copied();
@@ -737,6 +746,12 @@ fn should_inline_call<'ctx>(
     }
 
     false
+}
+
+/// Check if a function name is a known identity function (returns its argument unchanged)
+/// These functions are inlined to avoid type conversion issues with generic parameters
+fn is_identity_function_name(name: &str) -> bool {
+    matches!(name, "copy" | "identity" | "id" | "_copy" | "_identity")
 }
 
 /// Generate a direct call to a function value (used for memoized function recursive calls)

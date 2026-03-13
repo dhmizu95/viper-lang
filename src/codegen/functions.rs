@@ -180,12 +180,10 @@ fn param_is_only_returned(param_name: &str, body: &[Stmt]) -> bool {
     false
 }
 
-/// For identity functions, use Int type as ABI
-/// All values (including pointers) are 64-bit and can pass through i64 ABI
-/// Note: This means identity functions work correctly for int types, but
-/// reference types require explicit type annotations for proper preservation
+/// For identity functions, use Infer type since they are inlined at call sites
+/// This avoids type conversion issues - the argument type flows through unchanged
 fn infer_param_type_for_identity(_param_name: &str, _body: &[Stmt]) -> Type {
-    Type::Int
+    Type::Infer
 }
 
 /// Check if a parameter is used as a list (indexed with [])
