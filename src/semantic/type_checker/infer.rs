@@ -269,9 +269,14 @@ impl TypeChecker {
                     match obj_type {
                         Type::List(elem_type) => Some(*elem_type),
                         Type::Dict(_, value_type) => Some(*value_type),
+                        Type::Str => Some(Type::Str), // String indexing returns a string (char)
                         Type::Var(s) if s.starts_with("dict") => Some(Type::Infer),
                         _ => Some(Type::I64),
                     }
+                } else {
+                    None
+                }
+            }
                 } else {
                     None
                 }

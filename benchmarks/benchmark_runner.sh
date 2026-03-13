@@ -72,28 +72,41 @@ log_md() {
 run_isolated() {
     local cmd="$1"
     local name="$2"
-    local output_file="$TMPDIR/safe_bench_$$_${name}"
+    local time_file="${3:-}"
+    local output_file
+    output_file=$(mktemp "$TMPDIR/safe_bench_${name}_XXXXXX")
     local mem_limit_kb=$((MAX_MEMORY_MB * 1024))
     local file_limit=$((MAX_FILE_SIZE_MB * 1024 * 1024))
 
-    # Use timeout, ulimit, and nice to sandbox the execution
-    # Use bash -c instead of sh -c for better compatibility
+    # Always apply timing inside the isolated process group so measurement never
+    # bypasses the memory/time limits that protect the host system.
+    local runner_cmd
+    if [ -n "$time_file" ] && [ $HAS_GNU_TIME -eq 1 ]; then
+        runner_cmd="/usr/bin/time -f '%M' -o '$time_file' bash -c \"$cmd\""
+    else
+        runner_cmd="bash -c \"$cmd\""
+    fi
+
     (
         ulimit -v $mem_limit_kb 2>/dev/null || true
         ulimit -f $file_limit 2>/dev/null || true
         ulimit -t $MAX_TIME_SECONDS 2>/dev/null || true
-        nice -n 19 bash -c "$cmd" > "$output_file" 2>&1
+        exec nice -n 19 setsid bash -lc "$runner_cmd" > "$output_file" 2>&1
     ) &
     local pid=$!
 
     # Wait with timeout
-    local waited=0
+    local waited_ms=0
+    local poll_interval_s="0.05"
+    local poll_interval_ms=50
+    local timeout_ms=$((MAX_TIME_SECONDS * 1000))
     while kill -0 $pid 2>/dev/null; do
-        sleep 1
-        waited=$((waited + 1))
-        if [ $waited -ge $MAX_TIME_SECONDS ]; then
+        sleep "$poll_interval_s"
+        waited_ms=$((waited_ms + poll_interval_ms))
+        if [ $waited_ms -ge $timeout_ms ]; then
             kill -9 -$pid 2>/dev/null || kill -9 $pid 2>/dev/null
             wait $pid 2>/dev/null
+            rm -f "$output_file"
             echo "TIMEOUT"
             return 124
         fi
@@ -120,35 +133,25 @@ measure_benchmark() {
     local valid_runs=0
     local crashes=0
     local timeouts=0
-    local time_file="$TMPDIR/time_measure_$$_${name}"
+    local time_file
+    time_file=$(mktemp "$TMPDIR/time_measure_${name}_XXXXXX")
 
     for i in $(seq 1 $runs); do
         local start_ms=$(date +%s%3N)
         local result
         local mem_kb=0
 
-        if [ $HAS_GNU_TIME -eq 1 ]; then
-            # Use GNU time to measure memory
-            # Run command directly when possible to avoid bash -c overhead
-            # bash -c adds ~1.5MB overhead to memory measurements
-            if [[ "$cmd" == "$TMPDIR"* ]]; then
-                # Direct binary execution from TMPDIR - no bash wrapper needed
-                result=$(/usr/bin/time -f "%M" -o "$time_file" "$cmd" 2>&1)
-            else
-                # Complex command needs bash wrapper
-                result=$(/usr/bin/time -f "%M" -o "$time_file" bash -c "$cmd" 2>&1)
+        result=$(run_isolated "$cmd" "${name}_run${i}" "$time_file" 2>&1)
+        local exit_code=$?
+
+        if [ -f "$time_file" ] && [ -s "$time_file" ]; then
+            mem_kb=$(cat "$time_file" 2>/dev/null || echo "0")
+            if ! [[ "$mem_kb" =~ ^[0-9]+$ ]]; then
+                mem_kb=0
             fi
-            local exit_code=$?
-            if [ -f "$time_file" ] && [ -s "$time_file" ]; then
-                mem_kb=$(cat "$time_file" 2>/dev/null || echo "0")
-                if ! [[ "$mem_kb" =~ ^[0-9]+$ ]]; then
-                    mem_kb=0
-                fi
-            fi
-        else
-            result=$(run_isolated "$cmd" "${name}_run${i}" 2>&1)
-            local exit_code=$?
         fi
+
+        : > "$time_file"
 
         local end_ms=$(date +%s%3N)
         local elapsed=$((end_ms - start_ms))
@@ -405,6 +408,16 @@ run_all_safe() {
     log
 }
 
+benchmark_has_results() {
+    local bench="$1"
+    for lang in jit o1 o2 o3 c rust go py; do
+        if [ -n "${RESULTS[${bench}_${lang}]:-}" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Generate performance and memory report in Markdown format
 generate_report() {
     log "${GREEN}========================================${NC}"
@@ -425,9 +438,19 @@ generate_report() {
 
 EOF
 
+    local report_benchmarks=()
+    for bench in "${BENCHMARKS[@]}"; do
+        if benchmark_has_results "$bench"; then
+            report_benchmarks+=("$bench")
+        fi
+    done
+    if [ ${#report_benchmarks[@]} -eq 0 ]; then
+        report_benchmarks=("${BENCHMARKS[@]}")
+    fi
+
     # Count successes and failures
     local total=0 passed=0 crashed=0
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
             local result="${RESULTS[$key]:-N/A}"
@@ -454,7 +477,7 @@ EOF
     log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |"
     log_md "|-----------|-----|--------|--------|--------|---|------|-----|--------|"
     
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         local row="| $bench |"
         for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
@@ -481,7 +504,7 @@ EOF
     log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |"
     log_md "|-----------|-----|--------|--------|--------|---|------|-----|--------|"
     
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         local row="| $bench |"
         for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
@@ -504,7 +527,7 @@ EOF
     log_md "| Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |"
     log_md "|-----------|:---:|:------:|:------:|:------:|:-:|:----:|:---:|:------:|"
 
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         local row="| $bench |"
         for lang in jit o1 o2 o3 c rust go py; do
             local key="${bench}_${lang}"
@@ -537,7 +560,7 @@ EOF
     log_md "| Benchmark | JIT vs C | AOT-O1 vs C | AOT-O2 vs C | AOT-O3 vs C |"
     log_md "|-----------|----------|-------------|-------------|-------------|"
 
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         local c_key="${bench}_c"
         local c_result="${RESULTS[$c_key]:-}"
         local c_time=0
@@ -570,7 +593,7 @@ EOF
     log_md "| Benchmark | JIT vs Rust | AOT-O1 vs Rust | AOT-O2 vs Rust | AOT-O3 vs Rust |"
     log_md "|-----------|-------------|----------------|----------------|----------------|"
 
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         local rust_key="${bench}_rust"
         local rust_result="${RESULTS[$rust_key]:-}"
         local rust_time=0
@@ -603,7 +626,7 @@ EOF
     log_md "| Benchmark | JIT vs Go | AOT-O1 vs Go | AOT-O2 vs Go | AOT-O3 vs Go |"
     log_md "|-----------|-----------|--------------|--------------|--------------|"
 
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         local go_key="${bench}_go"
         local go_result="${RESULTS[$go_key]:-}"
         local go_time=0
@@ -643,7 +666,7 @@ EOF
     local o3_mem_total=0 o3_count=0
     local c_mem_total=0 c_count=0
 
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in "${report_benchmarks[@]}"; do
         for lang in jit o1 o2 o3 c; do
             local key="${bench}_${lang}"
             local result="${RESULTS[$key]:-}"
@@ -696,21 +719,28 @@ EOF
     log_md ""
     
     # Calculate actual ratios for dynamic key findings
-    local jit_ratio=$(awk "BEGIN {printf \"%.1f\", $jit_mem_total / $jit_count / ($c_mem_total / $c_count)}" 2>/dev/null || echo "N/A")
+    local c_mem_display="$c_avg"
+    local jit_ratio="N/A"
+    if [ "$jit_count" -gt 0 ] && [ "$c_avg" -gt 0 ]; then
+        jit_ratio=$(awk "BEGIN {printf \"%.1f\", ($jit_mem_total / $jit_count) / $c_avg}")
+    fi
     local aot_avg_mem=0
     local aot_total_count=$((o1_count + o2_count + o3_count))
     if [ "$aot_total_count" -gt 0 ]; then
         aot_avg_mem=$(( (o1_mem_total + o2_mem_total + o3_mem_total) / aot_total_count ))
     fi
-    local aot_ratio=$(awk "BEGIN {printf \"%.1f\", $aot_avg_mem / ($c_mem_total / $c_count)}" 2>/dev/null || echo "N/A")
+    local aot_ratio="N/A"
+    if [ "$aot_total_count" -gt 0 ] && [ "$c_avg" -gt 0 ]; then
+        aot_ratio=$(awk "BEGIN {printf \"%.1f\", $aot_avg_mem / $c_avg}")
+    fi
     local jit_mem_avg=0
     if [ "$jit_count" -gt 0 ]; then
         jit_mem_avg=$((jit_mem_total / jit_count))
     fi
     
     log_md "1. **AOT-O1** typically offers the best performance/memory balance"
-    log_md "2. **JIT mode** has ~${jit_ratio}× memory overhead (${jit_mem_avg}KB vs C's ~$((c_mem_total / c_count))KB)"
-    log_md "3. **AOT memory** is ~${aot_ratio}× C baseline (${aot_avg_mem}KB vs ~$((c_mem_total / c_count))KB)"
+    log_md "2. **JIT mode** has ~${jit_ratio}× memory overhead (${jit_mem_avg}KB vs C's ~${c_mem_display}KB)"
+    log_md "3. **AOT memory** is ~${aot_ratio}× C baseline (${aot_avg_mem}KB vs ~${c_mem_display}KB)"
     log_md "4. Performance varies by workload - see individual benchmark ratios above"
     log_md ""
     log_md "---"

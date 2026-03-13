@@ -41,7 +41,7 @@ clean:
 
 # Run Viper internal benchmarks
 bench:
-	cargo run -- bench
+	cargo run --bin viper -- bench
 
 # Test AOT compilation (known issue: linking fails)
 bench-aot-test:

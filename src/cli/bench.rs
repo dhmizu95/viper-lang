@@ -3,14 +3,14 @@ use std::path::Path;
 use std::time::Instant;
 
 pub fn run_bench(args: &BenchArgs) -> crate::error::Result<()> {
-    let benchmark_dir = "benchmark";
-
-    if !Path::new(benchmark_dir).exists() {
-        return Err(crate::error::ViperError::cli(format!(
-            "Benchmark directory '{}' not found",
-            benchmark_dir
-        )));
-    }
+    let benchmark_dir = ["benchmarks/viper", "benchmark"]
+        .into_iter()
+        .find(|path| Path::new(path).exists())
+        .ok_or_else(|| {
+            crate::error::ViperError::cli(
+                "Benchmark directory not found; expected 'benchmarks/viper'".to_string(),
+            )
+        })?;
 
     let entries = fs::read_dir(benchmark_dir).map_err(crate::error::ViperError::Io)?;
 
