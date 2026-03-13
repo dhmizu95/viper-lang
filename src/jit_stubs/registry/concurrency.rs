@@ -36,6 +36,7 @@ pub fn register_concurrency_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_async_next" => super::super::concurrency::vp_async_next,
         "vp_async_spawn" => super::super::concurrency::vp_async_spawn,
         "vp_async_run_loop" => super::super::concurrency::vp_async_run_loop,
+        "vp_async_sleep" => super::super::concurrency::vp_async_sleep,
     ]);
 
     // Thread pool functions

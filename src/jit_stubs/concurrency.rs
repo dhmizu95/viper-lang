@@ -222,7 +222,19 @@ pub extern "C" fn vp_async_iter(obj: *mut std::ffi::c_void) -> *mut std::ffi::c_
 
 pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
     // Call vp_async_range_next for range iterators
-    vp_async_range_next(iterator)
+    if iterator.is_null() {
+        return -1;  // StopAsyncIteration
+    }
+    
+    let range = unsafe { &mut *(iterator as *mut JitAsyncRange) };
+    
+    if range.current >= range.end {
+        return -1;  // StopAsyncIteration
+    }
+    
+    let value = range.current;
+    range.current += range.step;
+    value
 }
 
 pub extern "C" fn vp_async_spawn(
@@ -239,6 +251,26 @@ pub extern "C" fn vp_async_spawn(
 
 pub extern "C" fn vp_async_run_loop() {
     // No-op for JIT
+}
+
+pub extern "C" fn vp_async_sleep(milliseconds: i64) -> i64 {
+    // For JIT mode, do a simple blocking sleep and return a completed future
+    use std::thread;
+    use std::time::Duration;
+    
+    thread::sleep(Duration::from_millis(milliseconds as u64));
+    
+    // Return a completed future pointer
+    let future = Box::new(JitFuture {
+        ref_count: 1,
+        state: 3,  // COMPLETED
+        _pad: 0,
+        result: 0,
+        callback: std::ptr::null_mut(),
+        user_data: std::ptr::null_mut(),
+        waiting_fiber: std::ptr::null_mut(),
+    });
+    Box::into_raw(future) as i64
 }
 
 // Internal struct for async range

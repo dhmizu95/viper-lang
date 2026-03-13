@@ -93,6 +93,8 @@ pub enum BuiltinSignature {
     WaitGroupAdd,    // add(wg, n) -> None
     WaitGroupDone,   // done(wg) -> None
     WaitGroupWait,   // wait(wg) -> None
+    // Async/await primitives
+    AsyncRange,      // async_range(n) -> async iterator
     // BigInt functions - removed, use int type instead
     // BigInt constructor removed - BigInt(str) -> BigInt
     StrBigint,  // str_bigint(BigInt) -> Str
@@ -221,6 +223,8 @@ impl Symbol {
                 BuiltinSignature::WaitGroupAdd => Some(Type::None),
                 BuiltinSignature::WaitGroupDone => Some(Type::None),
                 BuiltinSignature::WaitGroupWait => Some(Type::None),
+                // Async/await primitives
+                BuiltinSignature::AsyncRange => Some(Type::Infer), // Async iterator
                 // BigInt functions - removed, use int type instead
                 // int() builtin returns i64 for compatibility; use int type annotation for arbitrary precision
                 // BigInt constructor removed
@@ -347,6 +351,7 @@ impl SymbolTable {
             ("add", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupAdd }),
             ("done", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupDone }),
             ("wait", SymbolKind::Builtin { signature: BuiltinSignature::WaitGroupWait }),
+            ("async_range", SymbolKind::Builtin { signature: BuiltinSignature::AsyncRange }),
             // BigInt functions - removed, use int type instead
             ("str_bigint", SymbolKind::Builtin { signature: BuiltinSignature::StrBigint }),
             ("int_bigint", SymbolKind::Builtin { signature: BuiltinSignature::IntBigint }),

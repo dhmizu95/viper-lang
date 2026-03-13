@@ -908,31 +908,37 @@ pub fn generate_async_for<'ctx>(
             .into_pointer_value()
     };
 
-    // Store iterator in alloca
+    // Store iterator in alloca (use fixed pointer type)
+    let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
     let iterator_ptr =
-        state.builder.build_alloca(iterator.get_type(), "iterator_ptr").expect("alloca");
+        state.builder.build_alloca(ptr_type, "iterator_ptr").expect("alloca");
     state.builder.build_store(iterator_ptr, iterator).expect("store");
+
+    // Allocate storage for the iteration variable (in init block, before loop)
+    let item_alloca = if let Expr::Ident(target_name, _) = target {
+        let alloca =
+            state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
+        Some((target_name.clone(), alloca))
+    } else {
+        None
+    };
 
     state.ir_builder.build_branch(state.builder, cond_block);
 
     // Cond block: call __anext__ and check for StopAsyncIteration
     state.builder.position_at_end(cond_block);
     let iterator_val =
-        state.builder.build_load(iterator.get_type(), iterator_ptr, "iterator_val").expect("load");
+        state.builder.build_load(ptr_type, iterator_ptr, "iterator_val").expect("load");
 
     // Call __anext__ on the iterator
     let anext_func = state
         .module
         .get_function("vp_async_next")
         .ok_or_else(|| "vp_async_next not declared".to_string())?;
-    let next_future = state
+    let item = state
         .ir_builder
-        .build_call(state.builder, anext_func, &[iterator_val.into()], "anext_future")
+        .build_call(state.builder, anext_func, &[iterator_val.into()], "anext_value")
         .ok_or_else(|| "async for: anext failed".to_string())?;
-
-    // The result is directly the next value (or 0 for StopAsyncIteration)
-    // We don't need to await since vp_async_next returns directly
-    let item = next_future;
 
     // Check if item is -1 (StopAsyncIteration)
     let is_not_done = state
@@ -950,18 +956,11 @@ pub fn generate_async_for<'ctx>(
     // Body block: execute the loop body with the item
     state.builder.position_at_end(body_block);
 
-    // Allocate storage for the iteration variable and store the value
-    let item_alloca = if let Expr::Ident(target_name, _) = target {
-        let alloca =
-            state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
-        state.builder.build_store(alloca, item.into_int_value()).expect("store");
-        Some((target_name.clone(), alloca))
-    } else {
-        None
-    };
-
-    // Bind the target variable to the item
-    let old_var = if let Some((target_name, alloca)) = &item_alloca {
+    // Store the item value in the pre-allocated alloca
+    if let Some((target_name, alloca)) = &item_alloca {
+        state.builder.build_store(*alloca, item.into_int_value()).expect("store item");
+        
+        // Bind the target variable
         state.variables.insert(
             target_name.clone(),
             VarInfo {
@@ -970,10 +969,8 @@ pub fn generate_async_for<'ctx>(
                 class_name: None,
                 closure_value_ptr: None,
             },
-        )
-    } else {
-        None
-    };
+        );
+    }
 
     // Push loop context for break/continue support
     // continue should jump to step block for next iteration
@@ -1011,13 +1008,9 @@ pub fn generate_async_for<'ctx>(
     // Exit block
     state.builder.position_at_end(exit_block);
 
-    // Restore the original shadowed variable, if any
+    // Remove the loop variable from scope
     if let Expr::Ident(target_name, _) = target {
-        if let Some(old) = old_var {
-            state.variables.insert(target_name.clone(), old);
-        } else {
-            state.variables.remove(target_name);
-        }
+        state.variables.remove(target_name);
     }
 
     Ok(())

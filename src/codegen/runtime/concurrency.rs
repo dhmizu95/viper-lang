@@ -105,6 +105,10 @@ pub fn declare_concurrency_functions<'ctx>(
     let async_next_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_async_next", async_next_type, None);
 
+    // vp_async_sleep(milliseconds) - async sleep for specified milliseconds
+    let async_sleep_type = i64_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_async_sleep", async_sleep_type, None);
+
     // vp_async_context_enter(context) - calls __aenter__, returns result
     let async_context_enter_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_async_context_enter", async_context_enter_type, None);

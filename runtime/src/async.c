@@ -263,6 +263,32 @@ void vp_event_loop_run_until_complete(ViperEventLoop* loop) {
 /* Async/Await Builtins                         */
 /* ============================================ */
 
+/* Sleep for specified milliseconds (async) */
+typedef struct SleepRequest {
+    ViperFuture* future;
+    int64_t wake_time_ms;
+    bool completed;
+} SleepRequest;
+
+int64_t vp_async_sleep(int64_t milliseconds) {
+    // Create a future for this sleep operation
+    ViperFuture* future = vp_future_create();
+    if (!future) return 0;
+    
+    // For JIT mode, we'll do a simple blocking sleep
+    // In a full implementation, this would register with event loop and yield
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+    
+    // Set result and return
+    vp_future_set_result(future, 0);
+    
+    // Return future pointer as i64 (caller will await it)
+    return (int64_t)(uintptr_t)future;
+}
+
 /* Schedule a task to run asynchronously */
 int64_t vp_async_spawn(void (*func)(void*), void* arg) {
     return vp_event_loop_spawn(func, arg);
