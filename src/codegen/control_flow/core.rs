@@ -20,11 +20,11 @@ pub fn generate_return<'ctx>(
         }
 
         let v = crate::codegen::expressions::generate_expr(state, val)?;
-        
+
         // Get the function's expected return type
         let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
         let expected_return_type = func.get_type().get_return_type();
-        
+
         // Coerce the value if needed
         let coerced_value = coerce_return_value(state, v, expected_return_type)?;
         state.ir_builder.build_return(state.builder, Some(&coerced_value));
@@ -51,11 +51,14 @@ fn coerce_return_value<'ctx>(
         // Handle pointer -> pointer coercion (bitcast if both are pointer types)
         if value_type.is_pointer_type() && expected.is_pointer_type() {
             // Both are pointer types, just bitcast to match expected type
-            let cast_value = state.builder.build_bit_cast(
-                value.into_pointer_value(),
-                expected.into_pointer_type(),
-                "return_ptr_cast",
-            ).map_err(|e| format!("Pointer bitcast failed: {:?}", e))?;
+            let cast_value = state
+                .builder
+                .build_bit_cast(
+                    value.into_pointer_value(),
+                    expected.into_pointer_type(),
+                    "return_ptr_cast",
+                )
+                .map_err(|e| format!("Pointer bitcast failed: {:?}", e))?;
             return Ok(cast_value.into());
         }
 
@@ -63,11 +66,14 @@ fn coerce_return_value<'ctx>(
         // This happens when a method returns a reference type field stored as i64
         if value_type.is_int_type() && expected.is_pointer_type() {
             // Convert i64 back to pointer
-            let ptr_val = state.builder.build_int_to_ptr(
-                value.into_int_value(),
-                expected.into_pointer_type(),
-                "i64_to_ptr",
-            ).map_err(|e| format!("i64 to ptr cast failed: {:?}", e))?;
+            let ptr_val = state
+                .builder
+                .build_int_to_ptr(
+                    value.into_int_value(),
+                    expected.into_pointer_type(),
+                    "i64_to_ptr",
+                )
+                .map_err(|e| format!("i64 to ptr cast failed: {:?}", e))?;
             return Ok(ptr_val.into());
         }
 
@@ -82,21 +88,30 @@ fn coerce_return_value<'ctx>(
 
         // Handle i64 -> f64 coercion (returning stored float field)
         if value_type.is_int_type() && expected.is_float_type() {
-            let f64_val = state.builder.build_signed_int_to_float(
-                value.into_int_value(),
-                expected.into_float_type(),
-                "i64_to_f64",
-            ).map_err(|e| format!("i64 to f64 cast failed: {:?}", e))?;
+            let f64_val = state
+                .builder
+                .build_signed_int_to_float(
+                    value.into_int_value(),
+                    expected.into_float_type(),
+                    "i64_to_f64",
+                )
+                .map_err(|e| format!("i64 to f64 cast failed: {:?}", e))?;
             return Ok(f64_val.into());
         }
 
         // Handle i64 -> bool coercion (returning stored bool field)
-        if value_type.is_int_type() && expected.is_int_type() && expected.into_int_type().get_bit_width() == 1 {
-            let bool_val = state.builder.build_int_truncate_or_bit_cast(
-                value.into_int_value(),
-                expected.into_int_type(),
-                "i64_to_bool",
-            ).map_err(|e| format!("i64 to bool cast failed: {:?}", e))?;
+        if value_type.is_int_type()
+            && expected.is_int_type()
+            && expected.into_int_type().get_bit_width() == 1
+        {
+            let bool_val = state
+                .builder
+                .build_int_truncate_or_bit_cast(
+                    value.into_int_value(),
+                    expected.into_int_type(),
+                    "i64_to_bool",
+                )
+                .map_err(|e| format!("i64 to bool cast failed: {:?}", e))?;
             return Ok(bool_val.into());
         }
     }

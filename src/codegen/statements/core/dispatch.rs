@@ -9,15 +9,19 @@ use super::*;
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{LoopContext, VarInfo};
-use crate::semantic::escape_analysis::EscapeAnalyzer;
 use crate::semantic::closure_analysis::ClosureAnalyzer;
+use crate::semantic::escape_analysis::EscapeAnalyzer;
 
 // Import helper functions from sibling modules
-use crate::codegen::statements::declaration::{generate_const, generate_declare, generate_global, generate_nonlocal};
-use crate::codegen::statements::assignment::{generate_assign, generate_aug_assign, generate_tuple_unpack};
+use crate::codegen::statements::assignment::{
+    generate_assign, generate_aug_assign, generate_tuple_unpack,
+};
 use crate::codegen::statements::concurrency::{
-    generate_chan, generate_recv, generate_send, generate_sync, generate_task,
-    generate_waitgroup, generate_wg_add, generate_wg_done, generate_wg_wait,
+    generate_chan, generate_recv, generate_send, generate_sync, generate_task, generate_waitgroup,
+    generate_wg_add, generate_wg_done, generate_wg_wait,
+};
+use crate::codegen::statements::declaration::{
+    generate_const, generate_declare, generate_global, generate_nonlocal,
 };
 use crate::codegen::statements::patterns::generate_match_pattern;
 
@@ -127,7 +131,7 @@ pub fn generate_stmt_with_closure<'ctx>(
     // Create a dummy closure_cells for single-statement generation
     // This is used for module-level statements where closure cells aren't needed
     let mut closure_cells = HashMap::new();
-    
+
     let mut state = CodeGenState::with_closure_analysis(
         context,
         module,
@@ -203,7 +207,9 @@ pub(crate) fn generate_stmt_internal<'ctx>(
             if *is_async {
                 return crate::codegen::control_flow::generate_async_for(state, target, iter, body);
             }
-            return crate::codegen::control_flow::generate_for(state, target, iter, body, else_body, false);
+            return crate::codegen::control_flow::generate_for(
+                state, target, iter, body, else_body, false,
+            );
         }
         Stmt::Function { .. } => {
             // Already handled in first pass
@@ -274,7 +280,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                 let next_else_bb = if i < cases.len() - 1 {
                     state.context.append_basic_block(func, &format!("match_else_{}", i))
                 } else {
-                    end_bb  // Last case's else goes to end
+                    end_bb // Last case's else goes to end
                 };
 
                 // Generate the conditional branch
@@ -312,10 +318,8 @@ pub(crate) fn generate_stmt_internal<'ctx>(
 
                 // Remove variables that were added in this case
                 // (restore to the count before the case)
-                let keys_to_remove: Vec<String> = state.variables.keys()
-                    .skip(saved_var_count)
-                    .cloned()
-                    .collect();
+                let keys_to_remove: Vec<String> =
+                    state.variables.keys().skip(saved_var_count).cloned().collect();
                 for key in keys_to_remove {
                     state.variables.remove(&key);
                 }
@@ -347,7 +351,13 @@ pub(crate) fn generate_stmt_internal<'ctx>(
             generate_raise(state, exception.as_deref(), cause.as_deref())?;
         }
         Stmt::Try { body, handlers, else_body, finally_body, span: _ } => {
-            generate_try_except(state, body, handlers, else_body.as_deref(), finally_body.as_deref())?;
+            generate_try_except(
+                state,
+                body,
+                handlers,
+                else_body.as_deref(),
+                finally_body.as_deref(),
+            )?;
         }
         Stmt::With { items, body, is_async, span: _ } => {
             if *is_async {

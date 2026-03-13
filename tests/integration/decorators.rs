@@ -37,7 +37,7 @@ main()
         .output()
         .expect("Failed to execute viper compiler");
     let _ = fs::remove_file(&test_file);
-    
+
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("9227465"), "fib(35) should equal 9227465, got: {}", stdout);
 }
@@ -67,7 +67,7 @@ main()
         .output()
         .expect("Failed to execute viper compiler");
     let _ = fs::remove_file(&test_file);
-    
+
     assert!(output.status.success(), "factorial cache program should run successfully");
 }
 
@@ -95,11 +95,14 @@ main()
         .output()
         .expect("Failed to execute viper compiler");
     let _ = fs::remove_file(&test_file);
-    
+
     let stderr = String::from_utf8_lossy(&output.stderr);
     // Should warn about recursive function without memoization
-    assert!(stderr.contains("recursive") || stderr.contains("lru_cache"), 
-            "Should warn about recursive function, got stderr: {}", stderr);
+    assert!(
+        stderr.contains("recursive") || stderr.contains("lru_cache"),
+        "Should warn about recursive function, got stderr: {}",
+        stderr
+    );
 }
 
 /// Test @lru_cache with maxsize parameter
@@ -125,7 +128,7 @@ main()
         .output()
         .expect("Failed to execute viper compiler");
     let _ = fs::remove_file(&test_file);
-    
+
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("6"), "increment(5) should equal 6, got: {}", stdout);
 }
@@ -188,7 +191,10 @@ main()
         .expect("Failed to execute viper compiler");
     let _ = fs::remove_file(&test_file);
 
-    assert!(output.status.success(), "bounded large fibonacci cache program should run successfully");
+    assert!(
+        output.status.success(),
+        "bounded large fibonacci cache program should run successfully"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(

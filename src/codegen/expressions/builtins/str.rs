@@ -15,7 +15,11 @@ pub fn generate_type_convert<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
+        return crate::codegen::codegen_error(format!(
+            "{}() takes exactly 1 argument, got {}",
+            name,
+            args.len()
+        ));
     }
 
     let arg_val = generate_expr(state, &args[0])?;
@@ -152,7 +156,10 @@ pub fn generate_str_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("str() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "str() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let arg = &args[0];
@@ -199,7 +206,10 @@ fn generate_tagged_int_to_str<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("str() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "str() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let tagged_val = generate_expr(state, &args[0])?;
@@ -245,10 +255,7 @@ fn generate_bigint_to_str_direct<'ctx>(
         .build_call(
             state.builder,
             to_str_func,
-            &[
-                bigint_ptr.into(),
-                state.context.i32_type().const_int(10, false).into(),
-            ],
+            &[bigint_ptr.into(), state.context.i32_type().const_int(10, false).into()],
             "bigint_to_str",
         )
         .expect("vp_bigint_to_str call");
@@ -267,7 +274,7 @@ pub fn generate_bytes_call<'ctx>(
             .module
             .get_function("vp_bytes_create")
             .ok_or_else(|| "vp_bytes_create not declared".to_string())?;
-        
+
         let result = state
             .ir_builder
             .build_call(
@@ -280,17 +287,20 @@ pub fn generate_bytes_call<'ctx>(
                 "bytes_result",
             )
             .expect("bytes call");
-        
+
         return Ok(result.into());
     }
-    
+
     // bytes(arg) - convert argument to bytes
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("bytes() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "bytes() takes at most 1 argument, got {}",
+            args.len()
+        ));
     }
-    
+
     let arg_val = generate_expr(state, &args[0])?;
-    
+
     // For now, just return the argument as bytes (simplified)
     Ok(arg_val)
 }

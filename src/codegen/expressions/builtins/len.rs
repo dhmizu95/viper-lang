@@ -13,22 +13,26 @@ pub fn generate_len_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("len() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "len() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let obj_expr = &args[0];
     let obj_val = generate_expr(state, obj_expr)?;
 
     // Check if it's a tuple (now heap-allocated pointers)
-    let is_tuple = obj_val.is_pointer_value() && match obj_expr {
-        Expr::Ident(name, _) => {
-            state.var_types.get(name)
+    let is_tuple = obj_val.is_pointer_value()
+        && match obj_expr {
+            Expr::Ident(name, _) => state
+                .var_types
+                .get(name)
                 .map(|t| matches!(t, crate::ast::Type::Tuple(_)))
-                .unwrap_or(false)
-        },
-        Expr::Tuple { .. } => true,
-        _ => false,
-    };
+                .unwrap_or(false),
+            Expr::Tuple { .. } => true,
+            _ => false,
+        };
 
     if is_tuple {
         // For tuples, call vp_tuple_len
@@ -57,7 +61,9 @@ pub fn generate_len_call<'ctx>(
     // Check if it's a bool list (bit vector)
     let is_bool_list = match obj_expr {
         Expr::Ident(name, _) => state.is_bool_list(name),
-        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::List { elements, .. } => {
+            elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+        }
         Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
             if let Expr::List { elements, .. } = left.as_ref() {
                 elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
@@ -79,14 +85,17 @@ pub fn generate_len_call<'ctx>(
             .ir_builder
             .build_call(state.builder, bitvec_len, &[obj_val.into()], "bitvec_len")
             .unwrap();
-        
+
         // Tag the return value (runtime returns untagged length)
-        let result_tagged = state.builder.build_left_shift(
-            result.into_int_value(),
-            state.context.i64_type().const_int(1, false),
-            "bitvec_len_tagged",
-        ).expect("failed to tag bitvec_len result");
-        
+        let result_tagged = state
+            .builder
+            .build_left_shift(
+                result.into_int_value(),
+                state.context.i64_type().const_int(1, false),
+                "bitvec_len_tagged",
+            )
+            .expect("failed to tag bitvec_len result");
+
         return Ok(result_tagged.into());
     } else if is_list {
         // Call vp_list_len for other lists
@@ -98,14 +107,17 @@ pub fn generate_len_call<'ctx>(
             .ir_builder
             .build_call(state.builder, list_len, &[obj_val.into()], "list_len")
             .unwrap();
-        
+
         // Tag the return value (runtime returns untagged length)
-        let result_tagged = state.builder.build_left_shift(
-            result.into_int_value(),
-            state.context.i64_type().const_int(1, false),
-            "len_tagged",
-        ).expect("failed to tag len result");
-        
+        let result_tagged = state
+            .builder
+            .build_left_shift(
+                result.into_int_value(),
+                state.context.i64_type().const_int(1, false),
+                "len_tagged",
+            )
+            .expect("failed to tag len result");
+
         return Ok(result_tagged.into());
     }
 
@@ -127,7 +139,12 @@ pub fn generate_len_call<'ctx>(
             let base = state.context.i32_type().const_int(10, false);
             let str_val = state
                 .ir_builder
-                .build_call(state.builder, to_str_func, &[obj_val.into(), base.into()], "bigint_to_str_for_len")
+                .build_call(
+                    state.builder,
+                    to_str_func,
+                    &[obj_val.into(), base.into()],
+                    "bigint_to_str_for_len",
+                )
                 .expect("bigint_to_str");
 
             let str_len = state
@@ -144,8 +161,8 @@ pub fn generate_len_call<'ctx>(
             .module
             .get_function("vp_str_len")
             .ok_or_else(|| "vp_str_len not declared".to_string())?;
-            let result =
-                state.ir_builder.build_call(state.builder, str_len, &[obj_val.into()], "str_len");
+        let result =
+            state.ir_builder.build_call(state.builder, str_len, &[obj_val.into()], "str_len");
         return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
     }
 

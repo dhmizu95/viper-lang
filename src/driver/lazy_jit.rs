@@ -20,6 +20,7 @@
 //! let addr = lazy_engine.get_function("my_func")?;
 //! ```
 
+use crate::error::{Result, ViperError};
 use inkwell::{
     context::Context,
     execution_engine::ExecutionEngine,
@@ -27,7 +28,6 @@ use inkwell::{
     targets::{InitializationConfig, Target},
     OptimizationLevel,
 };
-use crate::error::{Result, ViperError};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
@@ -106,22 +106,23 @@ impl<'ctx> LazyJitEngine<'ctx> {
             if let Some(_func) = module.get_function(name) {
                 // Compile this function
                 let engine = self.execution_engine.as_ref().unwrap();
-                
+
                 // Track compilation time
                 let start_time = Instant::now();
-                
-                let _func_value = engine
-                    .get_function_value(name)
-                    .map_err(|e| ViperError::driver(format!("Failed to get function {}: {}", name, e)))?;
 
-                let addr = engine.get_function_address(name)
-                    .map_err(|e| ViperError::driver(format!("Failed to get address for {}: {}", name, e)))?;
-                
+                let _func_value = engine.get_function_value(name).map_err(|e| {
+                    ViperError::driver(format!("Failed to get function {}: {}", name, e))
+                })?;
+
+                let addr = engine.get_function_address(name).map_err(|e| {
+                    ViperError::driver(format!("Failed to get address for {}: {}", name, e))
+                })?;
+
                 // Record compilation statistics
                 let elapsed_ms = start_time.elapsed().as_millis() as usize;
                 self.stats.total_compiled.fetch_add(1, Ordering::Relaxed);
                 self.stats.total_compilation_time_ms.fetch_add(elapsed_ms, Ordering::Relaxed);
-                
+
                 // Record first compilation time
                 {
                     let mut first_time = self.stats.first_compilation.lock().unwrap();
@@ -129,7 +130,7 @@ impl<'ctx> LazyJitEngine<'ctx> {
                         *first_time = Some(Instant::now());
                     }
                 }
-                
+
                 self.compiled_functions.insert(name.to_string(), addr as u64);
                 return Ok(addr as u64);
             }
@@ -160,15 +161,16 @@ impl<'ctx> LazyJitEngine<'ctx> {
 
     /// Initialize the execution engine
     fn initialize_engine(&mut self) -> Result<()> {
-        Target::initialize_native(&InitializationConfig::default())
-            .map_err(|e| ViperError::driver(format!("Failed to initialize native target: {}", e)))?;
+        Target::initialize_native(&InitializationConfig::default()).map_err(|e| {
+            ViperError::driver(format!("Failed to initialize native target: {}", e))
+        })?;
 
         // Create execution engine from the first module
         if let Some(module) = self.pending_modules.first() {
             let engine = module
                 .create_jit_execution_engine(self.opt_level)
                 .map_err(|e| ViperError::driver(format!("Failed to create JIT engine: {}", e)))?;
-            
+
             self.execution_engine = Some(engine);
         } else {
             return Err(ViperError::driver("No modules available for JIT compilation"));
@@ -197,7 +199,7 @@ impl<'ctx> LazyJitEngine<'ctx> {
     }
 
     /// Pre-compile a set of functions (eager compilation)
-    /// 
+    ///
     /// Use this for hot paths where you know functions will be called.
     pub fn precompile(&mut self, function_names: &[&str]) -> Result<()> {
         for &name in function_names {
@@ -257,7 +259,7 @@ impl std::fmt::Display for MemoryStats {
 }
 
 /// Tiered compilation strategy
-/// 
+///
 /// Implements three tiers:
 /// 1. Interpreter - fastest startup, slowest execution
 /// 2. Baseline JIT - quick compilation, moderate optimization
@@ -366,7 +368,8 @@ impl<'ctx> TieredJitEngine<'ctx> {
         TieredMemoryStats {
             baseline: self.baseline_engine.get_memory_stats(),
             optimizing: self.optimizing_engine.as_ref().map(|e| e.get_memory_stats()),
-            hot_functions: self.call_counts
+            hot_functions: self
+                .call_counts
                 .iter()
                 .filter(|(_, &count)| count >= self.promotion_threshold)
                 .count(),
@@ -380,7 +383,8 @@ impl<'ctx> TieredJitEngine<'ctx> {
             baseline: self.baseline_engine.get_compilation_stats(),
             optimizing: self.optimizing_engine.as_ref().map(|e| e.get_compilation_stats()),
             total_calls: self.call_counts.values().sum(),
-            hot_functions: self.call_counts
+            hot_functions: self
+                .call_counts
                 .iter()
                 .filter(|(_, &count)| count >= self.promotion_threshold)
                 .count(),

@@ -27,17 +27,18 @@ pub(crate) fn generate_import<'ctx>(
     // Create a module object to represent the imported module
     // This allows accessing module.func() syntax
     // For now, we create a simple marker that the module exists
-    
+
     // Create a global string for the module name
     let module_name_str = state.ir_builder.string_const(state.module, module_name);
-    
+
     // Create a global to hold the module reference (accessible from all functions)
     let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-    let module_global = state.module.add_global(i8_ptr_type, None, &format!("__module_{}", import_name));
+    let module_global =
+        state.module.add_global(i8_ptr_type, None, &format!("__module_{}", import_name));
     module_global.set_initializer(&module_name_str);
     module_global.set_constant(false);
     module_global.set_unnamed_addr(false);
-    
+
     // Add to global constants so it's accessible from all functions
     state.global_constants.insert(import_name.to_string(), module_global);
 
@@ -60,7 +61,7 @@ pub(crate) fn generate_from_import<'ctx>(
         let symbol_marker = state.module.add_global(
             i8_ptr_type,
             None,
-            &format!("__from_import_{}_{}", module_name, import_name)
+            &format!("__from_import_{}_{}", module_name, import_name),
         );
         symbol_marker.set_initializer(&i8_ptr_type.const_null());
     }
@@ -80,10 +81,12 @@ pub(crate) fn generate_sync_with<'ctx>(
     let with_num = WITH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
     // Create blocks for control flow
-    let enter_block = state.context.append_basic_block(func_ctx, &format!("with_enter{}", with_num));
+    let enter_block =
+        state.context.append_basic_block(func_ctx, &format!("with_enter{}", with_num));
     let body_block = state.context.append_basic_block(func_ctx, &format!("with_body{}", with_num));
     let exit_block = state.context.append_basic_block(func_ctx, &format!("with_exit{}", with_num));
-    let continue_block = state.context.append_basic_block(func_ctx, &format!("with_continue{}", with_num));
+    let continue_block =
+        state.context.append_basic_block(func_ctx, &format!("with_continue{}", with_num));
 
     // Branch to enter block
     state.ir_builder.build_branch(state.builder, enter_block);
@@ -224,8 +227,8 @@ fn call_method_on_object<'ctx>(
     method_name: &str,
     args: &[inkwell::values::BasicMetadataValueEnum<'ctx>],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
-    use crate::codegen::oop::with_class_registry;
     use crate::ast::Type;
+    use crate::codegen::oop::with_class_registry;
 
     // Try to find the method in the class registry
     let mut method_info: Option<(String, Type)> = None;
@@ -240,7 +243,10 @@ fn call_method_on_object<'ctx>(
         .ok_or_else(|| format!("Method '{}' not found on context manager", method_name))?;
 
     // Get the function
-    let func_val = state.functions.get(&mangled_name).copied()
+    let func_val = state
+        .functions
+        .get(&mangled_name)
+        .copied()
         .ok_or_else(|| format!("Function '{}' not found", mangled_name))?;
 
     // Build argument list: self + method args
@@ -288,10 +294,14 @@ pub(crate) fn generate_async_with<'ctx>(
     let with_num = WITH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
     // Create blocks for each phase
-    let enter_block = state.context.append_basic_block(func_ctx, &format!("async_with_enter{}", with_num));
-    let body_block = state.context.append_basic_block(func_ctx, &format!("async_with_body{}", with_num));
-    let exit_block = state.context.append_basic_block(func_ctx, &format!("async_with_exit{}", with_num));
-    let continue_block = state.context.append_basic_block(func_ctx, &format!("async_with_continue{}", with_num));
+    let enter_block =
+        state.context.append_basic_block(func_ctx, &format!("async_with_enter{}", with_num));
+    let body_block =
+        state.context.append_basic_block(func_ctx, &format!("async_with_body{}", with_num));
+    let exit_block =
+        state.context.append_basic_block(func_ctx, &format!("async_with_exit{}", with_num));
+    let continue_block =
+        state.context.append_basic_block(func_ctx, &format!("async_with_continue{}", with_num));
 
     // Branch to enter block
     state.ir_builder.build_branch(state.builder, enter_block);
@@ -300,7 +310,8 @@ pub(crate) fn generate_async_with<'ctx>(
     state.builder.position_at_end(enter_block);
 
     // Store context managers for exit phase
-    let mut context_managers: Vec<(inkwell::values::BasicValueEnum<'ctx>, Option<String>)> = Vec::new();
+    let mut context_managers: Vec<(inkwell::values::BasicValueEnum<'ctx>, Option<String>)> =
+        Vec::new();
 
     // Process each with item
     for (_i, item) in items.iter().enumerate() {

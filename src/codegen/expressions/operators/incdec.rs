@@ -31,7 +31,10 @@ pub fn generate_incdec<'ctx>(
                         if let Some(value_ptr) = &var_info.closure_value_ptr {
                             (name, *value_ptr, var_info.var_type)
                         } else {
-                            return crate::codegen::codegen_error(format!("Closure cell for '{}' missing value pointer", name));
+                            return crate::codegen::codegen_error(format!(
+                                "Closure cell for '{}' missing value pointer",
+                                name
+                            ));
                         }
                     }
                 }
@@ -40,7 +43,9 @@ pub fn generate_incdec<'ctx>(
             }
         }
         _ => {
-            return crate::codegen::codegen_error("Increment/decrement only supported on variables".to_string());
+            return crate::codegen::codegen_error(
+                "Increment/decrement only supported on variables".to_string(),
+            );
         }
     };
 

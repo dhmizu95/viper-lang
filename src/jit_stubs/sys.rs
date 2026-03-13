@@ -33,7 +33,7 @@ pub extern "C" fn vp_sys_getenv(name: *const i8) -> *const i8 {
     if name.is_null() {
         return std::ptr::null();
     }
-    
+
     unsafe {
         let name_str = std::ffi::CStr::from_ptr(name);
         if let Ok(name_rust) = name_str.to_str() {
@@ -51,11 +51,11 @@ pub extern "C" fn vp_sys_setenv(name: *const i8, value: *const i8, overwrite: i6
     if name.is_null() || value.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let name_str = std::ffi::CStr::from_ptr(name);
         let value_str = std::ffi::CStr::from_ptr(value);
-        
+
         if let (Ok(name_rust), Ok(value_rust)) = (name_str.to_str(), value_str.to_str()) {
             if overwrite != 0 || env::var(name_rust).is_err() {
                 env::set_var(name_rust, value_rust);
@@ -70,7 +70,7 @@ pub extern "C" fn vp_sys_unsetenv(name: *const i8) -> i64 {
     if name.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let name_str = std::ffi::CStr::from_ptr(name);
         if let Ok(name_rust) = name_str.to_str() {

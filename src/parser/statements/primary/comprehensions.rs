@@ -18,7 +18,9 @@ pub fn parse_list_comprehension(
         parser.advance();
         name
     } else {
-        return crate::parser::parse_error("Expected variable name in list comprehension".to_string());
+        return crate::parser::parse_error(
+            "Expected variable name in list comprehension".to_string(),
+        );
     };
 
     // Expect 'in' keyword

@@ -60,9 +60,7 @@ pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> crate::e
 
         // Check for list comprehension: [expr for var in iter]
         if matches!(parser.current().kind, TokenKind::For) {
-            return super::comprehensions::parse_list_comprehension(
-                parser, first_elem, span,
-            );
+            return super::comprehensions::parse_list_comprehension(parser, first_elem, span);
         }
 
         // Not a list comprehension, treat as array/list
@@ -75,7 +73,10 @@ pub fn parse_list_or_array(parser: &mut StatementParser, span: Span) -> crate::e
             match &size_token.kind {
                 TokenKind::Int(n) => {
                     if *n < 0 || *n > usize::MAX as i128 {
-                        return crate::parser::parse_error(format!("Array size must be a positive usize: {}", n));
+                        return crate::parser::parse_error(format!(
+                            "Array size must be a positive usize: {}",
+                            n
+                        ));
                     }
                     size = Some(*n as usize);
                     parser.advance();

@@ -75,10 +75,10 @@ fn test_type_is_hashable() {
 fn test_type_is_hashable_tuple() {
     let hashable_tuple = Type::Tuple(vec![Type::I64, Type::Bool, Type::Str]);
     assert!(hashable_tuple.is_hashable_tuple());
-    
+
     let non_hashable_tuple = Type::Tuple(vec![Type::I64, Type::List(Box::new(Type::I64))]);
     assert!(!non_hashable_tuple.is_hashable_tuple());
-    
+
     assert!(!Type::I64.is_hashable_tuple());
 }
 
@@ -86,10 +86,10 @@ fn test_type_is_hashable_tuple() {
 fn test_type_is_fully_hashable() {
     assert!(Type::I64.is_fully_hashable());
     assert!(Type::Str.is_fully_hashable());
-    
+
     let hashable_tuple = Type::Tuple(vec![Type::I64, Type::Bool]);
     assert!(hashable_tuple.is_fully_hashable());
-    
+
     assert!(!Type::List(Box::new(Type::I64)).is_fully_hashable());
     assert!(!Type::Dict(Box::new(Type::I64), Box::new(Type::I64)).is_fully_hashable());
     assert!(!Type::Array(Box::new(Type::I64), 5).is_fully_hashable());
@@ -114,7 +114,7 @@ fn test_type_display_primitives() {
 fn test_type_display_list() {
     let list = Type::List(Box::new(Type::I64));
     assert_eq!(format!("{}", list), "[i64]");
-    
+
     let nested = Type::List(Box::new(Type::List(Box::new(Type::I64))));
     assert_eq!(format!("{}", nested), "[[i64]]");
 }
@@ -129,7 +129,7 @@ fn test_type_display_dict() {
 fn test_type_display_tuple() {
     let tuple = Type::Tuple(vec![Type::I64, Type::Str]);
     assert_eq!(format!("{}", tuple), "(i64, str)");
-    
+
     let empty: Type = Type::Tuple(vec![]);
     assert_eq!(format!("{}", empty), "()");
 }
@@ -329,13 +329,7 @@ fn test_expr_span_index() {
 #[test]
 fn test_expr_span_slice() {
     let obj = Box::new(Expr::Ident("lst".to_string(), test_span()));
-    let expr = Expr::Slice {
-        obj,
-        start: None,
-        end: None,
-        step: None,
-        span: test_span(),
-    };
+    let expr = Expr::Slice { obj, start: None, end: None, step: None, span: test_span() };
     assert_eq!(expr.span(), test_span());
 }
 

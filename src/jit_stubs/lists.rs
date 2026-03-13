@@ -16,7 +16,7 @@ pub struct ViperListStub {
     pub length: i64,
     pub capacity: i64,
     pub elem_type: i64,
-    pub data: *mut i64,  // Direct pointer to array data
+    pub data: *mut i64, // Direct pointer to array data
 }
 
 #[repr(C)]
@@ -25,21 +25,20 @@ pub struct ViperListF64Stub {
     pub length: i64,
     pub capacity: i64,
     pub elem_type: i64,
-    pub data: *mut f64,  // Direct pointer to f64 array data
+    pub data: *mut f64, // Direct pointer to f64 array data
 }
 
 fn create_viper_list_stub(capacity: i64) -> *mut ViperListStub {
     let capacity = if capacity > 0 { capacity } else { 8 };
-    
+
     // Allocate array data directly on heap
-    let data_ptr = unsafe {
-        libc::malloc((capacity as usize) * std::mem::size_of::<i64>()) as *mut i64
-    };
-    
+    let data_ptr =
+        unsafe { libc::malloc((capacity as usize) * std::mem::size_of::<i64>()) as *mut i64 };
+
     if data_ptr.is_null() {
         panic!("Failed to allocate list data");
     }
-    
+
     // Initialize to zero
     unsafe {
         std::ptr::write_bytes(data_ptr, 0, capacity as usize);
@@ -58,16 +57,15 @@ fn create_viper_list_stub(capacity: i64) -> *mut ViperListStub {
 
 fn create_viper_list_f64_stub(capacity: i64) -> *mut ViperListF64Stub {
     let capacity = if capacity > 0 { capacity } else { 8 };
-    
+
     // Allocate array data directly on heap
-    let data_ptr = unsafe {
-        libc::malloc((capacity as usize) * std::mem::size_of::<f64>()) as *mut f64
-    };
-    
+    let data_ptr =
+        unsafe { libc::malloc((capacity as usize) * std::mem::size_of::<f64>()) as *mut f64 };
+
     if data_ptr.is_null() {
         panic!("Failed to allocate list data");
     }
-    
+
     // Initialize to zero
     unsafe {
         std::ptr::write_bytes(data_ptr, 0, capacity as usize);
@@ -102,11 +100,11 @@ pub extern "C" fn vp_list_append_stub(list: *mut std::ffi::c_void, val: i64) {
                 list_ref.data as *mut std::ffi::c_void,
                 (new_capacity as usize) * std::mem::size_of::<i64>(),
             ) as *mut i64;
-            
+
             if new_data.is_null() {
                 panic!("Failed to grow list");
             }
-            
+
             list_ref.data = new_data;
             list_ref.capacity = new_capacity;
         }
@@ -207,11 +205,11 @@ pub extern "C" fn vp_list_insert_stub(list: *mut std::ffi::c_void, index: i64, v
                     list_ref.data as *mut std::ffi::c_void,
                     (new_capacity as usize) * std::mem::size_of::<i64>(),
                 ) as *mut i64;
-                
+
                 if new_data.is_null() {
                     panic!("Failed to grow list");
                 }
-                
+
                 list_ref.data = new_data;
                 list_ref.capacity = new_capacity;
             }
@@ -336,11 +334,11 @@ pub extern "C" fn vp_list_append_f64_stub(list: *mut std::ffi::c_void, val: f64)
                 list_ref.data as *mut std::ffi::c_void,
                 (new_capacity as usize) * std::mem::size_of::<f64>(),
             ) as *mut f64;
-            
+
             if new_data.is_null() {
                 panic!("Failed to grow list");
             }
-            
+
             list_ref.data = new_data;
             list_ref.capacity = new_capacity;
         }
@@ -396,7 +394,7 @@ pub extern "C" fn vp_list_set_f64_stub(list: *mut std::ffi::c_void, index: i64, 
 pub extern "C" fn vp_range_stub(start: i64, end: i64) -> *mut std::ffi::c_void {
     let count = if end > start { end - start } else { 0 };
     let list = create_viper_list_stub(count);
-    
+
     unsafe {
         let list_ref = &mut *list;
         for i in 0..count {
@@ -404,7 +402,7 @@ pub extern "C" fn vp_range_stub(start: i64, end: i64) -> *mut std::ffi::c_void {
         }
         list_ref.length = count;
     }
-    
+
     list as *mut std::ffi::c_void
 }
 
@@ -447,18 +445,22 @@ pub extern "C" fn vp_list_slice_stub(
         let mut e = if end < 0 { (end + len).max(0) } else { end.min(len) };
 
         // Clamp to valid range
-        if s < 0 { s = 0; }
-        if e > len { e = len; }
+        if s < 0 {
+            s = 0;
+        }
+        if e > len {
+            e = len;
+        }
         if s >= e {
             return create_viper_list_stub(0) as *mut std::ffi::c_void;
         }
 
         let step = if step <= 0 { 1 } else { step };
-        
+
         // Calculate result length
         let result_len = ((e - s + step - 1) / step).max(0);
         let result = create_viper_list_stub(result_len);
-        
+
         let result_ref = &mut *result;
         let mut j = 0;
         for i in (s..e).step_by(step as usize) {
@@ -466,7 +468,7 @@ pub extern "C" fn vp_list_slice_stub(
             j += 1;
         }
         result_ref.length = result_len;
-        
+
         result as *mut std::ffi::c_void
     }
 }
@@ -500,11 +502,11 @@ pub extern "C" fn vp_list_extend_stub(list: *mut std::ffi::c_void, other: *mut s
                 list_ref.data as *mut std::ffi::c_void,
                 (new_capacity as usize) * std::mem::size_of::<i64>(),
             ) as *mut i64;
-            
+
             if new_data.is_null() {
                 panic!("Failed to grow list");
             }
-            
+
             list_ref.data = new_data;
             list_ref.capacity = new_capacity;
         }
@@ -555,10 +557,19 @@ pub extern "C" fn vp_list_sort_stub(list: *mut std::ffi::c_void) {
     unsafe {
         let list_ref = &mut *(list as *mut ViperListStub);
         // Use libc qsort
-        unsafe extern "C" fn compare_i64(a: *const std::ffi::c_void, b: *const std::ffi::c_void) -> std::ffi::c_int {
+        unsafe extern "C" fn compare_i64(
+            a: *const std::ffi::c_void,
+            b: *const std::ffi::c_void,
+        ) -> std::ffi::c_int {
             let va = *(a as *const i64);
             let vb = *(b as *const i64);
-            if va < vb { -1 } else if va > vb { 1 } else { 0 }
+            if va < vb {
+                -1
+            } else if va > vb {
+                1
+            } else {
+                0
+            }
         }
         libc::qsort(
             list_ref.data as *mut std::ffi::c_void,
@@ -595,13 +606,13 @@ pub extern "C" fn vp_list_copy_stub(list: *mut std::ffi::c_void) -> *mut std::ff
         let list_ref = &*(list as *mut ViperListStub);
         let copy = create_viper_list_stub(list_ref.capacity);
         let copy_ref = &mut *copy;
-        
+
         // Copy elements
         for i in 0..list_ref.length {
             *copy_ref.data.add(i as usize) = *list_ref.data.add(i as usize);
         }
         copy_ref.length = list_ref.length;
-        
+
         copy as *mut std::ffi::c_void
     }
 }
@@ -621,11 +632,11 @@ pub extern "C" fn vp_list_reserve_stub(list: *mut std::ffi::c_void, capacity: i6
                 list_ref.data as *mut std::ffi::c_void,
                 (capacity as usize) * std::mem::size_of::<i64>(),
             ) as *mut i64;
-            
+
             if new_data.is_null() {
                 panic!("Failed to reserve list capacity");
             }
-            
+
             list_ref.data = new_data;
             list_ref.capacity = capacity;
         }
@@ -637,7 +648,7 @@ pub extern "C" fn vp_list_concat_stub(
     list2: *mut std::ffi::c_void,
 ) -> *mut std::ffi::c_void {
     let mut total_len = 0i64;
-    
+
     if !list1.is_null() {
         unsafe {
             let list1_ref = &*(list1 as *mut ViperListStub);
@@ -652,11 +663,11 @@ pub extern "C" fn vp_list_concat_stub(
     }
 
     let result = create_viper_list_stub(total_len);
-    
+
     unsafe {
         let result_ref = &mut *result;
         let mut j = 0;
-        
+
         if !list1.is_null() {
             let list1_ref = &*(list1 as *mut ViperListStub);
             for i in 0..list1_ref.length {
@@ -664,7 +675,7 @@ pub extern "C" fn vp_list_concat_stub(
                 j += 1;
             }
         }
-        
+
         if !list2.is_null() {
             let list2_ref = &*(list2 as *mut ViperListStub);
             for i in 0..list2_ref.length {
@@ -672,10 +683,10 @@ pub extern "C" fn vp_list_concat_stub(
                 j += 1;
             }
         }
-        
+
         result_ref.length = total_len;
     }
-    
+
     result as *mut std::ffi::c_void
 }
 
@@ -687,18 +698,27 @@ pub extern "C" fn vp_list_sorted_stub(list: *mut std::ffi::c_void) -> *mut std::
         let list_ref = &*(list as *mut ViperListStub);
         let copy = create_viper_list_stub(list_ref.capacity);
         let copy_ref = &mut *copy;
-        
+
         // Copy elements
         for i in 0..list_ref.length {
             *copy_ref.data.add(i as usize) = *list_ref.data.add(i as usize);
         }
         copy_ref.length = list_ref.length;
-        
+
         // Sort
-        unsafe extern "C" fn compare_i64(a: *const std::ffi::c_void, b: *const std::ffi::c_void) -> std::ffi::c_int {
+        unsafe extern "C" fn compare_i64(
+            a: *const std::ffi::c_void,
+            b: *const std::ffi::c_void,
+        ) -> std::ffi::c_int {
             let va = *(a as *const i64);
             let vb = *(b as *const i64);
-            if va < vb { -1 } else if va > vb { 1 } else { 0 }
+            if va < vb {
+                -1
+            } else if va > vb {
+                1
+            } else {
+                0
+            }
         }
         libc::qsort(
             copy_ref.data as *mut std::ffi::c_void,
@@ -706,7 +726,7 @@ pub extern "C" fn vp_list_sorted_stub(list: *mut std::ffi::c_void) -> *mut std::
             std::mem::size_of::<i64>(),
             Some(compare_i64),
         );
-        
+
         copy as *mut std::ffi::c_void
     }
 }
@@ -719,13 +739,13 @@ pub extern "C" fn vp_list_reversed_stub(list: *mut std::ffi::c_void) -> *mut std
         let list_ref = &*(list as *mut ViperListStub);
         let copy = create_viper_list_stub(list_ref.capacity);
         let copy_ref = &mut *copy;
-        
+
         // Copy elements in reverse order
         for i in 0..list_ref.length {
             *copy_ref.data.add(i as usize) = *list_ref.data.add((list_ref.length - 1 - i) as usize);
         }
         copy_ref.length = list_ref.length;
-        
+
         copy as *mut std::ffi::c_void
     }
 }

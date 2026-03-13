@@ -27,7 +27,7 @@ pub fn generate_membership_op<'ctx>(
             } else {
                 false
             }
-        },
+        }
         Expr::Tuple { .. } => true,
         _ => false,
     };

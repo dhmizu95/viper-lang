@@ -70,7 +70,7 @@ pub enum Type {
         method_name: String,
         params: Vec<Type>,
         return_type: Box<Type>,
-        is_bound: bool,  // true if 'self' is already bound
+        is_bound: bool, // true if 'self' is already bound
     },
     /// Base object type - root of class hierarchy
     /// Used for super() and as the common base for all class instances
@@ -79,7 +79,17 @@ pub enum Type {
 
 impl Type {
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::F32 | Type::F64 | Type::BigInt)
+        matches!(
+            self,
+            Type::I8
+                | Type::I16
+                | Type::I32
+                | Type::I64
+                | Type::Int
+                | Type::F32
+                | Type::F64
+                | Type::BigInt
+        )
     }
 
     pub fn is_integer(&self) -> bool {
@@ -256,14 +266,12 @@ impl Type {
     }
 
     /// Substitute type variables with concrete types
-    /// 
+    ///
     /// Given a type with type variables and a substitution map,
     /// replace all occurrences of type variables with their concrete types.
     pub fn substitute(&self, substitution: &std::collections::HashMap<String, Type>) -> Type {
         match self {
-            Type::Var(name) => {
-                substitution.get(name).cloned().unwrap_or_else(|| self.clone())
-            }
+            Type::Var(name) => substitution.get(name).cloned().unwrap_or_else(|| self.clone()),
             Type::TypeParam { name, bounds } => {
                 if let Some(concrete) = substitution.get(name) {
                     concrete.clone()
@@ -279,11 +287,10 @@ impl Type {
                 Box::new(k.substitute(substitution)),
                 Box::new(v.substitute(substitution)),
             ),
-            Type::Tuple(types) => Type::Tuple(types.iter().map(|t| t.substitute(substitution)).collect()),
-            Type::Array(elem, size) => Type::Array(
-                Box::new(elem.substitute(substitution)),
-                *size,
-            ),
+            Type::Tuple(types) => {
+                Type::Tuple(types.iter().map(|t| t.substitute(substitution)).collect())
+            }
+            Type::Array(elem, size) => Type::Array(Box::new(elem.substitute(substitution)), *size),
             Type::Fn(params, ret) => Type::Fn(
                 params.iter().map(|p| p.substitute(substitution)).collect(),
                 Box::new(ret.substitute(substitution)),
@@ -293,7 +300,10 @@ impl Type {
             Type::Future(inner) => Type::Future(Box::new(inner.substitute(substitution))),
             Type::Struct { name, fields } => Type::Struct {
                 name: name.clone(),
-                fields: fields.iter().map(|(n, t)| (n.clone(), t.substitute(substitution))).collect(),
+                fields: fields
+                    .iter()
+                    .map(|(n, t)| (n.clone(), t.substitute(substitution)))
+                    .collect(),
             },
             Type::GenericApp { name, type_args } => Type::GenericApp {
                 name: name.clone(),
@@ -303,18 +313,20 @@ impl Type {
                 Box::new(ok.substitute(substitution)),
                 Box::new(err.substitute(substitution)),
             ),
-            Type::Union(variants) => Type::Union(
-                variants.iter().map(|t| t.substitute(substitution)).collect(),
-            ),
+            Type::Union(variants) => {
+                Type::Union(variants.iter().map(|t| t.substitute(substitution)).collect())
+            }
             Type::Class(name) => Type::Class(name.clone()),
             Type::Instance(name) => Type::Instance(name.clone()),
-            Type::Method { class_name, method_name, params, return_type, is_bound } => Type::Method {
-                class_name: class_name.clone(),
-                method_name: method_name.clone(),
-                params: params.iter().map(|t| t.substitute(substitution)).collect(),
-                return_type: Box::new(return_type.substitute(substitution)),
-                is_bound: *is_bound,
-            },
+            Type::Method { class_name, method_name, params, return_type, is_bound } => {
+                Type::Method {
+                    class_name: class_name.clone(),
+                    method_name: method_name.clone(),
+                    params: params.iter().map(|t| t.substitute(substitution)).collect(),
+                    return_type: Box::new(return_type.substitute(substitution)),
+                    is_bound: *is_bound,
+                }
+            }
             // Primitive types and Infer/Error remain unchanged
             _ => self.clone(),
         }
@@ -429,4 +441,3 @@ impl std::fmt::Display for Type {
         }
     }
 }
-

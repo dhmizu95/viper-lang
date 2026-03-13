@@ -135,51 +135,52 @@ impl TypeChecker {
                         // This is a class instantiation - valid
                         // The __init__ method will be called by codegen
                     } else {
-                    // Check if this function has overloads
-                    let overloads = self.symbol_table.get_function_overloads(name);
+                        // Check if this function has overloads
+                        let overloads = self.symbol_table.get_function_overloads(name);
 
-                    if overloads.len() > 1 {
-                        // Multiple overloads - resolve to the best match
-                        match self.resolve_overload(name, args) {
-                            Ok(_mangled_name) => {
-                                // Successfully resolved - the mangled name is used by codegen
-                                // Type is inferred from the resolved function
+                        if overloads.len() > 1 {
+                            // Multiple overloads - resolve to the best match
+                            match self.resolve_overload(name, args) {
+                                Ok(_mangled_name) => {
+                                    // Successfully resolved - the mangled name is used by codegen
+                                    // Type is inferred from the resolved function
+                                }
+                                Err(msg) => {
+                                    self.errors.push(TypeError::new(msg.to_string(), *span));
+                                }
                             }
-                            Err(msg) => {
-                                self.errors.push(TypeError::new(msg.to_string(), *span));
+                        } else if let Some(symbol) = self.symbol_table.lookup(name) {
+                            // Single function or builtin - check argument count
+                            if let SymbolKind::Function { params, .. } = &symbol.kind {
+                                if params.len() != args.len() {
+                                    self.errors.push(TypeError::new(
+                                        format!(
+                                            "Expected {} arguments, got {}",
+                                            params.len(),
+                                            args.len()
+                                        ),
+                                        *span,
+                                    ));
+                                }
                             }
-                        }
-                    } else if let Some(symbol) = self.symbol_table.lookup(name) {
-                        // Single function or builtin - check argument count
-                        if let SymbolKind::Function { params, .. } = &symbol.kind {
-                            if params.len() != args.len() {
+                            // For builtins, argument checking is done elsewhere
+                        } else {
+                            // Try looking up by mangled name in case it's a function
+                            // Check if any function with this name prefix exists
+                            let has_function =
+                                self.symbol_table.get_function_overloads(name).len() > 0;
+                            if has_function {
+                                // Function exists but lookup failed - this is OK for single definitions
+                            } else {
+                                // Function not found
                                 self.errors.push(TypeError::new(
-                                    format!(
-                                        "Expected {} arguments, got {}",
-                                        params.len(),
-                                        args.len()
-                                    ),
+                                    format!("Undefined function '{}'", name),
                                     *span,
                                 ));
                             }
                         }
-                        // For builtins, argument checking is done elsewhere
-                    } else {
-                        // Try looking up by mangled name in case it's a function
-                        // Check if any function with this name prefix exists
-                        let has_function = self.symbol_table.get_function_overloads(name).len() > 0;
-                        if has_function {
-                            // Function exists but lookup failed - this is OK for single definitions
-                        } else {
-                            // Function not found
-                            self.errors.push(TypeError::new(
-                                format!("Undefined function '{}'", name),
-                                *span,
-                            ));
-                        }
-                    }
                     } // End of else block for class check
-                    
+
                     // Explicitly store the return type for the call expression
                     if let Some(symbol) = self.symbol_table.lookup(name) {
                         if let SymbolKind::Function { return_type, .. } = &symbol.kind {
@@ -188,26 +189,58 @@ impl TypeChecker {
                             }
                         } else if let SymbolKind::Builtin { signature } = &symbol.kind {
                             let builtin_ret = match signature {
-                                crate::semantic::symbol_table::BuiltinSignature::Print => Some(Type::None),
-                                crate::semantic::symbol_table::BuiltinSignature::Range => Some(Type::List(Box::new(Type::I64))),
-                                crate::semantic::symbol_table::BuiltinSignature::Len => Some(Type::I64),
-                                crate::semantic::symbol_table::BuiltinSignature::Str => Some(Type::Str),
-                                crate::semantic::symbol_table::BuiltinSignature::Int => Some(Type::Int),  // Python-style: int() returns arbitrary precision tagged int
-                                crate::semantic::symbol_table::BuiltinSignature::Float => Some(Type::F64),
-                                crate::semantic::symbol_table::BuiltinSignature::Bool => Some(Type::Bool),
+                                crate::semantic::symbol_table::BuiltinSignature::Print => {
+                                    Some(Type::None)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::Range => {
+                                    Some(Type::List(Box::new(Type::I64)))
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::Len => {
+                                    Some(Type::I64)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::Str => {
+                                    Some(Type::Str)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::Int => {
+                                    Some(Type::Int)
+                                } // Python-style: int() returns arbitrary precision tagged int
+                                crate::semantic::symbol_table::BuiltinSignature::Float => {
+                                    Some(Type::F64)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::Bool => {
+                                    Some(Type::Bool)
+                                }
                                 // Program control
-                                crate::semantic::symbol_table::BuiltinSignature::Exit => Some(Type::None),
+                                crate::semantic::symbol_table::BuiltinSignature::Exit => {
+                                    Some(Type::None)
+                                }
                                 // BigInt functions - removed, use int type instead
                                 // BigInt constructor removed
-                                crate::semantic::symbol_table::BuiltinSignature::StrBigint => Some(Type::Str),
-                                crate::semantic::symbol_table::BuiltinSignature::IntBigint => Some(Type::I64),
-                                crate::semantic::symbol_table::BuiltinSignature::AbsBigint => Some(Type::BigInt),
-                                crate::semantic::symbol_table::BuiltinSignature::PowBigint => Some(Type::BigInt),
-                                crate::semantic::symbol_table::BuiltinSignature::SqrtBigint => Some(Type::BigInt),
-                                crate::semantic::symbol_table::BuiltinSignature::MinBigint => Some(Type::BigInt),
-                                crate::semantic::symbol_table::BuiltinSignature::MaxBigint => Some(Type::BigInt),
+                                crate::semantic::symbol_table::BuiltinSignature::StrBigint => {
+                                    Some(Type::Str)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::IntBigint => {
+                                    Some(Type::I64)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::AbsBigint => {
+                                    Some(Type::BigInt)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::PowBigint => {
+                                    Some(Type::BigInt)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::SqrtBigint => {
+                                    Some(Type::BigInt)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::MinBigint => {
+                                    Some(Type::BigInt)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::MaxBigint => {
+                                    Some(Type::BigInt)
+                                }
                                 // Math builtins (not requiring import)
-                                crate::semantic::symbol_table::BuiltinSignature::Abs => Some(Type::F64),
+                                crate::semantic::symbol_table::BuiltinSignature::Abs => {
+                                    Some(Type::F64)
+                                }
                                 _ => None,
                             };
                             if let Some(ty) = builtin_ret {
@@ -278,15 +311,17 @@ impl TypeChecker {
                     UnaryOp::Unwrap | UnaryOp::UnwrapOrDefault => {
                         // First, check the operand expression to store its type
                         self.check_expr(operand);
-                        
+
                         // Now get the stored type for the operand
                         let operand_type = self.get_expr_type(operand);
-                        
+
                         match &operand_type {
                             Some(Type::Result(_ok_type, _err_type)) => {
                                 // Check if we're in a function that returns Result
                                 // This is needed for error propagation to work
-                                if !self.is_in_result_returning_function(operand_type.as_ref().unwrap()) {
+                                if !self
+                                    .is_in_result_returning_function(operand_type.as_ref().unwrap())
+                                {
                                     self.errors.push(TypeError::new(
                                         format!(
                                             "The `?` operator can only be used in functions that return Result"

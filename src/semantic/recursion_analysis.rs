@@ -64,7 +64,7 @@ impl RecursionAnalyzer {
         if recursive_calls > 0 {
             // Detect if function returns BigInt by analyzing return statements
             let returns_bigint = Self::detect_bigint_return(body);
-            
+
             self.recursive_functions.insert(
                 name.to_string(),
                 RecursiveFunctionInfo {
@@ -99,20 +99,25 @@ impl RecursionAnalyzer {
         match expr {
             // BigInt literal
             Expr::BigInt(_, _) => true,
-            
+
             // Binary operations that can produce BigInt
             Expr::BinOp { op, left, right, .. } => {
                 // Check if either operand is BigInt
                 if Self::expr_returns_bigint(left) || Self::expr_returns_bigint(right) {
                     // These operations preserve BigInt
-                    matches!(op, crate::ast::BinOp::Add | crate::ast::BinOp::Sub | 
-                             crate::ast::BinOp::Mul | crate::ast::BinOp::Div | 
-                             crate::ast::BinOp::Mod)
+                    matches!(
+                        op,
+                        crate::ast::BinOp::Add
+                            | crate::ast::BinOp::Sub
+                            | crate::ast::BinOp::Mul
+                            | crate::ast::BinOp::Div
+                            | crate::ast::BinOp::Mod
+                    )
                 } else {
                     false
                 }
             }
-            
+
             // Recursive call - check if it's a call to a BigInt-returning function
             Expr::Call { func, .. } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
@@ -122,12 +127,12 @@ impl RecursionAnalyzer {
                     false
                 }
             }
-            
+
             // Conditional - check both branches
             Expr::Conditional { then_expr, else_expr, .. } => {
                 Self::expr_returns_bigint(then_expr) || Self::expr_returns_bigint(else_expr)
             }
-            
+
             _ => false,
         }
     }
@@ -158,7 +163,12 @@ impl RecursionAnalyzer {
                 Self::collect_calls_in_expr(condition, called, current_function, recursive_count);
                 Self::collect_function_calls(body, called, current_function, recursive_count);
                 if let Some(else_stmts) = else_body {
-                    Self::collect_function_calls(else_stmts, called, current_function, recursive_count);
+                    Self::collect_function_calls(
+                        else_stmts,
+                        called,
+                        current_function,
+                        recursive_count,
+                    );
                 }
             }
             Stmt::While { condition, body, .. } => {
@@ -246,9 +256,7 @@ impl RecursionAnalyzer {
     fn is_stmt_pure(stmt: &Stmt) -> bool {
         match stmt {
             // Pure statements
-            Stmt::Return { value, .. } => {
-                value.as_ref().map_or(true, Self::is_expr_pure)
-            }
+            Stmt::Return { value, .. } => value.as_ref().map_or(true, Self::is_expr_pure),
             Stmt::Expr(expr) => Self::is_expr_pure(expr),
             Stmt::If { condition, body, else_body, .. } => {
                 Self::is_expr_pure(condition)
@@ -256,18 +264,14 @@ impl RecursionAnalyzer {
                     && else_body.as_ref().map_or(true, |eb| eb.iter().all(Self::is_stmt_pure))
             }
             Stmt::While { condition, body, .. } => {
-                Self::is_expr_pure(condition)
-                    && body.iter().all(Self::is_stmt_pure)
+                Self::is_expr_pure(condition) && body.iter().all(Self::is_stmt_pure)
             }
             Stmt::For { iter, body, .. } => {
-                Self::is_expr_pure(iter)
-                    && body.iter().all(Self::is_stmt_pure)
+                Self::is_expr_pure(iter) && body.iter().all(Self::is_stmt_pure)
             }
-            Stmt::Declare { value, .. } => {
-                value.as_ref().map_or(true, Self::is_expr_pure)
-            }
+            Stmt::Declare { value, .. } => value.as_ref().map_or(true, Self::is_expr_pure),
             // Impure statements
-            Stmt::Assign { .. } => false,  // Variable assignment is a side effect
+            Stmt::Assign { .. } => false, // Variable assignment is a side effect
             Stmt::AugAssign { .. } => false,
             Stmt::Function { .. } => false, // Nested function definition
             Stmt::Class { .. } => false,
@@ -295,18 +299,17 @@ impl RecursionAnalyzer {
             Expr::BinOp { left, right, .. } => {
                 Self::is_expr_pure(left) && Self::is_expr_pure(right)
             }
-            Expr::UnaryOp { operand, .. } => {
-                Self::is_expr_pure(operand)
-            }
+            Expr::UnaryOp { operand, .. } => Self::is_expr_pure(operand),
             // Literals and identifiers are pure
-            Expr::Int(_, _) | Expr::Float(_, _) | Expr::Bool(_, _) | Expr::Str(_, _)
-            | Expr::None(_) | Expr::BigInt(_, _) | Expr::Ident(_, _) => true,
-            Expr::List { elements, .. } => {
-                elements.iter().all(Self::is_expr_pure)
-            }
-            Expr::Tuple { elements, .. } => {
-                elements.iter().all(Self::is_expr_pure)
-            }
+            Expr::Int(_, _)
+            | Expr::Float(_, _)
+            | Expr::Bool(_, _)
+            | Expr::Str(_, _)
+            | Expr::None(_)
+            | Expr::BigInt(_, _)
+            | Expr::Ident(_, _) => true,
+            Expr::List { elements, .. } => elements.iter().all(Self::is_expr_pure),
+            Expr::Tuple { elements, .. } => elements.iter().all(Self::is_expr_pure),
             Expr::Conditional { condition, then_expr, else_expr, .. } => {
                 Self::is_expr_pure(condition)
                     && Self::is_expr_pure(then_expr)
@@ -325,12 +328,7 @@ impl RecursionAnalyzer {
 
         for func_name in self.function_names.iter() {
             if !visited.contains(func_name) {
-                self.find_cycles(
-                    func_name,
-                    &mut visited,
-                    &mut rec_stack,
-                    &mut mutual_groups,
-                );
+                self.find_cycles(func_name, &mut visited, &mut rec_stack, &mut mutual_groups);
             }
         }
 
@@ -389,9 +387,7 @@ impl RecursionAnalyzer {
 
     /// Get memoization recommendation for a function
     pub fn should_memoize(&self, name: &str) -> bool {
-        self.recursive_functions
-            .get(name)
-            .map_or(false, |info| info.should_memoize)
+        self.recursive_functions.get(name).map_or(false, |info| info.should_memoize)
     }
 
     /// Generate warning message for non-memoized recursive function
@@ -421,7 +417,7 @@ mod tests {
         // def fib(n):
         //     if n <= 1: return n
         //     return fib(n-1) + fib(n-2)
-        // 
+        //
         // Implementation would require AST construction
         // Left as exercise for full implementation
     }

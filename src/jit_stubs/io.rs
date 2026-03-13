@@ -93,7 +93,7 @@ pub extern "C" fn vp_print_str(s: *mut ViperString) {
     unsafe {
         let viper_str = &*s;
         let length = viper_str.data.heap.length;
-        
+
         // Check SSO flag (high bit)
         if length & 0x80 != 0 {
             // SSO - data is inline

@@ -9,18 +9,18 @@ pub struct ViperList {
     pub ref_count: i64,
     pub length: i64,
     pub capacity: i64,
-    pub elem_type: i64,  // ViperListType (i32 but aligned to 8 bytes)
-    pub data: *mut c_void,   // Union pointer - for bool lists: *mut int8_t
+    pub elem_type: i64,    // ViperListType (i32 but aligned to 8 bytes)
+    pub data: *mut c_void, // Union pointer - for bool lists: *mut int8_t
 }
 
-const VIPER_LIST_BOOL: i64 = 2;  // Must match viper_types.h
+const VIPER_LIST_BOOL: i64 = 2; // Must match viper_types.h
 
 /// Create a bool list - JIT stub
 /// Uses heap allocation with ViperList struct for compatibility
 pub extern "C" fn vp_list_bool_create_stub() -> *mut ViperList {
     let vec = Box::new(Vec::<bool>::new());
     let data_ptr = Box::into_raw(vec) as *mut c_void;
-    
+
     let list = Box::new(ViperList {
         ref_count: 1,
         length: 0,
@@ -28,7 +28,7 @@ pub extern "C" fn vp_list_bool_create_stub() -> *mut ViperList {
         elem_type: VIPER_LIST_BOOL,
         data: data_ptr,
     });
-    
+
     Box::into_raw(list)
 }
 

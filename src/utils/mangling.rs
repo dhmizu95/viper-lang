@@ -27,18 +27,18 @@ pub fn mangle_function_name_with_closure(
     nonlocal_vars: &[String],
 ) -> String {
     let base_mangled = mangle_function_name(name, param_types);
-    
+
     if nonlocal_vars.is_empty() {
         return base_mangled;
     }
-    
+
     let mut mangled = base_mangled;
     mangled.push_str("_closure");
     for var in nonlocal_vars {
         mangled.push('_');
         mangled.push_str(var);
     }
-    
+
     mangled
 }
 
@@ -102,4 +102,3 @@ fn mangle_type(ty: &Type) -> String {
         Type::Object => "object".to_string(),
     }
 }
-

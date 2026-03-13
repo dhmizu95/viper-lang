@@ -44,7 +44,9 @@ pub fn parse_const_decl(parser: &mut StatementParser) -> crate::error::Result<St
 
     // Constants must have an initializer
     if !parser.match_token(&TokenKind::Eq) {
-        return crate::parser::parse_error("Constant declaration must have an initializer".to_string());
+        return crate::parser::parse_error(
+            "Constant declaration must have an initializer".to_string(),
+        );
     }
 
     let value = parse_expression(parser)?;
@@ -101,24 +103,17 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> crate::error::R
             }
         }
 
-        Ok(Stmt::Assign {
-            target: Box::new(target),
-            value: Box::new(value),
-            span,
-        })
+        Ok(Stmt::Assign { target: Box::new(target), value: Box::new(value), span })
     } else if is_augmented_assign(parser) {
         let op = get_aug_assign_op(parser);
         let value = parse_value_expr(parser)?;
         let span = target.span().merge(value.span());
         if type_ann.is_some() {
-            return crate::parser::parse_error("Cannot use type annotation with augmented assignment".to_string());
+            return crate::parser::parse_error(
+                "Cannot use type annotation with augmented assignment".to_string(),
+            );
         }
-        Ok(Stmt::AugAssign {
-            target: Box::new(target),
-            op,
-            value: Box::new(value),
-            span,
-        })
+        Ok(Stmt::AugAssign { target: Box::new(target), op, value: Box::new(value), span })
     } else {
         // If we parsed a type annotation but no assignment, it's just a declaration
         if let Some(ann) = type_ann {
@@ -139,10 +134,8 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> crate::error::R
         parser.expr_parser.set_pos(parser.pos);
 
         // Check if we're at a statement delimiter
-        if matches!(
-            parser.current().kind,
-            TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof
-        ) {
+        if matches!(parser.current().kind, TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof)
+        {
             // Just return the primary expression as a statement
             Ok(Stmt::Expr(target))
         } else {
@@ -159,7 +152,10 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> crate::error::R
     }
 }
 
-pub fn parse_value_expr_with_left(parser: &mut StatementParser, left: Expr) -> crate::error::Result<Expr> {
+pub fn parse_value_expr_with_left(
+    parser: &mut StatementParser,
+    left: Expr,
+) -> crate::error::Result<Expr> {
     parser.expr_parser.set_pos(parser.pos);
 
     if matches!(
@@ -342,7 +338,11 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> crate::error::Result<
             return crate::parser::statements::primary::literals::parse_await_expr(parser, span);
         }
         TokenKind::Ident(name) => {
-            return crate::parser::statements::primary::calls::parse_ident_expr(parser, name.clone(), span);
+            return crate::parser::statements::primary::calls::parse_ident_expr(
+                parser,
+                name.clone(),
+                span,
+            );
         }
         // Handle send/recv as identifiers when used as function names
         TokenKind::Send => {
@@ -352,13 +352,19 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> crate::error::Result<
             return crate::parser::statements::primary::calls::parse_recv_expr(parser, span);
         }
         TokenKind::LParen => {
-            return crate::parser::statements::primary::containers::parse_tuple_literal(parser, span);
+            return crate::parser::statements::primary::containers::parse_tuple_literal(
+                parser, span,
+            );
         }
         TokenKind::LBracket => {
-            return crate::parser::statements::primary::containers::parse_list_or_array(parser, span);
+            return crate::parser::statements::primary::containers::parse_list_or_array(
+                parser, span,
+            );
         }
         TokenKind::LBrace => {
-            return crate::parser::statements::primary::containers::parse_dict_literal(parser, span);
+            return crate::parser::statements::primary::containers::parse_dict_literal(
+                parser, span,
+            );
         }
         TokenKind::Minus => {
             return crate::parser::statements::primary::operators::parse_neg_expr(parser, span);
@@ -382,7 +388,12 @@ pub fn parse_primary_expr(parser: &mut StatementParser) -> crate::error::Result<
             parser.advance();
             return crate::parser::statements::primary::special::parse_lambda_expr(parser, span);
         }
-        _ => return crate::parser::parse_error(format!("Unexpected token in expression: {:?}", token.kind)),
+        _ => {
+            return crate::parser::parse_error(format!(
+                "Unexpected token in expression: {:?}",
+                token.kind
+            ))
+        }
     };
 
     Ok(expr)

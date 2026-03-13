@@ -1,8 +1,7 @@
 use crate::semantic::type_checker::TypeChecker;
 
 pub fn run_lint(args: &LintArgs) -> crate::error::Result<()> {
-    let source = std::fs::read_to_string(&args.input)
-        .map_err(crate::error::ViperError::Io)?;
+    let source = std::fs::read_to_string(&args.input).map_err(crate::error::ViperError::Io)?;
 
     let mut lexer = crate::lexer::Lexer::new(&source);
     let tokens = lexer.tokenize()?;

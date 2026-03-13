@@ -7,18 +7,12 @@ unsafe extern "C" {
     fn vp_hash_sha512(data: *const c_char, len: i64) -> *mut c_char;
 }
 
-fn digest(
-    func: unsafe extern "C" fn(*const c_char, i64) -> *mut c_char,
-    input: &str,
-) -> String {
+fn digest(func: unsafe extern "C" fn(*const c_char, i64) -> *mut c_char, input: &str) -> String {
     let input = CString::new(input).expect("input should not contain NUL bytes");
     let ptr = unsafe { func(input.as_ptr(), input.as_bytes().len() as i64) };
     assert!(!ptr.is_null(), "hash function returned null");
 
-    unsafe { CStr::from_ptr(ptr) }
-        .to_str()
-        .expect("digest should be valid UTF-8 hex")
-        .to_owned()
+    unsafe { CStr::from_ptr(ptr) }.to_str().expect("digest should be valid UTF-8 hex").to_owned()
 }
 
 #[test]

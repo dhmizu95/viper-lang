@@ -21,7 +21,7 @@ pub fn generate_list<'ctx>(
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
     } else if is_bool_list {
-        ("vp_bitvec_create", "vp_bitvec_append")  // Use bit vector for bool lists
+        ("vp_bitvec_create", "vp_bitvec_append") // Use bit vector for bool lists
     } else {
         ("vp_list_create", "vp_list_append")
     };
@@ -49,7 +49,10 @@ pub fn generate_list<'ctx>(
                 .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
                 .expect("int to float conversion");
             elem_val = float_val.into();
-        } else if is_bool_list && elem_val.is_int_value() && elem_val.get_type().into_int_type().get_bit_width() > 1 {
+        } else if is_bool_list
+            && elem_val.is_int_value()
+            && elem_val.get_type().into_int_type().get_bit_width() > 1
+        {
             // Convert i64 to bool for bool list (only if not already i1)
             let int_val = elem_val.into_int_value();
             let bool_val = state
@@ -92,7 +95,7 @@ pub fn generate_list_comprehension<'ctx>(
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
     } else if is_bool_list {
-        ("vp_bitvec_create", "vp_bitvec_append")  // Use bit vector for bool lists
+        ("vp_bitvec_create", "vp_bitvec_append") // Use bit vector for bool lists
     } else {
         ("vp_list_create", "vp_list_append")
     };
@@ -117,7 +120,11 @@ pub fn generate_list_comprehension<'ctx>(
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
                 match args.len() {
-                    0 => return crate::codegen::codegen_error("range expected at least 1 argument, got 0".to_string()),
+                    0 => {
+                        return crate::codegen::codegen_error(
+                            "range expected at least 1 argument, got 0".to_string(),
+                        )
+                    }
                     1 => (
                         state.ir_builder.i64_const(0),
                         generate_expr(state, &args[0])?.into_int_value(),
@@ -133,10 +140,14 @@ pub fn generate_list_comprehension<'ctx>(
                 );
             }
         } else {
-            return crate::codegen::codegen_error("List comprehension only supports range() iterator".to_string());
+            return crate::codegen::codegen_error(
+                "List comprehension only supports range() iterator".to_string(),
+            );
         }
     } else {
-        return crate::codegen::codegen_error("List comprehension only supports range() iterator".to_string());
+        return crate::codegen::codegen_error(
+            "List comprehension only supports range() iterator".to_string(),
+        );
     };
 
     // Create loop blocks
@@ -196,10 +207,7 @@ pub fn generate_list_comprehension<'ctx>(
     // Set up the loop variable in the symbol table
     let old_var = state.variables.insert(
         var.to_string(),
-        VarInfo::new_stack(
-            var_ptr,
-            crate::codegen::variables::VarType::Int,
-        ),
+        VarInfo::new_stack(var_ptr, crate::codegen::variables::VarType::Int),
     );
 
     // Generate the element expression
@@ -213,7 +221,10 @@ pub fn generate_list_comprehension<'ctx>(
             .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
             .expect("int to float conversion")
             .into()
-    } else if is_bool_list && elem_val.is_int_value() && elem_val.get_type().into_int_type().get_bit_width() > 1 {
+    } else if is_bool_list
+        && elem_val.is_int_value()
+        && elem_val.get_type().into_int_type().get_bit_width() > 1
+    {
         // Convert i64 to bool for bool list (only if not already i1)
         let int_val = elem_val.into_int_value();
         state

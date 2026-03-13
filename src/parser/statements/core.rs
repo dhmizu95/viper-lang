@@ -63,7 +63,8 @@ impl<'a> StatementParser<'a> {
             self.advance();
             Ok(name)
         // Also accept type keywords that can be used as identifiers (e.g., in imports)
-        } else if matches!(self.current().kind, 
+        } else if matches!(
+            self.current().kind,
             TokenKind::Optional | TokenKind::Tuple | TokenKind::Result | TokenKind::Class
         ) {
             let name = format!("{:?}", self.current().kind);
@@ -112,7 +113,7 @@ pub fn parse_statement(parser: &mut StatementParser) -> crate::error::Result<Stm
             // Decorator - can be followed by function or class definition
             // Peek ahead past decorators to see what follows
             let mut peek_pos = parser.pos;
-            
+
             // Skip all @ tokens and their associated names/arguments
             while peek_pos < parser.tokens.len() {
                 match &parser.tokens[peek_pos].kind {
@@ -143,7 +144,7 @@ pub fn parse_statement(parser: &mut StatementParser) -> crate::error::Result<Stm
                     _ => break,
                 }
             }
-            
+
             // Now check what token follows the decorators
             if peek_pos < parser.tokens.len() {
                 match &parser.tokens[peek_pos].kind {
@@ -152,7 +153,7 @@ pub fn parse_statement(parser: &mut StatementParser) -> crate::error::Result<Stm
                     _ => {}
                 }
             }
-            
+
             // Default to function def for backward compatibility
             parse_function_def(parser)
         }
@@ -287,7 +288,7 @@ pub fn parse_from_import(parser: &mut StatementParser) -> crate::error::Result<S
         module.push('.');
         module.push_str(&suffix);
     }
-    
+
     parser.expect(&TokenKind::Import)?;
 
     let mut names = Vec::new();
@@ -404,11 +405,8 @@ pub fn parse_with_stmt(parser: &mut StatementParser, is_async: bool) -> crate::e
     loop {
         let context_expr = parse_expression(parser)?;
 
-        let optional_vars = if parser.match_token(&TokenKind::As) {
-            Some(parser.expect_ident()?)
-        } else {
-            None
-        };
+        let optional_vars =
+            if parser.match_token(&TokenKind::As) { Some(parser.expect_ident()?) } else { None };
 
         items.push(crate::ast::WithItem { context_expr, optional_vars, span });
 

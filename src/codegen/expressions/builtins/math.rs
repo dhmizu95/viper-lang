@@ -15,7 +15,11 @@ pub fn generate_math_builtin<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
+        return crate::codegen::codegen_error(format!(
+            "{}() takes exactly 1 argument, got {}",
+            name,
+            args.len()
+        ));
     }
 
     // Use the same BigInt detection as operators
@@ -87,7 +91,11 @@ pub fn generate_math_float_func<'ctx>(
     } else if arg_val.is_int_value() {
         state
             .builder
-            .build_signed_int_to_float(arg_val.into_int_value(), state.context.f64_type(), "int_to_float")
+            .build_signed_int_to_float(
+                arg_val.into_int_value(),
+                state.context.f64_type(),
+                "int_to_float",
+            )
             .expect("int to float conversion")
     } else {
         return crate::codegen::codegen_error(format!("{}() requires numeric argument", name));
@@ -96,52 +104,72 @@ pub fn generate_math_float_func<'ctx>(
     // Handle special cases
     let result = match name {
         "sqrt" => {
-            let func = state.module.get_function("vp_math_sqrt")
+            let func = state
+                .module
+                .get_function("vp_math_sqrt")
                 .ok_or_else(|| "vp_math_sqrt not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "sqrt_result")
         }
         "ln" => {
-            let func = state.module.get_function("vp_math_ln")
+            let func = state
+                .module
+                .get_function("vp_math_ln")
                 .ok_or_else(|| "vp_math_ln not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "ln_result")
         }
         "log" | "log10" => {
-            let func = state.module.get_function("vp_math_log10")
+            let func = state
+                .module
+                .get_function("vp_math_log10")
                 .ok_or_else(|| "vp_math_log10 not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "log10_result")
         }
         "log2" => {
-            let func = state.module.get_function("vp_math_log2")
+            let func = state
+                .module
+                .get_function("vp_math_log2")
                 .ok_or_else(|| "vp_math_log2 not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "log2_result")
         }
         "exp" => {
-            let func = state.module.get_function("vp_math_exp")
+            let func = state
+                .module
+                .get_function("vp_math_exp")
                 .ok_or_else(|| "vp_math_exp not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "exp_result")
         }
         "sin" => {
-            let func = state.module.get_function("vp_math_sin")
+            let func = state
+                .module
+                .get_function("vp_math_sin")
                 .ok_or_else(|| "vp_math_sin not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "sin_result")
         }
         "cos" => {
-            let func = state.module.get_function("vp_math_cos")
+            let func = state
+                .module
+                .get_function("vp_math_cos")
                 .ok_or_else(|| "vp_math_cos not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "cos_result")
         }
         "tan" => {
-            let func = state.module.get_function("vp_math_tan")
+            let func = state
+                .module
+                .get_function("vp_math_tan")
                 .ok_or_else(|| "vp_math_tan not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "tan_result")
         }
         "floor" => {
-            let func = state.module.get_function("vp_math_floor")
+            let func = state
+                .module
+                .get_function("vp_math_floor")
                 .ok_or_else(|| "vp_math_floor not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "floor_result")
         }
         "ceil" => {
-            let func = state.module.get_function("vp_math_ceil")
+            let func = state
+                .module
+                .get_function("vp_math_ceil")
                 .ok_or_else(|| "vp_math_ceil not declared".to_string())?;
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "ceil_result")
         }

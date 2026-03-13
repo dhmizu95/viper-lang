@@ -29,9 +29,8 @@ unsafe impl Sync for ReplSession {}
 
 impl ReplSession {
     pub fn new() -> Self {
-        let input_path = std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("__repl__.vp");
+        let input_path =
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).join("__repl__.vp");
         Self::with_input_path(input_path)
     }
 
@@ -94,15 +93,16 @@ impl ReplSession {
         unsafe {
             let init_func_name = "__module_level__";
             if let Some(_func) = codegen.module().get_function(init_func_name) {
-                let func_val = execution_engine
-                    .get_function_value(init_func_name)
-                    .map_err(|e| ViperError::driver(format!("Failed to find JIT init function: {}", e)))?;
+                let func_val =
+                    execution_engine.get_function_value(init_func_name).map_err(|e| {
+                        ViperError::driver(format!("Failed to find JIT init function: {}", e))
+                    })?;
 
                 execution_engine.run_function(func_val, &[]);
             } else if let Some(_func) = codegen.module().get_function("main") {
-                let func_val = execution_engine
-                    .get_function_value("main")
-                    .map_err(|e| ViperError::driver(format!("Failed to find JIT main function: {}", e)))?;
+                let func_val = execution_engine.get_function_value("main").map_err(|e| {
+                    ViperError::driver(format!("Failed to find JIT main function: {}", e))
+                })?;
 
                 execution_engine.run_function(func_val, &[]);
             }

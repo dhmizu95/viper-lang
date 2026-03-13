@@ -22,9 +22,12 @@ pub fn generate_hasattr_call<'ctx>(
         .get_function("vp_hasattr")
         .ok_or_else(|| "vp_hasattr not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[obj_val.into(), name_val.into()], "hasattr_result");
+    let result = state.ir_builder.build_call(
+        state.builder,
+        func,
+        &[obj_val.into(), name_val.into()],
+        "hasattr_result",
+    );
     Ok(result.unwrap())
 }
 

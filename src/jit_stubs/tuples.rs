@@ -63,7 +63,7 @@ pub extern "C" fn vp_tuple_get_stub(tuple: *mut ViperTuple, index: i64) -> i64 {
     unsafe {
         let t = &*tuple;
         let mut idx = index;
-        
+
         // Handle negative indices
         if idx < 0 {
             idx = t.size + idx;
@@ -103,7 +103,7 @@ pub extern "C" fn vp_tuple_len_stub(tuple: *mut ViperTuple) -> i64 {
 /// Convert tuple to string
 pub extern "C" fn vp_tuple_to_str_stub(tuple: *mut ViperTuple) -> *mut std::ffi::c_void {
     use crate::jit_stubs::strings::create_viper_string;
-    
+
     if tuple.is_null() {
         return create_viper_string("()") as *mut _;
     }

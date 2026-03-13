@@ -146,37 +146,57 @@ pub extern "C" fn vp_math_fmax(x: f64, y: f64) -> f64 {
 }
 
 pub extern "C" fn vp_math_isnan(x: f64) -> i64 {
-    if x.is_nan() { 1 } else { 0 }
+    if x.is_nan() {
+        1
+    } else {
+        0
+    }
 }
 
 pub extern "C" fn vp_math_isinf(x: f64) -> i64 {
-    if x.is_infinite() { 1 } else { 0 }
+    if x.is_infinite() {
+        1
+    } else {
+        0
+    }
 }
 
 pub extern "C" fn vp_math_isfinite(x: f64) -> i64 {
-    if x.is_finite() { 1 } else { 0 }
+    if x.is_finite() {
+        1
+    } else {
+        0
+    }
 }
 
 pub extern "C" fn vp_math_isnormal(x: f64) -> i64 {
-    if x.is_normal() { 1 } else { 0 }
+    if x.is_normal() {
+        1
+    } else {
+        0
+    }
 }
 
 pub extern "C" fn vp_math_signbit(x: f64) -> i64 {
-    if x.is_sign_negative() { 1 } else { 0 }
+    if x.is_sign_negative() {
+        1
+    } else {
+        0
+    }
 }
 
 pub extern "C" fn vp_math_erf(x: f64) -> f64 {
     // Approximation of error function using Abramowitz and Stegun formula 7.1.26
     let sign = if x < 0.0 { -1.0 } else { 1.0 };
     let x = x.abs();
-    
+
     let t = 1.0 / (1.0 + 0.3275911 * x);
     let a1 = 0.254829592;
     let a2 = -0.284496736;
     let a3 = 1.421413741;
     let a4 = -1.453152027;
     let a5 = 1.061405429;
-    
+
     let erf = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * (-x * x).exp();
     sign * erf
 }
@@ -213,15 +233,29 @@ pub extern "C" fn vp_math_abs_i64(x: i64) -> i64 {
 }
 
 pub extern "C" fn vp_math_min_i64(a: i64, b: i64) -> i64 {
-    if a < b { a } else { b }
+    if a < b {
+        a
+    } else {
+        b
+    }
 }
 
 pub extern "C" fn vp_math_max_i64(a: i64, b: i64) -> i64 {
-    if a > b { a } else { b }
+    if a > b {
+        a
+    } else {
+        b
+    }
 }
 
 pub extern "C" fn vp_math_clamp_i64(x: i64, min_val: i64, max_val: i64) -> i64 {
-    if x < min_val { min_val } else if x > max_val { max_val } else { x }
+    if x < min_val {
+        min_val
+    } else if x > max_val {
+        max_val
+    } else {
+        x
+    }
 }
 
 pub extern "C" fn vp_math_gcd(a: i64, b: i64) -> i64 {
@@ -236,13 +270,19 @@ pub extern "C" fn vp_math_gcd(a: i64, b: i64) -> i64 {
 }
 
 pub extern "C" fn vp_math_lcm(a: i64, b: i64) -> i64 {
-    if a == 0 || b == 0 { return 0; }
+    if a == 0 || b == 0 {
+        return 0;
+    }
     (a / vp_math_gcd(a, b)) * b
 }
 
 pub extern "C" fn vp_math_factorial(n: i64) -> i64 {
-    if n < 0 { return -1; }
-    if n <= 1 { return 1; }
+    if n < 0 {
+        return -1;
+    }
+    if n <= 1 {
+        return 1;
+    }
     let mut result = 1;
     for i in 2..=n {
         result *= i;
@@ -251,8 +291,12 @@ pub extern "C" fn vp_math_factorial(n: i64) -> i64 {
 }
 
 pub extern "C" fn vp_math_factorial_large(n: i64) -> f64 {
-    if n < 0 { return f64::NAN; }
-    if n <= 1 { return 1.0; }
+    if n < 0 {
+        return f64::NAN;
+    }
+    if n <= 1 {
+        return 1.0;
+    }
     let mut result = 1.0;
     for i in 2..=n {
         result *= i as f64;
@@ -261,8 +305,12 @@ pub extern "C" fn vp_math_factorial_large(n: i64) -> f64 {
 }
 
 pub extern "C" fn vp_math_comb(n: i64, k: i64) -> i64 {
-    if k < 0 || k > n { return 0; }
-    if k == 0 || k == n { return 1; }
+    if k < 0 || k > n {
+        return 0;
+    }
+    if k == 0 || k == n {
+        return 1;
+    }
     let mut k = k;
     if k > n - k {
         k = n - k;
@@ -275,8 +323,12 @@ pub extern "C" fn vp_math_comb(n: i64, k: i64) -> i64 {
 }
 
 pub extern "C" fn vp_math_perm(n: i64, k: i64) -> i64 {
-    if k < 0 || k > n { return 0; }
-    if k == 0 { return 1; }
+    if k < 0 || k > n {
+        return 0;
+    }
+    if k == 0 {
+        return 1;
+    }
     let mut result = 1;
     for i in 0..k {
         result *= n - i;
@@ -296,7 +348,7 @@ pub extern "C" fn vp_math_dist_3d(x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z
     let dx = x2 - x1;
     let dy = y2 - y1;
     let dz = z2 - z1;
-    (dx*dx + dy*dy + dz*dz).sqrt()
+    (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
 pub extern "C" fn vp_math_copysign(x: f64, y: f64) -> f64 {
@@ -314,9 +366,15 @@ pub extern "C" fn vp_math_fma(x: f64, y: f64, z: f64) -> f64 {
 }
 
 pub extern "C" fn vp_math_ilogb(x: f64) -> i64 {
-    if x == 0.0 { return -1; }
-    if x.is_nan() { return -1; }
-    if x.is_infinite() { return i32::MAX as i64; }
+    if x == 0.0 {
+        return -1;
+    }
+    if x.is_nan() {
+        return -1;
+    }
+    if x.is_infinite() {
+        return i32::MAX as i64;
+    }
     x.log2() as i64
 }
 
@@ -329,13 +387,21 @@ pub extern "C" fn vp_math_scalbn(x: f64, n: i64) -> f64 {
 }
 
 pub extern "C" fn vp_math_fdim(x: f64, y: f64) -> f64 {
-    if x > y { x - y } else { 0.0 }
+    if x > y {
+        x - y
+    } else {
+        0.0
+    }
 }
 
 pub extern "C" fn vp_math_nextafter(x: f64, y: f64) -> f64 {
-    if x == y { return y; }
-    if x.is_nan() || y.is_nan() { return f64::NAN; }
-    
+    if x == y {
+        return y;
+    }
+    if x.is_nan() || y.is_nan() {
+        return f64::NAN;
+    }
+
     let bits = x.to_bits();
     if (x < y) == (bits & (1u64 << 63) == 0) {
         f64::from_bits(bits + 1)
@@ -345,15 +411,23 @@ pub extern "C" fn vp_math_nextafter(x: f64, y: f64) -> f64 {
 }
 
 pub extern "C" fn vp_math_fpclassify(x: f64) -> i64 {
-    if x.is_nan() { 0 }
-    else if x.is_infinite() { 1 }
-    else if x == 0.0 { 2 }
-    else if x.is_subnormal() { 3 }
-    else { 4 }  // normal
+    if x.is_nan() {
+        0
+    } else if x.is_infinite() {
+        1
+    } else if x == 0.0 {
+        2
+    } else if x.is_subnormal() {
+        3
+    } else {
+        4
+    } // normal
 }
 
 pub extern "C" fn vp_math_mean(values: *const f64, count: i64) -> f64 {
-    if count <= 0 || values.is_null() { return 0.0; }
+    if count <= 0 || values.is_null() {
+        return 0.0;
+    }
     unsafe {
         let mut sum = 0.0;
         for i in 0..count as isize {
@@ -364,7 +438,9 @@ pub extern "C" fn vp_math_mean(values: *const f64, count: i64) -> f64 {
 }
 
 pub extern "C" fn vp_math_variance(values: *const f64, count: i64) -> f64 {
-    if count <= 1 || values.is_null() { return 0.0; }
+    if count <= 1 || values.is_null() {
+        return 0.0;
+    }
     unsafe {
         let mean = vp_math_mean(values, count);
         let mut sum_sq_diff = 0.0;

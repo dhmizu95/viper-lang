@@ -1,13 +1,13 @@
 //! Core expression code generation and type inference
 
 use crate::ast::{Expr, Type};
-use crate::codegen::state::CodeGenState;
-use crate::codegen::variables::{VarStorage, VarType};
-use inkwell::values::BasicValueEnum;
 use crate::codegen::expressions::calls::*;
 use crate::codegen::expressions::collections::*;
 use crate::codegen::expressions::concurrency::*;
 use crate::codegen::expressions::operators::*;
+use crate::codegen::state::CodeGenState;
+use crate::codegen::variables::{VarStorage, VarType};
+use inkwell::values::BasicValueEnum;
 
 pub fn generate_tuple<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -36,7 +36,7 @@ pub fn generate_tuple<'ctx>(
         for (idx, elem) in elements.iter().enumerate() {
             let elem_val = generate_expr(state, elem)?;
             let index_val = state.ir_builder.i64_const(idx as i64);
-            
+
             // Ensure element is i64 for storage in tuple
             let elem_i64 = if elem_val.is_int_value() {
                 let int_val = elem_val.into_int_value();
@@ -54,13 +54,21 @@ pub fn generate_tuple<'ctx>(
                 // Bitcast f64 to i64 for storage (tagged value)
                 state
                     .builder
-                    .build_float_to_signed_int(elem_val.into_float_value(), state.context.i64_type(), "f64_to_i64")
+                    .build_float_to_signed_int(
+                        elem_val.into_float_value(),
+                        state.context.i64_type(),
+                        "f64_to_i64",
+                    )
                     .map_err(|e| format!("Failed to convert float to i64: {:?}", e))?
             } else if elem_val.is_pointer_value() {
                 // Pointer types (str, list, etc.) are already i64-compatible
                 state
                     .builder
-                    .build_ptr_to_int(elem_val.into_pointer_value(), state.context.i64_type(), "ptr_to_i64")
+                    .build_ptr_to_int(
+                        elem_val.into_pointer_value(),
+                        state.context.i64_type(),
+                        "ptr_to_i64",
+                    )
                     .map_err(|e| format!("Failed to convert ptr to i64: {:?}", e))?
             } else {
                 // Check if it's a bool (i1 type)
@@ -69,21 +77,26 @@ pub fn generate_tuple<'ctx>(
                     // Bool (i1) needs to be zero-extended to i64
                     state
                         .builder
-                        .build_int_z_extend(elem_val.into_int_value(), state.context.i64_type(), "bool_to_i64")
+                        .build_int_z_extend(
+                            elem_val.into_int_value(),
+                            state.context.i64_type(),
+                            "bool_to_i64",
+                        )
                         .map_err(|e| format!("Failed to extend bool to i64: {:?}", e))?
                 } else {
-                    return crate::codegen::codegen_error(format!("Unsupported tuple element type: {:?}", ty));
+                    return crate::codegen::codegen_error(format!(
+                        "Unsupported tuple element type: {:?}",
+                        ty
+                    ));
                 }
             };
 
-            let _ = state
-                .ir_builder
-                .build_call(
-                    state.builder,
-                    tuple_set_func,
-                    &[tuple_val.into(), index_val.into(), elem_i64.into()],
-                    &format!("tuple_set_{}", idx),
-                );
+            let _ = state.ir_builder.build_call(
+                state.builder,
+                tuple_set_func,
+                &[tuple_val.into(), index_val.into(), elem_i64.into()],
+                &format!("tuple_set_{}", idx),
+            );
         }
     }
 
@@ -97,13 +110,20 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::Bytes(_, _) => Type::Bytes,
-        Expr::BigInt(_, _) => Type::Int,  // BigInt literals are also tagged int
+        Expr::BigInt(_, _) => Type::Int, // BigInt literals are also tagged int
         Expr::None(_) => Type::None,
         Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 // Built-in BigInt functions (case insensitive for constructor)
-                if name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
+                if name == "bigint"
+                    || name == "BigInt"
+                    || name == "abs_bigint"
+                    || name == "pow_bigint"
+                    || name == "sqrt_bigint"
+                    || name == "min_bigint"
+                    || name == "max_bigint"
+                {
                     return Type::BigInt;
                 }
                 // int() returns tagged int
@@ -142,7 +162,15 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Tuple { elements, .. } => Type::Tuple(elements.iter().map(infer_expr_type).collect()),
         Expr::Dict { .. } => Type::Var("dict".to_string()),
         Expr::BinOp { op, left, right, .. } => {
-            if matches!(op, crate::ast::BinOp::Eq | crate::ast::BinOp::NotEq | crate::ast::BinOp::Lt | crate::ast::BinOp::Gt | crate::ast::BinOp::LtEq | crate::ast::BinOp::GtEq) {
+            if matches!(
+                op,
+                crate::ast::BinOp::Eq
+                    | crate::ast::BinOp::NotEq
+                    | crate::ast::BinOp::Lt
+                    | crate::ast::BinOp::Gt
+                    | crate::ast::BinOp::LtEq
+                    | crate::ast::BinOp::GtEq
+            ) {
                 return Type::Bool;
             }
             let lt = infer_expr_type(left);
@@ -167,7 +195,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::Conditional { .. } => Type::Infer,
         Expr::ListComprehension { .. } => Type::List(Box::new(Type::Infer)),
         Expr::AssignmentExpr { value, .. } => infer_expr_type(value),
-        Expr::Super(_) => Type::Object,  // super() returns base object type
+        Expr::Super(_) => Type::Object, // super() returns base object type
     }
 }
 
@@ -178,12 +206,19 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::Bytes(_, _) => Type::Bytes,
-        Expr::BigInt(_, _) => Type::Int,  // BigInt literals are also tagged int
+        Expr::BigInt(_, _) => Type::Int, // BigInt literals are also tagged int
         Expr::None(_) => Type::None,
         Expr::Ident(name, _) => state.var_types.get(name).cloned().unwrap_or(Type::Infer),
         Expr::Call { func, args, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
-                if name == "bigint" || name == "BigInt" || name == "abs_bigint" || name == "pow_bigint" || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint" {
+                if name == "bigint"
+                    || name == "BigInt"
+                    || name == "abs_bigint"
+                    || name == "pow_bigint"
+                    || name == "sqrt_bigint"
+                    || name == "min_bigint"
+                    || name == "max_bigint"
+                {
                     return Type::BigInt;
                 }
                 if name == "int" {
@@ -196,11 +231,14 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                     return if name == "len" { Type::I64 } else { Type::None };
                 }
                 if let Some(return_type) =
-                    crate::codegen::expressions::calls::infer_named_call_return_type(state, name, args)
+                    crate::codegen::expressions::calls::infer_named_call_return_type(
+                        state, name, args,
+                    )
                 {
                     return return_type;
                 }
-                let arg_types: Vec<Type> = args.iter().map(|a| infer_type_with_state(state, a)).collect();
+                let arg_types: Vec<Type> =
+                    args.iter().map(|a| infer_type_with_state(state, a)).collect();
                 Type::Fn(arg_types, Box::new(Type::Infer))
             } else {
                 Type::Infer
@@ -220,10 +258,22 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 Type::Array(Box::new(Type::Infer), size.unwrap_or(0))
             }
         }
-        Expr::Tuple { elements, .. } => Type::Tuple(elements.iter().map(|e| infer_type_with_state(state, e)).collect()),
+        Expr::Tuple { elements, .. } => {
+            Type::Tuple(elements.iter().map(|e| infer_type_with_state(state, e)).collect())
+        }
         Expr::Dict { .. } => Type::Var("dict".to_string()),
         Expr::BinOp { op, left, right, .. } => {
-            if matches!(op, crate::ast::BinOp::Eq | crate::ast::BinOp::NotEq | crate::ast::BinOp::Lt | crate::ast::BinOp::Gt | crate::ast::BinOp::LtEq | crate::ast::BinOp::GtEq | crate::ast::BinOp::And | crate::ast::BinOp::Or) {
+            if matches!(
+                op,
+                crate::ast::BinOp::Eq
+                    | crate::ast::BinOp::NotEq
+                    | crate::ast::BinOp::Lt
+                    | crate::ast::BinOp::Gt
+                    | crate::ast::BinOp::LtEq
+                    | crate::ast::BinOp::GtEq
+                    | crate::ast::BinOp::And
+                    | crate::ast::BinOp::Or
+            ) {
                 return Type::Bool;
             }
             let lt = infer_type_with_state(state, left);
@@ -254,8 +304,8 @@ pub fn generate_expr<'ctx>(
             let val = *n;
             // Check if value fits in i63 (tagged small int range)
             // i63 range: -(2^62) to 2^62-1
-            const I63_MIN: i64 = i64::MIN >> 2;  // -(2^62)
-            const I63_MAX: i64 = i64::MAX >> 1;  // 2^62-1
+            const I63_MIN: i64 = i64::MIN >> 2; // -(2^62)
+            const I63_MAX: i64 = i64::MAX >> 1; // 2^62-1
             if val >= I63_MIN && val <= I63_MAX {
                 // Fits in small int (i63)
                 Ok(state.ir_builder.i64_const(val << 1).into())
@@ -292,7 +342,8 @@ pub fn generate_expr<'ctx>(
             // Check if value fits in i63 (tagged small int range)
             const I63_MIN: i128 = -(1i128 << 62);
             const I63_MAX: i128 = (1i128 << 62) - 1;
-            let fits_small = s.parse::<i128>().map(|val| val >= I63_MIN && val <= I63_MAX).unwrap_or(false);
+            let fits_small =
+                s.parse::<i128>().map(|val| val >= I63_MIN && val <= I63_MAX).unwrap_or(false);
 
             if fits_small {
                 // Fits in small int (i63)
@@ -314,13 +365,17 @@ pub fn generate_expr<'ctx>(
         }
         Expr::Bytes(b, _) => {
             let bytes_val = state.ir_builder.bytes_const(state.module, b);
-            let create_func = state
-                .module
-                .get_function("vp_bytes_create")
-                .ok_or_else(|| "vp_bytes_create not declared. Add to runtime library.".to_string())?;
+            let create_func = state.module.get_function("vp_bytes_create").ok_or_else(|| {
+                "vp_bytes_create not declared. Add to runtime library.".to_string()
+            })?;
             let result = state
                 .ir_builder
-                .build_call(state.builder, create_func, &[bytes_val.into(), state.ir_builder.i64_const(b.len() as i64).into()], "bytes_create")
+                .build_call(
+                    state.builder,
+                    create_func,
+                    &[bytes_val.into(), state.ir_builder.i64_const(b.len() as i64).into()],
+                    "bytes_create",
+                )
                 .unwrap();
             Ok(result)
         }
@@ -334,7 +389,7 @@ pub fn generate_expr<'ctx>(
                     .unwrap();
                 return Ok(result);
             }
-            
+
             // Generate each f-string element and concatenate
             let mut current: Option<BasicValueEnum<'ctx>> = None;
             for elem in elements {
@@ -353,11 +408,18 @@ pub fn generate_expr<'ctx>(
                         let elem_val = generate_expr(state, elem)?;
                         // Convert to string based on type
                         if elem_val.is_float_value() {
-                            let str_func = state.module.get_function("vp_str_from_f64")
+                            let str_func = state
+                                .module
+                                .get_function("vp_str_from_f64")
                                 .ok_or_else(|| "vp_str_from_f64 not declared".to_string())?;
                             state
                                 .ir_builder
-                                .build_call(state.builder, str_func, &[elem_val.into()], "elem_to_str")
+                                .build_call(
+                                    state.builder,
+                                    str_func,
+                                    &[elem_val.into()],
+                                    "elem_to_str",
+                                )
                                 .unwrap()
                         } else if elem_val.is_pointer_value() {
                             // Already a string or other pointer - use directly
@@ -367,51 +429,86 @@ pub fn generate_expr<'ctx>(
                             // Check if it's a bool (i1 type)
                             if int_val.get_type().get_bit_width() == 1 {
                                 // Bool to string
-                                let to_str_func = state.module.get_function("vp_str_from_bool")
+                                let to_str_func = state
+                                    .module
+                                    .get_function("vp_str_from_bool")
                                     .ok_or_else(|| "vp_str_from_bool not declared".to_string())?;
                                 state
                                     .ir_builder
-                                    .build_call(state.builder, to_str_func, &[int_val.into()], "bool_to_str")
+                                    .build_call(
+                                        state.builder,
+                                        to_str_func,
+                                        &[int_val.into()],
+                                        "bool_to_str",
+                                    )
                                     .unwrap()
                             } else {
                                 // Integer - use tagged int to str, which returns char*
                                 // Then convert char* to ViperString*
-                                let to_str_func = state.module.get_function("tagged_int_to_str")
+                                let to_str_func = state
+                                    .module
+                                    .get_function("tagged_int_to_str")
                                     .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
                                 let c_str_val = state
                                     .ir_builder
-                                    .build_call(state.builder, to_str_func, &[int_val.into()], "elem_to_cstr")
+                                    .build_call(
+                                        state.builder,
+                                        to_str_func,
+                                        &[int_val.into()],
+                                        "elem_to_cstr",
+                                    )
                                     .unwrap();
 
                                 // Convert C string to ViperString
-                                let str_create_func = state.module.get_function("vp_str_create")
+                                let str_create_func = state
+                                    .module
+                                    .get_function("vp_str_create")
                                     .ok_or_else(|| "vp_str_create not declared".to_string())?;
                                 state
                                     .ir_builder
-                                    .build_call(state.builder, str_create_func, &[c_str_val.into()], "elem_to_str")
+                                    .build_call(
+                                        state.builder,
+                                        str_create_func,
+                                        &[c_str_val.into()],
+                                        "elem_to_str",
+                                    )
                                     .unwrap()
                             }
                         } else {
                             // Fallback for integer - use tagged int to str, which returns char*
                             // Then convert char* to ViperString*
-                            let to_str_func = state.module.get_function("tagged_int_to_str")
+                            let to_str_func = state
+                                .module
+                                .get_function("tagged_int_to_str")
                                 .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
                             let c_str_val = state
                                 .ir_builder
-                                .build_call(state.builder, to_str_func, &[elem_val.into()], "elem_to_cstr")
+                                .build_call(
+                                    state.builder,
+                                    to_str_func,
+                                    &[elem_val.into()],
+                                    "elem_to_cstr",
+                                )
                                 .unwrap();
 
                             // Convert C string to ViperString
-                            let str_create_func = state.module.get_function("vp_str_create")
+                            let str_create_func = state
+                                .module
+                                .get_function("vp_str_create")
                                 .ok_or_else(|| "vp_str_create not declared".to_string())?;
                             state
                                 .ir_builder
-                                .build_call(state.builder, str_create_func, &[c_str_val.into()], "elem_to_str")
+                                .build_call(
+                                    state.builder,
+                                    str_create_func,
+                                    &[c_str_val.into()],
+                                    "elem_to_str",
+                                )
                                 .unwrap()
                         }
                     }
                 };
-                
+
                 // Concatenate with previous
                 if let Some(prev) = current {
                     current = Some(generate_str_concat(state, prev, elem_str)?);
@@ -419,7 +516,7 @@ pub fn generate_expr<'ctx>(
                     current = Some(elem_str);
                 }
             }
-            
+
             Ok(current.unwrap())
         }
         Expr::Ident(name, _span) => {
@@ -432,7 +529,20 @@ pub fn generate_expr<'ctx>(
                     Some(init) => init.get_type(),
                     None => {
                         // No initializer (e.g., __name__), check var_types for pointer types
-                        if state.var_types.get(name).map(|t| matches!(t, crate::ast::Type::Str | crate::ast::Type::List(_) | crate::ast::Type::Dict(_, _) | crate::ast::Type::Bytes)).unwrap_or(false) {
+                        if state
+                            .var_types
+                            .get(name)
+                            .map(|t| {
+                                matches!(
+                                    t,
+                                    crate::ast::Type::Str
+                                        | crate::ast::Type::List(_)
+                                        | crate::ast::Type::Dict(_, _)
+                                        | crate::ast::Type::Bytes
+                                )
+                            })
+                            .unwrap_or(false)
+                        {
                             state.context.ptr_type(inkwell::AddressSpace::default()).into()
                         } else {
                             state.context.i64_type().into()
@@ -457,24 +567,35 @@ pub fn generate_expr<'ctx>(
                     VarStorage::Stack(alloca) => {
                         // Stack-allocated variable: load from alloca
                         // Check if this is a tuple type (heap-allocated pointer)
-                        let is_tuple = state.var_types.get(name)
+                        let is_tuple = state
+                            .var_types
+                            .get(name)
                             .map(|t| matches!(t, crate::ast::Type::Tuple(_)))
                             .unwrap_or(false);
-                        
+
                         if is_tuple {
                             // Tuples are now heap-allocated pointers
                             let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-                            Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load tuple"))
+                            Ok(state
+                                .builder
+                                .build_load(ptr_type, *alloca, name)
+                                .expect("load tuple"))
                         } else {
                             match var_info.var_type {
                                 VarType::Float => {
                                     let f64_type = state.context.f64_type();
-                                    Ok(state.builder.build_load(f64_type, *alloca, name).expect("load"))
+                                    Ok(state
+                                        .builder
+                                        .build_load(f64_type, *alloca, name)
+                                        .expect("load"))
                                 }
                                 VarType::Pointer | VarType::Bytes => {
                                     let ptr_type =
                                         state.context.ptr_type(inkwell::AddressSpace::default());
-                                    Ok(state.builder.build_load(ptr_type, *alloca, name).expect("load"))
+                                    Ok(state
+                                        .builder
+                                        .build_load(ptr_type, *alloca, name)
+                                        .expect("load"))
                                 }
                                 VarType::Bool => {
                                     let bool_type = state.context.bool_type();
@@ -485,15 +606,24 @@ pub fn generate_expr<'ctx>(
                                 }
                                 VarType::Int => {
                                     let i64_type = state.context.i64_type();
-                                    Ok(state.builder.build_load(i64_type, *alloca, name).expect("load"))
+                                    Ok(state
+                                        .builder
+                                        .build_load(i64_type, *alloca, name)
+                                        .expect("load"))
                                 }
                                 VarType::Struct => {
                                     // For struct types (Result), use the default Result struct type
-                                    let result_struct_type = state.context.struct_type(&[
-                                        state.context.i8_type().into(),
-                                        state.context.i64_type().into(),
-                                    ], false);
-                                    Ok(state.builder.build_load(result_struct_type, *alloca, name).expect("load struct"))
+                                    let result_struct_type = state.context.struct_type(
+                                        &[
+                                            state.context.i8_type().into(),
+                                            state.context.i64_type().into(),
+                                        ],
+                                        false,
+                                    );
+                                    Ok(state
+                                        .builder
+                                        .build_load(result_struct_type, *alloca, name)
+                                        .expect("load struct"))
                                 }
                             }
                         }
@@ -502,24 +632,37 @@ pub fn generate_expr<'ctx>(
                         // Closure cell: load through the cell's value pointer
                         if let Some(value_ptr) = &var_info.closure_value_ptr {
                             // Check if this is a tuple type (heap-allocated pointer)
-                            let is_tuple = state.var_types.get(name)
+                            let is_tuple = state
+                                .var_types
+                                .get(name)
                                 .map(|t| matches!(t, crate::ast::Type::Tuple(_)))
                                 .unwrap_or(false);
-                            
+
                             if is_tuple {
                                 // Tuples are now heap-allocated pointers
-                                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-                                Ok(state.builder.build_load(ptr_type, *value_ptr, name).expect("load tuple from cell"))
+                                let ptr_type =
+                                    state.context.ptr_type(inkwell::AddressSpace::default());
+                                Ok(state
+                                    .builder
+                                    .build_load(ptr_type, *value_ptr, name)
+                                    .expect("load tuple from cell"))
                             } else {
                                 match var_info.var_type {
                                     VarType::Float => {
                                         let f64_type = state.context.f64_type();
-                                        Ok(state.builder.build_load(f64_type, *value_ptr, name).expect("load from cell"))
+                                        Ok(state
+                                            .builder
+                                            .build_load(f64_type, *value_ptr, name)
+                                            .expect("load from cell"))
                                     }
                                     VarType::Pointer | VarType::Bytes => {
-                                        let ptr_type =
-                                            state.context.ptr_type(inkwell::AddressSpace::default());
-                                        Ok(state.builder.build_load(ptr_type, *value_ptr, name).expect("load from cell"))
+                                        let ptr_type = state
+                                            .context
+                                            .ptr_type(inkwell::AddressSpace::default());
+                                        Ok(state
+                                            .builder
+                                            .build_load(ptr_type, *value_ptr, name)
+                                            .expect("load from cell"))
                                     }
                                     VarType::Bool => {
                                         let bool_type = state.context.bool_type();
@@ -530,20 +673,32 @@ pub fn generate_expr<'ctx>(
                                     }
                                     VarType::Int => {
                                         let i64_type = state.context.i64_type();
-                                        Ok(state.builder.build_load(i64_type, *value_ptr, name).expect("load from cell"))
+                                        Ok(state
+                                            .builder
+                                            .build_load(i64_type, *value_ptr, name)
+                                            .expect("load from cell"))
                                     }
                                     VarType::Struct => {
                                         // Load struct value (e.g., Result)
-                                        let result_struct_type = state.context.struct_type(&[
-                                            state.context.i8_type().into(),
-                                            state.context.i64_type().into(),
-                                        ], false);
-                                        Ok(state.builder.build_load(result_struct_type, *value_ptr, name).expect("load from cell"))
+                                        let result_struct_type = state.context.struct_type(
+                                            &[
+                                                state.context.i8_type().into(),
+                                                state.context.i64_type().into(),
+                                            ],
+                                            false,
+                                        );
+                                        Ok(state
+                                            .builder
+                                            .build_load(result_struct_type, *value_ptr, name)
+                                            .expect("load from cell"))
                                     }
                                 }
                             }
                         } else {
-                            crate::codegen::codegen_error(format!("Closure cell for '{}' missing value pointer", name))
+                            crate::codegen::codegen_error(format!(
+                                "Closure cell for '{}' missing value pointer",
+                                name
+                            ))
                         }
                     }
                 }
@@ -574,12 +729,14 @@ pub fn generate_expr<'ctx>(
                     match attr.as_str() {
                         "pi" => return Ok(state.ir_builder.f64_const(std::f64::consts::PI).into()),
                         "e" => return Ok(state.ir_builder.f64_const(std::f64::consts::E).into()),
-                        "tau" => return Ok(state.ir_builder.f64_const(std::f64::consts::TAU).into()),
+                        "tau" => {
+                            return Ok(state.ir_builder.f64_const(std::f64::consts::TAU).into())
+                        }
                         _ => {} // Fall through to function/method handling
                     }
                 }
             }
-            
+
             // First try user-defined class attribute access
             if let Ok(result) = crate::codegen::oop::generate_attribute_access(state, obj, attr) {
                 return Ok(result);

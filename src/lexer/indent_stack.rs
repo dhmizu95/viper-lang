@@ -71,4 +71,3 @@ pub enum IndentChange {
     DedentCount(usize),
     Error(String),
 }
-

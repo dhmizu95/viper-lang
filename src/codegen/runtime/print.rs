@@ -65,7 +65,7 @@ pub fn declare_print_functions<'ctx>(
     // String comparison (returns i64: -1, 0, 1)
     let str_compare_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_compare", str_compare_type, None);
-    
+
     let str_to_f64_type = module.get_context().f64_type().fn_type(&[ptr_type.into()], false);
     module.add_function("vp_f64_from_str", str_to_f64_type, None);
 
@@ -78,7 +78,8 @@ pub fn declare_print_functions<'ctx>(
     let str_lower_type = ptr_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_str_lower", str_lower_type, None);
 
-    let str_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    let str_slice_type =
+        ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_str_slice", str_slice_type, None);
 
     let str_split_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
@@ -89,7 +90,8 @@ pub fn declare_print_functions<'ctx>(
     module.add_function("vp_str_replace", str_replace_type, None);
 
     // String format method: vp_str_format(format_str, args_array, arg_count)
-    let str_format_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+    let str_format_type =
+        ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_str_format", str_format_type, None);
 
     // Bool to string conversion

@@ -13,10 +13,8 @@ pub fn declare_exception_functions<'ctx>(
     module: &Module<'ctx>,
 ) -> crate::codegen::Result<()> {
     // __cxa_allocate_exception - allocate memory for an exception object
-    let allocate_type = context.ptr_type(AddressSpace::default()).fn_type(
-        &[context.i64_type().into()],
-        false,
-    );
+    let allocate_type =
+        context.ptr_type(AddressSpace::default()).fn_type(&[context.i64_type().into()], false);
     module.add_function(
         "__cxa_allocate_exception",
         allocate_type,
@@ -24,10 +22,8 @@ pub fn declare_exception_functions<'ctx>(
     );
 
     // __cxa_free_exception - free exception object memory
-    let free_type = context.void_type().fn_type(
-        &[context.ptr_type(AddressSpace::default()).into()],
-        false,
-    );
+    let free_type =
+        context.void_type().fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
     module.add_function(
         "__cxa_free_exception",
         free_type,
@@ -43,17 +39,12 @@ pub fn declare_exception_functions<'ctx>(
         ],
         false,
     );
-    module.add_function(
-        "__cxa_throw",
-        throw_type,
-        Some(inkwell::module::Linkage::External),
-    );
+    module.add_function("__cxa_throw", throw_type, Some(inkwell::module::Linkage::External));
 
     // __cxa_begin_catch - begin catching an exception
-    let begin_catch_type = context.ptr_type(AddressSpace::default()).fn_type(
-        &[context.ptr_type(AddressSpace::default()).into()],
-        false,
-    );
+    let begin_catch_type = context
+        .ptr_type(AddressSpace::default())
+        .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
     module.add_function(
         "__cxa_begin_catch",
         begin_catch_type,
@@ -69,10 +60,9 @@ pub fn declare_exception_functions<'ctx>(
     );
 
     // __cxa_get_exception_ptr - get pointer to thrown exception
-    let get_exception_ptr_type = context.ptr_type(AddressSpace::default()).fn_type(
-        &[context.ptr_type(AddressSpace::default()).into()],
-        false,
-    );
+    let get_exception_ptr_type = context
+        .ptr_type(AddressSpace::default())
+        .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
     module.add_function(
         "__cxa_get_exception_ptr",
         get_exception_ptr_type,
@@ -126,8 +116,8 @@ fn declare_viper_exception_functions<'ctx>(
     // viper_raise_with_code - raise exception with error code
     let raise_code_type = context.void_type().fn_type(
         &[
-            ptr_type.into(), // exception type name
-            ptr_type.into(), // message
+            ptr_type.into(),           // exception type name
+            ptr_type.into(),           // message
             context.i64_type().into(), // error code
         ],
         false,
@@ -141,11 +131,11 @@ fn declare_viper_exception_functions<'ctx>(
     // viper_raise_with_cause - raise exception with cause (raise X from Y)
     let raise_cause_type = context.void_type().fn_type(
         &[
-            ptr_type.into(), // exception type name
-            ptr_type.into(), // message
+            ptr_type.into(),           // exception type name
+            ptr_type.into(),           // message
             context.i64_type().into(), // error code
-            ptr_type.into(), // cause type name
-            ptr_type.into(), // cause message
+            ptr_type.into(),           // cause type name
+            ptr_type.into(),           // cause message
         ],
         false,
     );
@@ -201,8 +191,8 @@ fn declare_viper_exception_functions<'ctx>(
     // viper_set_exception - set the current exception (for re-raising)
     let set_exc_type = context.void_type().fn_type(
         &[
-            ptr_type.into(), // type
-            ptr_type.into(), // message
+            ptr_type.into(),           // type
+            ptr_type.into(),           // message
             context.i64_type().into(), // code
         ],
         false,

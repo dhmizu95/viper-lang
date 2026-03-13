@@ -547,7 +547,12 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 BinOp::RShift => {
                     state.builder.build_right_shift(lhs, rhs, false, "rshift").expect("rshift")
                 }
-                _ => return crate::codegen::codegen_error(format!("Unsupported augmented assignment operator: {:?}", op)),
+                _ => {
+                    return crate::codegen::codegen_error(format!(
+                        "Unsupported augmented assignment operator: {:?}",
+                        op
+                    ))
+                }
             };
 
             state.builder.build_store(global_ptr, result).expect("store to global");
@@ -575,7 +580,11 @@ pub(crate) fn generate_aug_assign<'ctx>(
                                 let i64_type = state.context.i64_type();
                                 state.builder.build_load(i64_type, *alloca, name).expect("load")
                             }
-                            _ => return crate::codegen::codegen_error("Invalid var type".to_string()),
+                            _ => {
+                                return crate::codegen::codegen_error(
+                                    "Invalid var type".to_string(),
+                                )
+                            }
                         }
                     } else {
                         return crate::codegen::codegen_error("Invalid storage".to_string());
@@ -587,7 +596,9 @@ pub(crate) fn generate_aug_assign<'ctx>(
                     let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
                     state.builder.build_load(ptr_type, *alloca, name).expect("load")
                 } else {
-                    return crate::codegen::codegen_error("Reference types must be stack allocated".to_string());
+                    return crate::codegen::codegen_error(
+                        "Reference types must be stack allocated".to_string(),
+                    );
                 }
             };
 
@@ -708,7 +719,10 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 }
             }
         } else {
-            return crate::codegen::codegen_error(format!("Undefined variable in augmented assignment: {}", name));
+            return crate::codegen::codegen_error(format!(
+                "Undefined variable in augmented assignment: {}",
+                name
+            ));
         }
     }
     Ok(())
@@ -775,7 +789,9 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
             // Store in variable
             state.variables.insert(name.clone(), VarInfo::new_register(elem_val, VarType::Int));
         } else {
-            return crate::codegen::codegen_error("Tuple unpacking only supports simple identifiers".to_string());
+            return crate::codegen::codegen_error(
+                "Tuple unpacking only supports simple identifiers".to_string(),
+            );
         }
     }
 

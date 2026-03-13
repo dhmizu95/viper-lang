@@ -2,13 +2,12 @@
 pub fn init_project(name: &str) -> crate::error::Result<()> {
     use std::fs;
     use std::path::PathBuf;
-    
+
     // Create project directory structure
     let dirs = ["src", "tests", "benchmarks", "docs"];
     for dir in &dirs {
         let path = PathBuf::from(format!("{}/{}", name, dir));
-        fs::create_dir_all(&path)
-            .map_err(crate::error::ViperError::Io)?;
+        fs::create_dir_all(&path).map_err(crate::error::ViperError::Io)?;
     }
 
     // Create vpm.toml
@@ -37,8 +36,7 @@ license = "MIT"
 "#,
         name
     );
-    fs::write(format!("{}/vpm.toml", name), vpm_toml)
-        .map_err(crate::error::ViperError::Io)?;
+    fs::write(format!("{}/vpm.toml", name), vpm_toml).map_err(crate::error::ViperError::Io)?;
 
     // Create main.vp
     let main_vp = r#"# Viper Project
@@ -46,8 +44,7 @@ license = "MIT"
 def main():
     print("Hello from Viper!")
 "#;
-    fs::write(format!("{}/src/main.vp", name), main_vp)
-        .map_err(crate::error::ViperError::Io)?;
+    fs::write(format!("{}/src/main.vp", name), main_vp).map_err(crate::error::ViperError::Io)?;
 
     // Create .gitignore
     let gitignore = r#"build/
@@ -61,8 +58,7 @@ target/
 vendor/
 vpm.lock
 "#;
-    fs::write(format!("{}/.gitignore", name), gitignore)
-        .map_err(crate::error::ViperError::Io)?;
+    fs::write(format!("{}/.gitignore", name), gitignore).map_err(crate::error::ViperError::Io)?;
 
     println!("Created Viper project: {}", name);
     println!();
@@ -75,6 +71,6 @@ vpm.lock
     println!("  viper vpm add pkg --git URL # Add a git dependency");
     println!("  viper vpm install           # Install dependencies");
     println!("  viper vpm list              # List packages");
-    
+
     Ok(())
 }

@@ -6,7 +6,7 @@ use crate::utils::Span;
 pub enum TokenKind {
     // Literals
     Int(i128),
-    BigInt(String),  // BigInt literal (e.g., 123n or large integers)
+    BigInt(String), // BigInt literal (e.g., 123n or large integers)
     Float(f64),
     Str(String),
     FString(String),
@@ -15,7 +15,7 @@ pub enum TokenKind {
     Ident(String),
 
     // Decorator
-    At,         // @
+    At, // @
 
     // Keywords
     Def,
@@ -89,7 +89,7 @@ pub enum TokenKind {
     Eq,
     EqEq,
     NotEq,
-    ColonEq,       // := (walrus operator)
+    ColonEq, // := (walrus operator)
     Lt,
     LtEq,
     Gt,
@@ -98,23 +98,23 @@ pub enum TokenKind {
     Or,
     Not,
     // Bitwise operators (Phase 2)
-    Ampersand,      // &
-    Pipe,           // |
-    Caret,          // ^
-    Tilde,          // ~
-    LtLt,           // <<
-    GtGt,           // >>
-    AmpersandEq,    // &=
-    PipeEq,         // |=
-    CaretEq,        // ^=
-    LtLtEq,         // <<=
-    GtGtEq,         // >>=
+    Ampersand,   // &
+    Pipe,        // |
+    Caret,       // ^
+    Tilde,       // ~
+    LtLt,        // <<
+    GtGt,        // >>
+    AmpersandEq, // &=
+    PipeEq,      // |=
+    CaretEq,     // ^=
+    LtLtEq,      // <<=
+    GtGtEq,      // >>=
     // Identity and Membership (Phase 2)
     Is,
     IsNot,
     NotIn,
     // Ternary (Phase 2)
-    Question, // ?
+    Question,       // ?
     DoubleQuestion, // ?? - Null coalescing (Phase 3)
     Lambda,
     Fn, // fn as alternative to lambda

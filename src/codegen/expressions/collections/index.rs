@@ -1,5 +1,5 @@
 //! Index access logic for Viper
-//! 
+//!
 //! Optimized with inline LLVM IR generation for list access (40-50% performance gain)
 //! Instead of calling runtime functions like vp_list_get, we generate direct GEP + load operations.
 
@@ -10,9 +10,7 @@ use crate::codegen::state::CodeGenState;
 
 use crate::codegen::expressions::generate_expr;
 use crate::codegen::inline_lists::{
-    inline_i64_list_get,
-    inline_f64_list_get,
-    inline_bool_list_get,
+    inline_bool_list_get, inline_f64_list_get, inline_i64_list_get,
 };
 
 /// Generate index access
@@ -50,7 +48,7 @@ pub fn generate_index<'ctx>(
             } else {
                 false
             }
-        },
+        }
         Expr::Tuple { .. } => true,
         _ => false,
     };
@@ -74,12 +72,16 @@ pub fn generate_index<'ctx>(
                             if let Type::Tuple(element_types) = var_type {
                                 element_types.len() as i64
                             } else {
-                                return crate::codegen::codegen_error("Tuple variable has non-tuple type".to_string());
+                                return crate::codegen::codegen_error(
+                                    "Tuple variable has non-tuple type".to_string(),
+                                );
                             }
                         } else {
-                            return crate::codegen::codegen_error("Tuple variable type not found".to_string());
+                            return crate::codegen::codegen_error(
+                                "Tuple variable type not found".to_string(),
+                            );
                         }
-                    },
+                    }
                     Expr::Tuple { elements, .. } => elements.len() as i64,
                     _ => return crate::codegen::codegen_error("Tuple size unknown".to_string()),
                 };
@@ -103,7 +105,12 @@ pub fn generate_index<'ctx>(
         // Call vp_tuple_get
         let result = state
             .ir_builder
-            .build_call(state.builder, tuple_get_func, &[obj_val.into(), index_val.into()], "tuple_get")
+            .build_call(
+                state.builder,
+                tuple_get_func,
+                &[obj_val.into(), index_val.into()],
+                "tuple_get",
+            )
             .ok_or_else(|| "Failed to call vp_tuple_get".to_string())?;
 
         return Ok(result);
@@ -118,7 +125,7 @@ pub fn generate_index<'ctx>(
             } else {
                 false
             }
-        },
+        }
         Expr::Tuple { .. } => true,
         _ => false,
     };
@@ -131,7 +138,12 @@ pub fn generate_index<'ctx>(
 
         let result = state
             .ir_builder
-            .build_call(state.builder, tuple_get_func, &[obj_val.into(), index_val.into()], "tuple_get")
+            .build_call(
+                state.builder,
+                tuple_get_func,
+                &[obj_val.into(), index_val.into()],
+                "tuple_get",
+            )
             .ok_or_else(|| "Failed to call vp_tuple_get".to_string())?;
 
         return Ok(result);
@@ -153,7 +165,9 @@ pub fn generate_index<'ctx>(
     // Check if this is a bool list
     let is_bool_list = match obj {
         Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
-        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::List { elements, .. } => {
+            elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+        }
         Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
             // Handle [bool] * n pattern
             if let Expr::List { elements, .. } = left.as_ref() {
@@ -179,7 +193,9 @@ pub fn generate_index<'ctx>(
                 Type::Var(n) if n == "float" || n == "f64" => true,
                 _ => false,
             },
-            Type::GenericApp { name, type_args } if (name == "list" || name == "List") && type_args.len() == 1 => {
+            Type::GenericApp { name, type_args }
+                if (name == "list" || name == "List") && type_args.len() == 1 =>
+            {
                 match &type_args[0] {
                     Type::F64 => true,
                     Type::Var(n) if n == "float" || n == "f64" => true,
@@ -240,16 +256,24 @@ pub fn generate_index<'ctx>(
             .ok_or_else(|| "vp_list_get not declared".to_string())?;
 
         // Untag the index (tagged ints are shifted left by 1)
-        let index_untagged = state.builder.build_right_shift(
-            index_val,
-            state.context.i64_type().const_int(1, false),
-            false,
-            "index_untagged",
-        ).map_err(|e| format!("Failed to untag index: {:?}", e))?;
+        let index_untagged = state
+            .builder
+            .build_right_shift(
+                index_val,
+                state.context.i64_type().const_int(1, false),
+                false,
+                "index_untagged",
+            )
+            .map_err(|e| format!("Failed to untag index: {:?}", e))?;
 
         let result = state
             .ir_builder
-            .build_call(state.builder, list_get, &[obj_val.into(), index_untagged.into()], "list_get")
+            .build_call(
+                state.builder,
+                list_get,
+                &[obj_val.into(), index_untagged.into()],
+                "list_get",
+            )
             .expect("vp_list_get call failed");
 
         return Ok(result);
@@ -258,21 +282,21 @@ pub fn generate_index<'ctx>(
     // For non-list pointers (strings, arrays), use array indexing
     if is_pointer_type {
         let obj_ptr = obj_val.into_pointer_value();
-        
+
         // Determine element type based on the object
         let elem_type: inkwell::types::BasicTypeEnum = match obj {
             Expr::Ident(name, _) => {
                 // Check var_types for array type
                 if let Some(var_type) = state.var_types.get(name) {
                     match var_type {
-                        Type::Array(inner, _) => {
-                            match &**inner {
-                                Type::I64 | Type::I32 | Type::I16 | Type::I8 | Type::Int => state.context.i64_type().into(),
-                                Type::F64 | Type::F32 => state.context.f64_type().into(),
-                                Type::Bool => state.context.bool_type().into(),
-                                _ => state.context.i64_type().into(),
+                        Type::Array(inner, _) => match &**inner {
+                            Type::I64 | Type::I32 | Type::I16 | Type::I8 | Type::Int => {
+                                state.context.i64_type().into()
                             }
-                        }
+                            Type::F64 | Type::F32 => state.context.f64_type().into(),
+                            Type::Bool => state.context.bool_type().into(),
+                            _ => state.context.i64_type().into(),
+                        },
                         _ => state.context.i8_type().into(), // Default to i8 for strings
                     }
                 } else {
@@ -298,18 +322,22 @@ pub fn generate_index<'ctx>(
         let elem_ptr = if elem_type == state.context.i8_type().into() {
             // String indexing - use i8 GEP
             unsafe {
-                state.builder.build_in_bounds_gep(elem_type.into_int_type(), obj_ptr, &[index_val], "string_elem")
+                state.builder.build_in_bounds_gep(
+                    elem_type.into_int_type(),
+                    obj_ptr,
+                    &[index_val],
+                    "string_elem",
+                )
             }
         } else {
             // Array indexing - need to cast pointer to correct element type first
             // LLVM 15+: all pointers use the same type, use context.ptr_type()
             let elem_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-            
-            let typed_ptr = state.builder.build_pointer_cast(
-                obj_ptr,
-                elem_ptr_type,
-                "typed_array_ptr",
-            ).map_err(|e| format!("Failed to cast array pointer: {:?}", e))?;
+
+            let typed_ptr = state
+                .builder
+                .build_pointer_cast(obj_ptr, elem_ptr_type, "typed_array_ptr")
+                .map_err(|e| format!("Failed to cast array pointer: {:?}", e))?;
 
             unsafe {
                 state.builder.build_in_bounds_gep(elem_type, typed_ptr, &[index_val], "array_elem")

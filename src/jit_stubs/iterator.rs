@@ -18,10 +18,7 @@ pub extern "C" fn vp_iterator_next(_iterator: *const c_void) -> IteratorResult {
     // 1. Cast iterator to actual iterator type
     // 2. Call __next__ method
     // 3. Return value and done flag
-    
+
     // Placeholder implementation
-    IteratorResult {
-        value: 0,
-        done: true,
-    }
+    IteratorResult { value: 0, done: true }
 }

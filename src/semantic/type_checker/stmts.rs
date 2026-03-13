@@ -14,12 +14,7 @@ impl TypeChecker {
                         }
                     }
                 }
-                Stmt::If {
-                    body,
-                    elif_blocks,
-                    else_body,
-                    ..
-                } => {
+                Stmt::If { body, elif_blocks, else_body, .. } => {
                     if let Some(vt) = self.infer_return_type_from_stmts(body) {
                         return Some(vt);
                     }
@@ -69,7 +64,7 @@ impl TypeChecker {
                                     Expr::None(_) => Type::None,
                                     _ => Type::Infer,
                                 };
-                                
+
                                 // Add field if not already present
                                 if !fields.iter().any(|(name, _)| name == attr) {
                                     fields.push((attr.clone(), field_type));
@@ -154,7 +149,10 @@ impl TypeChecker {
                         // Check if the found symbol is NOT in the current scope (i.e., it's from an outer scope)
                         if symbol.scope_id != self.symbol_table.current_scope_id() {
                             // Shadowing: create new variable in current scope
-                            let kind = SymbolKind::Variable { mutable: true, type_ann: value_type.clone() };
+                            let kind = SymbolKind::Variable {
+                                mutable: true,
+                                type_ann: value_type.clone(),
+                            };
                             let symbol = Symbol::new(
                                 name.clone(),
                                 kind,
@@ -167,7 +165,8 @@ impl TypeChecker {
                         }
                     } else {
                         // Variable doesn't exist - create it with inferred type (implicit declaration)
-                        let kind = SymbolKind::Variable { mutable: true, type_ann: value_type.clone() };
+                        let kind =
+                            SymbolKind::Variable { mutable: true, type_ann: value_type.clone() };
                         let symbol = Symbol::new(
                             name.clone(),
                             kind,
@@ -397,27 +396,30 @@ impl TypeChecker {
                 // First pass: collect nested function declarations
                 // This allows nested functions to be called within the enclosing function
                 for stmt in body {
-                    if let Stmt::Function { 
-                        name: nested_name, 
-                        params: nested_params, 
-                        return_type: nested_return, 
+                    if let Stmt::Function {
+                        name: nested_name,
+                        params: nested_params,
+                        return_type: nested_return,
                         span: nested_span,
                         type_params: nested_type_params,
-                        .. 
-                    } = stmt {
+                        ..
+                    } = stmt
+                    {
                         // Normalize nested function parameter types
-                        let param_types: Vec<Type> = nested_params.iter()
+                        let param_types: Vec<Type> = nested_params
+                            .iter()
                             .map(|p| {
-                                p.type_ann.as_ref()
+                                p.type_ann
+                                    .as_ref()
                                     .map(|t| self.normalize_type(t))
                                     .unwrap_or(Type::Infer)
                             })
                             .collect();
-                        
+
                         // Normalize nested function return type
-                        let normalized_return = nested_return.as_ref()
-                            .map(|t| self.normalize_type(t));
-                        
+                        let normalized_return =
+                            nested_return.as_ref().map(|t| self.normalize_type(t));
+
                         // Register nested function in current scope
                         let symbol = Symbol::new_function(
                             nested_name.clone(),
@@ -635,10 +637,15 @@ impl TypeChecker {
                 self.symbol_table.enter_scope();
                 for item in items {
                     let context_type = self.check_expr(&item.context_expr);
-                    
+
                     // Check that context manager has required methods
-                    self.check_context_manager_protocol(&item.context_expr, context_type.as_ref(), *is_async, item.span);
-                    
+                    self.check_context_manager_protocol(
+                        &item.context_expr,
+                        context_type.as_ref(),
+                        *is_async,
+                        item.span,
+                    );
+
                     // The optional_vars is bound to the result of __enter__ (or __aenter__ for async)
                     if let Some(var_name) = &item.optional_vars {
                         // Add the variable to the symbol table
@@ -678,10 +685,11 @@ impl TypeChecker {
                 }
 
                 // Collect instance fields from __init__ assignments
-                let mut instance_fields = fields.iter()
+                let mut instance_fields = fields
+                    .iter()
                     .map(|(n, t, _)| (n.clone(), t.clone().unwrap_or(Type::Infer)))
                     .collect::<Vec<_>>();
-                
+
                 // Scan __init__ for self.field assignments to discover instance fields
                 for stmt in body {
                     if let Stmt::Function { name: method_name, body: method_body, .. } = stmt {
@@ -737,7 +745,9 @@ impl TypeChecker {
         if let Some(Type::Class(class_name)) = context_type {
             // Look up the class in the symbol table
             if let Some(class_symbol) = self.symbol_table.lookup(class_name) {
-                if let crate::semantic::symbol_table::SymbolKind::Class { methods, .. } = &class_symbol.kind {
+                if let crate::semantic::symbol_table::SymbolKind::Class { methods, .. } =
+                    &class_symbol.kind
+                {
                     let (enter_method, exit_method) = if is_async {
                         ("__aenter__", "__aexit__")
                     } else {

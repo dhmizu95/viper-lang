@@ -6,15 +6,15 @@
 //! - Arrays: Fixed-size, stack-allocated arrays
 //! - Index/Slice: Access operations for collections
 
-mod lists;
-mod dicts;
 mod arrays;
+mod dicts;
 mod index;
+mod lists;
 mod slice;
 
 // Re-export all collection functions
-pub use lists::*;
-pub use dicts::*;
 pub use arrays::*;
+pub use dicts::*;
 pub use index::*;
+pub use lists::*;
 pub use slice::*;

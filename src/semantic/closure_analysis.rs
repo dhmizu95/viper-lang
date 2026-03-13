@@ -254,12 +254,7 @@ impl ClosureAnalyzer {
     }
 
     /// Analyze a nested function for captures
-    fn analyze_nested_function(
-        &mut self,
-        enclosing_name: &str,
-        nested_name: &str,
-        body: &[Stmt],
-    ) {
+    fn analyze_nested_function(&mut self, enclosing_name: &str, nested_name: &str, body: &[Stmt]) {
         // Collect nonlocal declarations from the nested function
         let mut nested_nonlocals = HashSet::new();
         for stmt in body {
@@ -269,7 +264,7 @@ impl ClosureAnalyzer {
                 }
             }
         }
-        
+
         // Store nonlocal vars in the nested function's closure info
         if let Some(closure_info) = self.function_closures.get_mut(nested_name) {
             for var_name in &nested_nonlocals {
@@ -280,7 +275,7 @@ impl ClosureAnalyzer {
         // Find variables used in nested function that are defined in enclosing function
         let mut used_vars = HashSet::new();
         self.collect_used_vars(body, &mut used_vars);
-        
+
         // Nonlocal variables are also considered "used" even if only assigned to
         for var_name in &nested_nonlocals {
             used_vars.insert(var_name.clone());
@@ -294,15 +289,14 @@ impl ClosureAnalyzer {
                 let is_mutated = self.is_var_mutated(body, var_name);
                 let is_nonlocal = nested_nonlocals.contains(var_name);
 
-                let captured_info = self.captured_vars.entry(var_name.clone()).or_insert_with(|| {
-                    CapturedVarInfo {
+                let captured_info =
+                    self.captured_vars.entry(var_name.clone()).or_insert_with(|| CapturedVarInfo {
                         name: var_name.clone(),
                         defining_function: enclosing_name.to_string(),
                         captured_by: HashSet::new(),
                         is_nonlocal: false,
                         is_mutated: false,
-                    }
-                });
+                    });
                 captured_info.captured_by.insert(nested_name.to_string());
                 captured_info.is_mutated = is_mutated;
                 captured_info.is_nonlocal = is_nonlocal;

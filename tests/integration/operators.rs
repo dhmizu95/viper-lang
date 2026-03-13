@@ -1,8 +1,8 @@
 //! Operator Integration Tests
 
+use std::env;
 use std::fs;
 use std::process::Command;
-use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn run_viper_code(code: &str) -> Result<String, String> {
@@ -10,7 +10,10 @@ fn run_viper_code(code: &str) -> Result<String, String> {
     let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
     let test_file = temp_dir.join(format!("viper_test_{}.vp", timestamp));
     fs::write(&test_file, code).map_err(|e| format!("Failed to write: {}", e))?;
-    let output = Command::new("cargo").args(["run", "--quiet", "--bin", "viper", "run"]).arg(&test_file).output()
+    let output = Command::new("cargo")
+        .args(["run", "--quiet", "--bin", "viper", "run"])
+        .arg(&test_file)
+        .output()
         .map_err(|e| format!("Failed to run: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -34,6 +37,17 @@ test()
 }
 
 #[test]
+fn test_arithmetic_add_overflow_promotes_to_bigint() {
+    let code = r#"
+def test():
+    print(4611686018427387903 + 1)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("4611686018427387904"), "stdout was: {}", stdout);
+}
+
+#[test]
 fn test_arithmetic_sub() {
     let code = r#"
 def test():
@@ -45,6 +59,17 @@ test()
 }
 
 #[test]
+fn test_arithmetic_sub_negative_small_int_fast_path() {
+    let code = r#"
+def test():
+    print(-5 - 2)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("-7"), "stdout was: {}", stdout);
+}
+
+#[test]
 fn test_arithmetic_mul() {
     let code = r#"
 def test():
@@ -53,6 +78,17 @@ def test():
 test()
 "#;
     assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_arithmetic_mul_overflow_promotes_to_bigint() {
+    let code = r#"
+def test():
+    print(3037000500 * 3037000500)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("9223372037000250000"), "stdout was: {}", stdout);
 }
 
 #[test]

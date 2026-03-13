@@ -14,6 +14,7 @@ mod result;
 mod special;
 mod super_call;
 
+pub use super::generate_expr;
 pub use bigint::*;
 pub use builtins_attr::*;
 pub use builtins_conv::*;
@@ -27,4 +28,3 @@ pub use numeric::*;
 pub use result::*;
 pub use special::*;
 pub use super_call::*;
-pub use super::generate_expr;

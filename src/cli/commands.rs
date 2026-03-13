@@ -19,8 +19,7 @@ pub fn execute(args: Args) -> Result<()> {
             compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
         }
         Commands::Run { input, optimize, auto_memoize } => {
-            let current_exe = std::env::current_exe()
-                .map_err(ViperError::Io)?;
+            let current_exe = std::env::current_exe().map_err(ViperError::Io)?;
             compile_and_run_jit_isolated(&current_exe, &input, optimize, auto_memoize)
         }
         Commands::RunInternal { input, optimize, auto_memoize } => {

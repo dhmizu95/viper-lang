@@ -12,8 +12,7 @@ pub fn run_bench(args: &BenchArgs) -> crate::error::Result<()> {
         )));
     }
 
-    let entries = fs::read_dir(benchmark_dir)
-        .map_err(crate::error::ViperError::Io)?;
+    let entries = fs::read_dir(benchmark_dir).map_err(crate::error::ViperError::Io)?;
 
     let mut benchmarks: Vec<_> = entries
         .filter_map(|e| e.ok())
@@ -52,8 +51,7 @@ fn run_single_benchmark(path: &Path, iterations: u32) -> crate::error::Result<()
 
     print!("{}: ", name);
 
-    let source = fs::read_to_string(path)
-        .map_err(crate::error::ViperError::Io)?;
+    let source = fs::read_to_string(path).map_err(crate::error::ViperError::Io)?;
 
     let mut total_time = 0.0;
 

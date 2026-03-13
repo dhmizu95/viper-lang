@@ -33,11 +33,7 @@ pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> crate::err
                 let body = parse_expression(parser)?;
                 parser.expect(&TokenKind::RParen)?;
                 let merged_span = span.merge(body.span());
-                return Ok(Expr::Lambda {
-                    params,
-                    body: Box::new(body),
-                    span: merged_span,
-                });
+                return Ok(Expr::Lambda { params, body: Box::new(body), span: merged_span });
             } else {
                 break;
             }
@@ -52,11 +48,7 @@ pub fn parse_lambda_expr(parser: &mut StatementParser, span: Span) -> crate::err
     parser.expect(&TokenKind::Colon)?;
     let body = parse_expression(parser)?;
     let merged_span = span.merge(body.span());
-    Ok(Expr::Lambda {
-        params,
-        body: Box::new(body),
-        span: merged_span,
-    })
+    Ok(Expr::Lambda { params, body: Box::new(body), span: merged_span })
 }
 
 /// Parse type alias: type Name = Type

@@ -36,9 +36,12 @@ impl<'ctx> CodeGen<'ctx> {
         string_global.set_linkage(inkwell::module::Linkage::Private);
 
         let init_data: Vec<u8> = s.as_bytes().iter().copied().chain(std::iter::once(0)).collect();
-        let init_array = context.i8_type().const_array(&init_data.iter()
-            .map(|&b| context.i8_type().const_int(b as u64, false))
-            .collect::<Vec<_>>());
+        let init_array = context.i8_type().const_array(
+            &init_data
+                .iter()
+                .map(|&b| context.i8_type().const_int(b as u64, false))
+                .collect::<Vec<_>>(),
+        );
         string_global.set_initializer(&init_array);
 
         // GlobalValue is already a pointer, cast it
@@ -47,9 +50,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     /// Verify the generated code
     pub fn verify(&self) -> crate::codegen::Result<()> {
-        self.module
-            .verify()
-            .map_err(|e| crate::codegen::codegen_err(e.to_string()))
+        self.module.verify().map_err(|e| crate::codegen::codegen_err(e.to_string()))
     }
 
     /// Print the generated IR

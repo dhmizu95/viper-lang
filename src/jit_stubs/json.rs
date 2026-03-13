@@ -4,7 +4,7 @@ pub extern "C" fn vp_json_loads(json_str: *const i8) -> *mut std::ffi::c_void {
     if json_str.is_null() {
         return std::ptr::null_mut();
     }
-    
+
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(json_str);
         if let Ok(json_str) = c_str.to_str() {
@@ -21,7 +21,7 @@ pub extern "C" fn vp_json_dumps(dict: *mut std::ffi::c_void) -> *mut i8 {
         let s = std::ffi::CString::new("{}").unwrap();
         return s.into_raw();
     }
-    
+
     // Simplified: return empty object
     let s = std::ffi::CString::new("{}").unwrap();
     s.into_raw()
@@ -31,7 +31,7 @@ pub extern "C" fn vp_json_load_file(filename: *const i8) -> *mut std::ffi::c_voi
     if filename.is_null() {
         return std::ptr::null_mut();
     }
-    
+
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(filename);
         if let Ok(filename) = c_str.to_str() {
@@ -48,7 +48,7 @@ pub extern "C" fn vp_json_dump_file(_dict: *mut std::ffi::c_void, filename: *con
     if filename.is_null() {
         return -1;
     }
-    
+
     // Simplified: write empty object
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(filename);

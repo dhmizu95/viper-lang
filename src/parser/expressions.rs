@@ -114,7 +114,9 @@ impl<'a> PrattParser<'a> {
                     let attr_span = left.span().merge(self.previous().span);
                     left = Expr::Attribute { obj: Box::new(left), attr, span: attr_span };
                 } else {
-                    return crate::parser::parse_error("Expected attribute name after '.'".to_string());
+                    return crate::parser::parse_error(
+                        "Expected attribute name after '.'".to_string(),
+                    );
                 }
             } else if self.match_token(&TokenKind::PlusPlus) {
                 // Postfix increment: x++
@@ -157,18 +159,23 @@ impl<'a> PrattParser<'a> {
                 // Check for walrus operator (:=) - assignment expression
                 if matches!(self.peek().kind, TokenKind::ColonEq) {
                     self.advance(); // consume :=
-                    
+
                     // Left side must be an identifier
                     let target_span = left.span();
                     let target = match &left {
                         Expr::Ident(name, _) => name.clone(),
-                        _ => return crate::parser::parse_error("Walrus operator requires an identifier on the left side".to_string()),
+                        _ => {
+                            return crate::parser::parse_error(
+                                "Walrus operator requires an identifier on the left side"
+                                    .to_string(),
+                            )
+                        }
                     };
-                    
+
                     // Parse the value expression
                     let value = self.parse_expr(op_prec)?;
                     let span = target_span.merge(value.span());
-                    
+
                     // Create assignment expression: target := value
                     left = Expr::AssignmentExpr {
                         target: Box::new(Expr::Ident(target, target_span)),
@@ -366,7 +373,9 @@ impl<'a> PrattParser<'a> {
                             // Empty parameter list like fn(): expr
                             break;
                         } else {
-                            return crate::parser::parse_error("Expected parameter name in lambda".to_string());
+                            return crate::parser::parse_error(
+                                "Expected parameter name in lambda".to_string(),
+                            );
                         }
 
                         if self.match_token(&TokenKind::Comma) {
@@ -484,7 +493,9 @@ impl<'a> PrattParser<'a> {
                             self.advance();
                             name
                         } else {
-                            return crate::parser::parse_error("Expected variable name in list comprehension".to_string());
+                            return crate::parser::parse_error(
+                                "Expected variable name in list comprehension".to_string(),
+                            );
                         };
 
                         // Expect 'in' keyword
@@ -654,7 +665,10 @@ impl<'a> PrattParser<'a> {
                     span: merged_span,
                 })
             }
-            _ => crate::parser::parse_error(format!("Unexpected token in expression: {:?}", token.kind)),
+            _ => crate::parser::parse_error(format!(
+                "Unexpected token in expression: {:?}",
+                token.kind
+            )),
         }
     }
 
@@ -721,7 +735,7 @@ impl<'a> PrattParser<'a> {
             }
             TokenKind::DoubleStar => Precedence::EXPONENT,
             TokenKind::Pipeline => Precedence::PIPELINE,
-            TokenKind::ColonEq => Precedence::ASSIGNMENT,  // Walrus operator
+            TokenKind::ColonEq => Precedence::ASSIGNMENT, // Walrus operator
             _ => return None,
         };
 
@@ -760,13 +774,20 @@ impl<'a> PrattParser<'a> {
 
     fn expect(&mut self, kind: &TokenKind) -> crate::error::Result<()> {
         if self.pos >= self.tokens.len() {
-            return crate::parser::parse_error(format!("Expected {:?}, but reached end of tokens", kind));
+            return crate::parser::parse_error(format!(
+                "Expected {:?}, but reached end of tokens",
+                kind
+            ));
         }
         if std::mem::discriminant(&self.current().kind) == std::mem::discriminant(kind) {
             self.advance();
             Ok(())
         } else {
-            crate::parser::parse_error(format!("Expressions: Expected {:?}, found {:?}", kind, self.current().kind))
+            crate::parser::parse_error(format!(
+                "Expressions: Expected {:?}, found {:?}",
+                kind,
+                self.current().kind
+            ))
         }
     }
 

@@ -17,11 +17,7 @@ pub fn parse_ident_expr(
         if parser.match_token(&TokenKind::Dot) {
             let attr = parser.expect_ident()?;
             let attr_span = parser.previous().span;
-            expr = Expr::Attribute {
-                obj: Box::new(expr),
-                attr,
-                span: span.merge(attr_span),
-            };
+            expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
@@ -35,11 +31,7 @@ pub fn parse_ident_expr(
             }
             // RParen was already consumed by match_token if it matched
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call {
-                func: Box::new(expr),
-                args,
-                span: call_span,
-            };
+            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             // Parse slice or index
             let is_slice = super::is_slice_pattern(parser);
@@ -51,11 +43,8 @@ pub fn parse_ident_expr(
                 let index = parse_expression(parser)?;
                 parser.expect(&TokenKind::RBracket)?;
                 let index_span = span.merge(parser.previous().span);
-                expr = Expr::Index {
-                    obj: Box::new(expr),
-                    index: Box::new(index),
-                    span: index_span,
-                };
+                expr =
+                    Expr::Index { obj: Box::new(expr), index: Box::new(index), span: index_span };
             }
         } else {
             break;
@@ -66,10 +55,7 @@ pub fn parse_ident_expr(
 }
 
 /// Parse send keyword as identifier with postfix operators
-pub fn parse_send_expr(
-    parser: &mut StatementParser,
-    span: Span,
-) -> crate::error::Result<Expr> {
+pub fn parse_send_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     // Treat as identifier "send" for function call syntax
     let mut expr = Expr::Ident("send".to_string(), span);
@@ -78,11 +64,7 @@ pub fn parse_send_expr(
         if parser.match_token(&TokenKind::Dot) {
             let attr = parser.expect_ident()?;
             let attr_span = parser.previous().span;
-            expr = Expr::Attribute {
-                obj: Box::new(expr),
-                attr,
-                span: span.merge(attr_span),
-            };
+            expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
@@ -95,11 +77,7 @@ pub fn parse_send_expr(
                 parser.expect(&TokenKind::RParen)?;
             }
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call {
-                func: Box::new(expr),
-                args,
-                span: call_span,
-            };
+            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             let is_slice = super::is_slice_pattern(parser);
 
@@ -109,11 +87,8 @@ pub fn parse_send_expr(
                 let index = parse_expression(parser)?;
                 parser.expect(&TokenKind::RBracket)?;
                 let index_span = span.merge(parser.previous().span);
-                expr = Expr::Index {
-                    obj: Box::new(expr),
-                    index: Box::new(index),
-                    span: index_span,
-                };
+                expr =
+                    Expr::Index { obj: Box::new(expr), index: Box::new(index), span: index_span };
             }
         } else {
             break;
@@ -124,10 +99,7 @@ pub fn parse_send_expr(
 }
 
 /// Parse recv keyword as identifier with postfix operators
-pub fn parse_recv_expr(
-    parser: &mut StatementParser,
-    span: Span,
-) -> crate::error::Result<Expr> {
+pub fn parse_recv_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     parser.advance();
     // Treat as identifier "recv" for function call syntax
     let mut expr = Expr::Ident("recv".to_string(), span);
@@ -136,11 +108,7 @@ pub fn parse_recv_expr(
         if parser.match_token(&TokenKind::Dot) {
             let attr = parser.expect_ident()?;
             let attr_span = parser.previous().span;
-            expr = Expr::Attribute {
-                obj: Box::new(expr),
-                attr,
-                span: span.merge(attr_span),
-            };
+            expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
@@ -153,11 +121,7 @@ pub fn parse_recv_expr(
                 parser.expect(&TokenKind::RParen)?;
             }
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call {
-                func: Box::new(expr),
-                args,
-                span: call_span,
-            };
+            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             let is_slice = super::is_slice_pattern(parser);
 
@@ -167,11 +131,8 @@ pub fn parse_recv_expr(
                 let index = parse_expression(parser)?;
                 parser.expect(&TokenKind::RBracket)?;
                 let index_span = span.merge(parser.previous().span);
-                expr = Expr::Index {
-                    obj: Box::new(expr),
-                    index: Box::new(index),
-                    span: index_span,
-                };
+                expr =
+                    Expr::Index { obj: Box::new(expr), index: Box::new(index), span: index_span };
             }
         } else {
             break;
@@ -218,11 +179,5 @@ fn parse_slice_expr(
     parser.expect(&TokenKind::RBracket)?;
     let index_span = span.merge(parser.previous().span);
 
-    Ok(Expr::Slice {
-        obj: Box::new(obj),
-        start,
-        end,
-        step,
-        span: index_span,
-    })
+    Ok(Expr::Slice { obj: Box::new(obj), start, end, step, span: index_span })
 }

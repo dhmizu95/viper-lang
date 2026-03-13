@@ -10,10 +10,7 @@ use std::process::{Command, ExitStatus};
 /// Run LLVM optimizations on a module for JIT compilation
 /// Note: JIT execution engine applies optimizations automatically via OptimizationLevel
 /// This function is kept for API compatibility with AOT driver
-pub fn run_llvm_optimizations(
-    _module: &inkwell::module::Module,
-    _opt_level: u32,
-) -> Result<()> {
+pub fn run_llvm_optimizations(_module: &inkwell::module::Module, _opt_level: u32) -> Result<()> {
     // JIT execution engine handles optimization via OptimizationLevel parameter
     // The mem2reg and other optimizations are applied automatically by the JIT
     Ok(())
@@ -44,9 +41,7 @@ pub fn compile_and_run_jit_isolated(
         child.arg("--auto-memoize");
     }
 
-    let output = child
-        .output()
-        .map_err(ViperError::Io)?;
+    let output = child.output().map_err(ViperError::Io)?;
 
     print!("{}", String::from_utf8_lossy(&output.stdout));
     eprint!("{}", String::from_utf8_lossy(&output.stderr));
@@ -55,19 +50,20 @@ pub fn compile_and_run_jit_isolated(
         return Ok(());
     }
 
-    Err(ViperError::driver(format!(
-        "Isolated JIT process failed with status {}",
-        output.status
-    )))
+    Err(ViperError::driver(format!("Isolated JIT process failed with status {}", output.status)))
 }
 
 /// Compile and run using JIT with optional automatic memoization
-/// 
+///
 /// # Memory Usage Note
 /// The LLVM JIT engine has inherent memory overhead (~60MB base) regardless of program size.
 /// This is due to loading the full JIT infrastructure. For memory-constrained environments,
 /// consider using AOT compilation instead.
-pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memoize: bool) -> Result<()> {
+pub fn compile_and_run_jit_with_memo(
+    input_path: &str,
+    opt_level: u32,
+    auto_memoize: bool,
+) -> Result<()> {
     use inkwell::targets::{InitializationConfig, Target};
 
     println!("🐍 Viper Compiler {} (JIT -O{})", env!("CARGO_PKG_VERSION"), opt_level);
@@ -76,8 +72,7 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     }
     println!("   Running: {}", input_path);
 
-    let source = std::fs::read_to_string(input_path)
-        .map_err(ViperError::Io)?;
+    let source = std::fs::read_to_string(input_path).map_err(ViperError::Io)?;
 
     let mut lexer = lexer::Lexer::new(&source);
     let tokens = lexer.tokenize()?;
@@ -123,7 +118,10 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
     // Report BigInt functions (they have optnone attribute for special handling)
     let bigint_funcs = codegen.bigint_functions();
     if !bigint_funcs.is_empty() {
-        println!("   ℹ BigInt functions (optnone applied): {}", bigint_funcs.iter().cloned().collect::<Vec<_>>().join(", "));
+        println!(
+            "   ℹ BigInt functions (optnone applied): {}",
+            bigint_funcs.iter().cloned().collect::<Vec<_>>().join(", ")
+        );
     }
 
     // Use optimization level for JIT
@@ -148,12 +146,12 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
 
     // Create JIT execution engine with specified optimization level
     // The JIT applies optimizations on-the-fly during compilation
-    // 
+    //
     // Memory Optimization Note:
     // The LLVM JIT engine has inherent memory overhead (~60MB base) regardless of program size.
     // This is due to loading the full JIT infrastructure including:
     // - LLVM IR optimizer
-    // - Target machine code generator  
+    // - Target machine code generator
     // - MCJIT memory manager
     // - Symbol resolver
     //
@@ -171,9 +169,9 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
 
     unsafe {
         if let Some(_main) = codegen.module().get_function("main") {
-            let func = execution_engine
-                .get_function_value("main")
-                .map_err(|e| ViperError::driver(format!("Failed to find main function in JIT: {}", e)))?;
+            let func = execution_engine.get_function_value("main").map_err(|e| {
+                ViperError::driver(format!("Failed to find main function in JIT: {}", e))
+            })?;
 
             execution_engine.run_function(func, &[]);
             println!("✅ Execution complete.");

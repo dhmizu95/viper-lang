@@ -1,6 +1,6 @@
 use crate::ast::{Module, Type};
+use crate::module::{ModuleLoader, ModuleRegistry, ModuleSearchPath};
 use crate::semantic::symbol_table::{Symbol, SymbolTable};
-use crate::module::{ModuleLoader, ModuleSearchPath, ModuleRegistry};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -59,14 +59,14 @@ impl TypeChecker {
             module_registry: ModuleRegistry::new(),
         }
     }
-    
+
     /// Create a new type checker with a specific input path for module resolution
     pub fn with_input_path(input_path: &Path) -> Self {
         let mut search_path = ModuleSearchPath::new();
         if let Some(parent) = input_path.parent() {
             search_path.add_path(parent.to_path_buf());
         }
-        
+
         Self {
             symbol_table: SymbolTable::new(),
             errors: Vec::new(),
@@ -87,16 +87,17 @@ impl TypeChecker {
 
         // Second pass: collect function declarations
         for stmt in &module.statements {
-            if let crate::ast::Stmt::Function { name, params, return_type, span, type_params, .. } = stmt {
+            if let crate::ast::Stmt::Function {
+                name, params, return_type, span, type_params, ..
+            } = stmt
+            {
                 // Normalize parameter types
-                let param_types: Vec<Type> =
-                    params.iter()
-                        .map(|p| {
-                            p.type_ann.as_ref()
-                                .map(|t| self.normalize_type(t))
-                                .unwrap_or(Type::Infer)
-                        })
-                        .collect();
+                let param_types: Vec<Type> = params
+                    .iter()
+                    .map(|p| {
+                        p.type_ann.as_ref().map(|t| self.normalize_type(t)).unwrap_or(Type::Infer)
+                    })
+                    .collect();
 
                 // Normalize return type (convert GenericApp Result to Type::Result)
                 let normalized_return_type = return_type.as_ref().map(|t| self.normalize_type(t));
@@ -115,14 +116,12 @@ impl TypeChecker {
                 }
             } else if let crate::ast::Stmt::Extern { name, params, return_type, span, .. } = stmt {
                 // Normalize parameter types
-                let param_types: Vec<Type> =
-                    params.iter()
-                        .map(|p| {
-                            p.type_ann.as_ref()
-                                .map(|t| self.normalize_type(t))
-                                .unwrap_or(Type::Infer)
-                        })
-                        .collect();
+                let param_types: Vec<Type> = params
+                    .iter()
+                    .map(|p| {
+                        p.type_ann.as_ref().map(|t| self.normalize_type(t)).unwrap_or(Type::Infer)
+                    })
+                    .collect();
 
                 // Normalize return type
                 let normalized_return_type = return_type.as_ref().map(|t| self.normalize_type(t));
@@ -181,7 +180,7 @@ impl TypeChecker {
                     // For now, just normalize the element type
                     Type::Array(
                         Box::new(self.normalize_type(&type_args[0])),
-                        0,  // Size would need special handling
+                        0, // Size would need special handling
                     )
                 } else {
                     ty.clone()
@@ -189,23 +188,23 @@ impl TypeChecker {
             }
             // Recursively normalize nested types
             Type::List(inner) => Type::List(Box::new(self.normalize_type(inner))),
-            Type::Dict(k, v) => Type::Dict(
-                Box::new(self.normalize_type(k)),
-                Box::new(self.normalize_type(v)),
-            ),
-            Type::Tuple(types) => Type::Tuple(types.iter().map(|t| self.normalize_type(t)).collect()),
+            Type::Dict(k, v) => {
+                Type::Dict(Box::new(self.normalize_type(k)), Box::new(self.normalize_type(v)))
+            }
+            Type::Tuple(types) => {
+                Type::Tuple(types.iter().map(|t| self.normalize_type(t)).collect())
+            }
             Type::Fn(params, ret) => Type::Fn(
                 params.iter().map(|p| self.normalize_type(p)).collect(),
                 Box::new(self.normalize_type(ret)),
             ),
-            Type::Union(variants) => Type::Union(variants.iter().map(|t| self.normalize_type(t)).collect()),
+            Type::Union(variants) => {
+                Type::Union(variants.iter().map(|t| self.normalize_type(t)).collect())
+            }
             Type::Optional(inner) => Type::Optional(Box::new(self.normalize_type(inner))),
             Type::Future(inner) => Type::Future(Box::new(self.normalize_type(inner))),
             Type::Chan(inner) => Type::Chan(Box::new(self.normalize_type(inner))),
-            Type::Array(elem, size) => Type::Array(
-                Box::new(self.normalize_type(elem)),
-                *size,
-            ),
+            Type::Array(elem, size) => Type::Array(Box::new(self.normalize_type(elem)), *size),
             _ => ty.clone(),
         }
     }
@@ -219,7 +218,7 @@ impl TypeChecker {
     pub fn symbol_table(&self) -> &SymbolTable {
         &self.symbol_table
     }
-    
+
     /// Process import statements and load modules
     fn process_imports(&mut self, module: &Module) -> Result<(), Vec<TypeError>> {
         for stmt in &module.statements {
@@ -230,17 +229,19 @@ impl TypeChecker {
                         Ok(loaded_module) => {
                             // Register the module
                             self.module_registry.register_module(mod_name.clone(), alias.clone());
-                            
+
                             // Analyze exports from the loaded module
                             self.module_registry.analyze_exports(
                                 alias.as_deref().unwrap_or(mod_name),
-                                &loaded_module.ast.statements
+                                &loaded_module.ast.statements,
                             );
-                            
+
                             // Add module as a symbol in the current scope
                             let module_symbol = crate::semantic::symbol_table::Symbol::new(
                                 alias.as_deref().unwrap_or(mod_name).to_string(),
-                                crate::semantic::symbol_table::SymbolKind::Module { name: mod_name.clone() },
+                                crate::semantic::symbol_table::SymbolKind::Module {
+                                    name: mod_name.clone(),
+                                },
                                 *span,
                                 self.symbol_table.current_scope_id(),
                             );
@@ -251,7 +252,7 @@ impl TypeChecker {
                         Err(e) => {
                             self.errors.push(TypeError::new(
                                 format!("Failed to load module '{}': {}", mod_name, e),
-                                *span
+                                *span,
                             ));
                         }
                     }
@@ -262,16 +263,19 @@ impl TypeChecker {
                         Ok(loaded_module) => {
                             // Register the module
                             self.module_registry.register_module(mod_name.clone(), None);
-                            
+
                             // Analyze exports
-                            self.module_registry.analyze_exports(mod_name, &loaded_module.ast.statements);
-                            
+                            self.module_registry
+                                .analyze_exports(mod_name, &loaded_module.ast.statements);
+
                             // Add each imported name to the current scope
                             for (name, alias) in names {
                                 let import_name = alias.as_deref().unwrap_or(name);
-                                
+
                                 // Check if the symbol exists in the module
-                                if let Some(export) = self.module_registry.get_export(mod_name, name) {
+                                if let Some(export) =
+                                    self.module_registry.get_export(mod_name, name)
+                                {
                                     // Create a symbol for the imported item
                                     let symbol_kind = if export.is_function {
                                         crate::semantic::symbol_table::SymbolKind::Function {
@@ -294,7 +298,7 @@ impl TypeChecker {
                                             type_ann: export.symbol_type.clone(),
                                         }
                                     };
-                                    
+
                                     let symbol = crate::semantic::symbol_table::Symbol::new(
                                         import_name.to_string(),
                                         symbol_kind,
@@ -306,8 +310,11 @@ impl TypeChecker {
                                     }
                                 } else {
                                     self.errors.push(TypeError::new(
-                                        format!("'{}' is not exported from module '{}'", name, mod_name),
-                                        *span
+                                        format!(
+                                            "'{}' is not exported from module '{}'",
+                                            name, mod_name
+                                        ),
+                                        *span,
                                     ));
                                 }
                             }
@@ -315,7 +322,7 @@ impl TypeChecker {
                         Err(e) => {
                             self.errors.push(TypeError::new(
                                 format!("Failed to load module '{}': {}", mod_name, e),
-                                *span
+                                *span,
                             ));
                         }
                     }

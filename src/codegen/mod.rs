@@ -14,9 +14,9 @@ pub mod statements;
 pub mod types;
 pub mod variables;
 
+pub use core::CodeGen;
 pub use dce::DeadCodeEliminator;
 pub use licm::LicmPass;
-pub use core::CodeGen;
 
 pub(crate) type Result<T> = crate::error::Result<T>;
 

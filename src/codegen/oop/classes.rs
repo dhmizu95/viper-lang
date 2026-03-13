@@ -8,12 +8,12 @@
 //! - Inheritance support
 
 use crate::ast::{Expr, Stmt, Type};
-use crate::codegen::state::CodeGenState;
 use crate::codegen::expressions::generate_expr;
+use crate::codegen::state::CodeGenState;
 use inkwell::values::{BasicValueEnum, PointerValue};
 use inkwell::AddressSpace;
-use std::collections::HashMap;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 /// Information about a class field
 #[derive(Debug, Clone)]
@@ -32,9 +32,9 @@ pub struct MethodInfo {
     pub is_static: bool,
     pub is_class_method: bool,
     pub is_property: bool,
-    pub is_property_setter: bool,  // @name.setter
-    pub is_abstract: bool,  // @abstractmethod
-    pub property_name: Option<String>,  // For setters, the property name
+    pub is_property_setter: bool,      // @name.setter
+    pub is_abstract: bool,             // @abstractmethod
+    pub property_name: Option<String>, // For setters, the property name
     pub params: Vec<(String, Type)>,
     pub return_type: Type,
 }
@@ -48,7 +48,7 @@ pub struct ClassMetadata {
     pub methods: Vec<MethodInfo>,
     pub instance_size: usize,
     pub vtable: HashMap<String, String>, // method_name -> mangled_name
-    pub mro: Vec<String>, // Method Resolution Order
+    pub mro: Vec<String>,                // Method Resolution Order
 }
 
 impl ClassMetadata {
@@ -66,8 +66,7 @@ impl ClassMetadata {
 
     /// Get instance field by name
     pub fn get_instance_field(&self, field_name: &str) -> Option<&FieldInfo> {
-        self.fields.iter()
-            .find(|f| f.name == field_name && !f.is_class_var)
+        self.fields.iter().find(|f| f.name == field_name && !f.is_class_var)
     }
 
     /// Get method info by name
@@ -76,7 +75,11 @@ impl ClassMetadata {
     }
 
     /// Get method following MRO (includes inherited methods)
-    pub fn get_method_mro<'a>(&'a self, method_name: &str, registry: &'a ClassRegistry) -> Option<&'a MethodInfo> {
+    pub fn get_method_mro<'a>(
+        &'a self,
+        method_name: &str,
+        registry: &'a ClassRegistry,
+    ) -> Option<&'a MethodInfo> {
         // Search through MRO
         for class_name in &self.mro {
             if let Some(class_meta) = registry.classes.get(class_name) {
@@ -97,9 +100,7 @@ pub struct ClassRegistry {
 
 impl ClassRegistry {
     pub fn new() -> Self {
-        Self {
-            classes: HashMap::new(),
-        }
+        Self { classes: HashMap::new() }
     }
 
     pub fn register_class(&mut self, metadata: ClassMetadata) {
@@ -137,7 +138,7 @@ impl ClassRegistry {
 
 /// Calculate MRO using C3 linearization algorithm
 /// This implements the same algorithm as Python's MRO
-/// 
+///
 /// Handles:
 /// - Diamond inheritance (A -> B, C -> D where B,C -> A)
 /// - Inconsistent hierarchies (where C3 fails)
@@ -167,7 +168,8 @@ pub fn calculate_mro(
     }
 
     // Check for cycles in inheritance graph
-    if let Err(e) = check_inheritance_cycle(class_name, registry, &mut vec![class_name.to_string()]) {
+    if let Err(e) = check_inheritance_cycle(class_name, registry, &mut vec![class_name.to_string()])
+    {
         return Err(e);
     }
 
@@ -263,9 +265,8 @@ fn merge_sequences(
             let head = sequences[i][0].clone();
 
             // Check if head appears in any tail
-            let in_tail = sequences.iter().any(|seq| {
-                seq.len() > 1 && seq[1..].iter().any(|x| x == &head)
-            });
+            let in_tail =
+                sequences.iter().any(|seq| seq.len() > 1 && seq[1..].iter().any(|x| x == &head));
 
             if !in_tail {
                 // Good head found
@@ -446,16 +447,18 @@ pub fn generate_class_metadata(
 
     // For @dataclass, generate __init__, __repr__, __eq__ methods
     if is_dataclass {
-        let instance_fields: Vec<(String, Type)> = metadata.fields.iter()
+        let instance_fields: Vec<(String, Type)> = metadata
+            .fields
+            .iter()
             .filter(|f| !f.is_class_var)
             .map(|f| (f.name.clone(), f.ty.clone()))
             .collect();
-        
+
         // Check if methods already exist
         let has_init = metadata.methods.iter().any(|m| m.name == "__init__");
         let has_repr = metadata.methods.iter().any(|m| m.name == "__repr__");
         let has_eq = metadata.methods.iter().any(|m| m.name == "__eq__");
-        
+
         // Generate missing methods
         if !has_init {
             generate_dataclass_init_method(&mut metadata.methods, name, &instance_fields);
@@ -470,13 +473,7 @@ pub fn generate_class_metadata(
 
     // Process methods
     for stmt in body {
-        if let Stmt::Function {
-            name: method_name,
-            params,
-            return_type,
-            decorators,
-            ..
-        } = stmt {
+        if let Stmt::Function { name: method_name, params, return_type, decorators, .. } = stmt {
             let is_static = decorators.iter().any(|d| d.name == "staticmethod");
             let is_class_method = decorators.iter().any(|d| d.name == "classmethod");
             let is_abstract = decorators.iter().any(|d| d.name == "abstractmethod");
@@ -485,7 +482,7 @@ pub fn generate_class_metadata(
             let is_property = decorators.iter().any(|d| d.name == "property");
             let mut is_property_setter = false;
             let mut property_name: Option<String> = None;
-            
+
             // Check for @name.setter pattern
             for dec in decorators {
                 if dec.name.contains('.') {
@@ -498,7 +495,8 @@ pub fn generate_class_metadata(
                 }
             }
 
-            let param_types: Vec<(String, Type)> = params.iter()
+            let param_types: Vec<(String, Type)> = params
+                .iter()
                 .map(|p| (p.name.clone(), p.type_ann.clone().unwrap_or(Type::Infer)))
                 .collect();
 
@@ -556,19 +554,29 @@ fn scan_self_assignments(stmt: &Stmt, metadata: &mut ClassMetadata, offset: &mut
             }
         }
         Stmt::If { body, elif_blocks, else_body, .. } => {
-            for stmt in body { scan_self_assignments(stmt, metadata, offset); }
+            for stmt in body {
+                scan_self_assignments(stmt, metadata, offset);
+            }
             for (_, elif_body) in elif_blocks {
-                for stmt in elif_body { scan_self_assignments(stmt, metadata, offset); }
+                for stmt in elif_body {
+                    scan_self_assignments(stmt, metadata, offset);
+                }
             }
             if let Some(else_body) = else_body {
-                for stmt in else_body { scan_self_assignments(stmt, metadata, offset); }
+                for stmt in else_body {
+                    scan_self_assignments(stmt, metadata, offset);
+                }
             }
         }
         Stmt::While { body, .. } => {
-            for stmt in body { scan_self_assignments(stmt, metadata, offset); }
+            for stmt in body {
+                scan_self_assignments(stmt, metadata, offset);
+            }
         }
         Stmt::For { body, .. } => {
-            for stmt in body { scan_self_assignments(stmt, metadata, offset); }
+            for stmt in body {
+                scan_self_assignments(stmt, metadata, offset);
+            }
         }
         _ => {}
     }
@@ -583,9 +591,16 @@ fn infer_type_from_expr(expr: &crate::ast::Expr) -> crate::ast::Type {
         Expr::Bool(..) => crate::ast::Type::Bool,
         Expr::Str(..) => crate::ast::Type::Str,
         Expr::Bytes(..) => crate::ast::Type::Bytes,
-        Expr::List { .. } | Expr::ListComprehension { .. } => crate::ast::Type::List(Box::new(crate::ast::Type::Infer)),
-        Expr::Dict { .. } => crate::ast::Type::Dict(Box::new(crate::ast::Type::Infer), Box::new(crate::ast::Type::Infer)),
-        Expr::Tuple { elements, .. } => crate::ast::Type::Tuple(elements.iter().map(infer_type_from_expr).collect()),
+        Expr::List { .. } | Expr::ListComprehension { .. } => {
+            crate::ast::Type::List(Box::new(crate::ast::Type::Infer))
+        }
+        Expr::Dict { .. } => crate::ast::Type::Dict(
+            Box::new(crate::ast::Type::Infer),
+            Box::new(crate::ast::Type::Infer),
+        ),
+        Expr::Tuple { elements, .. } => {
+            crate::ast::Type::Tuple(elements.iter().map(infer_type_from_expr).collect())
+        }
         Expr::None(..) => crate::ast::Type::None,
         Expr::Call { func, .. } => {
             // Check if calling a known type constructor
@@ -596,7 +611,10 @@ fn infer_type_from_expr(expr: &crate::ast::Expr) -> crate::ast::Type {
                     "str" => crate::ast::Type::Str,
                     "bool" => crate::ast::Type::Bool,
                     "list" => crate::ast::Type::List(Box::new(crate::ast::Type::Infer)),
-                    "dict" => crate::ast::Type::Dict(Box::new(crate::ast::Type::Infer), Box::new(crate::ast::Type::Infer)),
+                    "dict" => crate::ast::Type::Dict(
+                        Box::new(crate::ast::Type::Infer),
+                        Box::new(crate::ast::Type::Infer),
+                    ),
                     _ => crate::ast::Type::Infer,
                 }
             } else {
@@ -614,8 +632,15 @@ fn get_type_size(ty: &Type) -> usize {
         Type::I8 | Type::Bool => 1,
         Type::I16 => 2,
         Type::I32 => 4,
-        Type::I64 | Type::Int | Type::F64 | Type::Str | Type::List(_) | Type::Dict(_, _) 
-        | Type::Class(_) | Type::Instance(_) | Type::BigInt => 8,
+        Type::I64
+        | Type::Int
+        | Type::F64
+        | Type::Str
+        | Type::List(_)
+        | Type::Dict(_, _)
+        | Type::Class(_)
+        | Type::Instance(_)
+        | Type::BigInt => 8,
         Type::F32 => 4,
         Type::Tuple(types) => types.iter().map(get_type_size).sum(),
         _ => 8,
@@ -628,24 +653,23 @@ pub fn generate_class_instantiation<'ctx>(
     class_name: &str,
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
-    let metadata = with_class_registry(|r| {
-        r.get_class(class_name).cloned()
-    }).ok_or_else(|| format!("Class '{}' not found", class_name))?;
+    let metadata = with_class_registry(|r| r.get_class(class_name).cloned())
+        .ok_or_else(|| format!("Class '{}' not found", class_name))?;
 
     // Check if class has abstract methods
-    let abstract_methods: Vec<&MethodInfo> = metadata.methods.iter()
-        .filter(|m| m.is_abstract)
-        .collect();
-    
+    let abstract_methods: Vec<&MethodInfo> =
+        metadata.methods.iter().filter(|m| m.is_abstract).collect();
+
     if !abstract_methods.is_empty() {
         // Check if this is a direct instantiation (not from subclass)
         // For now, emit a runtime error for abstract class instantiation
-        let abstract_names: Vec<&str> = abstract_methods.iter()
-            .map(|m| m.name.as_str())
-            .collect();
-        
-        eprintln!("   warning: Class '{}' has abstract methods: {}", 
-                  class_name, abstract_names.join(", "));
+        let abstract_names: Vec<&str> = abstract_methods.iter().map(|m| m.name.as_str()).collect();
+
+        eprintln!(
+            "   warning: Class '{}' has abstract methods: {}",
+            class_name,
+            abstract_names.join(", ")
+        );
         // In a full implementation, this would generate a runtime check
         // For now, we just warn and allow instantiation (for subclassing)
     }
@@ -656,23 +680,21 @@ pub fn generate_class_instantiation<'ctx>(
     // Call __init__ if it exists
     if let Some(init_method) = metadata.get_method("__init__") {
         let mangled_name = &init_method.mangled_name;
-        
+
         if let Some(func_val) = state.functions.get(mangled_name).copied() {
             // Build argument list: self + user args
-            let mut arg_values: Vec<_> = args.iter()
-                .map(|a| generate_expr(state, a)
-                    .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+            let mut arg_values: Vec<_> = args
+                .iter()
+                .map(|a| {
+                    generate_expr(state, a)
+                        .map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+                })
                 .collect::<Result<_, _>>()?;
-            
+
             // Insert self as first argument
             arg_values.insert(0, instance_ptr.into());
 
-            state.ir_builder.build_call(
-                state.builder,
-                func_val,
-                &arg_values,
-                "init_call",
-            );
+            state.ir_builder.build_call(state.builder, func_val, &arg_values, "init_call");
         }
     }
 
@@ -685,25 +707,26 @@ fn allocate_instance<'ctx>(
     metadata: &ClassMetadata,
 ) -> crate::codegen::Result<PointerValue<'ctx>> {
     let i64_type = state.context.i64_type();
-    
+
     // Get malloc function
-    let malloc_func = state.module.get_function("malloc")
+    let malloc_func = state
+        .module
+        .get_function("malloc")
         .or_else(|| state.module.get_function("vp_alloc"))
         .ok_or_else(|| "malloc/vp_alloc not found".to_string())?;
-    
+
     // Allocate memory for instance
     let size_val = i64_type.const_int(metadata.instance_size as u64, false);
-    
+
     let result = state.ir_builder.build_call(
         state.builder,
         malloc_func,
         &[size_val.into()],
         "alloc_instance",
     );
-    
-    let ptr = result.ok_or_else(|| "Failed to allocate instance".to_string())?
-        .into_pointer_value();
-    
+
+    let ptr = result.ok_or_else(|| "Failed to allocate instance".to_string())?.into_pointer_value();
+
     Ok(ptr)
 }
 
@@ -757,7 +780,9 @@ fn generate_field_access<'ctx>(
     let offset_val = i64_type.const_int(field.offset as u64, false);
 
     // Cast obj_ptr to i8* for byte arithmetic
-    let obj_i8 = state.builder.build_bit_cast(obj_ptr, i8_ptr_type, "obj_i8")
+    let obj_i8 = state
+        .builder
+        .build_bit_cast(obj_ptr, i8_ptr_type, "obj_i8")
         .map_err(|e| format!("Failed to cast object: {:?}", e))?
         .into_pointer_value();
 
@@ -769,46 +794,63 @@ fn generate_field_access<'ctx>(
             &[offset_val],
             &format!("field_{}_ptr", field.name),
         )
-    }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
+    }
+    .map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
 
     // All fields are stored as i64 (pointer-sized)
     // Reference types store the pointer value as i64
     // Float types need special handling
     let value = if field.ty == Type::F64 {
         // Float field - load as f64 then bitcast to i64 for uniform handling
-        let field_f64_ptr = state.builder.build_bit_cast(
-            field_ptr,
-            state.context.ptr_type(AddressSpace::default()),
-            "field_f64_ptr"
-        ).map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-        .into_pointer_value();
-        
-        let f64_val = state.builder.build_load(state.context.f64_type(), field_f64_ptr, &format!("field_{}", field.name))
+        let field_f64_ptr = state
+            .builder
+            .build_bit_cast(
+                field_ptr,
+                state.context.ptr_type(AddressSpace::default()),
+                "field_f64_ptr",
+            )
+            .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+            .into_pointer_value();
+
+        let f64_val = state
+            .builder
+            .build_load(state.context.f64_type(), field_f64_ptr, &format!("field_{}", field.name))
             .map_err(|e| format!("Failed to load field: {:?}", e))?;
-        
+
         // Bitcast f64 to i64 for uniform return
-        state.builder.build_float_to_signed_int(f64_val.into_float_value(), i64_type, "f64_to_i64")
+        state
+            .builder
+            .build_float_to_signed_int(f64_val.into_float_value(), i64_type, "f64_to_i64")
             .map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
             .into()
     } else if field.ty == Type::Bool {
         // Bool field - load as i8 then zero-extend to i64
-        let field_bool_ptr = state.builder.build_bit_cast(
-            field_ptr,
-            state.context.ptr_type(AddressSpace::default()),
-            "field_bool_ptr"
-        ).map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
-        .into_pointer_value();
-        
-        let bool_val = state.builder.build_load(state.context.i8_type(), field_bool_ptr, &format!("field_{}", field.name))
+        let field_bool_ptr = state
+            .builder
+            .build_bit_cast(
+                field_ptr,
+                state.context.ptr_type(AddressSpace::default()),
+                "field_bool_ptr",
+            )
+            .map_err(|e| format!("Failed to cast field ptr: {:?}", e))?
+            .into_pointer_value();
+
+        let bool_val = state
+            .builder
+            .build_load(state.context.i8_type(), field_bool_ptr, &format!("field_{}", field.name))
             .map_err(|e| format!("Failed to load field: {:?}", e))?;
-        
+
         // Zero-extend i8 to i64
-        state.builder.build_int_z_extend(bool_val.into_int_value(), i64_type, "bool_to_i64")
+        state
+            .builder
+            .build_int_z_extend(bool_val.into_int_value(), i64_type, "bool_to_i64")
             .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
             .into()
     } else {
         // Default: load as i64 (handles pointers, ints, etc.)
-        state.builder.build_load(i64_type, field_ptr, &format!("field_{}", field.name))
+        state
+            .builder
+            .build_load(i64_type, field_ptr, &format!("field_{}", field.name))
             .map_err(|e| format!("Failed to load field: {:?}", e))?
     };
 
@@ -822,13 +864,9 @@ fn generate_property_getter<'ctx>(
     method: &MethodInfo,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
-        let result = state.ir_builder.build_call(
-            state.builder,
-            func_val,
-            &[obj_ptr.into()],
-            "property_get",
-        );
-        
+        let result =
+            state.ir_builder.build_call(state.builder, func_val, &[obj_ptr.into()], "property_get");
+
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
         crate::codegen::codegen_error(format!("Property getter '{}' not found", method.name))
@@ -878,18 +916,16 @@ fn generate_static_method_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
-        let arg_values: Vec<_> = args.iter()
-            .map(|a| generate_expr(state, a)
-                .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+        let arg_values: Vec<_> = args
+            .iter()
+            .map(|a| {
+                generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+            })
             .collect::<Result<_, _>>()?;
-        
-        let result = state.ir_builder.build_call(
-            state.builder,
-            func_val,
-            &arg_values,
-            "static_method_call",
-        );
-        
+
+        let result =
+            state.ir_builder.build_call(state.builder, func_val, &arg_values, "static_method_call");
+
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
         crate::codegen::codegen_error(format!("Static method '{}' not found", method.name))
@@ -905,21 +941,23 @@ fn generate_instance_method_call<'ctx>(
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
         // Build argument list: self + user args
-        let mut arg_values: Vec<_> = args.iter()
-            .map(|a| generate_expr(state, a)
-                .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+        let mut arg_values: Vec<_> = args
+            .iter()
+            .map(|a| {
+                generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+            })
             .collect::<Result<_, _>>()?;
-        
+
         // Insert self as first argument
         arg_values.insert(0, obj_ptr.into());
-        
+
         let result = state.ir_builder.build_call(
             state.builder,
             func_val,
             &arg_values,
             &format!("call_{}", method.name),
         );
-        
+
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
         crate::codegen::codegen_error(format!("Method '{}' not found", method.name))
@@ -935,9 +973,11 @@ fn generate_class_method_call<'ctx>(
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
         // Build argument list: class metadata pointer + user args
-        let mut arg_values: Vec<_> = args.iter()
-            .map(|a| generate_expr(state, a)
-                .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+        let mut arg_values: Vec<_> = args
+            .iter()
+            .map(|a| {
+                generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+            })
             .collect::<Result<_, _>>()?;
 
         // For classmethods, pass a pointer to the class metadata global
@@ -949,7 +989,7 @@ fn generate_class_method_call<'ctx>(
             // Fallback to null pointer if class global not found
             state.context.ptr_type(inkwell::AddressSpace::default()).const_null()
         };
-        
+
         arg_values.insert(0, class_ptr.into());
 
         let result = state.ir_builder.build_call(
@@ -966,10 +1006,7 @@ fn generate_class_method_call<'ctx>(
 }
 
 /// Infer the class type from an expression
-fn infer_class_type<'ctx>(
-    state: &CodeGenState<'_, 'ctx>,
-    expr: &Expr,
-) -> Option<String> {
+fn infer_class_type<'ctx>(state: &CodeGenState<'_, 'ctx>, expr: &Expr) -> Option<String> {
     match expr {
         Expr::Ident(name, _) => {
             // Look up the variable's class name from the codegen state
@@ -1022,7 +1059,7 @@ pub fn generate_field_assignment<'ctx>(
                     return Ok(());
                 }
             }
-            
+
             // Fall back to direct field assignment
             if let Some(field) = metadata.get_instance_field(field_name) {
                 return store_field(state, obj_ptr, field, value_val);
@@ -1047,7 +1084,9 @@ fn store_field<'ctx>(
     let offset_val = i64_type.const_int(field.offset as u64, false);
 
     // Cast obj_ptr to i8* for byte arithmetic
-    let obj_i8 = state.builder.build_bit_cast(obj_ptr, i8_ptr_type, "obj_i8")
+    let obj_i8 = state
+        .builder
+        .build_bit_cast(obj_ptr, i8_ptr_type, "obj_i8")
         .map_err(|e| format!("Failed to cast object: {:?}", e))?
         .into_pointer_value();
 
@@ -1059,17 +1098,25 @@ fn store_field<'ctx>(
             &[offset_val],
             &format!("field_{}_ptr", field.name),
         )
-    }.map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
+    }
+    .map_err(|e| format!("Failed to calculate field offset: {:?}", e))?;
 
     // Convert value to i64 for storage if needed
     let store_value = if field.ty == Type::F64 && value.is_float_value() {
         // Float field - convert f64 to i64 bits for storage
-        state.builder.build_float_to_signed_int(value.into_float_value(), i64_type, "f64_to_i64")
+        state
+            .builder
+            .build_float_to_signed_int(value.into_float_value(), i64_type, "f64_to_i64")
             .map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
             .into()
-    } else if field.ty == Type::Bool && value.is_int_value() && value.get_type().into_int_type().get_bit_width() == 1 {
+    } else if field.ty == Type::Bool
+        && value.is_int_value()
+        && value.get_type().into_int_type().get_bit_width() == 1
+    {
         // Bool field - zero-extend i1 to i64 for storage
-        state.builder.build_int_z_extend(value.into_int_value(), i64_type, "bool_to_i64")
+        state
+            .builder
+            .build_int_z_extend(value.into_int_value(), i64_type, "bool_to_i64")
             .map_err(|e| format!("Failed to convert bool to i64: {:?}", e))?
             .into()
     } else {
@@ -1078,7 +1125,9 @@ fn store_field<'ctx>(
     };
 
     // Store as i64
-    state.builder.build_store(field_ptr, store_value)
+    state
+        .builder
+        .build_store(field_ptr, store_value)
         .map_err(|e| format!("Failed to store field: {:?}", e))?;
 
     Ok(())
@@ -1095,7 +1144,7 @@ fn generate_dataclass_init_method(
     for (field_name, field_type) in fields {
         params.push((field_name.clone(), field_type.clone()));
     }
-    
+
     methods.push(MethodInfo {
         name: "__init__".to_string(),
         mangled_name: format!("__method_{}___init__", class_name),

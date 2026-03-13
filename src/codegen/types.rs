@@ -13,7 +13,7 @@ pub enum VarType {
     Pointer,
     Bool,
     Bytes,
-    Struct,  // For by-value struct types like Result
+    Struct, // For by-value struct types like Result
 }
 
 impl VarType {
@@ -35,7 +35,7 @@ impl VarType {
             | Type::Int
             | Type::TypeParam { .. }
             | Type::GenericApp { .. }
-            | Type::Var(_) => VarType::Pointer,  // Int uses tagged representation (pointer-sized)
+            | Type::Var(_) => VarType::Pointer, // Int uses tagged representation (pointer-sized)
             _ => VarType::Int,
         }
     }
@@ -54,7 +54,9 @@ impl<'ctx> TypeMapper<'ctx> {
     /// Convert Viper Type to LLVM type
     pub fn llvm_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
         match ty {
-            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::BigInt => self.context.i64_type().into(),
+            Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::BigInt => {
+                self.context.i64_type().into()
+            }
             Type::F32 | Type::F64 => self.context.f64_type().into(),
             Type::Bool => self.context.bool_type().into(),
             Type::Str
@@ -102,9 +104,8 @@ impl<'ctx> TypeMapper<'ctx> {
     /// Get LLVM type for function return
     pub fn llvm_return_type(&self, return_type: &Option<Type>) -> Option<BasicTypeEnum<'ctx>> {
         match return_type {
-            Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) | Some(Type::Int) | Some(Type::BigInt) => {
-                Some(self.context.i64_type().into())
-            }
+            Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64)
+            | Some(Type::Int) | Some(Type::BigInt) => Some(self.context.i64_type().into()),
             Some(Type::F32) | Some(Type::F64) => Some(self.context.f64_type().into()),
             Some(Type::Bool) => Some(self.context.bool_type().into()),
             Some(Type::Str)
@@ -123,18 +124,22 @@ impl<'ctx> TypeMapper<'ctx> {
             Some(Type::None) | None => None,
             // Result type is returned by value as a struct { is_ok: i8, value: i64 }
             // The value is stored as i64 (or bitcast to i64 for pointers/floats)
-            Some(Type::Result(_, _)) => {
-                Some(self.context.struct_type(&[
-                    self.context.i8_type().into(),
-                    self.context.i64_type().into(),
-                ], false).into())
-            }
+            Some(Type::Result(_, _)) => Some(
+                self.context
+                    .struct_type(
+                        &[self.context.i8_type().into(), self.context.i64_type().into()],
+                        false,
+                    )
+                    .into(),
+            ),
             // Generic types and type variables use pointer type
             Some(Type::TypeParam { .. }) | Some(Type::GenericApp { .. }) | Some(Type::Var(_)) => {
                 Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
             }
             // Union types use pointer type
-            Some(Type::Union(_)) => Some(self.context.ptr_type(inkwell::AddressSpace::default()).into()),
+            Some(Type::Union(_)) => {
+                Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+            }
             _ => Some(self.context.i64_type().into()),
         }
     }

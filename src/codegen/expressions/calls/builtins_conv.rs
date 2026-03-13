@@ -11,7 +11,10 @@ pub fn generate_bigint_to_str<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("str_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "str_bigint() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -39,7 +42,10 @@ pub fn generate_bigint_to_i64<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("int_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "int_bigint() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -74,9 +80,7 @@ pub fn generate_bin_call<'ctx>(
         .get_function("vp_bin_i64")
         .ok_or_else(|| "vp_bin_i64 not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[num_val.into()], "bin_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[num_val.into()], "bin_result");
     Ok(result.unwrap())
 }
 
@@ -96,9 +100,7 @@ pub fn generate_oct_call<'ctx>(
         .get_function("vp_oct_i64")
         .ok_or_else(|| "vp_oct_i64 not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[num_val.into()], "oct_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[num_val.into()], "oct_result");
     Ok(result.unwrap())
 }
 
@@ -118,9 +120,7 @@ pub fn generate_hex_call<'ctx>(
         .get_function("vp_hex_i64")
         .ok_or_else(|| "vp_hex_i64 not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[num_val.into()], "hex_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[num_val.into()], "hex_result");
     Ok(result.unwrap())
 }
 
@@ -140,9 +140,7 @@ pub fn generate_chr_call<'ctx>(
         .get_function("vp_chr_i64")
         .ok_or_else(|| "vp_chr_i64 not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[num_val.into()], "chr_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[num_val.into()], "chr_result");
     Ok(result.unwrap())
 }
 
@@ -162,8 +160,6 @@ pub fn generate_ord_call<'ctx>(
         .get_function("vp_ord_str")
         .ok_or_else(|| "vp_ord_str not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[str_val.into()], "ord_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[str_val.into()], "ord_result");
     Ok(result.unwrap())
 }

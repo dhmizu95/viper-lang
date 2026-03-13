@@ -20,11 +20,16 @@ pub fn generate_math_bigint_func<'ctx>(
         if val.is_pointer_value() {
             Ok(val)
         } else if val.is_int_value() {
-            let res = state.ir_builder.build_call(state.builder, from_i64_func, &[val.into()], "bigint_from_i64")
+            let res = state
+                .ir_builder
+                .build_call(state.builder, from_i64_func, &[val.into()], "bigint_from_i64")
                 .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
             Ok(res.into_pointer_value().into())
         } else {
-            crate::codegen::codegen_error(format!("Cannot convert argument to BigInt for math.{}", attr))
+            crate::codegen::codegen_error(format!(
+                "Cannot convert argument to BigInt for math.{}",
+                attr
+            ))
         }
     };
 
@@ -38,35 +43,73 @@ pub fn generate_math_bigint_func<'ctx>(
     match attr {
         "gcd" | "lcm" | "comb" | "perm" => {
             if args.len() != 2 {
-                return crate::codegen::codegen_error(format!("math.{} requires exactly 2 arguments", attr));
+                return crate::codegen::codegen_error(format!(
+                    "math.{} requires exactly 2 arguments",
+                    attr
+                ));
             }
             let val0 = generate_expr(state, &args[0])?;
             let val1 = generate_expr(state, &args[1])?;
             let ptr0 = get_bigint(val0)?;
             let ptr1 = get_bigint(val1)?;
             let func_name = format!("vp_bigint_{}", attr);
-            let func = state.module.get_function(&func_name).ok_or_else(|| format!("{} not declared", func_name))?;
-            state.ir_builder.build_call(state.builder, func, &[result_ptr.into(), ptr0.into(), ptr1.into()], &format!("{}_call", attr));
-        },
+            let func = state
+                .module
+                .get_function(&func_name)
+                .ok_or_else(|| format!("{} not declared", func_name))?;
+            state.ir_builder.build_call(
+                state.builder,
+                func,
+                &[result_ptr.into(), ptr0.into(), ptr1.into()],
+                &format!("{}_call", attr),
+            );
+        }
         "isqrt" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("math.{} requires exactly 1 argument", attr));
+                return crate::codegen::codegen_error(format!(
+                    "math.{} requires exactly 1 argument",
+                    attr
+                ));
             }
             let val0 = generate_expr(state, &args[0])?;
             let ptr0 = get_bigint(val0)?;
-            let func = state.module.get_function("vp_bigint_sqrt").ok_or_else(|| "vp_bigint_sqrt not declared".to_string())?;
-            state.ir_builder.build_call(state.builder, func, &[result_ptr.into(), ptr0.into()], "isqrt_call");
-        },
+            let func = state
+                .module
+                .get_function("vp_bigint_sqrt")
+                .ok_or_else(|| "vp_bigint_sqrt not declared".to_string())?;
+            state.ir_builder.build_call(
+                state.builder,
+                func,
+                &[result_ptr.into(), ptr0.into()],
+                "isqrt_call",
+            );
+        }
         "factorial" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("math.{} requires exactly 1 argument", attr));
+                return crate::codegen::codegen_error(format!(
+                    "math.{} requires exactly 1 argument",
+                    attr
+                ));
             }
             let val0 = generate_expr(state, &args[0])?;
             let ptr0 = get_bigint(val0)?;
-            let func = state.module.get_function("vp_bigint_factorial").ok_or_else(|| "vp_bigint_factorial not declared".to_string())?;
-            state.ir_builder.build_call(state.builder, func, &[result_ptr.into(), ptr0.into()], "factorial_call");
-        },
-        _ => return crate::codegen::codegen_error(format!("Unsupported math function for BigInt: {}", attr)),
+            let func = state
+                .module
+                .get_function("vp_bigint_factorial")
+                .ok_or_else(|| "vp_bigint_factorial not declared".to_string())?;
+            state.ir_builder.build_call(
+                state.builder,
+                func,
+                &[result_ptr.into(), ptr0.into()],
+                "factorial_call",
+            );
+        }
+        _ => {
+            return crate::codegen::codegen_error(format!(
+                "Unsupported math function for BigInt: {}",
+                attr
+            ))
+        }
     }
 
     Ok(result_ptr.into())
@@ -102,14 +145,12 @@ pub fn generate_bigint_abs<'ctx>(
         .get_function("vp_bigint_abs")
         .ok_or_else(|| "vp_bigint_abs not declared".to_string())?;
 
-    state
-        .ir_builder
-        .build_call(
-            state.builder,
-            abs_func,
-            &[result_ptr.into(), bigint_val.into()],
-            "bigint_abs_call",
-        );
+    state.ir_builder.build_call(
+        state.builder,
+        abs_func,
+        &[result_ptr.into(), bigint_val.into()],
+        "bigint_abs_call",
+    );
 
     Ok(result_ptr.into())
 }
@@ -120,7 +161,10 @@ pub fn generate_bigint_pow<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return crate::codegen::codegen_error(format!("pow_bigint() takes exactly 2 arguments, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "pow_bigint() takes exactly 2 arguments, got {}",
+            args.len()
+        ));
     }
 
     let base_val = generate_expr(state, &args[0])?;
@@ -142,14 +186,12 @@ pub fn generate_bigint_pow<'ctx>(
         .get_function("vp_bigint_pow")
         .ok_or_else(|| "vp_bigint_pow not declared".to_string())?;
 
-    state
-        .ir_builder
-        .build_call(
-            state.builder,
-            pow_func,
-            &[result_ptr.into(), base_val.into(), exp_val.into()],
-            "bigint_pow_call",
-        );
+    state.ir_builder.build_call(
+        state.builder,
+        pow_func,
+        &[result_ptr.into(), base_val.into(), exp_val.into()],
+        "bigint_pow_call",
+    );
 
     Ok(result_ptr.into())
 }
@@ -160,7 +202,10 @@ pub fn generate_bigint_sqrt<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("sqrt_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "sqrt_bigint() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -181,14 +226,12 @@ pub fn generate_bigint_sqrt<'ctx>(
         .get_function("vp_bigint_sqrt")
         .ok_or_else(|| "vp_bigint_sqrt not declared".to_string())?;
 
-    state
-        .ir_builder
-        .build_call(
-            state.builder,
-            sqrt_func,
-            &[result_ptr.into(), bigint_val.into()],
-            "bigint_sqrt_call",
-        );
+    state.ir_builder.build_call(
+        state.builder,
+        sqrt_func,
+        &[result_ptr.into(), bigint_val.into()],
+        "bigint_sqrt_call",
+    );
 
     Ok(result_ptr.into())
 }
@@ -199,7 +242,10 @@ pub fn generate_bigint_min<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return crate::codegen::codegen_error(format!("min_bigint() takes exactly 2 arguments, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "min_bigint() takes exactly 2 arguments, got {}",
+            args.len()
+        ));
     }
 
     let a_val = generate_expr(state, &args[0])?;
@@ -221,14 +267,12 @@ pub fn generate_bigint_min<'ctx>(
         .get_function("vp_bigint_min")
         .ok_or_else(|| "vp_bigint_min not declared".to_string())?;
 
-    state
-        .ir_builder
-        .build_call(
-            state.builder,
-            min_func,
-            &[result_ptr.into(), a_val.into(), b_val.into()],
-            "bigint_min_call",
-        );
+    state.ir_builder.build_call(
+        state.builder,
+        min_func,
+        &[result_ptr.into(), a_val.into(), b_val.into()],
+        "bigint_min_call",
+    );
 
     Ok(result_ptr.into())
 }
@@ -239,7 +283,10 @@ pub fn generate_bigint_max<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return crate::codegen::codegen_error(format!("max_bigint() takes exactly 2 arguments, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "max_bigint() takes exactly 2 arguments, got {}",
+            args.len()
+        ));
     }
 
     let a_val = generate_expr(state, &args[0])?;
@@ -261,14 +308,12 @@ pub fn generate_bigint_max<'ctx>(
         .get_function("vp_bigint_max")
         .ok_or_else(|| "vp_bigint_max not declared".to_string())?;
 
-    state
-        .ir_builder
-        .build_call(
-            state.builder,
-            max_func,
-            &[result_ptr.into(), a_val.into(), b_val.into()],
-            "bigint_max_call",
-        );
+    state.ir_builder.build_call(
+        state.builder,
+        max_func,
+        &[result_ptr.into(), a_val.into(), b_val.into()],
+        "bigint_max_call",
+    );
 
     Ok(result_ptr.into())
 }
@@ -279,7 +324,10 @@ pub fn generate_bigint_is_zero<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("is_zero_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "is_zero_bigint() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -302,7 +350,10 @@ pub fn generate_bigint_is_negative<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("is_negative_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "is_negative_bigint() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -325,7 +376,10 @@ pub fn generate_bigint_sign<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("sign_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "sign_bigint() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -348,7 +402,10 @@ pub fn generate_bigint_bit_length<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("bit_length_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "bit_length_bigint() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;

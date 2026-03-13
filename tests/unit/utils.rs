@@ -33,12 +33,12 @@ fn test_span_empty() {
 fn test_span_merge() {
     let span1 = Span::new(10, 20, 5, 3);
     let span2 = Span::new(15, 30, 6, 1);
-    
+
     let merged = span1.merge(span2);
-    
+
     assert_eq!(merged.start, 10); // min start
-    assert_eq!(merged.end, 30);   // max end
-    assert_eq!(merged.line, 5);   // min line
+    assert_eq!(merged.end, 30); // max end
+    assert_eq!(merged.line, 5); // min line
     assert_eq!(merged.column, 1); // min column
 }
 
@@ -46,9 +46,9 @@ fn test_span_merge() {
 fn test_span_merge_same() {
     let span1 = Span::new(10, 20, 5, 3);
     let span2 = Span::new(10, 20, 5, 3);
-    
+
     let merged = span1.merge(span2);
-    
+
     assert_eq!(merged.start, 10);
     assert_eq!(merged.end, 20);
     assert_eq!(merged.line, 5);
@@ -59,12 +59,12 @@ fn test_span_merge_same() {
 fn test_span_merge_reverse() {
     let span1 = Span::new(15, 30, 6, 1);
     let span2 = Span::new(10, 20, 5, 3);
-    
+
     let merged = span1.merge(span2);
-    
+
     assert_eq!(merged.start, 10); // min start
-    assert_eq!(merged.end, 30);   // max end
-    assert_eq!(merged.line, 5);   // min line
+    assert_eq!(merged.end, 30); // max end
+    assert_eq!(merged.line, 5); // min line
     assert_eq!(merged.column, 1); // min column
 }
 
@@ -96,7 +96,7 @@ fn test_span_copy_clone() {
     let span1 = Span::new(10, 20, 5, 3);
     let span2 = span1; // Copy
     let span3 = span1.clone(); // Clone
-    
+
     assert_eq!(span1.start, span2.start);
     assert_eq!(span1.start, span3.start);
 }
@@ -106,7 +106,7 @@ fn test_span_partial_eq() {
     let span1 = Span::new(10, 20, 5, 3);
     let span2 = Span::new(10, 20, 5, 3);
     let span3 = Span::new(10, 21, 5, 3);
-    
+
     assert_eq!(span1, span2);
     assert_ne!(span1, span3);
 }
@@ -175,10 +175,7 @@ fn test_mangle_tuple_type() {
         mangle_function_name("unpack", &[Type::Tuple(vec![Type::I64, Type::Str])]),
         "unpack_tuplei64_str"
     );
-    assert_eq!(
-        mangle_function_name("unpack", &[Type::Tuple(vec![Type::I64])]),
-        "unpack_tuplei64"
-    );
+    assert_eq!(mangle_function_name("unpack", &[Type::Tuple(vec![Type::I64])]), "unpack_tuplei64");
 }
 
 #[test]
@@ -207,14 +204,8 @@ fn test_mangle_fn_type() {
 
 #[test]
 fn test_mangle_chan_type() {
-    assert_eq!(
-        mangle_function_name("send", &[Type::Chan(Box::new(Type::I64))]),
-        "send_chan_i64"
-    );
-    assert_eq!(
-        mangle_function_name("recv", &[Type::Chan(Box::new(Type::Str))]),
-        "recv_chan_str"
-    );
+    assert_eq!(mangle_function_name("send", &[Type::Chan(Box::new(Type::I64))]), "send_chan_i64");
+    assert_eq!(mangle_function_name("recv", &[Type::Chan(Box::new(Type::Str))]), "recv_chan_str");
 }
 
 #[test]
@@ -231,19 +222,19 @@ fn test_mangle_optional_type() {
 
 #[test]
 fn test_mangle_waitgroup_type() {
-    assert_eq!(
-        mangle_function_name("wait", &[Type::WaitGroup]),
-        "wait_waitgroup"
-    );
+    assert_eq!(mangle_function_name("wait", &[Type::WaitGroup]), "wait_waitgroup");
 }
 
 #[test]
 fn test_mangle_struct_type() {
     assert_eq!(
-        mangle_function_name("process", &[Type::Struct {
-            name: "Person".to_string(),
-            fields: vec![("name".to_string(), Type::Str)]
-        }]),
+        mangle_function_name(
+            "process",
+            &[Type::Struct {
+                name: "Person".to_string(),
+                fields: vec![("name".to_string(), Type::Str)]
+            }]
+        ),
         "process_struct_Person"
     );
 }
@@ -258,26 +249,17 @@ fn test_mangle_future_type() {
 
 #[test]
 fn test_mangle_var_type() {
-    assert_eq!(
-        mangle_function_name("generic", &[Type::Var("T".to_string())]),
-        "generic_var_T"
-    );
+    assert_eq!(mangle_function_name("generic", &[Type::Var("T".to_string())]), "generic_var_T");
 }
 
 #[test]
 fn test_mangle_infer_type() {
-    assert_eq!(
-        mangle_function_name("infer", &[Type::Infer]),
-        "infer_infer"
-    );
+    assert_eq!(mangle_function_name("infer", &[Type::Infer]), "infer_infer");
 }
 
 #[test]
 fn test_mangle_error_type() {
-    assert_eq!(
-        mangle_function_name("error_fn", &[Type::Error]),
-        "error_fn_error"
-    );
+    assert_eq!(mangle_function_name("error_fn", &[Type::Error]), "error_fn_error");
 }
 
 #[test]
@@ -298,15 +280,9 @@ fn test_mangle_complex_mixed_params() {
 fn test_mangle_nested_types() {
     let params = vec![
         Type::List(Box::new(Type::List(Box::new(Type::I64)))),
-        Type::Dict(
-            Box::new(Type::Str),
-            Box::new(Type::List(Box::new(Type::I64))),
-        ),
+        Type::Dict(Box::new(Type::Str), Box::new(Type::List(Box::new(Type::I64)))),
     ];
-    assert_eq!(
-        mangle_function_name("nested", &params),
-        "nested_list_list_i64_dict_str_list_i64"
-    );
+    assert_eq!(mangle_function_name("nested", &params), "nested_list_list_i64_dict_str_list_i64");
 }
 
 #[test]

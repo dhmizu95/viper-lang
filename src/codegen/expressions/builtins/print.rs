@@ -243,7 +243,10 @@ pub fn generate_print_call<'ctx>(
                 .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
             state.builder.build_call(print_func, &[val.into()], "print_f64").expect("vp_print_f64");
         } else {
-            return crate::codegen::codegen_error(format!("print() does not support type {:?}", val.get_type()));
+            return crate::codegen::codegen_error(format!(
+                "print() does not support type {:?}",
+                val.get_type()
+            ));
         }
 
         // Add space between arguments (but not after the last one)
@@ -291,16 +294,16 @@ pub fn generate_exit_call<'ctx>(
         if val.is_int_value() {
             val.into_int_value()
         } else {
-            return crate::codegen::codegen_error("exit() requires an integer argument".to_string());
+            return crate::codegen::codegen_error(
+                "exit() requires an integer argument".to_string(),
+            );
         }
     };
 
     // Call vp_exit
-    let exit_func = state
-        .module
-        .get_function("vp_exit")
-        .ok_or_else(|| "vp_exit not declared".to_string())?;
-    
+    let exit_func =
+        state.module.get_function("vp_exit").ok_or_else(|| "vp_exit not declared".to_string())?;
+
     state.builder.build_call(exit_func, &[exit_code.into()], "exit").expect("vp_exit");
 
     return Ok(state.ir_builder.i64_const(0).into());

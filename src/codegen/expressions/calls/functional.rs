@@ -11,7 +11,9 @@ pub fn generate_enumerate_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return crate::codegen::codegen_error("enumerate() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error(
+            "enumerate() requires at least 1 argument".to_string(),
+        );
     }
 
     let iterable_val = generate_expr(state, &args[0])?;
@@ -26,9 +28,12 @@ pub fn generate_enumerate_call<'ctx>(
         .get_function("vp_enumerate")
         .ok_or_else(|| "vp_enumerate not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[iterable_val.into(), start.into()], "enumerate_result");
+    let result = state.ir_builder.build_call(
+        state.builder,
+        func,
+        &[iterable_val.into(), start.into()],
+        "enumerate_result",
+    );
     Ok(result.unwrap())
 }
 
@@ -44,14 +49,15 @@ pub fn generate_zip_call<'ctx>(
     let iter1_val = generate_expr(state, &args[0])?;
     let iter2_val = generate_expr(state, &args[1])?;
 
-    let func = state
-        .module
-        .get_function("vp_zip")
-        .ok_or_else(|| "vp_zip not declared".to_string())?;
+    let func =
+        state.module.get_function("vp_zip").ok_or_else(|| "vp_zip not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[iter1_val.into(), iter2_val.into()], "zip_result");
+    let result = state.ir_builder.build_call(
+        state.builder,
+        func,
+        &[iter1_val.into(), iter2_val.into()],
+        "zip_result",
+    );
     Ok(result.unwrap())
 }
 
@@ -72,9 +78,8 @@ pub fn generate_sum_call<'ctx>(
         .get_function("vp_list_sum")
         .ok_or_else(|| "vp_list_sum not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[iterable_val.into()], "sum_result");
+    let result =
+        state.ir_builder.build_call(state.builder, func, &[iterable_val.into()], "sum_result");
     Ok(result.unwrap())
 }
 
@@ -94,9 +99,8 @@ pub fn generate_min_call<'ctx>(
         .get_function("vp_list_min")
         .ok_or_else(|| "vp_list_min not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[iterable_val.into()], "min_result");
+    let result =
+        state.ir_builder.build_call(state.builder, func, &[iterable_val.into()], "min_result");
     Ok(result.unwrap())
 }
 
@@ -116,9 +120,8 @@ pub fn generate_max_call<'ctx>(
         .get_function("vp_list_max")
         .ok_or_else(|| "vp_list_max not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[iterable_val.into()], "max_result");
+    let result =
+        state.ir_builder.build_call(state.builder, func, &[iterable_val.into()], "max_result");
     Ok(result.unwrap())
 }
 
@@ -138,9 +141,8 @@ pub fn generate_any_call<'ctx>(
         .get_function("vp_list_any")
         .ok_or_else(|| "vp_list_any not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[iterable_val.into()], "any_result");
+    let result =
+        state.ir_builder.build_call(state.builder, func, &[iterable_val.into()], "any_result");
     Ok(result.unwrap())
 }
 
@@ -160,8 +162,7 @@ pub fn generate_all_call<'ctx>(
         .get_function("vp_list_all")
         .ok_or_else(|| "vp_list_all not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[iterable_val.into()], "all_result");
+    let result =
+        state.ir_builder.build_call(state.builder, func, &[iterable_val.into()], "all_result");
     Ok(result.unwrap())
 }

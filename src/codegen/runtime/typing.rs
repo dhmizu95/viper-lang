@@ -29,12 +29,15 @@ pub fn declare_typing_functions<'ctx>(
     module.add_function("vp_typing_is_generic_type", is_generic_type, None);
 
     // TypeVar constructor: TypeVar(name, bound, covariant, contravariant)
-    let typevar_type = ptr_type.fn_type(&[
-        ptr_type.into(),  // name
-        ptr_type.into(),  // bound (can be None)
-        bool_type.into(), // covariant
-        bool_type.into(), // contravariant
-    ], false);
+    let typevar_type = ptr_type.fn_type(
+        &[
+            ptr_type.into(),  // name
+            ptr_type.into(),  // bound (can be None)
+            bool_type.into(), // covariant
+            bool_type.into(), // contravariant
+        ],
+        false,
+    );
     module.add_function("vp_typing_typevar_new", typevar_type, None);
 
     Ok(())

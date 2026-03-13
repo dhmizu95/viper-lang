@@ -60,10 +60,7 @@ impl<'ctx> IRBuilder<'ctx> {
         let byte_values: Vec<_> = if bytes.is_empty() {
             vec![self.context.i8_type().const_int(0, false)]
         } else {
-            bytes
-                .iter()
-                .map(|&b| self.context.i8_type().const_int(b as u64, false))
-                .collect()
+            bytes.iter().map(|&b| self.context.i8_type().const_int(b as u64, false)).collect()
         };
 
         let const_array = self.context.i8_type().const_array(&byte_values);
@@ -212,22 +209,22 @@ impl<'ctx> IRBuilder<'ctx> {
 
     /// Create LLVM pass builder options for optimization
     /// Provides 15-25% performance gain when enabled
-    /// 
+    ///
     /// Note: For LLVM 21+, the new pass manager is used with PassBuilderOptions
     /// The actual passes are configured through the options and run via PassManager
     pub fn create_optimization_options(&self) -> inkwell::passes::PassBuilderOptions {
         let options = inkwell::passes::PassBuilderOptions::create();
-        
+
         // Enable key optimizations for better performance
-        options.set_loop_interleaving(true);        // Interleave loops for parallelism
-        options.set_loop_vectorization(true);       // Vectorize loops (SIMD)
-        options.set_loop_slp_vectorization(true);   // SLP vectorization
-        options.set_loop_unrolling(true);           // Unroll loops
-        options.set_merge_functions(true);          // Merge duplicate functions
-        options.set_call_graph_profile(true);       // Use call graph profiling
-        options.set_verify_each(false);             // Disable verification for speed
-        options.set_debug_logging(false);           // Disable debug logging
-        
+        options.set_loop_interleaving(true); // Interleave loops for parallelism
+        options.set_loop_vectorization(true); // Vectorize loops (SIMD)
+        options.set_loop_slp_vectorization(true); // SLP vectorization
+        options.set_loop_unrolling(true); // Unroll loops
+        options.set_merge_functions(true); // Merge duplicate functions
+        options.set_call_graph_profile(true); // Use call graph profiling
+        options.set_verify_each(false); // Disable verification for speed
+        options.set_debug_logging(false); // Disable debug logging
+
         options
     }
 }

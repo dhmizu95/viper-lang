@@ -28,18 +28,45 @@ extern "C" {
     fn arc_key_create4(v1: i64, v2: i64, v3: i64, v4: i64) -> *mut ARCCacheKey;
     fn arc_key_create5(v1: i64, v2: i64, v3: i64, v4: i64, v5: i64) -> *mut ARCCacheKey;
     fn arc_key_create6(v1: i64, v2: i64, v3: i64, v4: i64, v5: i64, v6: i64) -> *mut ARCCacheKey;
-    fn arc_key_create7(v1: i64, v2: i64, v3: i64, v4: i64, v5: i64, v6: i64, v7: i64) -> *mut ARCCacheKey;
-    fn arc_key_create8(v1: i64, v2: i64, v3: i64, v4: i64, v5: i64, v6: i64, v7: i64, v8: i64) -> *mut ARCCacheKey;
-    
+    fn arc_key_create7(
+        v1: i64,
+        v2: i64,
+        v3: i64,
+        v4: i64,
+        v5: i64,
+        v6: i64,
+        v7: i64,
+    ) -> *mut ARCCacheKey;
+    fn arc_key_create8(
+        v1: i64,
+        v2: i64,
+        v3: i64,
+        v4: i64,
+        v5: i64,
+        v6: i64,
+        v7: i64,
+        v8: i64,
+    ) -> *mut ARCCacheKey;
+
     // LRU Cache functions (updated signatures for ARCCacheKey*)
     fn vp_lru_cache_create(maxsize: u64) -> *mut LRUCache;
-    fn vp_lru_cache_get(cache: *mut LRUCache, key: *mut ARCCacheKey, found: *mut c_int, is_bigint: *mut c_int) -> i64;
+    fn vp_lru_cache_get(
+        cache: *mut LRUCache,
+        key: *mut ARCCacheKey,
+        found: *mut c_int,
+        is_bigint: *mut c_int,
+    ) -> i64;
     fn vp_lru_cache_set(cache: *mut LRUCache, key: *mut ARCCacheKey, value: i64, is_bigint: c_int);
     fn vp_lru_cache_destroy(cache: *mut LRUCache);
 
     // Unbounded Cache functions (updated signatures for ARCCacheKey*)
     fn vp_cache_create() -> *mut Cache;
-    fn vp_cache_get(cache: *mut Cache, key: *mut ARCCacheKey, found: *mut c_int, is_bigint: *mut c_int) -> i64;
+    fn vp_cache_get(
+        cache: *mut Cache,
+        key: *mut ARCCacheKey,
+        found: *mut c_int,
+        is_bigint: *mut c_int,
+    ) -> i64;
     fn vp_cache_set(cache: *mut Cache, key: *mut ARCCacheKey, value: i64, is_bigint: c_int);
     fn vp_cache_destroy(cache: *mut Cache);
 
@@ -78,17 +105,41 @@ pub extern "C" fn arc_key_create5_stub(v1: i64, v2: i64, v3: i64, v4: i64, v5: i
 }
 
 #[no_mangle]
-pub extern "C" fn arc_key_create6_stub(v1: i64, v2: i64, v3: i64, v4: i64, v5: i64, v6: i64) -> *mut c_void {
+pub extern "C" fn arc_key_create6_stub(
+    v1: i64,
+    v2: i64,
+    v3: i64,
+    v4: i64,
+    v5: i64,
+    v6: i64,
+) -> *mut c_void {
     unsafe { arc_key_create6(v1, v2, v3, v4, v5, v6) as *mut c_void }
 }
 
 #[no_mangle]
-pub extern "C" fn arc_key_create7_stub(v1: i64, v2: i64, v3: i64, v4: i64, v5: i64, v6: i64, v7: i64) -> *mut c_void {
+pub extern "C" fn arc_key_create7_stub(
+    v1: i64,
+    v2: i64,
+    v3: i64,
+    v4: i64,
+    v5: i64,
+    v6: i64,
+    v7: i64,
+) -> *mut c_void {
     unsafe { arc_key_create7(v1, v2, v3, v4, v5, v6, v7) as *mut c_void }
 }
 
 #[no_mangle]
-pub extern "C" fn arc_key_create8_stub(v1: i64, v2: i64, v3: i64, v4: i64, v5: i64, v6: i64, v7: i64, v8: i64) -> *mut c_void {
+pub extern "C" fn arc_key_create8_stub(
+    v1: i64,
+    v2: i64,
+    v3: i64,
+    v4: i64,
+    v5: i64,
+    v6: i64,
+    v7: i64,
+    v8: i64,
+) -> *mut c_void {
     unsafe { arc_key_create8(v1, v2, v3, v4, v5, v6, v7, v8) as *mut c_void }
 }
 
@@ -99,12 +150,22 @@ pub extern "C" fn vp_lru_cache_create_stub(maxsize: u64) -> *mut c_void {
 }
 
 #[no_mangle]
-pub extern "C" fn vp_lru_cache_get_stub(cache: *mut c_void, key: *mut c_void, found: *mut c_int, is_bigint: *mut c_int) -> i64 {
+pub extern "C" fn vp_lru_cache_get_stub(
+    cache: *mut c_void,
+    key: *mut c_void,
+    found: *mut c_int,
+    is_bigint: *mut c_int,
+) -> i64 {
     unsafe { vp_lru_cache_get(cache as *mut LRUCache, key as *mut ARCCacheKey, found, is_bigint) }
 }
 
 #[no_mangle]
-pub extern "C" fn vp_lru_cache_set_stub(cache: *mut c_void, key: *mut c_void, value: i64, is_bigint: c_int) {
+pub extern "C" fn vp_lru_cache_set_stub(
+    cache: *mut c_void,
+    key: *mut c_void,
+    value: i64,
+    is_bigint: c_int,
+) {
     unsafe { vp_lru_cache_set(cache as *mut LRUCache, key as *mut ARCCacheKey, value, is_bigint) }
 }
 
@@ -120,12 +181,22 @@ pub extern "C" fn vp_cache_create_stub() -> *mut c_void {
 }
 
 #[no_mangle]
-pub extern "C" fn vp_cache_get_stub(cache: *mut c_void, key: *mut c_void, found: *mut c_int, is_bigint: *mut c_int) -> i64 {
+pub extern "C" fn vp_cache_get_stub(
+    cache: *mut c_void,
+    key: *mut c_void,
+    found: *mut c_int,
+    is_bigint: *mut c_int,
+) -> i64 {
     unsafe { vp_cache_get(cache as *mut Cache, key as *mut ARCCacheKey, found, is_bigint) }
 }
 
 #[no_mangle]
-pub extern "C" fn vp_cache_set_stub(cache: *mut c_void, key: *mut c_void, value: i64, is_bigint: c_int) {
+pub extern "C" fn vp_cache_set_stub(
+    cache: *mut c_void,
+    key: *mut c_void,
+    value: i64,
+    is_bigint: c_int,
+) {
     unsafe { vp_cache_set(cache as *mut Cache, key as *mut ARCCacheKey, value, is_bigint) }
 }
 

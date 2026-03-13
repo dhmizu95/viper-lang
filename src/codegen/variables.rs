@@ -12,7 +12,7 @@ pub enum VarStorage<'ctx> {
     Register(BasicValueEnum<'ctx>),
     /// Closure cell - heap-allocated box for variables shared with nested functions
     /// The cell contains a pointer to the actual value
-    ClosureCell(PointerValue<'ctx>),  // Pointer to the cell structure
+    ClosureCell(PointerValue<'ctx>), // Pointer to the cell structure
 }
 
 /// Variable info: stores the storage strategy and LLVM type
@@ -30,27 +30,64 @@ pub struct VarInfo<'ctx> {
 impl<'ctx> VarInfo<'ctx> {
     /// Create a new variable with stack allocation
     pub fn new_stack(alloca: PointerValue<'ctx>, var_type: VarType) -> Self {
-        Self { storage: VarStorage::Stack(alloca), var_type, class_name: None, closure_value_ptr: None }
+        Self {
+            storage: VarStorage::Stack(alloca),
+            var_type,
+            class_name: None,
+            closure_value_ptr: None,
+        }
     }
 
     /// Create a new variable with register allocation
     pub fn new_register(value: BasicValueEnum<'ctx>, var_type: VarType) -> Self {
-        Self { storage: VarStorage::Register(value), var_type, class_name: None, closure_value_ptr: None }
+        Self {
+            storage: VarStorage::Register(value),
+            var_type,
+            class_name: None,
+            closure_value_ptr: None,
+        }
     }
 
     /// Create a new variable with stack allocation and class name
-    pub fn new_stack_with_class(alloca: PointerValue<'ctx>, var_type: VarType, class_name: String) -> Self {
-        Self { storage: VarStorage::Stack(alloca), var_type, class_name: Some(class_name), closure_value_ptr: None }
+    pub fn new_stack_with_class(
+        alloca: PointerValue<'ctx>,
+        var_type: VarType,
+        class_name: String,
+    ) -> Self {
+        Self {
+            storage: VarStorage::Stack(alloca),
+            var_type,
+            class_name: Some(class_name),
+            closure_value_ptr: None,
+        }
     }
 
     /// Create a new variable with register allocation and class name
-    pub fn new_register_with_class(value: BasicValueEnum<'ctx>, var_type: VarType, class_name: String) -> Self {
-        Self { storage: VarStorage::Register(value), var_type, class_name: Some(class_name), closure_value_ptr: None }
+    pub fn new_register_with_class(
+        value: BasicValueEnum<'ctx>,
+        var_type: VarType,
+        class_name: String,
+    ) -> Self {
+        Self {
+            storage: VarStorage::Register(value),
+            var_type,
+            class_name: Some(class_name),
+            closure_value_ptr: None,
+        }
     }
 
     /// Create a new variable with closure cell storage
-    pub fn new_closure_cell(cell_ptr: PointerValue<'ctx>, var_type: VarType, value_ptr: PointerValue<'ctx>) -> Self {
-        Self { storage: VarStorage::ClosureCell(cell_ptr), var_type, class_name: None, closure_value_ptr: Some(value_ptr) }
+    pub fn new_closure_cell(
+        cell_ptr: PointerValue<'ctx>,
+        var_type: VarType,
+        value_ptr: PointerValue<'ctx>,
+    ) -> Self {
+        Self {
+            storage: VarStorage::ClosureCell(cell_ptr),
+            var_type,
+            class_name: None,
+            closure_value_ptr: Some(value_ptr),
+        }
     }
 
     /// Get the alloca pointer if this variable uses stack allocation

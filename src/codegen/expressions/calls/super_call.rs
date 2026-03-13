@@ -13,13 +13,15 @@ pub fn generate_super_method_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Get the current class from state (set when generating class methods)
-    let class_name = state.current_class.clone()
+    let class_name = state
+        .current_class
+        .clone()
         .ok_or_else(|| "super() can only be used inside a class method".to_string())?;
 
     // Get the current class metadata
-    let metadata = crate::codegen::oop::with_class_registry(|reg| {
-        reg.get_class(&class_name).cloned()
-    }).ok_or_else(|| format!("Class '{}' not found", class_name))?;
+    let metadata =
+        crate::codegen::oop::with_class_registry(|reg| reg.get_class(&class_name).cloned())
+            .ok_or_else(|| format!("Class '{}' not found", class_name))?;
 
     // Find the method in parent classes via MRO
     // Skip the first entry in MRO (which is the current class itself)
@@ -37,18 +39,24 @@ pub fn generate_super_method_call<'ctx>(
         .ok_or_else(|| format!("Method '{}' not found in parent classes", method_name))?;
 
     // Get self from the function's first parameter
-    let current_function = state.builder.get_insert_block()
+    let current_function = state
+        .builder
+        .get_insert_block()
         .and_then(|bb| bb.get_parent())
         .ok_or_else(|| "Not inside a function".to_string())?;
 
-    let self_ptr = current_function.get_nth_param(0)
+    let self_ptr = current_function
+        .get_nth_param(0)
         .ok_or_else(|| "Method should have self parameter".to_string())?
         .into_pointer_value();
 
     // Build argument list: self + user args
-    let mut arg_values: Vec<_> = args.iter()
-        .map(|a| crate::codegen::expressions::generate_expr(state, a)
-            .map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
+    let mut arg_values: Vec<_> = args
+        .iter()
+        .map(|a| {
+            crate::codegen::expressions::generate_expr(state, a)
+                .map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
+        })
         .collect::<Result<_, _>>()?;
 
     // Insert self as first argument

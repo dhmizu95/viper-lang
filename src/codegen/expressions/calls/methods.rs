@@ -15,14 +15,18 @@ pub fn generate_method_call<'ctx>(
     let obj_val = generate_expr(state, obj)?;
 
     // For Result methods, we need to load the struct value from alloca if it's a pointer
-    let obj_val = if matches!(method_name, "is_ok" | "is_err" | "unwrap" | "unwrap_err" | "expect" | "unwrap_or" | "unwrap_or_default") {
+    let obj_val = if matches!(
+        method_name,
+        "is_ok" | "is_err" | "unwrap" | "unwrap_err" | "expect" | "unwrap_or" | "unwrap_or_default"
+    ) {
         if obj_val.is_pointer_value() {
             // Load the struct value from the alloca
-            let result_struct_type = state.context.struct_type(&[
-                state.context.i8_type().into(),
-                state.context.i64_type().into(),
-            ], false);
-            state.builder
+            let result_struct_type = state.context.struct_type(
+                &[state.context.i8_type().into(), state.context.i64_type().into()],
+                false,
+            );
+            state
+                .builder
                 .build_load(result_struct_type, obj_val.into_pointer_value(), "result_loaded")
                 .map_err(|e| format!("Failed to load Result: {:?}", e))?
         } else {
@@ -35,7 +39,9 @@ pub fn generate_method_call<'ctx>(
     // Check if this is a bool list (bit vector)
     let is_bool_list = match obj {
         Expr::Ident(name, _) => state.is_bool_list(name),
-        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::List { elements, .. } => {
+            elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+        }
         Expr::Call { func, .. } => {
             // Check if calling a bit vector function
             if let Expr::Ident(func_name, _) = func.as_ref() {
@@ -50,7 +56,10 @@ pub fn generate_method_call<'ctx>(
     match method_name {
         "append" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("append() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "append() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             let val = generate_expr(state, &args[0])?;
 
@@ -58,26 +67,34 @@ pub fn generate_method_call<'ctx>(
             let list_ptr = if obj_val.is_pointer_value() {
                 obj_val.into_pointer_value()
             } else {
-                return crate::codegen::codegen_error("append() requires a list reference".to_string());
+                return crate::codegen::codegen_error(
+                    "append() requires a list reference".to_string(),
+                );
             };
 
             // Use inline append for optimized performance
             if is_bool_list {
                 // Convert value to bool (i1) if needed
-                let bool_val = if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
-                    val.into_int_value()
-                } else if val.is_int_value() {
-                    // Convert i64 to bool (i1)
-                    let int_val = val.into_int_value();
-                    state.builder.build_int_compare(
-                        inkwell::IntPredicate::NE,
-                        int_val,
-                        state.context.i64_type().const_zero(),
-                        "i64_to_bool",
-                    ).map_err(|e| format!("Failed to convert to bool: {:?}", e))?
-                } else {
-                    return crate::codegen::codegen_error("append() value must be integer for bool list".to_string());
-                };
+                let bool_val =
+                    if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
+                        val.into_int_value()
+                    } else if val.is_int_value() {
+                        // Convert i64 to bool (i1)
+                        let int_val = val.into_int_value();
+                        state
+                            .builder
+                            .build_int_compare(
+                                inkwell::IntPredicate::NE,
+                                int_val,
+                                state.context.i64_type().const_zero(),
+                                "i64_to_bool",
+                            )
+                            .map_err(|e| format!("Failed to convert to bool: {:?}", e))?
+                    } else {
+                        return crate::codegen::codegen_error(
+                            "append() value must be integer for bool list".to_string(),
+                        );
+                    };
 
                 crate::codegen::inline_lists::inline_bool_list_append(state, list_ptr, bool_val)
                     .map_err(|e| format!("Failed to inline bool list append: {}", e))?;
@@ -87,13 +104,18 @@ pub fn generate_method_call<'ctx>(
                     val.into_int_value()
                 } else if val.is_float_value() {
                     // Truncate f64 to i64
-                    state.builder.build_float_to_signed_int(
-                        val.into_float_value(),
-                        state.context.i64_type(),
-                        "f64_to_i64",
-                    ).map_err(|e| format!("Failed to convert float to int: {:?}", e))?
+                    state
+                        .builder
+                        .build_float_to_signed_int(
+                            val.into_float_value(),
+                            state.context.i64_type(),
+                            "f64_to_i64",
+                        )
+                        .map_err(|e| format!("Failed to convert float to int: {:?}", e))?
                 } else {
-                    return crate::codegen::codegen_error("append() value must be numeric".to_string());
+                    return crate::codegen::codegen_error(
+                        "append() value must be numeric".to_string(),
+                    );
                 };
 
                 crate::codegen::inline_lists::inline_i64_list_append(state, list_ptr, int_val)
@@ -104,7 +126,10 @@ pub fn generate_method_call<'ctx>(
         }
         "reserve" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("reserve() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "reserve() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             let capacity = generate_expr(state, &args[0])?.into_int_value();
             let list_reserve = state
@@ -121,7 +146,10 @@ pub fn generate_method_call<'ctx>(
         }
         "insert" => {
             if args.len() != 2 {
-                return crate::codegen::codegen_error(format!("insert() takes exactly 2 arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "insert() takes exactly 2 arguments, got {}",
+                    args.len()
+                ));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
             let val = generate_expr(state, &args[1])?;
@@ -149,7 +177,10 @@ pub fn generate_method_call<'ctx>(
         }
         "remove" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("remove() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "remove() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
 
@@ -176,7 +207,10 @@ pub fn generate_method_call<'ctx>(
         }
         "pop" => {
             if args.len() > 1 {
-                return crate::codegen::codegen_error(format!("pop() takes at most 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "pop() takes at most 1 argument, got {}",
+                    args.len()
+                ));
             }
             if args.is_empty() {
                 // pop() - pop last element
@@ -225,7 +259,10 @@ pub fn generate_method_call<'ctx>(
         }
         "clear" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("clear() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "clear() takes no arguments, got {}",
+                    args.len()
+                ));
             }
             let list_clear = state
                 .module
@@ -236,7 +273,10 @@ pub fn generate_method_call<'ctx>(
         }
         "extend" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("extend() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "extend() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             let other_val = generate_expr(state, &args[0])?;
 
@@ -263,7 +303,10 @@ pub fn generate_method_call<'ctx>(
         }
         "index" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("index() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "index() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             let value = generate_expr(state, &args[0])?;
 
@@ -290,7 +333,10 @@ pub fn generate_method_call<'ctx>(
         }
         "count" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("count() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "count() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             let value = generate_expr(state, &args[0])?;
 
@@ -317,7 +363,10 @@ pub fn generate_method_call<'ctx>(
         }
         "sort" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("sort() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "sort() takes no arguments, got {}",
+                    args.len()
+                ));
             }
             let list_sort = state
                 .module
@@ -328,7 +377,10 @@ pub fn generate_method_call<'ctx>(
         }
         "reverse" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("reverse() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "reverse() takes no arguments, got {}",
+                    args.len()
+                ));
             }
 
             // Use bit vector reverse for bool lists
@@ -354,7 +406,10 @@ pub fn generate_method_call<'ctx>(
         }
         "copy" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("copy() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "copy() takes no arguments, got {}",
+                    args.len()
+                ));
             }
 
             // Use bit vector copy for bool lists
@@ -398,7 +453,9 @@ pub fn generate_method_call<'ctx>(
         }
         "split" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error("split() takes exactly 1 argument".to_string());
+                return crate::codegen::codegen_error(
+                    "split() takes exactly 1 argument".to_string(),
+                );
             }
             let delim_val = generate_expr(state, &args[0])?;
             let func = state.module.get_function("vp_str_split").unwrap();
@@ -412,7 +469,9 @@ pub fn generate_method_call<'ctx>(
         }
         "replace" => {
             if args.len() != 2 {
-                return crate::codegen::codegen_error("replace() takes exactly 2 arguments".to_string());
+                return crate::codegen::codegen_error(
+                    "replace() takes exactly 2 arguments".to_string(),
+                );
             }
             let old_val = generate_expr(state, &args[0])?;
             let new_val = generate_expr(state, &args[1])?;
@@ -429,7 +488,9 @@ pub fn generate_method_call<'ctx>(
             // String format method: "Hello {}".format(name)
             // For simplicity, we'll handle basic {} placeholders
             if args.is_empty() {
-                return crate::codegen::codegen_error("format() takes at least 1 argument".to_string());
+                return crate::codegen::codegen_error(
+                    "format() takes at least 1 argument".to_string(),
+                );
             }
 
             // Generate all argument values and convert to strings
@@ -437,18 +498,31 @@ pub fn generate_method_call<'ctx>(
             for arg in args {
                 let arg_val = generate_expr(state, arg)?;
                 // Convert each argument to string based on its type
-                let str_val = if arg_val.is_int_value() && arg_val.get_type().into_int_type().get_bit_width() == 64 {
+                let str_val = if arg_val.is_int_value()
+                    && arg_val.get_type().into_int_type().get_bit_width() == 64
+                {
                     // i64 to string
                     let to_str = state.module.get_function("vp_str_from_i64").unwrap();
-                    state.ir_builder.build_call(state.builder, to_str, &[arg_val.into()], "i64_to_str").unwrap()
+                    state
+                        .ir_builder
+                        .build_call(state.builder, to_str, &[arg_val.into()], "i64_to_str")
+                        .unwrap()
                 } else if arg_val.is_float_value() {
                     // f64 to string
                     let to_str = state.module.get_function("vp_str_from_f64").unwrap();
-                    state.ir_builder.build_call(state.builder, to_str, &[arg_val.into()], "f64_to_str").unwrap()
-                } else if arg_val.is_int_value() && arg_val.get_type().into_int_type().get_bit_width() == 1 {
+                    state
+                        .ir_builder
+                        .build_call(state.builder, to_str, &[arg_val.into()], "f64_to_str")
+                        .unwrap()
+                } else if arg_val.is_int_value()
+                    && arg_val.get_type().into_int_type().get_bit_width() == 1
+                {
                     // bool to string
                     let to_str = state.module.get_function("vp_str_from_bool").unwrap();
-                    state.ir_builder.build_call(state.builder, to_str, &[arg_val.into()], "bool_to_str").unwrap()
+                    state
+                        .ir_builder
+                        .build_call(state.builder, to_str, &[arg_val.into()], "bool_to_str")
+                        .unwrap()
                 } else if arg_val.is_pointer_value() {
                     // Already a string or pointer - use as-is
                     arg_val
@@ -462,12 +536,26 @@ pub fn generate_method_call<'ctx>(
             // Create array of argument string pointers
             let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
             let array_type = ptr_type.array_type(arg_str_vals.len() as u32);
-            let args_array = state.builder.build_alloca(array_type, "format_args_array").expect("alloca args array");
+            let args_array = state
+                .builder
+                .build_alloca(array_type, "format_args_array")
+                .expect("alloca args array");
             for (i, arg_str) in arg_str_vals.iter().enumerate() {
                 let arg_ptr = unsafe {
-                    state.builder.build_gep(array_type, args_array, &[state.context.i32_type().const_int(i as u64, false)], "arg_ptr").expect("gep")
+                    state
+                        .builder
+                        .build_gep(
+                            array_type,
+                            args_array,
+                            &[state.context.i32_type().const_int(i as u64, false)],
+                            "arg_ptr",
+                        )
+                        .expect("gep")
                 };
-                state.builder.build_store(arg_ptr, arg_str.into_pointer_value()).expect("store arg");
+                state
+                    .builder
+                    .build_store(arg_ptr, arg_str.into_pointer_value())
+                    .expect("store arg");
             }
 
             // Call vp_str_format(format_str, args_array, arg_count)
@@ -491,101 +579,135 @@ pub fn generate_method_call<'ctx>(
         // Result methods
         "is_ok" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("is_ok() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "is_ok() takes no arguments, got {}",
+                    args.len()
+                ));
             }
             // obj_val is now a struct value, not a pointer
             let result_struct = obj_val.into_struct_value();
             // Extract is_ok field (first field)
-            let is_ok_val = state.builder
+            let is_ok_val = state
+                .builder
                 .build_extract_value(result_struct, 0, "is_ok")
                 .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
             let is_ok = is_ok_val.into_int_value();
             // Convert i8 to bool (i1)
-            let is_ok_bool = state.builder.build_int_compare(
-                inkwell::IntPredicate::NE,
-                is_ok,
-                state.context.i8_type().const_zero(),
-                "is_ok_bool",
-            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+            let is_ok_bool = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    is_ok,
+                    state.context.i8_type().const_zero(),
+                    "is_ok_bool",
+                )
+                .map_err(|e| format!("Failed to build compare: {:?}", e))?;
             Ok(is_ok_bool.into())
         }
         "is_err" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("is_err() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "is_err() takes no arguments, got {}",
+                    args.len()
+                ));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
             // Extract is_ok field and negate
-            let is_ok_val = state.builder
+            let is_ok_val = state
+                .builder
                 .build_extract_value(result_struct, 0, "is_ok")
                 .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
             let is_ok = is_ok_val.into_int_value();
             // is_err = !is_ok
-            let is_err = state.builder.build_int_compare(
-                inkwell::IntPredicate::EQ,
-                is_ok,
-                state.context.i8_type().const_zero(),
-                "is_err",
-            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+            let is_err = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    is_ok,
+                    state.context.i8_type().const_zero(),
+                    "is_err",
+                )
+                .map_err(|e| format!("Failed to build compare: {:?}", e))?;
             Ok(is_err.into())
         }
         "unwrap" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("unwrap() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "unwrap() takes no arguments, got {}",
+                    args.len()
+                ));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
             // Extract value field (second field)
-            let value = state.builder
+            let value = state
+                .builder
                 .build_extract_value(result_struct, 1, "value")
                 .map_err(|e| format!("Failed to extract value: {:?}", e))?;
             Ok(value)
         }
         "unwrap_err" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("unwrap_err() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "unwrap_err() takes no arguments, got {}",
+                    args.len()
+                ));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
             // Extract value field (error is stored in same field)
-            let value = state.builder
+            let value = state
+                .builder
                 .build_extract_value(result_struct, 1, "error_value")
                 .map_err(|e| format!("Failed to extract error value: {:?}", e))?;
             Ok(value)
         }
         "expect" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("expect() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "expect() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
             // Extract value field (ignore message for now)
-            let value = state.builder
+            let value = state
+                .builder
                 .build_extract_value(result_struct, 1, "value")
                 .map_err(|e| format!("Failed to extract value: {:?}", e))?;
             Ok(value)
         }
         "unwrap_or" => {
             if args.len() != 1 {
-                return crate::codegen::codegen_error(format!("unwrap_or() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "unwrap_or() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
             // Extract is_ok field
-            let is_ok_val = state.builder
+            let is_ok_val = state
+                .builder
                 .build_extract_value(result_struct, 0, "is_ok")
                 .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
             let is_ok = is_ok_val.into_int_value();
             // Convert i8 to bool (i1) for select instruction
-            let is_ok_bool = state.builder.build_int_compare(
-                inkwell::IntPredicate::NE,
-                is_ok,
-                state.context.i8_type().const_zero(),
-                "is_ok_bool",
-            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+            let is_ok_bool = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    is_ok,
+                    state.context.i8_type().const_zero(),
+                    "is_ok_bool",
+                )
+                .map_err(|e| format!("Failed to build compare: {:?}", e))?;
 
             // Extract value from Result
-            let result_value = state.builder
+            let result_value = state
+                .builder
                 .build_extract_value(result_struct, 1, "result_value")
                 .map_err(|e| format!("Failed to extract value: {:?}", e))?
                 .into_int_value();
@@ -595,40 +717,48 @@ pub fn generate_method_call<'ctx>(
             let default_int = if default_value.is_int_value() {
                 default_value.into_int_value()
             } else {
-                return crate::codegen::codegen_error("unwrap_or default value must be integer".to_string());
+                return crate::codegen::codegen_error(
+                    "unwrap_or default value must be integer".to_string(),
+                );
             };
 
             // Select based on is_ok
-            let selected = state.builder.build_select(
-                is_ok_bool,
-                result_value,
-                default_int,
-                "unwrap_or_select",
-            ).map_err(|e| format!("Failed to build select: {:?}", e))?;
+            let selected = state
+                .builder
+                .build_select(is_ok_bool, result_value, default_int, "unwrap_or_select")
+                .map_err(|e| format!("Failed to build select: {:?}", e))?;
 
             Ok(selected.into())
         }
         "unwrap_or_default" => {
             if !args.is_empty() {
-                return crate::codegen::codegen_error(format!("unwrap_or_default() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!(
+                    "unwrap_or_default() takes no arguments, got {}",
+                    args.len()
+                ));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
             // Extract is_ok field
-            let is_ok_val = state.builder
+            let is_ok_val = state
+                .builder
                 .build_extract_value(result_struct, 0, "is_ok")
                 .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
             let is_ok = is_ok_val.into_int_value();
             // Convert i8 to bool (i1) for select instruction
-            let is_ok_bool = state.builder.build_int_compare(
-                inkwell::IntPredicate::NE,
-                is_ok,
-                state.context.i8_type().const_zero(),
-                "is_ok_bool_default",
-            ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+            let is_ok_bool = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    is_ok,
+                    state.context.i8_type().const_zero(),
+                    "is_ok_bool_default",
+                )
+                .map_err(|e| format!("Failed to build compare: {:?}", e))?;
 
             // Extract value from Result
-            let result_value = state.builder
+            let result_value = state
+                .builder
                 .build_extract_value(result_struct, 1, "result_value")
                 .map_err(|e| format!("Failed to extract value: {:?}", e))?
                 .into_int_value();
@@ -637,16 +767,16 @@ pub fn generate_method_call<'ctx>(
             let default_value = state.context.i64_type().const_zero();
 
             // Select based on is_ok
-            let selected = state.builder.build_select(
-                is_ok_bool,
-                result_value,
-                default_value,
-                "unwrap_or_default",
-            ).map_err(|e| format!("Failed to build select: {:?}", e))?;
+            let selected = state
+                .builder
+                .build_select(is_ok_bool, result_value, default_value, "unwrap_or_default")
+                .map_err(|e| format!("Failed to build select: {:?}", e))?;
 
             Ok(selected.into())
         }
-        "len" => crate::codegen::codegen_error("len() is a builtin function, not a method".to_string()),
+        "len" => {
+            crate::codegen::codegen_error("len() is a builtin function, not a method".to_string())
+        }
         _ => crate::codegen::codegen_error(format!("Unknown method: {}", method_name)),
     }
 }
@@ -657,7 +787,10 @@ pub fn generate_sorted_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("sorted() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "sorted() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let list_val = generate_expr(state, &args[0])?;
@@ -676,7 +809,10 @@ pub fn generate_reversed_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return crate::codegen::codegen_error(format!("reversed() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "reversed() takes exactly 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let list_val = generate_expr(state, &args[0])?;
@@ -704,9 +840,7 @@ pub fn generate_dict_call<'ctx>(
             .module
             .get_function("vp_dict_create_empty")
             .ok_or_else(|| "vp_dict_create_empty not declared".to_string())?;
-        let result = state
-            .ir_builder
-            .build_call(state.builder, func, &[], "empty_dict");
+        let result = state.ir_builder.build_call(state.builder, func, &[], "empty_dict");
         return Ok(result.unwrap());
     }
 
@@ -715,8 +849,6 @@ pub fn generate_dict_call<'ctx>(
         .module
         .get_function("vp_dict_create_empty")
         .ok_or_else(|| "vp_dict_create_empty not declared".to_string())?;
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[], "dict_from_iter");
+    let result = state.ir_builder.build_call(state.builder, func, &[], "dict_from_iter");
     Ok(result.unwrap())
 }

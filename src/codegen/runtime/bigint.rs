@@ -66,59 +66,60 @@ pub fn declare_bigint_functions<'ctx>(
     add_opt_attrs(func);
 
     // Arithmetic operations (result, a, b)
-    let arithmetic_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
-    
+    let arithmetic_fn_type =
+        void_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+
     // vp_bigint_add
     let func = module.add_function("vp_bigint_add", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_sub
     let func = module.add_function("vp_bigint_sub", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_mul
     let func = module.add_function("vp_bigint_mul", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_div
     let func = module.add_function("vp_bigint_div", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_mod
     let func = module.add_function("vp_bigint_mod", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_and
     let func = module.add_function("vp_bigint_and", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_or
     let func = module.add_function("vp_bigint_or", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_xor
     let func = module.add_function("vp_bigint_xor", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_lshift
     let func = module.add_function("vp_bigint_lshift", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_rshift
     let func = module.add_function("vp_bigint_rshift", arithmetic_fn_type, None);
     add_opt_attrs(func);
 
     // Comparison operations (return bool)
     let cmp_fn_type = bool_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
-    
+
     // vp_bigint_eq
     let func = module.add_function("vp_bigint_eq", cmp_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_lt
     let func = module.add_function("vp_bigint_lt", cmp_fn_type, None);
     add_opt_attrs(func);
-    
+
     // vp_bigint_gt
     let func = module.add_function("vp_bigint_gt", cmp_fn_type, None);
     add_opt_attrs(func);
@@ -126,7 +127,7 @@ pub fn declare_bigint_functions<'ctx>(
     // Power operation
     let func = module.add_function("vp_bigint_pow", arithmetic_fn_type, None);
     add_opt_attrs(func);
-    
+
     // Square root
     let sqrt_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     let func = module.add_function("vp_bigint_sqrt", sqrt_fn_type, None);
@@ -184,7 +185,8 @@ pub fn declare_bigint_functions<'ctx>(
     add_opt_attrs(func);
 
     // vp_bigint_powmod (result, base, exp, mod) - 4 arguments
-    let powmod_fn_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
+    let powmod_fn_type = void_type
+        .fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into(), ptr_type.into()], false);
     let func = module.add_function("vp_bigint_powmod", powmod_fn_type, None);
     add_opt_attrs(func);
 

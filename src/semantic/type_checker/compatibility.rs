@@ -3,11 +3,7 @@ use crate::semantic::type_checker::{TypeChecker, TypeError};
 
 impl TypeChecker {
     /// Check that all return statements are consistent with declared return type
-    pub(crate) fn check_return_consistency(
-        &mut self,
-        body: &[Stmt],
-        return_type: &Option<Type>,
-    ) {
+    pub(crate) fn check_return_consistency(&mut self, body: &[Stmt], return_type: &Option<Type>) {
         // If no return type annotation, use Infer to allow any return type
         let expected = return_type.clone().unwrap_or(Type::Infer);
 
@@ -16,10 +12,8 @@ impl TypeChecker {
         for stmt in body {
             match stmt {
                 Stmt::Return { value, span } => {
-                    let actual = value
-                        .as_ref()
-                        .and_then(|e| self.get_expr_type(e))
-                        .unwrap_or(Type::None);
+                    let actual =
+                        value.as_ref().and_then(|e| self.get_expr_type(e)).unwrap_or(Type::None);
 
                     if !self.is_compatible(&expected, &actual) {
                         self.errors.push(TypeError::new(
@@ -50,7 +44,17 @@ impl TypeChecker {
 
     /// Check if a type is numeric
     pub(crate) fn is_numeric(&self, t: &Type) -> bool {
-        matches!(t, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int | Type::F64 | Type::F32 | Type::BigInt)
+        matches!(
+            t,
+            Type::I8
+                | Type::I16
+                | Type::I32
+                | Type::I64
+                | Type::Int
+                | Type::F64
+                | Type::F32
+                | Type::BigInt
+        )
     }
 
     /// Check if two types are compatible
@@ -64,7 +68,10 @@ impl TypeChecker {
             // Generic list vs specific list
             (Type::List(e1), Type::List(e2)) => self.is_compatible(e1, e2),
             // Generic auto-conversion and literal narrowing
-            (Type::I64 | Type::I32 | Type::I16 | Type::I8, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
+            (
+                Type::I64 | Type::I32 | Type::I16 | Type::I8,
+                Type::I64 | Type::I32 | Type::I16 | Type::I8,
+            ) => true,
             (Type::F64 | Type::F32, Type::I64 | Type::I32 | Type::I16 | Type::I8) => true,
             (Type::F64 | Type::F32, Type::F64 | Type::F32) => true,
 
@@ -116,14 +123,15 @@ impl TypeChecker {
             }
 
             // Optional type compatibility
-            (Type::Optional(inner1), Type::Optional(inner2)) => {
-                self.is_compatible(inner1, inner2)
-            }
+            (Type::Optional(inner1), Type::Optional(inner2)) => self.is_compatible(inner1, inner2),
             // None is compatible with Optional[T]
             (Type::Optional(_), Type::None) => true,
 
             // GenericApp compatibility (for any remaining generic applications)
-            (Type::GenericApp { name: n1, type_args: args1 }, Type::GenericApp { name: n2, type_args: args2 }) => {
+            (
+                Type::GenericApp { name: n1, type_args: args1 },
+                Type::GenericApp { name: n2, type_args: args2 },
+            ) => {
                 if n1 != n2 || args1.len() != args2.len() {
                     return false;
                 }
@@ -143,12 +151,28 @@ impl TypeChecker {
             (Type::Class(_), Type::Object) => true,
 
             // Method compatibility
-            (Type::Method { class_name: c1, method_name: m1, params: p1, return_type: r1, is_bound: b1 },
-             Type::Method { class_name: c2, method_name: m2, params: p2, return_type: r2, is_bound: b2 }) => {
-                c1 == c2 && m1 == m2 && b1 == b2 &&
-                p1.len() == p2.len() &&
-                p1.iter().zip(p2.iter()).all(|(a1, a2)| self.is_compatible(a1, a2)) &&
-                self.is_compatible(r1, r2)
+            (
+                Type::Method {
+                    class_name: c1,
+                    method_name: m1,
+                    params: p1,
+                    return_type: r1,
+                    is_bound: b1,
+                },
+                Type::Method {
+                    class_name: c2,
+                    method_name: m2,
+                    params: p2,
+                    return_type: r2,
+                    is_bound: b2,
+                },
+            ) => {
+                c1 == c2
+                    && m1 == m2
+                    && b1 == b2
+                    && p1.len() == p2.len()
+                    && p1.iter().zip(p2.iter()).all(|(a1, a2)| self.is_compatible(a1, a2))
+                    && self.is_compatible(r1, r2)
             }
 
             // Struct compatibility
@@ -156,9 +180,9 @@ impl TypeChecker {
                 if n1 != n2 || f1.len() != f2.len() {
                     return false;
                 }
-                f1.iter().zip(f2.iter()).all(|((name1, t1), (name2, t2))| {
-                    name1 == name2 && self.is_compatible(t1, t2)
-                })
+                f1.iter()
+                    .zip(f2.iter())
+                    .all(|((name1, t1), (name2, t2))| name1 == name2 && self.is_compatible(t1, t2))
             }
 
             // TODO: handle user-defined types and interfaces

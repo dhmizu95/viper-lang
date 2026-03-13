@@ -81,7 +81,7 @@ impl VariableEscapeInfo {
             is_mutable,
             definition_line,
             is_reference_type: false,
-            is_movable: true,  // Assume movable until proven otherwise
+            is_movable: true, // Assume movable until proven otherwise
             has_been_used: false,
             is_temporary: false,
         }
@@ -604,9 +604,7 @@ impl EscapeAnalyzer {
     /// Returns true if it escapes to a global or thread (Shared or MayEscape)
     pub fn is_thread_shared(&self, function_name: &str, var_name: &str) -> bool {
         self.get_variable_escape_info(function_name, var_name)
-            .map(|info| {
-                matches!(info.escape_state, EscapeState::Shared | EscapeState::MayEscape)
-            })
+            .map(|info| matches!(info.escape_state, EscapeState::Shared | EscapeState::MayEscape))
             .unwrap_or(true) // Default to shared if unknown
     }
 
@@ -692,7 +690,7 @@ impl EscapeAnalyzer {
     pub fn can_elide_arc(&self, function_name: &str, var_name: &str) -> bool {
         self.get_variable_escape_info(function_name, var_name)
             .map(|info| {
-                info.is_reference_type 
+                info.is_reference_type
                     && info.escape_state.can_stack_allocate()
                     && !info.has_been_used
             })
@@ -705,4 +703,3 @@ impl Default for EscapeAnalyzer {
         Self::new()
     }
 }
-

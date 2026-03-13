@@ -47,48 +47,60 @@ pub fn generate_binop<'ctx>(
                 // Only generate the element expression and count, not the full list
                 let count_val = generate_expr(state, right)?;
                 let count_int = count_val.into_int_value();
-                
+
                 // Untag the count integer (tagged ints are shifted left by 1)
-                let count_untagged = state.builder.build_right_shift(
-                    count_int,
-                    state.context.i64_type().const_int(1, false),
-                    false,
-                    "count_untagged",
-                ).expect("failed to untag count");
+                let count_untagged = state
+                    .builder
+                    .build_right_shift(
+                        count_int,
+                        state.context.i64_type().const_int(1, false),
+                        false,
+                        "count_untagged",
+                    )
+                    .expect("failed to untag count");
 
                 let (elem_val, func_name) = match elem {
                     Expr::Bool(true, _) => {
-                        let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(1, false).into();
-                        (val, "vp_bitvec_repeat")  // Use bit vector for bool lists
+                        let val: inkwell::values::BasicMetadataValueEnum =
+                            state.context.bool_type().const_int(1, false).into();
+                        (val, "vp_bitvec_repeat") // Use bit vector for bool lists
                     }
                     Expr::Bool(false, _) => {
-                        let val: inkwell::values::BasicMetadataValueEnum = state.context.bool_type().const_int(0, false).into();
-                        (val, "vp_bitvec_repeat")  // Use bit vector for bool lists
+                        let val: inkwell::values::BasicMetadataValueEnum =
+                            state.context.bool_type().const_int(0, false).into();
+                        (val, "vp_bitvec_repeat") // Use bit vector for bool lists
                     }
                     Expr::Int(val, _) => {
-                         // Tag the integer value (shift left by 1)
-                         let tagged_val = (*val) << 1;
-                         let val: inkwell::values::BasicMetadataValueEnum = state.ir_builder.i64_const(tagged_val).into();
-                         (val, "vp_list_repeat")
-                     }
+                        // Tag the integer value (shift left by 1)
+                        let tagged_val = (*val) << 1;
+                        let val: inkwell::values::BasicMetadataValueEnum =
+                            state.ir_builder.i64_const(tagged_val).into();
+                        (val, "vp_list_repeat")
+                    }
                     Expr::Float(val, _) => {
-                         let f64_val = state.context.f64_type().const_float(*val as f64);
-                         let i64_val = state.builder.build_float_to_signed_int(f64_val, state.context.i64_type(), "float_to_int")
-                             .map_err(|e| format!("Failed to convert float to int: {:?}", e))?;
-                         (i64_val.into(), "vp_list_repeat")
-                     }
+                        let f64_val = state.context.f64_type().const_float(*val as f64);
+                        let i64_val = state
+                            .builder
+                            .build_float_to_signed_int(
+                                f64_val,
+                                state.context.i64_type(),
+                                "float_to_int",
+                            )
+                            .map_err(|e| format!("Failed to convert float to int: {:?}", e))?;
+                        (i64_val.into(), "vp_list_repeat")
+                    }
                     _ => {
                         let val = generate_expr(state, elem)?;
                         if val.is_int_value() {
                             let int_val = val.into_int_value();
                             if int_val.get_type().get_bit_width() == 1 {
-                                (int_val.into(), "vp_bitvec_repeat")  // Use bit vector for bool lists
+                                (int_val.into(), "vp_bitvec_repeat") // Use bit vector for bool lists
                             } else {
                                 (int_val.into(), "vp_list_repeat")
                             }
                         } else {
                             return crate::codegen::codegen_error(
-                                "List repeat requires integer or boolean elements".to_string()
+                                "List repeat requires integer or boolean elements".to_string(),
                             );
                         }
                     }
@@ -131,7 +143,9 @@ pub fn generate_binop<'ctx>(
             let count_int = if count_val.is_int_value() {
                 count_val.into_int_value()
             } else {
-                return crate::codegen::codegen_error("String repetition count must be an integer".to_string());
+                return crate::codegen::codegen_error(
+                    "String repetition count must be an integer".to_string(),
+                );
             };
 
             // Call vp_str_repeat
@@ -169,7 +183,9 @@ pub fn generate_binop<'ctx>(
             let count_int = if count_val.is_int_value() {
                 count_val.into_int_value()
             } else {
-                return crate::codegen::codegen_error("String repetition count must be an integer".to_string());
+                return crate::codegen::codegen_error(
+                    "String repetition count must be an integer".to_string(),
+                );
             };
             // Generate the string
             let str_val = generate_expr(state, right)?;
@@ -249,12 +265,16 @@ pub fn generate_binop<'ctx>(
         // Check if these are bool lists (bit vectors)
         let is_bool_list_left = match left {
             Expr::Ident(name, _) => state.is_bool_list(name),
-            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            Expr::List { elements, .. } => {
+                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+            }
             _ => false,
         };
         let is_bool_list_right = match right {
             Expr::Ident(name, _) => state.is_bool_list(name),
-            Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+            Expr::List { elements, .. } => {
+                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+            }
             _ => false,
         };
 
@@ -341,22 +361,30 @@ pub fn generate_binop<'ctx>(
 
             match op {
                 BinOp::Lt => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
                         .map_err(|e| format!("str_lt: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::Gt => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
                         .map_err(|e| format!("str_gt: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::LtEq => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
                         .map_err(|e| format!("str_lte: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::GtEq => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
                         .map_err(|e| format!("str_gte: {:?}", e))?;
                     return Ok(result.into());
                 }
@@ -365,12 +393,20 @@ pub fn generate_binop<'ctx>(
         }
 
         // For identity comparison (is, is not) and other operators, use pointer comparison
-        return comparison::generate_pointer_binop(state.builder, state.context, lhs_val, rhs_val, op);
+        return comparison::generate_pointer_binop(
+            state.builder,
+            state.context,
+            lhs_val,
+            rhs_val,
+            op,
+        );
     }
 
     // Reject pointer values in arithmetic operations (except for Add with strings, handled above)
     if lhs_val.is_pointer_value() || rhs_val.is_pointer_value() {
-        return crate::codegen::codegen_error("Binary operators cannot be applied to pointer values (lists)".to_string());
+        return crate::codegen::codegen_error(
+            "Binary operators cannot be applied to pointer values (lists)".to_string(),
+        );
     }
 
     // Handle boolean comparisons (both operands are i1)
@@ -443,9 +479,10 @@ pub fn generate_unary<'ctx>(
                 Ok(state.builder.build_float_neg(float_val, "fneg").expect("fneg").into())
             }
             UnaryOp::Pos => Ok(val),
-            UnaryOp::Not | UnaryOp::Invert => {
-                crate::codegen::codegen_error(format!("Unary operator {:?} not supported for float types", op))
-            }
+            UnaryOp::Not | UnaryOp::Invert => crate::codegen::codegen_error(format!(
+                "Unary operator {:?} not supported for float types",
+                op
+            )),
             UnaryOp::PreIncrement
             | UnaryOp::PreDecrement
             | UnaryOp::PostIncrement
@@ -503,13 +540,16 @@ fn generate_unwrap<'ctx>(
     };
 
     // Extract is_ok field (first field)
-    let is_ok_val = state.builder
+    let is_ok_val = state
+        .builder
         .build_extract_value(result_struct, 0, "is_ok")
         .map_err(|e| format!("Failed to extract is_ok: {:?}", e))?;
     let is_ok = is_ok_val.into_int_value();
 
     // Get the current function from the builder
-    let func = state.builder.get_insert_block()
+    let func = state
+        .builder
+        .get_insert_block()
         .and_then(|bb| bb.get_parent())
         .ok_or("Failed to get current function")?;
 
@@ -517,31 +557,33 @@ fn generate_unwrap<'ctx>(
     let func_return_type = func.get_type().get_return_type();
 
     // Check if function returns a Result type
-    let returns_result = func_return_type.map_or(false, |t| {
-        t.is_struct_type()
-    });
+    let returns_result = func_return_type.map_or(false, |t| t.is_struct_type());
 
     if !returns_result {
         // If function doesn't return Result, ? operator is invalid
         // For now, just panic as before
         let err_msg = state.context.const_string(b"? operator in non-Result function", true);
-        let err_msg_global = state.module.add_global(
-            err_msg.get_type(),
-            None,
-            "unwrap_err_msg",
-        );
+        let err_msg_global = state.module.add_global(err_msg.get_type(), None, "unwrap_err_msg");
         err_msg_global.set_initializer(&err_msg);
-        let err_msg_ptr = state.builder.build_pointer_cast(
-            err_msg_global.as_pointer_value(),
-            state.context.ptr_type(inkwell::AddressSpace::default()),
-            "err_msg_ptr",
-        ).map_err(|e| format!("Failed to cast error message: {:?}", e))?;
+        let err_msg_ptr = state
+            .builder
+            .build_pointer_cast(
+                err_msg_global.as_pointer_value(),
+                state.context.ptr_type(inkwell::AddressSpace::default()),
+                "err_msg_ptr",
+            )
+            .map_err(|e| format!("Failed to cast error message: {:?}", e))?;
 
         if let Some(panic_func) = state.module.get_function("viper_panic") {
-            state.builder.build_call(panic_func, &[err_msg_ptr.into()], "panic")
+            state
+                .builder
+                .build_call(panic_func, &[err_msg_ptr.into()], "panic")
                 .map_err(|e| format!("Failed to call panic: {:?}", e))?;
         }
-        state.builder.build_unreachable().map_err(|e| format!("Failed to build unreachable: {:?}", e))?;
+        state
+            .builder
+            .build_unreachable()
+            .map_err(|e| format!("Failed to build unreachable: {:?}", e))?;
 
         // Return a dummy value (unreachable)
         return Ok(state.context.i64_type().const_zero().into());
@@ -553,26 +595,31 @@ fn generate_unwrap<'ctx>(
     let continue_block = state.context.append_basic_block(func, "result_continue");
 
     // Convert is_ok from i8 to i1 for branch condition
-    let is_ok_bool = state.builder.build_int_compare(
-        inkwell::IntPredicate::NE,
-        is_ok,
-        state.context.i8_type().const_zero(),
-        "is_ok_bool",
-    ).map_err(|e| format!("Failed to build compare: {:?}", e))?;
+    let is_ok_bool = state
+        .builder
+        .build_int_compare(
+            inkwell::IntPredicate::NE,
+            is_ok,
+            state.context.i8_type().const_zero(),
+            "is_ok_bool",
+        )
+        .map_err(|e| format!("Failed to build compare: {:?}", e))?;
 
     // Branch based on is_ok
-    state.builder.build_conditional_branch(
-        is_ok_bool,
-        ok_block,
-        err_block,
-    ).map_err(|e| format!("Failed to build conditional branch: {:?}", e))?;
+    state
+        .builder
+        .build_conditional_branch(is_ok_bool, ok_block, err_block)
+        .map_err(|e| format!("Failed to build conditional branch: {:?}", e))?;
 
     // Ok block: extract and return the value
     state.builder.position_at_end(ok_block);
-    let ok_value = state.builder
+    let ok_value = state
+        .builder
         .build_extract_value(result_struct, 1, "value")
         .map_err(|e| format!("Failed to extract value: {:?}", e))?;
-    state.builder.build_unconditional_branch(continue_block)
+    state
+        .builder
+        .build_unconditional_branch(continue_block)
         .map_err(|e| format!("Failed to build branch: {:?}", e))?;
     let ok_block_end = state.builder.get_insert_block().unwrap();
 
@@ -580,20 +627,21 @@ fn generate_unwrap<'ctx>(
     state.builder.position_at_end(err_block);
 
     // Extract the error from the original Result and construct a new Err to return
-    let error_val = state.builder
+    let error_val = state
+        .builder
         .build_extract_value(result_struct, 1, "error_value")
         .map_err(|e| format!("Failed to extract error: {:?}", e))?;
 
     // Construct a new Err result with the same error
     // Result struct type: { is_ok: i8, value: ptr }
     let i8_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-    let result_struct_type = state.context.struct_type(&[
-        state.context.i8_type().into(),
-        i8_ptr_type.into(),
-    ], false);
+    let result_struct_type =
+        state.context.struct_type(&[state.context.i8_type().into(), i8_ptr_type.into()], false);
 
     // Allocate space for the Result struct
-    let err_result_alloca = state.builder.build_alloca(result_struct_type, "propagated_err_result")
+    let err_result_alloca = state
+        .builder
+        .build_alloca(result_struct_type, "propagated_err_result")
         .map_err(|e| format!("Failed to alloca: {:?}", e))?;
 
     // Store is_ok = 0
@@ -604,8 +652,11 @@ fn generate_unwrap<'ctx>(
             &[state.context.i32_type().const_zero(), state.context.i32_type().const_zero()],
             "is_ok_ptr",
         )
-    }.map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
-    state.builder.build_store(is_ok_ptr, state.context.i8_type().const_int(0, false))
+    }
+    .map_err(|e| format!("Failed to get is_ok field: {:?}", e))?;
+    state
+        .builder
+        .build_store(is_ok_ptr, state.context.i8_type().const_int(0, false))
         .map_err(|e| format!("Failed to store is_ok: {:?}", e))?;
 
     // Store the error pointer
@@ -616,37 +667,48 @@ fn generate_unwrap<'ctx>(
             &[state.context.i32_type().const_zero(), state.context.i32_type().const_int(1, false)],
             "error_ptr_ptr",
         )
-    }.map_err(|e| format!("Failed to get error_ptr field: {:?}", e))?;
+    }
+    .map_err(|e| format!("Failed to get error_ptr field: {:?}", e))?;
 
     // Ensure error is a pointer
     let error_ptr = if error_val.is_pointer_value() {
         error_val.into_pointer_value()
     } else if error_val.is_int_value() {
-        state.builder.build_int_to_ptr(
-            error_val.into_int_value(),
-            i8_ptr_type,
-            "err_int_to_ptr",
-        ).map_err(|e| format!("Failed to bitcast int to ptr: {:?}", e))?
+        state
+            .builder
+            .build_int_to_ptr(error_val.into_int_value(), i8_ptr_type, "err_int_to_ptr")
+            .map_err(|e| format!("Failed to bitcast int to ptr: {:?}", e))?
     } else {
-        return crate::codegen::codegen_error(format!("Unsupported error value type: {:?}", error_val.get_type()));
+        return crate::codegen::codegen_error(format!(
+            "Unsupported error value type: {:?}",
+            error_val.get_type()
+        ));
     };
 
-    state.builder.build_store(error_ptr_ptr, error_ptr)
+    state
+        .builder
+        .build_store(error_ptr_ptr, error_ptr)
         .map_err(|e| format!("Failed to store error: {:?}", e))?;
 
     // Load and return the Err result struct
-    let err_result_val = state.builder.build_load(result_struct_type, err_result_alloca, "err_result_val")
+    let err_result_val = state
+        .builder
+        .build_load(result_struct_type, err_result_alloca, "err_result_val")
         .map_err(|e| format!("Failed to load: {:?}", e))?;
 
     // Return the Err result
-    state.builder.build_return(Some(&err_result_val))
+    state
+        .builder
+        .build_return(Some(&err_result_val))
         .map_err(|e| format!("Failed to build return: {:?}", e))?;
 
     // Err block is terminated, position at continue block
     state.builder.position_at_end(continue_block);
 
     // Continue block: phi node to merge values
-    let phi = state.builder.build_phi(state.context.ptr_type(inkwell::AddressSpace::default()), "result_value")
+    let phi = state
+        .builder
+        .build_phi(state.context.ptr_type(inkwell::AddressSpace::default()), "result_value")
         .map_err(|e| format!("Failed to build phi: {:?}", e))?;
     phi.add_incoming(&[(&ok_value, ok_block_end)]);
 

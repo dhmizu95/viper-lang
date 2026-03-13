@@ -151,7 +151,7 @@ impl BinOp {
             BinOp::BitOr => 8,
             BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => 7,
             BinOp::Eq | BinOp::NotEq | BinOp::Is | BinOp::IsNot | BinOp::In | BinOp::NotIn => 6,
-            BinOp::NullCoalesce => 5,  // Same as 'and' - low precedence
+            BinOp::NullCoalesce => 5, // Same as 'and' - low precedence
             BinOp::And => 5,
             BinOp::Or => 4,
         }
@@ -241,10 +241,10 @@ pub enum Stmt {
     /// From import
     FromImport { module: String, names: Vec<(String, Option<String>)>, span: Span },
     /// Class definition
-    Class { 
-        name: String, 
-        bases: Vec<Expr>, 
-        body: Vec<Stmt>, 
+    Class {
+        name: String,
+        bases: Vec<Expr>,
+        body: Vec<Stmt>,
         span: Span,
         decorators: Vec<Decorator>,
         /// Fields declared in the class body (name, type, is_class_var)
@@ -405,8 +405,8 @@ pub struct Param {
     pub type_ann: Option<Type>,
     pub default: Option<Expr>,
     pub span: Span,
-    pub is_variadic: bool,      // *args
-    pub is_kw_variadic: bool,   // **kwargs
+    pub is_variadic: bool,    // *args
+    pub is_kw_variadic: bool, // **kwargs
 }
 
 /// Decorator for functions, classes, and methods

@@ -8,8 +8,8 @@ use std::collections::{HashMap, HashSet};
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::types::TypeMapper;
 use crate::codegen::variables::{LoopContext, VarInfo};
-use crate::semantic::escape_analysis::EscapeAnalyzer;
 use crate::semantic::closure_analysis::ClosureAnalyzer;
+use crate::semantic::escape_analysis::EscapeAnalyzer;
 
 /// Main code generator that translates AST to LLVM IR
 pub struct CodeGen<'ctx> {
@@ -34,8 +34,8 @@ pub struct CodeGen<'ctx> {
     /// Variables that are captured by nested functions
     pub(crate) closure_cells: HashMap<String, crate::codegen::state::ClosureCellInfo<'ctx>>,
     pub(crate) current_function: Option<String>,
-    pub(crate) current_class: Option<String>,  // Current class context for super() and methods
-    pub(crate) in_classmethod: bool,  // True when generating code for a @classmethod
+    pub(crate) current_class: Option<String>, // Current class context for super() and methods
+    pub(crate) in_classmethod: bool,          // True when generating code for a @classmethod
     /// Functions decorated with @lru_cache or @memoize - maps function name to cache global pointer
     pub(crate) memoized_functions: HashMap<String, PointerValue<'ctx>>,
     /// Enable automatic memoization for pure recursive functions
@@ -74,8 +74,8 @@ impl<'ctx> CodeGen<'ctx> {
             current_class: None,
             in_classmethod: false,
             memoized_functions: HashMap::new(),
-            auto_memoize: false,  // Disabled by default - users must opt-in via @lru_cache
-            memoize_warn: true,   // Warn about non-memoized recursion by default
+            auto_memoize: false, // Disabled by default - users must opt-in via @lru_cache
+            memoize_warn: true,  // Warn about non-memoized recursion by default
         }
     }
 

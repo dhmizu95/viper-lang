@@ -26,7 +26,7 @@ pub fn generate_slice<'ctx>(
             } else {
                 false
             }
-        },
+        }
         Expr::Str(_, _) => true,
         _ => false,
     };
@@ -34,7 +34,9 @@ pub fn generate_slice<'ctx>(
     // Check if this is a bool list (bit vector)
     let is_bool_list = match obj {
         Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
-        Expr::List { elements, .. } => elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false),
+        Expr::List { elements, .. } => {
+            elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+        }
         _ => false,
     };
 
@@ -163,36 +165,45 @@ pub fn generate_assignment_expr<'ctx>(
                 }
                 VarStorage::Stack(alloca) => {
                     // Stack-allocated: store to alloca
-                    state.builder.build_store(*alloca, value_val)
+                    state
+                        .builder
+                        .build_store(*alloca, value_val)
                         .map_err(|e| format!("Failed to store value: {:?}", e))?;
                 }
                 VarStorage::ClosureCell(_cell_ptr) => {
                     // Closure cell: store through the cell's value pointer
                     if let Some(value_ptr) = &var_info.closure_value_ptr {
-                        state.builder.build_store(*value_ptr, value_val)
+                        state
+                            .builder
+                            .build_store(*value_ptr, value_val)
                             .map_err(|e| format!("Failed to store to closure cell: {:?}", e))?;
                     } else {
-                        return crate::codegen::codegen_error("Closure cell missing value pointer".to_string());
+                        return crate::codegen::codegen_error(
+                            "Closure cell missing value pointer".to_string(),
+                        );
                     }
                 }
             }
         } else {
             // Variable doesn't exist - create it (implicit declaration)
             // Use stack allocation for simplicity
-            let alloca = state.builder.build_alloca(value_val.get_type(), name)
+            let alloca = state
+                .builder
+                .build_alloca(value_val.get_type(), name)
                 .map_err(|e| format!("Failed to create alloca: {:?}", e))?;
-            state.builder.build_store(alloca, value_val)
+            state
+                .builder
+                .build_store(alloca, value_val)
                 .map_err(|e| format!("Failed to store value: {:?}", e))?;
-            state.variables.insert(
-                name.clone(),
-                VarInfo::new_stack(alloca, var_type),
-            );
+            state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
         }
 
         // Return the value (walrus operator returns the assigned value)
         Ok(value_val)
     } else {
-        crate::codegen::codegen_error("Assignment expression target must be an identifier".to_string())
+        crate::codegen::codegen_error(
+            "Assignment expression target must be an identifier".to_string(),
+        )
     }
 }
 
@@ -211,14 +222,15 @@ pub fn generate_list_call<'ctx>(
             .module
             .get_function("vp_list_create")
             .ok_or_else(|| "vp_list_create not declared".to_string())?;
-        let result = state
-            .ir_builder
-            .build_call(state.builder, list_func, &[], "empty_list");
+        let result = state.ir_builder.build_call(state.builder, list_func, &[], "empty_list");
         return Ok(result.unwrap());
     }
 
     if args.len() > 1 {
-        return crate::codegen::codegen_error(format!("list() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "list() takes at most 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let arg = &args[0];
@@ -268,7 +280,12 @@ pub fn generate_list_call<'ctx>(
                         .ok_or_else(|| "vp_list_from_iterable not declared".to_string())?;
                     state
                         .ir_builder
-                        .build_call(state.builder, from_iter_func, &[arg_val.into()], "list_from_iter")
+                        .build_call(
+                            state.builder,
+                            from_iter_func,
+                            &[arg_val.into()],
+                            "list_from_iter",
+                        )
                         .unwrap()
                 }
             } else {
@@ -334,14 +351,15 @@ pub fn generate_tuple_call<'ctx>(
             .module
             .get_function("vp_list_create")
             .ok_or_else(|| "vp_list_create not declared".to_string())?;
-        let result = state
-            .ir_builder
-            .build_call(state.builder, list_func, &[], "empty_tuple");
+        let result = state.ir_builder.build_call(state.builder, list_func, &[], "empty_tuple");
         return Ok(result.unwrap());
     }
 
     if args.len() > 1 {
-        return crate::codegen::codegen_error(format!("tuple() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "tuple() takes at most 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let arg = &args[0];
@@ -422,14 +440,15 @@ pub fn generate_set_call<'ctx>(
             .module
             .get_function("vp_list_create")
             .ok_or_else(|| "vp_list_create not declared".to_string())?;
-        let result = state
-            .ir_builder
-            .build_call(state.builder, list_func, &[], "empty_set");
+        let result = state.ir_builder.build_call(state.builder, list_func, &[], "empty_set");
         return Ok(result.unwrap());
     }
 
     if args.len() > 1 {
-        return crate::codegen::codegen_error(format!("set() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!(
+            "set() takes at most 1 argument, got {}",
+            args.len()
+        ));
     }
 
     let arg = &args[0];

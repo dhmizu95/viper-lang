@@ -141,8 +141,6 @@ pub enum Commands {
 fn parse_pgo_mode(s: &str) -> crate::error::Result<String> {
     match s {
         "instrument" | "use" => Ok(s.to_string()),
-        _ => Err(crate::error::ViperError::cli(
-            "PGO mode must be 'instrument' or 'use'",
-        )),
+        _ => Err(crate::error::ViperError::cli("PGO mode must be 'instrument' or 'use'")),
     }
 }

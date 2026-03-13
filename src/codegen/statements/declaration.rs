@@ -14,11 +14,20 @@ fn is_bigint_expr(expr: &Expr, state: &CodeGenState) -> bool {
             if let Expr::Ident(name, _) = func.as_ref() {
                 // Check for built-in BigInt functions (case insensitive for constructor)
                 // int(), abs(), and pow() return arbitrary precision int (BigInt internally)
-                name == "bigint" || name == "BigInt" || name == "int" || name == "abs" || name == "pow"
-                    || name == "abs_bigint" || name == "pow_bigint"
-                    || name == "sqrt_bigint" || name == "min_bigint" || name == "max_bigint"
-                    || name == "is_zero_bigint" || name == "is_negative_bigint"
-                    || name == "sign_bigint" || name == "bit_length_bigint"
+                name == "bigint"
+                    || name == "BigInt"
+                    || name == "int"
+                    || name == "abs"
+                    || name == "pow"
+                    || name == "abs_bigint"
+                    || name == "pow_bigint"
+                    || name == "sqrt_bigint"
+                    || name == "min_bigint"
+                    || name == "max_bigint"
+                    || name == "is_zero_bigint"
+                    || name == "is_negative_bigint"
+                    || name == "sign_bigint"
+                    || name == "bit_length_bigint"
             } else {
                 false
             }
@@ -66,8 +75,7 @@ pub(crate) fn generate_declare<'ctx>(
         };
 
         // Track BigInt variables - use comprehensive detection
-        let is_bigint = matches!(type_ann, Some(Type::BigInt))
-            || is_bigint_expr(expr, state);
+        let is_bigint = matches!(type_ann, Some(Type::BigInt)) || is_bigint_expr(expr, state);
         if is_bigint {
             state.mark_as_bigint(name.to_string());
         }
@@ -146,7 +154,7 @@ pub(crate) fn generate_declare<'ctx>(
         // Track tuple variables - they are now heap-allocated pointers
         let is_tuple = matches!(expr, Expr::Tuple { .. });
         if is_tuple {
-            state.mark_as_list(name.to_string());  // Use list tracking for ARC
+            state.mark_as_list(name.to_string()); // Use list tracking for ARC
         }
 
         // Lists can be stack-allocated if they don't escape the function
@@ -172,7 +180,7 @@ pub(crate) fn generate_declare<'ctx>(
         let var_type = if is_bytes {
             VarType::Bytes
         } else if is_tuple {
-            VarType::Pointer  // Tuples are now heap-allocated pointers
+            VarType::Pointer // Tuples are now heap-allocated pointers
         } else if val.is_float_value() {
             VarType::Float
         } else if val.is_pointer_value() {
@@ -190,7 +198,8 @@ pub(crate) fn generate_declare<'ctx>(
         // Tuples are now pointer types and follow pointer allocation rules
         let is_scalar = !is_ref_type && !is_tuple && var_type != VarType::Pointer;
         // Tuples use stack allocation for the pointer, but the data is heap-allocated
-        let use_stack = (!can_stack_alloc || is_scalar || mutable || is_bigint) && var_type != VarType::Pointer;
+        let use_stack =
+            (!can_stack_alloc || is_scalar || mutable || is_bigint) && var_type != VarType::Pointer;
 
         if !use_stack {
             // Use SSA register allocation for non-escaping variables or non-mutable scalars
@@ -229,11 +238,14 @@ pub(crate) fn generate_declare<'ctx>(
                             name,
                         ) {
                             // Store the closure cell info
-                            state.closure_cells.insert(name.to_string(), crate::codegen::state::ClosureCellInfo {
-                                cell_ptr,
-                                value_ptr: alloca,
-                                var_type,
-                            });
+                            state.closure_cells.insert(
+                                name.to_string(),
+                                crate::codegen::state::ClosureCellInfo {
+                                    cell_ptr,
+                                    value_ptr: alloca,
+                                    var_type,
+                                },
+                            );
                         }
                     }
                 }
@@ -279,11 +291,11 @@ pub(crate) fn generate_nonlocal<'ctx>(
 ) -> crate::codegen::Result<()> {
     // The 'nonlocal' keyword marks variables as referring to enclosing (non-global) scope
     // This is used in nested functions to modify variables from the outer function
-    // 
+    //
     // The closure analyzer has already determined which variables are captured and
     // the function codegen has set up closure_cells for nonlocal variables.
     // Here we just need to create variable entries that point to those closure cells.
-    
+
     for name in names {
         // Check if this nonlocal variable has a closure cell from the enclosing function
         if let Some(cell_info) = state.closure_cells.get(name) {
@@ -305,10 +317,12 @@ pub(crate) fn generate_nonlocal<'ctx>(
                 "Warning: nonlocal '{}' not found in closure cells - may not work correctly",
                 name
             );
-            
+
             // Create a fallback alloca (this won't work correctly but avoids crash)
             let i64_type = state.context.i64_type();
-            let alloca = state.builder.build_alloca(i64_type, name)
+            let alloca = state
+                .builder
+                .build_alloca(i64_type, name)
                 .map_err(|e| format!("Failed to create alloca for nonlocal '{}': {:?}", name, e))?;
             state.variables.insert(name.clone(), VarInfo::new_stack(alloca, VarType::Int));
         }
@@ -392,14 +406,18 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
                 state.builder.build_store(alloca, elem_val).expect("store");
                 state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
             } else {
-                return crate::codegen::codegen_error("Tuple unpacking only supports simple variables".to_string());
+                return crate::codegen::codegen_error(
+                    "Tuple unpacking only supports simple variables".to_string(),
+                );
             }
         }
     } else if val.is_pointer_value() {
         // Unpacking from a function call or other expression
         // For now, we'll handle this by extracting elements via GEP if it's a struct
         // This is a simplified implementation - full support would need more work
-        return crate::codegen::codegen_error("Tuple unpacking from non-literal tuples not yet fully supported".to_string());
+        return crate::codegen::codegen_error(
+            "Tuple unpacking from non-literal tuples not yet fully supported".to_string(),
+        );
     } else {
         return crate::codegen::codegen_error("Tuple unpacking requires a tuple value".to_string());
     }

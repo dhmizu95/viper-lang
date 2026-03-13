@@ -9,26 +9,25 @@ use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 
-use crate::codegen::expressions::builtins::print::{generate_print_call, generate_exit_call};
 use crate::codegen::expressions::builtins::len::generate_len_call;
-use crate::codegen::expressions::builtins::math::{generate_math_builtin, generate_math_float_func, generate_math_constant};
-use crate::codegen::expressions::builtins::r#struct::{generate_hash_call, generate_struct_pack, generate_struct_unpack};
-use crate::codegen::expressions::builtins::str::{generate_str_call, generate_type_convert, generate_bytes_call};
-use crate::codegen::expressions::concurrency::{
-    generate_chan_create,
-    generate_chan_send,
-    generate_chan_recv,
-    generate_waitgroup_create,
-    generate_waitgroup_done,
-    generate_waitgroup_wait,
-    generate_waitgroup_add,
+use crate::codegen::expressions::builtins::math::{
+    generate_math_builtin, generate_math_constant, generate_math_float_func,
 };
-use crate::codegen::expressions::collections::{
-    generate_list_call,
-    generate_tuple_call,
-    generate_set_call,
+use crate::codegen::expressions::builtins::print::{generate_exit_call, generate_print_call};
+use crate::codegen::expressions::builtins::r#struct::{
+    generate_hash_call, generate_struct_pack, generate_struct_unpack,
+};
+use crate::codegen::expressions::builtins::str::{
+    generate_bytes_call, generate_str_call, generate_type_convert,
 };
 use crate::codegen::expressions::calls::methods::generate_dict_call;
+use crate::codegen::expressions::collections::{
+    generate_list_call, generate_set_call, generate_tuple_call,
+};
+use crate::codegen::expressions::concurrency::{
+    generate_chan_create, generate_chan_recv, generate_chan_send, generate_waitgroup_add,
+    generate_waitgroup_create, generate_waitgroup_done, generate_waitgroup_wait,
+};
 use crate::codegen::expressions::core::infer_expr_type;
 
 /// Generate function/method call
@@ -225,7 +224,11 @@ pub fn generate_call<'ctx>(
         // range() - returns a list of integers
         if name == "range" {
             let (start_val, end_val, _step_val) = match args.len() {
-                0 => return crate::codegen::codegen_error("range expected at least 1 argument, got 0".to_string()),
+                0 => {
+                    return crate::codegen::codegen_error(
+                        "range expected at least 1 argument, got 0".to_string(),
+                    )
+                }
                 1 => (
                     state.ir_builder.i64_const(0),
                     generate_expr(state, &args[0])?.into_int_value(),
@@ -248,9 +251,12 @@ pub fn generate_call<'ctx>(
                 .get_function("vp_range")
                 .ok_or_else(|| "vp_range not declared".to_string())?;
 
-            let result = state
-                .ir_builder
-                .build_call(state.builder, range_func, &[start_val.into(), end_val.into()], "range_result");
+            let result = state.ir_builder.build_call(
+                state.builder,
+                range_func,
+                &[start_val.into(), end_val.into()],
+                "range_result",
+            );
             return Ok(result.unwrap());
         }
 
@@ -349,15 +355,18 @@ pub fn generate_call<'ctx>(
 
         // Check for user-defined functions with overload resolution
         // Infer argument types, using var_types for identifiers when available
-        let arg_types: Vec<Type> = args.iter().map(|a| {
-            match a {
-                Expr::Ident(name, _) => {
-                    // Try to get type from var_types first
-                    state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a))
+        let arg_types: Vec<Type> = args
+            .iter()
+            .map(|a| {
+                match a {
+                    Expr::Ident(name, _) => {
+                        // Try to get type from var_types first
+                        state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a))
+                    }
+                    _ => infer_expr_type(a),
                 }
-                _ => infer_expr_type(a)
-            }
-        }).collect();
+            })
+            .collect();
 
         // First try exact match with mangled name
         let mangled_name = mangle_function_name(name, &arg_types);
@@ -369,9 +378,7 @@ pub fn generate_call<'ctx>(
             let overloads: Vec<_> = state
                 .functions
                 .iter()
-                .filter(|(k, _)| {
-                    k == &name || k.starts_with(&format!("{}_", name))
-                })
+                .filter(|(k, _)| k == &name || k.starts_with(&format!("{}_", name)))
                 .collect();
 
             if overloads.is_empty() {
@@ -389,7 +396,8 @@ pub fn generate_call<'ctx>(
                     // If no match found, try to find a function with matching arity
                     // This handles cases where argument types are Infer
                     // Mangled format: name_type1_type2_... so underscore count = param count
-                    overloads.iter()
+                    overloads
+                        .iter()
                         .find(|(mangled, _)| {
                             let param_count = mangled.chars().filter(|c| *c == '_').count();
                             param_count == arg_types.len()
@@ -421,7 +429,8 @@ pub fn generate_call<'ctx>(
                                 // Look up the closure cell in current state
                                 if let Some(cell_info) = state.closure_cells.get(var_name) {
                                     // Convert pointer to BasicValueEnum then to BasicMetadataValueEnum
-                                    let cell_ptr_val: inkwell::values::BasicValueEnum = cell_info.cell_ptr.into();
+                                    let cell_ptr_val: inkwell::values::BasicValueEnum =
+                                        cell_info.cell_ptr.into();
                                     arg_values.push(cell_ptr_val.into());
                                 }
                             }
@@ -533,7 +542,9 @@ pub(crate) fn infer_named_call_return_type<'ctx>(
     let arg_types: Vec<Type> = args
         .iter()
         .map(|a| match a {
-            Expr::Ident(name, _) => state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a)),
+            Expr::Ident(name, _) => {
+                state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a))
+            }
             _ => infer_expr_type(a),
         })
         .collect();
@@ -558,7 +569,9 @@ pub(crate) fn infer_named_call_return_type<'ctx>(
             .or_else(|| {
                 overloads
                     .iter()
-                    .find(|(mangled, _)| mangled.chars().filter(|c| *c == '_').count() == arg_types.len())
+                    .find(|(mangled, _)| {
+                        mangled.chars().filter(|c| *c == '_').count() == arg_types.len()
+                    })
                     .map(|(mangled, _)| *mangled)
             })
             .and_then(|mangled| state.functions.get(mangled).copied())
@@ -613,7 +626,7 @@ fn mangled_str_to_type(s: &str) -> Type {
             let first_variant = rest.split('_').next().unwrap_or(rest);
             mangled_str_to_type(first_variant)
         }
-        _ => Type::Infer,  // Unknown types treated as Infer
+        _ => Type::Infer, // Unknown types treated as Infer
     }
 }
 
@@ -660,20 +673,24 @@ fn type_match_score(param_type: &Type, arg_type: &Type) -> usize {
             type_match_score(inner, arg_type)
         }
 
-        _ => usize::MAX,  // Not compatible
+        _ => usize::MAX, // Not compatible
     }
 }
 
 /// Determine if a function call should be inlined
-/// 
+///
 /// Inlining small functions reduces call overhead significantly (20-40% for recursive benchmarks)
 /// Criteria:
 /// - Functions marked with alwaysinline attribute
 /// - Small functions (few parameters and arguments)
-fn should_inline_call<'ctx>(func_val: inkwell::values::FunctionValue<'ctx>, args: &[crate::ast::Expr]) -> bool {
+fn should_inline_call<'ctx>(
+    func_val: inkwell::values::FunctionValue<'ctx>,
+    args: &[crate::ast::Expr],
+) -> bool {
     // Check if function already has alwaysinline attribute
     let attrs = func_val.attributes(inkwell::attributes::AttributeLoc::Function);
-    let has_always_inline = attrs.iter()
+    let has_always_inline = attrs
+        .iter()
         .any(|attr| attr.is_string() && attr.get_string_kind_id().to_str() == Ok("alwaysinline"));
 
     if has_always_inline {
@@ -698,9 +715,7 @@ fn generate_direct_call<'ctx>(
 ) -> crate::codegen::Result<inkwell::values::BasicValueEnum<'ctx>> {
     let arg_values: Vec<_> = args
         .iter()
-        .map(|a| {
-            generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
-        })
+        .map(|a| generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v)))
         .collect::<Result<_, _>>()?;
 
     let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "memo_call");

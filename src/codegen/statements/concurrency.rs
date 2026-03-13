@@ -36,16 +36,19 @@ pub(crate) fn generate_task<'ctx>(
             }
 
             // Compute mangled name from argument types
-            let arg_types: Vec<Type> = arg_values.iter().map(|v| {
-                // Map LLVM type back to Viper Type for mangling
-                use inkwell::values::BasicValueEnum;
-                match v {
-                    BasicValueEnum::IntValue(_) => Type::I64,
-                    BasicValueEnum::FloatValue(_) => Type::F64,
-                    BasicValueEnum::PointerValue(_) => Type::Str, // Simplified
-                    _ => Type::I64, // Default
-                }
-            }).collect();
+            let arg_types: Vec<Type> = arg_values
+                .iter()
+                .map(|v| {
+                    // Map LLVM type back to Viper Type for mangling
+                    use inkwell::values::BasicValueEnum;
+                    match v {
+                        BasicValueEnum::IntValue(_) => Type::I64,
+                        BasicValueEnum::FloatValue(_) => Type::F64,
+                        BasicValueEnum::PointerValue(_) => Type::Str, // Simplified
+                        _ => Type::I64,                               // Default
+                    }
+                })
+                .collect();
 
             let mangled_name = mangle_function_name(name, &arg_types);
 
@@ -187,7 +190,9 @@ pub(crate) fn generate_recv<'ctx>(
     Ok(())
 }
 
-pub(crate) fn generate_waitgroup<'ctx>(state: &mut CodeGenState<'_, 'ctx>) -> crate::codegen::Result<()> {
+pub(crate) fn generate_waitgroup<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+) -> crate::codegen::Result<()> {
     // WaitGroup creation - returns a pointer to WaitGroup struct
     let wg_func = state
         .module

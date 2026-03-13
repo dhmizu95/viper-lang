@@ -1,6 +1,6 @@
+use crate::error::{Result, ViperError};
 use crate::lexer::indent_stack::{IndentChange, IndentStack};
 use crate::lexer::tokens::{Token, TokenKind};
-use crate::error::{Result, ViperError};
 use crate::utils::Span;
 
 /// The lexer scans source code and produces a stream of tokens
@@ -237,7 +237,7 @@ impl<'a> Lexer<'a> {
                 ':' => {
                     if self.peek() == Some('=') {
                         self.advance();
-                        TokenKind::ColonEq  // Walrus operator :=
+                        TokenKind::ColonEq // Walrus operator :=
                     } else {
                         TokenKind::Colon
                     }
@@ -702,7 +702,8 @@ impl<'a> Lexer<'a> {
                         self.advance();
                         break;
                     } else if !ch.is_ascii() {
-                        return self.lexical_error("Byte strings must contain only ASCII characters");
+                        return self
+                            .lexical_error("Byte strings must contain only ASCII characters");
                     } else {
                         bytes.push(self.advance() as u8);
                     }

@@ -20,7 +20,7 @@ pub(crate) fn semantic_error<T>(message: impl Into<String>) -> Result<T> {
 pub use closure_analysis::{CapturedVarInfo, ClosureAnalyzer, ClosureInfo};
 pub use constant_folding::ConstantFolder;
 pub use escape_analysis::{EscapeAnalyzer, EscapeState, FunctionEscapeContext, VariableEscapeInfo};
-pub use monomorphization::{Monomorphizer, MonomorphizedFunction};
+pub use monomorphization::{MonomorphizedFunction, Monomorphizer};
 pub use recursion_analysis::RecursionAnalyzer;
 pub use symbol_table::{Symbol, SymbolKind, SymbolTable};
 pub use type_checker::TypeChecker;

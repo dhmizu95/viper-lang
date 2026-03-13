@@ -23,11 +23,14 @@ fn run_viper(args: &[&str]) -> Result<String, String> {
 fn test_bigint_creation() {
     let result = run_viper(&["run", "tests/bigint_test.vp"]);
     match result {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             // Test passes if file doesn't exist or not implemented
-            assert!(e.contains("No such file") || e.contains("not implemented"), 
-                    "Unexpected error: {}", e);
+            assert!(
+                e.contains("No such file") || e.contains("not implemented"),
+                "Unexpected error: {}",
+                e
+            );
         }
     }
 }

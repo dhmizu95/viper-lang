@@ -165,7 +165,8 @@ pub fn declare_list_functions<'ctx>(
     let list_bool_repeat_type = ptr_type.fn_type(&[bool_type.into(), i64_type.into()], false);
     module.add_function("vp_list_bool_repeat", list_bool_repeat_type, None);
 
-    let list_bool_init_stack_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into(), bool_type.into()], false);
+    let list_bool_init_stack_type = void_type
+        .fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into(), bool_type.into()], false);
     module.add_function("vp_list_bool_init_stack", list_bool_init_stack_type, None);
 
     let list_bool_slice_type = ptr_type

@@ -16,13 +16,10 @@ pub fn generate_input_call<'ctx>(
         generate_expr(state, &args[0])?
     };
 
-    let func = state
-        .module
-        .get_function("vp_input")
-        .ok_or_else(|| "vp_input not declared".to_string())?;
+    let func =
+        state.module.get_function("vp_input").ok_or_else(|| "vp_input not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[prompt_val.into()], "input_result");
+    let result =
+        state.ir_builder.build_call(state.builder, func, &[prompt_val.into()], "input_result");
     Ok(result.unwrap())
 }

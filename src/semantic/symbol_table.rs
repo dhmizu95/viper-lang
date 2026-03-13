@@ -6,19 +6,30 @@ use std::collections::HashMap;
 /// Kind of symbol (variable, function, parameter)
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {
-    Variable { mutable: bool, type_ann: Option<Type> },
+    Variable {
+        mutable: bool,
+        type_ann: Option<Type>,
+    },
     /// Function with optional generic type parameters
     Function {
         params: Vec<Type>,
         return_type: Option<Type>,
         mangled_name: String,
-        type_params: Vec<String>,  // Generic type parameter names (e.g., ["T", "U"])
+        type_params: Vec<String>, // Generic type parameter names (e.g., ["T", "U"])
     },
-    Parameter { type_ann: Option<Type> },
-    Builtin { signature: BuiltinSignature },
-    TypeAlias { type_def: Type },
+    Parameter {
+        type_ann: Option<Type>,
+    },
+    Builtin {
+        signature: BuiltinSignature,
+    },
+    TypeAlias {
+        type_def: Type,
+    },
     /// Generic type definition (e.g., class MyList[T])
-    GenericTypeDef { type_params: Vec<String> },
+    GenericTypeDef {
+        type_params: Vec<String>,
+    },
     /// Class definition
     Class {
         name: String,
@@ -29,7 +40,9 @@ pub enum SymbolKind {
         method_mangles: Vec<String>,
     },
     /// Module reference (for import system)
-    Module { name: String },
+    Module {
+        name: String,
+    },
     /// Method within a class
     Method {
         class_name: String,
@@ -64,14 +77,14 @@ pub enum BuiltinSignature {
     Index,
     Hash,
     // Program control
-    Exit,     // exit(code) -> None
+    Exit, // exit(code) -> None
     // Type conversion
-    Bytes,    // bytes() -> bytes
+    Bytes, // bytes() -> bytes
     // Type introspection
-    IsInstance,  // isinstance(obj, Type) -> bool
+    IsInstance, // isinstance(obj, Type) -> bool
     // Result type constructors (generic)
-    Ok,   // Ok(value) -> Result[T, E]
-    Err,  // Err(error) -> Result[T, E]
+    Ok,  // Ok(value) -> Result[T, E]
+    Err, // Err(error) -> Result[T, E]
     // Concurrency primitives (Phase 3)
     ChanCreate,      // chan(capacity) -> Chan[T]
     ChanSend,        // send(chan, value) -> None
@@ -82,60 +95,60 @@ pub enum BuiltinSignature {
     WaitGroupWait,   // wait(wg) -> None
     // BigInt functions - removed, use int type instead
     // BigInt constructor removed - BigInt(str) -> BigInt
-    StrBigint,       // str_bigint(BigInt) -> Str
-    IntBigint,       // int_bigint(BigInt) -> I64
-    AbsBigint,       // abs_bigint(BigInt) -> BigInt
-    PowBigint,       // pow_bigint(BigInt, BigInt) -> BigInt
-    SqrtBigint,      // sqrt_bigint(BigInt) -> BigInt
-    MinBigint,       // min_bigint(BigInt, BigInt) -> BigInt
-    MaxBigint,       // max_bigint(BigInt, BigInt) -> BigInt
+    StrBigint,  // str_bigint(BigInt) -> Str
+    IntBigint,  // int_bigint(BigInt) -> I64
+    AbsBigint,  // abs_bigint(BigInt) -> BigInt
+    PowBigint,  // pow_bigint(BigInt, BigInt) -> BigInt
+    SqrtBigint, // sqrt_bigint(BigInt) -> BigInt
+    MinBigint,  // min_bigint(BigInt, BigInt) -> BigInt
+    MaxBigint,  // max_bigint(BigInt, BigInt) -> BigInt
     // Math builtins (not requiring import)
-    Abs,             // abs(float) -> float
+    Abs, // abs(float) -> float
     // Collection constructors
-    Tuple,           // tuple(iterable?) -> tuple
-    Set,             // set(iterable?) -> set
-    Dict,            // dict(iterable?) -> dict
+    Tuple, // tuple(iterable?) -> tuple
+    Set,   // set(iterable?) -> set
+    Dict,  // dict(iterable?) -> dict
     // Iteration builtins
-    Enumerate,       // enumerate(iterable, start=0) -> iterator
-    Zip,             // zip(iter1, iter2, ...) -> iterator
-    Iter,            // iter(iterable) -> iterator
-    Next,            // next(iterator, default?) -> value
+    Enumerate, // enumerate(iterable, start=0) -> iterator
+    Zip,       // zip(iter1, iter2, ...) -> iterator
+    Iter,      // iter(iterable) -> iterator
+    Next,      // next(iterator, default?) -> value
     // Functional builtins
-    Map,             // map(func, iterable) -> iterator
-    Filter,          // filter(func, iterable) -> iterator
-    Sum,             // sum(iterable, start=0) -> number
-    Any,             // any(iterable) -> bool
-    All,             // all(iterable) -> bool
+    Map,    // map(func, iterable) -> iterator
+    Filter, // filter(func, iterable) -> iterator
+    Sum,    // sum(iterable, start=0) -> number
+    Any,    // any(iterable) -> bool
+    All,    // all(iterable) -> bool
     // Numeric builtins
-    Min,             // min(iterable) -> value
-    Max,             // max(iterable) -> value
-    Round,           // round(number, ndigits=0) -> number
-    Divmod,          // divmod(a, b) -> (quotient, remainder)
-    Pow,             // pow(base, exp, mod?) -> number
+    Min,    // min(iterable) -> value
+    Max,    // max(iterable) -> value
+    Round,  // round(number, ndigits=0) -> number
+    Divmod, // divmod(a, b) -> (quotient, remainder)
+    Pow,    // pow(base, exp, mod?) -> number
     // Introspection builtins
-    Type,            // type(obj) -> type
-    Id,              // id(obj) -> int
-    Repr,            // repr(obj) -> str
-    Dir,             // dir(obj?) -> list
+    Type, // type(obj) -> type
+    Id,   // id(obj) -> int
+    Repr, // repr(obj) -> str
+    Dir,  // dir(obj?) -> list
     // Attribute builtins
-    Getattr,         // getattr(obj, name, default?) -> value
-    Setattr,         // setattr(obj, name, value) -> None
-    Hasattr,         // hasattr(obj, name) -> bool
-    Delattr,         // delattr(obj, name) -> None
+    Getattr, // getattr(obj, name, default?) -> value
+    Setattr, // setattr(obj, name, value) -> None
+    Hasattr, // hasattr(obj, name) -> bool
+    Delattr, // delattr(obj, name) -> None
     // I/O builtins
-    Input,           // input(prompt?) -> str
+    Input, // input(prompt?) -> str
     // Conversion builtins
-    Bin,             // bin(n) -> str
-    Oct,             // oct(n) -> str
-    Hex,             // hex(n) -> str
-    Chr,             // chr(n) -> str
-    Ord,             // ord(s) -> int
+    Bin, // bin(n) -> str
+    Oct, // oct(n) -> str
+    Hex, // hex(n) -> str
+    Chr, // chr(n) -> str
+    Ord, // ord(s) -> int
     // Advanced builtins
-    Callable,        // callable(obj) -> bool
-    Issubclass,      // issubclass(cls, classinfo) -> bool
+    Callable,   // callable(obj) -> bool
+    Issubclass, // issubclass(cls, classinfo) -> bool
     // Remaining builtins
-    Slice,           // slice(start, stop, step) -> slice
-    Format,          // format(value, format_spec?) -> str
+    Slice,  // slice(start, stop, step) -> slice
+    Format, // format(value, format_spec?) -> str
 }
 
 /// A symbol in the symbol table
@@ -179,7 +192,7 @@ impl Symbol {
                 BuiltinSignature::Range => Some(Type::List(Box::new(Type::I64))),
                 BuiltinSignature::Len => Some(Type::I64),
                 BuiltinSignature::Str => Some(Type::Str),
-                BuiltinSignature::Int => Some(Type::Int),  // Python-style: int() returns arbitrary precision int
+                BuiltinSignature::Int => Some(Type::Int), // Python-style: int() returns arbitrary precision int
                 BuiltinSignature::Float => Some(Type::F64),
                 BuiltinSignature::Bool => Some(Type::Bool),
                 BuiltinSignature::List => Some(Type::List(Box::new(Type::Infer))),
@@ -196,9 +209,9 @@ impl Symbol {
                 // Type conversion
                 BuiltinSignature::Bytes => Some(Type::Bytes),
                 // Type introspection
-                BuiltinSignature::IsInstance => Some(Type::Bool),  // isinstance(obj, Type) -> bool
+                BuiltinSignature::IsInstance => Some(Type::Bool), // isinstance(obj, Type) -> bool
                 // Result constructors - return type inferred from context
-                BuiltinSignature::Ok => Some(Type::Infer),  // Result[T, E] - both inferred from usage
+                BuiltinSignature::Ok => Some(Type::Infer), // Result[T, E] - both inferred from usage
                 BuiltinSignature::Err => Some(Type::Infer), // Result[T, E] - both inferred from usage
                 // Concurrency primitives return pointer types
                 BuiltinSignature::ChanCreate => Some(Type::Infer), // Chan[T] - element type inferred from usage
@@ -221,11 +234,15 @@ impl Symbol {
                 // Math builtins (not requiring import)
                 BuiltinSignature::Abs => Some(Type::F64),
                 // Collection constructors
-                BuiltinSignature::Tuple => Some(Type::List(Box::new(Type::Infer))),  // Simplified: tuple as list
-                BuiltinSignature::Set => Some(Type::List(Box::new(Type::Infer))),    // Simplified: set as list
-                BuiltinSignature::Dict => Some(Type::Dict(Box::new(Type::Infer), Box::new(Type::Infer))),
+                BuiltinSignature::Tuple => Some(Type::List(Box::new(Type::Infer))), // Simplified: tuple as list
+                BuiltinSignature::Set => Some(Type::List(Box::new(Type::Infer))), // Simplified: set as list
+                BuiltinSignature::Dict => {
+                    Some(Type::Dict(Box::new(Type::Infer), Box::new(Type::Infer)))
+                }
                 // Iteration builtins - return list for simplicity
-                BuiltinSignature::Enumerate => Some(Type::List(Box::new(Type::Tuple(vec![Type::I64, Type::Infer])))),
+                BuiltinSignature::Enumerate => {
+                    Some(Type::List(Box::new(Type::Tuple(vec![Type::I64, Type::Infer]))))
+                }
                 BuiltinSignature::Zip => Some(Type::List(Box::new(Type::Infer))),
                 BuiltinSignature::Iter => Some(Type::Infer),
                 BuiltinSignature::Next => Some(Type::Infer),
@@ -242,7 +259,7 @@ impl Symbol {
                 BuiltinSignature::Divmod => Some(Type::Tuple(vec![Type::I64, Type::I64])),
                 BuiltinSignature::Pow => Some(Type::F64),
                 // Introspection builtins
-                BuiltinSignature::Type => Some(Type::Str),  // Simplified: return string representation
+                BuiltinSignature::Type => Some(Type::Str), // Simplified: return string representation
                 BuiltinSignature::Id => Some(Type::I64),
                 BuiltinSignature::Repr => Some(Type::Str),
                 BuiltinSignature::Dir => Some(Type::List(Box::new(Type::Str))),
@@ -269,16 +286,16 @@ impl Symbol {
             SymbolKind::TypeAlias { type_def } => Some(type_def.clone()),
             SymbolKind::GenericTypeDef { .. } => None,
             SymbolKind::Class { name, .. } => Some(Type::Class(name.clone())),
-            SymbolKind::Module { .. } => None,  // Modules don't have a type
-            SymbolKind::Method { class_name, method_name, params, return_type, is_bound, .. } => {
-                Some(Type::Method {
-                    class_name: class_name.clone(),
-                    method_name: method_name.clone(),
-                    params: params.clone(),
-                    return_type: Box::new(return_type.clone().unwrap_or(Type::None)),
-                    is_bound: *is_bound,
-                })
-            }
+            SymbolKind::Module { .. } => None, // Modules don't have a type
+            SymbolKind::Method {
+                class_name, method_name, params, return_type, is_bound, ..
+            } => Some(Type::Method {
+                class_name: class_name.clone(),
+                method_name: method_name.clone(),
+                params: params.clone(),
+                return_type: Box::new(return_type.clone().unwrap_or(Type::None)),
+                is_bound: *is_bound,
+            }),
         }
     }
 }
@@ -435,7 +452,7 @@ impl SymbolTable {
     pub fn get_function_overloads(&self, name: &str) -> Vec<&Symbol> {
         let mut overloads = Vec::new();
         let prefix = format!("{}_", name);
-        
+
         for &scope_id in self.scope_chain.iter().rev() {
             for (key, symbol) in &self.scopes[scope_id] {
                 if let SymbolKind::Function { .. } = &symbol.kind {
@@ -542,9 +559,9 @@ impl SymbolTable {
                 Box::new(self.resolve_type_alias(ok)),
                 Box::new(self.resolve_type_alias(err)),
             ),
-            Type::Union(variants) => Type::Union(
-                variants.iter().map(|t| self.resolve_type_alias(t)).collect(),
-            ),
+            Type::Union(variants) => {
+                Type::Union(variants.iter().map(|t| self.resolve_type_alias(t)).collect())
+            }
             _ => ty.clone(),
         }
     }

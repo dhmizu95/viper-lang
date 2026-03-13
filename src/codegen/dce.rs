@@ -191,8 +191,8 @@ impl DeadCodeEliminator {
     fn mark_expr_vars(&mut self, expr: &Expr) {
         match expr {
             Expr::Ident(name, _) => {
-                self.used_vars.insert(name.clone());  // Clone needed for HashSet<String>
-                // Mark the current definition as used
+                self.used_vars.insert(name.clone()); // Clone needed for HashSet<String>
+                                                     // Mark the current definition as used
                 if let Some(var_def) = self.var_defs.get_mut(name) {
                     var_def.is_used = true;
                 }
@@ -280,7 +280,8 @@ impl DeadCodeEliminator {
     /// Mark dead stores - stores that are overwritten before being used
     fn mark_dead_stores(&mut self, stmts: &[Stmt]) {
         // Collect data first to avoid borrow conflicts
-        let vars_to_check: Vec<(String, Vec<usize>)> = self.var_stores
+        let vars_to_check: Vec<(String, Vec<usize>)> = self
+            .var_stores
             .iter()
             .filter(|(_, indices)| indices.len() > 1)
             .map(|(name, indices)| (name.clone(), indices.clone()))
@@ -525,12 +526,12 @@ impl DeadCodeEliminator {
                 Stmt::If { body, elif_blocks, else_body, .. } => {
                     // Analyze if body
                     self.mark_unreachable_in_block(body, false);
-                    
+
                     // Analyze elif blocks
                     for (_, elif_body) in elif_blocks {
                         self.mark_unreachable_in_block(elif_body, false);
                     }
-                    
+
                     // Analyze else body
                     if let Some(else_body) = else_body {
                         self.mark_unreachable_in_block(else_body, false);
@@ -610,4 +611,3 @@ impl Default for DeadCodeEliminator {
         Self::new()
     }
 }
-

@@ -56,7 +56,8 @@ pub fn parse_fstring_literal(_parser: &mut StatementParser, s: String, span: Spa
             let mut inner_lexer = crate::lexer::Lexer::new(&inner_expr_str);
             if let Ok(tokens) = inner_lexer.tokenize() {
                 let mut inner_parser = crate::parser::expressions::PrattParser::new(&tokens);
-                if let Ok(expr) = inner_parser.parse_expr(crate::parser::precedence::Precedence::MIN)
+                if let Ok(expr) =
+                    inner_parser.parse_expr(crate::parser::precedence::Precedence::MIN)
                 {
                     elements.push(expr);
                 }
@@ -104,8 +105,5 @@ pub fn parse_super_expr(parser: &mut StatementParser, span: Span) -> Expr {
 /// Parse await expression
 pub fn parse_await_expr(parser: &mut StatementParser, span: Span) -> crate::error::Result<Expr> {
     let future = super::parse_primary_expr(parser)?;
-    Ok(Expr::Await {
-        future: Box::new(future),
-        span,
-    })
+    Ok(Expr::Await { future: Box::new(future), span })
 }

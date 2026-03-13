@@ -35,10 +35,9 @@ fn declare_panic_function<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
 ) -> crate::codegen::Result<()> {
-    let fn_type = context.void_type().fn_type(
-        &[context.ptr_type(inkwell::AddressSpace::default()).into()],
-        false,
-    );
+    let fn_type = context
+        .void_type()
+        .fn_type(&[context.ptr_type(inkwell::AddressSpace::default()).into()], false);
     module.add_function("viper_panic", fn_type, Some(inkwell::module::Linkage::External));
     Ok(())
 }

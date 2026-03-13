@@ -7,7 +7,7 @@
 //! - `y = x + 10` becomes `y = 24` (if x is constant)
 //! - `if True: ...` becomes unconditional execution
 
-use crate::ast::{Expr, Stmt, BinOp, UnaryOp};
+use crate::ast::{BinOp, Expr, Stmt, UnaryOp};
 use crate::utils::Span;
 use std::collections::HashMap;
 
@@ -28,9 +28,7 @@ pub struct ConstantFolder {
 
 impl ConstantFolder {
     pub fn new() -> Self {
-        Self {
-            constants: HashMap::new(),
-        }
+        Self { constants: HashMap::new() }
     }
 
     /// Run constant folding on the AST
@@ -101,7 +99,9 @@ impl ConstantFolder {
                 self.fold_expr(right);
 
                 // Try to fold the operation
-                if let (Some(left_val), Some(right_val)) = (self.extract_constant(left), self.extract_constant(right)) {
+                if let (Some(left_val), Some(right_val)) =
+                    (self.extract_constant(left), self.extract_constant(right))
+                {
                     if let Some(result) = self.fold_binary_op(*op, left_val, right_val) {
                         *expr = self.constant_to_expr(result);
                     }
@@ -153,7 +153,12 @@ impl ConstantFolder {
         }
     }
 
-    fn fold_binary_op(&self, op: BinOp, left: ConstantValue, right: ConstantValue) -> Option<ConstantValue> {
+    fn fold_binary_op(
+        &self,
+        op: BinOp,
+        left: ConstantValue,
+        right: ConstantValue,
+    ) -> Option<ConstantValue> {
         match (op, left, right) {
             // Integer arithmetic
             (BinOp::Add, ConstantValue::Int(a), ConstantValue::Int(b)) => {

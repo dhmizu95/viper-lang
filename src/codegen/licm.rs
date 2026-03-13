@@ -123,15 +123,12 @@ impl LicmOptimizer {
 
                     // Analyze loop body
                     self.analyze_loop_body(body, &mut loop_info);
-                    
+
                     // Find invariant expressions for this loop
                     let invariants = self.find_invariant_expressions(stmts, &loop_info);
-                    
+
                     // Store loop info with invariants
-                    self.loops.push(LoopInfo {
-                        invariant_exprs: invariants,
-                        ..loop_info
-                    });
+                    self.loops.push(LoopInfo { invariant_exprs: invariants, ..loop_info });
                 }
                 _ => {}
             }
@@ -270,7 +267,11 @@ impl LicmOptimizer {
     }
 
     /// Find loop-invariant expressions
-    fn find_invariant_expressions(&self, stmts: &[Stmt], loop_info: &LoopInfo) -> Vec<InvariantExpr> {
+    fn find_invariant_expressions(
+        &self,
+        stmts: &[Stmt],
+        loop_info: &LoopInfo,
+    ) -> Vec<InvariantExpr> {
         // Build set of variables defined before this loop
         let mut vars_defined_before_loop: HashSet<String> = HashSet::new();
         for (idx, stmt) in stmts.iter().enumerate() {
@@ -288,7 +289,9 @@ impl LicmOptimizer {
                 continue;
             }
 
-            if let Some(invariant) = self.check_invariant(stmt, &loop_info.modified_vars, &vars_defined_before_loop) {
+            if let Some(invariant) =
+                self.check_invariant(stmt, &loop_info.modified_vars, &vars_defined_before_loop)
+            {
                 invariants.push(invariant);
             }
         }
@@ -321,7 +324,10 @@ impl LicmOptimizer {
             Stmt::Assign { target: _, value, .. } => {
                 // Check if RHS is invariant
                 let deps = self.get_expr_dependencies(value);
-                if deps.iter().all(|d| !modified_in_loop.contains(d) && defined_before_loop.contains(d)) {
+                if deps
+                    .iter()
+                    .all(|d| !modified_in_loop.contains(d) && defined_before_loop.contains(d))
+                {
                     // This assignment is invariant
                     Some(InvariantExpr {
                         stmt_idx: 0, // Will be set by caller
@@ -335,12 +341,11 @@ impl LicmOptimizer {
             Stmt::Declare { name: _, value, .. } => {
                 if let Some(val) = value {
                     let deps = self.get_expr_dependencies(val);
-                    if deps.iter().all(|d| !modified_in_loop.contains(d) && defined_before_loop.contains(d)) {
-                        Some(InvariantExpr {
-                            stmt_idx: 0,
-                            expr: val.clone(),
-                            dependencies: deps,
-                        })
+                    if deps
+                        .iter()
+                        .all(|d| !modified_in_loop.contains(d) && defined_before_loop.contains(d))
+                    {
+                        Some(InvariantExpr { stmt_idx: 0, expr: val.clone(), dependencies: deps })
                     } else {
                         None
                     }
@@ -452,9 +457,7 @@ pub struct LicmPass {
 
 impl LicmPass {
     pub fn new() -> Self {
-        Self {
-            optimizer: LicmOptimizer::new(),
-        }
+        Self { optimizer: LicmOptimizer::new() }
     }
 
     /// Run LICM optimization on a module

@@ -37,12 +37,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let result = self
             .ir_builder
-            .build_call(
-                &mut self.builder,
-                create_func,
-                &[str_val.into()],
-                "__name__",
-            )
+            .build_call(&mut self.builder, create_func, &[str_val.into()], "__name__")
             .ok_or_else(|| "Failed to create __name__ string".to_string())?;
 
         // Store the result in the __name__ global

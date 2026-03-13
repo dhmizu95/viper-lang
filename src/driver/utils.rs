@@ -52,9 +52,7 @@ pub fn check_runtime_library() -> Result<()> {
     let runtime_found = expanded_paths.iter().any(|p| Path::new(p).exists());
 
     if !runtime_found {
-        return Err(ViperError::driver(
-            "Viper runtime library not found (runtime/obj/libviper.a)",
-        ));
+        return Err(ViperError::driver("Viper runtime library not found (runtime/obj/libviper.a)"));
     }
 
     Ok(())
@@ -124,8 +122,8 @@ pub fn type_check_module(input_path: &Path, ast: &Module) -> Result<TypeChecker>
     type_checker.check(ast).map_err(|e| {
         ViperError::type_error(
             format!(
-            "Type errors found:\n{}",
-            e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
+                "Type errors found:\n{}",
+                e.iter().map(|err| format!(" - {}", err)).collect::<Vec<_>>().join("\n")
             ),
             crate::utils::Span::default(),
         )

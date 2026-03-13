@@ -78,7 +78,7 @@ impl TypeChecker {
                         "Ok" => {
                             // Ok(value) -> Result[value_type, Infer] or use return type context
                             let value_type = args.first().and_then(|a| self.infer_expr_type(a));
-                            
+
                             // Check if we're in a function returning Result[T, E]
                             if let Some(ref ret_type) = self.current_return_type {
                                 if let Type::Result(_expected_ok, expected_err) = ret_type {
@@ -86,11 +86,11 @@ impl TypeChecker {
                                     let vt = value_type.clone().unwrap_or(Type::Infer);
                                     return Some(Type::Result(
                                         Box::new(vt),
-                                        Box::new((**expected_err).clone())
+                                        Box::new((**expected_err).clone()),
                                     ));
                                 }
                             }
-                            
+
                             // No context, use Infer for error type
                             return if let Some(vt) = value_type {
                                 Some(Type::Result(Box::new(vt), Box::new(Type::Infer)))
@@ -101,7 +101,7 @@ impl TypeChecker {
                         "Err" => {
                             // Err(error) -> Result[Infer, error_type] or use return type context
                             let error_type = args.first().and_then(|a| self.infer_expr_type(a));
-                            
+
                             // Check if we're in a function returning Result[T, E]
                             if let Some(ref ret_type) = self.current_return_type {
                                 if let Type::Result(expected_ok, _expected_err) = ret_type {
@@ -109,11 +109,11 @@ impl TypeChecker {
                                     let et = error_type.clone().unwrap_or(Type::Infer);
                                     return Some(Type::Result(
                                         Box::new((**expected_ok).clone()),
-                                        Box::new(et)
+                                        Box::new(et),
                                     ));
                                 }
                             }
-                            
+
                             // No context, use Infer for ok type
                             return if let Some(et) = error_type {
                                 Some(Type::Result(Box::new(Type::Infer), Box::new(et)))
@@ -123,7 +123,7 @@ impl TypeChecker {
                         }
                         _ => {}
                     }
-                    
+
                     // Handle concurrency builtins (Phase 3)
                     match name.as_str() {
                         "chan" => Some(Type::Infer), // Chan element type inferred from usage
@@ -207,7 +207,7 @@ impl TypeChecker {
                     // Get types of both operands for promotion rules
                     let left_type = self.infer_expr_type(left);
                     let right_type = self.infer_expr_type(right);
-                    
+
                     // Automatic promotion rules for mixed BigInt/i64 operations
                     // If either operand is BigInt, result is BigInt
                     // If either operand is F64, result is F64
@@ -232,7 +232,9 @@ impl TypeChecker {
                 | BinOp::IsNot
                 | BinOp::In
                 | BinOp::NotIn => Some(Type::Bool),
-                BinOp::NullCoalesce => self.infer_expr_type(left).or_else(|| self.infer_expr_type(right)),
+                BinOp::NullCoalesce => {
+                    self.infer_expr_type(left).or_else(|| self.infer_expr_type(right))
+                }
                 _ => Some(Type::I64),
             },
             Expr::UnaryOp { op, operand, .. } => match op {

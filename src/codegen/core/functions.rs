@@ -12,21 +12,21 @@ impl<'ctx> CodeGen<'ctx> {
     pub(crate) fn define_all_functions(&mut self, stmts: &[Stmt]) -> crate::codegen::Result<()> {
         // Run recursion analysis if auto_memoize is enabled
         let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
-        
+
         // Register all function names first
         for stmt in stmts {
             if let Stmt::Function { name, .. } = stmt {
                 recursion_analyzer.register_function(name);
             }
         }
-        
+
         // Analyze each function for recursive calls
         for stmt in stmts {
             if let Stmt::Function { name, body, .. } = stmt {
                 recursion_analyzer.analyze_function(name, body);
             }
         }
-        
+
         // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
             if let Stmt::Function { name, params, return_type, body, decorators, .. } = stmt {
@@ -42,9 +42,11 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // Use type annotations directly if present, otherwise default to I64
                 // This must match the logic in declare_function_with_closure
-                let param_types = crate::codegen::functions::infer_param_types_from_body(params, body);
+                let param_types =
+                    crate::codegen::functions::infer_param_types_from_body(params, body);
 
-                let mangled_name = mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
+                let mangled_name =
+                    mangle_function_name_with_closure(func_name, &param_types, &nonlocal_vars);
 
                 // Check for memoization decorators
                 let is_lru_cache = decorators.iter().any(|d| d.name == "lru_cache");
@@ -56,22 +58,25 @@ impl<'ctx> CodeGen<'ctx> {
                 // Check if function returns BigInt (for proper caching)
                 // Check both explicit type annotation and inferred from body
                 let returns_bigint = match return_type {
-                    Some(crate::ast::Type::BigInt) => true,  // Explicit annotation
+                    Some(crate::ast::Type::BigInt) => true, // Explicit annotation
                     _ => {
                         // Infer from body analysis
-                        recursion_analyzer.get_recursive_function(name)
+                        recursion_analyzer
+                            .get_recursive_function(name)
                             .map_or(false, |info| info.returns_bigint)
                     }
                 };
 
                 // Determine if we should memoize this function
-                let should_memoize = is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
+                let should_memoize =
+                    is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
 
                 if should_memoize {
                     let mut use_lru_cache = is_lru_cache;
                     // Get maxsize from decorator arguments or use default for auto-memoize
                     let maxsize = if is_lru_cache {
-                        decorators.iter()
+                        decorators
+                            .iter()
                             .find(|d| d.name == "lru_cache")
                             .and_then(|d| {
                                 // Check for maxsize keyword argument
@@ -98,14 +103,31 @@ impl<'ctx> CodeGen<'ctx> {
                                     None
                                 })
                             })
-                            .unwrap_or(128)  // Default maxsize
+                            .unwrap_or(128) // Default maxsize
                     } else {
-                        0  // Unbounded for @cache or auto-memoize
+                        0 // Unbounded for @cache or auto-memoize
                     };
 
-                    self.define_memoized_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars, use_lru_cache, maxsize, returns_bigint)?;
+                    self.define_memoized_function(
+                        &mangled_name,
+                        func_name,
+                        params,
+                        return_type,
+                        body,
+                        &nonlocal_vars,
+                        use_lru_cache,
+                        maxsize,
+                        returns_bigint,
+                    )?;
                 } else {
-                    self.define_function(&mangled_name, func_name, params, return_type, body, &nonlocal_vars)?;
+                    self.define_function(
+                        &mangled_name,
+                        func_name,
+                        params,
+                        return_type,
+                        body,
+                        &nonlocal_vars,
+                    )?;
                 }
             }
         }
@@ -154,7 +176,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.current_function = Some(original_name.to_string());
 
         let func = self.functions.get(mangled_name).copied().unwrap();
-        
+
         // PERFORMANCE OPTIMIZATION: Add inlining attributes for small functions
         // Functions with < 10 statements and < 3 parameters are good candidates for inlining
         // This reduces function call overhead significantly (20-40% for recursive benchmarks)
@@ -182,16 +204,19 @@ impl<'ctx> CodeGen<'ctx> {
             .unwrap_or_default();
 
         // Get variables that need closure cells (captured by nested functions)
-        let _captured_vars: Vec<String> = self.closure_analyzer.get_closure_cells_to_create(original_name);
+        let _captured_vars: Vec<String> =
+            self.closure_analyzer.get_closure_cells_to_create(original_name);
 
         // Set up parameters - use SSA registers for non-escaping variables, alloca for escaping
-        let resolved_param_types = crate::codegen::functions::infer_param_types_from_body(params, body);
+        let resolved_param_types =
+            crate::codegen::functions::infer_param_types_from_body(params, body);
         let num_regular_params = params.len();
         for (i, param) in params.iter().enumerate() {
             let param_value = func.get_nth_param(i as u32).unwrap();
 
             // Check escape analysis for this parameter
-            let can_stack_alloc = self.escape_analyzer.can_stack_allocate(original_name, &param.name);
+            let can_stack_alloc =
+                self.escape_analyzer.can_stack_allocate(original_name, &param.name);
 
             // Determine if parameter is a reference type (pointer)
             let is_ref_type = param_value.is_pointer_value();
@@ -212,12 +237,20 @@ impl<'ctx> CodeGen<'ctx> {
                 Type::F32 | Type::F64 => VarType::Float,
                 Type::Bool => VarType::Bool,
                 Type::Bytes => VarType::Bytes,
-                Type::Str | Type::List(_) | Type::Dict(_, _) | Type::Class(_) | Type::Instance(_)
-                | Type::Fn(_, _) | Type::Optional(_) | Type::Chan(_) | Type::WaitGroup
+                Type::Str
+                | Type::List(_)
+                | Type::Dict(_, _)
+                | Type::Class(_)
+                | Type::Instance(_)
+                | Type::Fn(_, _)
+                | Type::Optional(_)
+                | Type::Chan(_)
+                | Type::WaitGroup
                 | Type::Future(_) => VarType::Pointer,
                 _ => VarType::Int,
             };
-            let var_type = if matches!(resolved_type, Type::Infer) && param_value.is_pointer_value() {
+            let var_type = if matches!(resolved_type, Type::Infer) && param_value.is_pointer_value()
+            {
                 VarType::Pointer
             } else if matches!(resolved_type, Type::Infer) && param_value.is_float_value() {
                 VarType::Float
@@ -231,10 +264,12 @@ impl<'ctx> CodeGen<'ctx> {
             // Reference types (pointers) always use alloca for consistency with rest of codegen
             if can_stack_alloc && !is_ref_type {
                 // SSA register allocation - no alloca, store value directly
-                self.variables.insert(param.name.clone(), VarInfo::new_register(param_value, var_type));
+                self.variables
+                    .insert(param.name.clone(), VarInfo::new_register(param_value, var_type));
             } else {
                 // Stack allocation using alloca for escaping variables and all reference types
-                let alloca = self.builder.build_alloca(param_value.get_type(), &param.name).expect("alloca");
+                let alloca =
+                    self.builder.build_alloca(param_value.get_type(), &param.name).expect("alloca");
                 self.builder.build_store(alloca, param_value).expect("store");
                 self.variables.insert(param.name.clone(), VarInfo::new_stack(alloca, var_type));
             }
@@ -262,24 +297,32 @@ impl<'ctx> CodeGen<'ctx> {
             for (i, var_name) in nonlocal_vars.iter().enumerate() {
                 let cell_param = func.get_nth_param((num_regular_params + i) as u32).unwrap();
                 let cell_ptr = cell_param.into_pointer_value();
-                
+
                 // Get the value pointer inside the cell
                 let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let value_ptr = crate::codegen::closure_cells::get_closure_cell_value(
-                    self.context, &self.module, &self.builder,
-                    cell_ptr, i64_ptr_type
-                ).unwrap_or(cell_ptr);
-                
-                // Store the closure cell pointer and value pointer
-                self.closure_cells.insert(var_name.clone(), crate::codegen::state::ClosureCellInfo {
+                    self.context,
+                    &self.module,
+                    &self.builder,
                     cell_ptr,
-                    value_ptr,
-                    var_type: VarType::Int,
-                });
+                    i64_ptr_type,
+                )
+                .unwrap_or(cell_ptr);
+
+                // Store the closure cell pointer and value pointer
+                self.closure_cells.insert(
+                    var_name.clone(),
+                    crate::codegen::state::ClosureCellInfo {
+                        cell_ptr,
+                        value_ptr,
+                        var_type: VarType::Int,
+                    },
+                );
                 // Create a variable entry that points to the closure cell
-                self.variables.insert(var_name.clone(), VarInfo::new_closure_cell(
-                    cell_ptr, VarType::Int, value_ptr
-                ));
+                self.variables.insert(
+                    var_name.clone(),
+                    VarInfo::new_closure_cell(cell_ptr, VarType::Int, value_ptr),
+                );
             }
         }
 
@@ -308,7 +351,7 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.closure_cells,
         );
         state.current_class = self.current_class.clone();
-        
+
         for stmt in body {
             crate::codegen::statements::generate_stmt_internal(&mut state, stmt)?;
         }
@@ -322,8 +365,9 @@ impl<'ctx> CodeGen<'ctx> {
         // Generate ARC cleanup for local variables before return
         // Only generate cleanup if function doesn't already have a terminator
         // (i.e., no explicit return/break/continue at the end)
-        let needs_cleanup_and_return = self.builder.get_insert_block().unwrap().get_terminator().is_none();
-        
+        let needs_cleanup_and_return =
+            self.builder.get_insert_block().unwrap().get_terminator().is_none();
+
         if needs_cleanup_and_return {
             self.generate_arc_cleanup(original_name);
         }
@@ -341,7 +385,8 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(Type::None) => {
                     self.ir_builder.build_return(&self.builder, None);
                 }
-                Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64) | Some(Type::Int) | Some(Type::BigInt) => {
+                Some(Type::I8) | Some(Type::I16) | Some(Type::I32) | Some(Type::I64)
+                | Some(Type::Int) | Some(Type::BigInt) => {
                     self.ir_builder
                         .build_return(&self.builder, Some(&self.ir_builder.i64_const(0)));
                 }
@@ -354,15 +399,23 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_return(&self.builder, Some(&self.ir_builder.bool_const(false)));
                 }
                 // For pointer return types (str, list, object, etc.), return null pointer
-                Some(Type::Str) | Some(Type::Bytes) | Some(Type::List(_)) | Some(Type::Dict(_, _))
-                | Some(Type::Class(_)) | Some(Type::Instance(_)) => {
-                    self.ir_builder
-                        .build_return(&self.builder, Some(&self.context.ptr_type(inkwell::AddressSpace::default()).const_null()));
+                Some(Type::Str)
+                | Some(Type::Bytes)
+                | Some(Type::List(_))
+                | Some(Type::Dict(_, _))
+                | Some(Type::Class(_))
+                | Some(Type::Instance(_)) => {
+                    self.ir_builder.build_return(
+                        &self.builder,
+                        Some(&self.context.ptr_type(inkwell::AddressSpace::default()).const_null()),
+                    );
                 }
                 // For Infer type (unannotated methods), return null pointer
                 Some(Type::Infer) => {
-                    self.ir_builder
-                        .build_return(&self.builder, Some(&self.context.ptr_type(inkwell::AddressSpace::default()).const_null()));
+                    self.ir_builder.build_return(
+                        &self.builder,
+                        Some(&self.context.ptr_type(inkwell::AddressSpace::default()).const_null()),
+                    );
                 }
                 // For functions with no explicit return type annotation,
                 // check LLVM signature: main() returns i64, others return void
@@ -414,13 +467,17 @@ impl<'ctx> CodeGen<'ctx> {
             .map_err(|e| format!("Failed to declare memoization functions: {}", e))?;
 
         // Create global cache for this function
-        let cache_global = memoization::create_cache_global(self.context, &mut self.module, original_name, is_lru);
+        let cache_global =
+            memoization::create_cache_global(self.context, &mut self.module, original_name, is_lru);
 
         // Store cache global for later use
         self.memoized_functions.insert(original_name.to_string(), cache_global);
 
         // Get the function value (wrapper)
-        let func_value = self.functions.get(mangled_name).copied()
+        let func_value = self
+            .functions
+            .get(mangled_name)
+            .copied()
             .ok_or_else(|| format!("Function {} not found", mangled_name))?;
         let fn_type = func_value.get_type();
 
@@ -444,7 +501,8 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(body_entry);
 
         // Set up parameters for body function (including closure parameters)
-        let resolved_param_types = crate::codegen::functions::infer_param_types_from_body(params, body);
+        let resolved_param_types =
+            crate::codegen::functions::infer_param_types_from_body(params, body);
         let total_params = params.len() + nonlocal_vars_param.len();
         for i in 0..total_params {
             let param_value = body_func.get_nth_param(i as u32).unwrap();
@@ -454,7 +512,8 @@ impl<'ctx> CodeGen<'ctx> {
                 &nonlocal_vars_param[i - params.len()]
             };
 
-            let alloca = self.builder.build_alloca(param_value.get_type(), param_name).expect("alloca");
+            let alloca =
+                self.builder.build_alloca(param_value.get_type(), param_name).expect("alloca");
             self.builder.build_store(alloca, param_value).expect("store");
 
             let var_type = if param_value.is_pointer_value() {
@@ -494,11 +553,11 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.bigint_vars,
             &mut self.var_types,
             &mut self.escape_analyzer,
-            &body_func_name,  // Set current_function for recursive call detection
+            &body_func_name, // Set current_function for recursive call detection
             &self.closure_analyzer,
             &mut closure_cells_body,
         );
-        
+
         for stmt in body {
             crate::codegen::statements::generate_stmt_internal(&mut state_body, stmt)?;
         }
@@ -529,101 +588,188 @@ impl<'ctx> CodeGen<'ctx> {
         let key_value = match params.len() {
             1 => {
                 let arg0 = func_value.get_nth_param(0).unwrap();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create1,
-                    &[arg0.into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let key_call = self
+                    .builder
+                    .build_call(memo_funcs.arc_key_create1, &[arg0.into()], "cache_key")
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             2 => {
                 let arg0 = func_value.get_nth_param(0).unwrap();
                 let arg1 = func_value.get_nth_param(1).unwrap();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create2,
-                    &[arg0.into(), arg1.into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let key_call = self
+                    .builder
+                    .build_call(
+                        memo_funcs.arc_key_create2,
+                        &[arg0.into(), arg1.into()],
+                        "cache_key",
+                    )
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             3 => {
                 let arg0 = func_value.get_nth_param(0).unwrap();
                 let arg1 = func_value.get_nth_param(1).unwrap();
                 let arg2 = func_value.get_nth_param(2).unwrap();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create3,
-                    &[arg0.into(), arg1.into(), arg2.into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let key_call = self
+                    .builder
+                    .build_call(
+                        memo_funcs.arc_key_create3,
+                        &[arg0.into(), arg1.into(), arg2.into()],
+                        "cache_key",
+                    )
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             4 => {
-                let args: Vec<_> = (0..4).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create4,
-                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let args: Vec<_> =
+                    (0..4).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self
+                    .builder
+                    .build_call(
+                        memo_funcs.arc_key_create4,
+                        &[args[0].into(), args[1].into(), args[2].into(), args[3].into()],
+                        "cache_key",
+                    )
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             5 => {
-                let args: Vec<_> = (0..5).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create5,
-                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let args: Vec<_> =
+                    (0..5).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self
+                    .builder
+                    .build_call(
+                        memo_funcs.arc_key_create5,
+                        &[
+                            args[0].into(),
+                            args[1].into(),
+                            args[2].into(),
+                            args[3].into(),
+                            args[4].into(),
+                        ],
+                        "cache_key",
+                    )
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             6 => {
-                let args: Vec<_> = (0..6).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create6,
-                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let args: Vec<_> =
+                    (0..6).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self
+                    .builder
+                    .build_call(
+                        memo_funcs.arc_key_create6,
+                        &[
+                            args[0].into(),
+                            args[1].into(),
+                            args[2].into(),
+                            args[3].into(),
+                            args[4].into(),
+                            args[5].into(),
+                        ],
+                        "cache_key",
+                    )
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             7 => {
-                let args: Vec<_> = (0..7).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create7,
-                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into(), args[6].into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let args: Vec<_> =
+                    (0..7).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self
+                    .builder
+                    .build_call(
+                        memo_funcs.arc_key_create7,
+                        &[
+                            args[0].into(),
+                            args[1].into(),
+                            args[2].into(),
+                            args[3].into(),
+                            args[4].into(),
+                            args[5].into(),
+                            args[6].into(),
+                        ],
+                        "cache_key",
+                    )
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             8 => {
-                let args: Vec<_> = (0..8).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
-                let key_call = self.builder.build_call(
-                    memo_funcs.arc_key_create8,
-                    &[args[0].into(), args[1].into(), args[2].into(), args[3].into(), args[4].into(), args[5].into(), args[6].into(), args[7].into()],
-                    "cache_key",
-                ).expect("Failed to create cache key");
+                let args: Vec<_> =
+                    (0..8).map(|i| func_value.get_nth_param(i as u32).unwrap()).collect();
+                let key_call = self
+                    .builder
+                    .build_call(
+                        memo_funcs.arc_key_create8,
+                        &[
+                            args[0].into(),
+                            args[1].into(),
+                            args[2].into(),
+                            args[3].into(),
+                            args[4].into(),
+                            args[5].into(),
+                            args[6].into(),
+                            args[7].into(),
+                        ],
+                        "cache_key",
+                    )
+                    .expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
+                    _ => {
+                        return crate::codegen::codegen_error(
+                            "Failed to create cache key".to_string(),
+                        )
+                    }
                 }
             }
             n => {
@@ -635,10 +781,17 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         // Load cache pointer
-        let cache_ptr = self.builder.build_load(i8_ptr_type, cache_global, "cache_ptr").expect("load cache").into_pointer_value();
+        let cache_ptr = self
+            .builder
+            .build_load(i8_ptr_type, cache_global, "cache_ptr")
+            .expect("load cache")
+            .into_pointer_value();
 
         // Check if cache is initialized - convert pointer to int for comparison
-        let cache_ptr_int = self.builder.build_ptr_to_int(cache_ptr, i64_type, "cache_ptr_int").expect("ptr to int");
+        let cache_ptr_int = self
+            .builder
+            .build_ptr_to_int(cache_ptr, i64_type, "cache_ptr_int")
+            .expect("ptr to int");
         let cache_is_null = self.builder.build_int_compare(
             inkwell::IntPredicate::EQ,
             cache_ptr_int,
@@ -646,30 +799,38 @@ impl<'ctx> CodeGen<'ctx> {
             "cache_is_null",
         );
 
-        self.builder.build_conditional_branch(cache_is_null.expect("compare"), init_cache_block, do_lookup_block).unwrap();
+        self.builder
+            .build_conditional_branch(
+                cache_is_null.expect("compare"),
+                init_cache_block,
+                do_lookup_block,
+            )
+            .unwrap();
 
         // Initialize cache if needed
         self.builder.position_at_end(init_cache_block);
 
         let new_cache_ptr = if is_lru {
             // Create LRU cache with maxsize
-            let maxsize_val = if maxsize <= 0 { i64_type.const_int(0, false) } else { i64_type.const_int(maxsize as u64, false) };
-            let call = self.builder.build_call(
-                memo_funcs.lru_cache_create,
-                &[maxsize_val.into()],
-                "new_cache",
-            ).expect("Failed to create cache");
+            let maxsize_val = if maxsize <= 0 {
+                i64_type.const_int(0, false)
+            } else {
+                i64_type.const_int(maxsize as u64, false)
+            };
+            let call = self
+                .builder
+                .build_call(memo_funcs.lru_cache_create, &[maxsize_val.into()], "new_cache")
+                .expect("Failed to create cache");
             match call.try_as_basic_value() {
                 inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
                 _ => return crate::codegen::codegen_error("Failed to create cache".to_string()),
             }
         } else {
             // Create unbounded cache
-            let call = self.builder.build_call(
-                memo_funcs.cache_create,
-                &[],
-                "new_cache",
-            ).expect("Failed to create cache");
+            let call = self
+                .builder
+                .build_call(memo_funcs.cache_create, &[], "new_cache")
+                .expect("Failed to create cache");
             match call.try_as_basic_value() {
                 inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
                 _ => return crate::codegen::codegen_error("Failed to create cache".to_string()),
@@ -684,20 +845,31 @@ impl<'ctx> CodeGen<'ctx> {
         // Do cache lookup
         self.builder.position_at_end(do_lookup_block);
 
-        let loaded_cache = self.builder.build_load(i8_ptr_type, cache_global, "loaded_cache").expect("load cache").into_pointer_value();
+        let loaded_cache = self
+            .builder
+            .build_load(i8_ptr_type, cache_global, "loaded_cache")
+            .expect("load cache")
+            .into_pointer_value();
 
         // Call cache_get - returns i64 directly and sets found flag
         let get_func = if is_lru { memo_funcs.lru_cache_get } else { memo_funcs.cache_get };
-        
-        // Allocate space for 'found' and 'is_bigint' flags
-        let found_ptr = self.builder.build_alloca(self.context.i32_type(), "found_ptr").expect("alloca found");
-        let is_bigint_ptr = self.builder.build_alloca(self.context.i32_type(), "is_bigint_ptr").expect("alloca is_bigint");
 
-        let cached_call = self.builder.build_call(
-            get_func,
-            &[loaded_cache.into(), key_value.into(), found_ptr.into(), is_bigint_ptr.into()],
-            "cached_value",
-        ).expect("Cache get failed");
+        // Allocate space for 'found' and 'is_bigint' flags
+        let found_ptr =
+            self.builder.build_alloca(self.context.i32_type(), "found_ptr").expect("alloca found");
+        let is_bigint_ptr = self
+            .builder
+            .build_alloca(self.context.i32_type(), "is_bigint_ptr")
+            .expect("alloca is_bigint");
+
+        let cached_call = self
+            .builder
+            .build_call(
+                get_func,
+                &[loaded_cache.into(), key_value.into(), found_ptr.into(), is_bigint_ptr.into()],
+                "cached_value",
+            )
+            .expect("Cache get failed");
 
         // Extract the return value (i64) from the call
         let cached_value = match cached_call.try_as_basic_value() {
@@ -706,13 +878,19 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         // Load the found flag
-        let found_val = self.builder.build_load(self.context.i32_type(), found_ptr, "found").expect("load found");
-        let is_hit = self.builder.build_int_compare(
-            inkwell::IntPredicate::NE,
-            found_val.into_int_value(),
-            self.context.i32_type().const_int(0, false),
-            "is_hit_bool",
-        ).expect("compare found");
+        let found_val = self
+            .builder
+            .build_load(self.context.i32_type(), found_ptr, "found")
+            .expect("load found");
+        let is_hit = self
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::NE,
+                found_val.into_int_value(),
+                self.context.i32_type().const_int(0, false),
+                "is_hit_bool",
+            )
+            .expect("compare found");
 
         self.builder.build_conditional_branch(is_hit, cache_hit_block, cache_miss_block).unwrap();
 
@@ -728,19 +906,21 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Build arguments for body_func call
         let total_params = params.len() + nonlocal_vars_param.len();
-        let arg_values: Vec<_> = (0..total_params)
-            .map(|i| func_value.get_nth_param(i as u32).unwrap().into())
-            .collect();
+        let arg_values: Vec<_> =
+            (0..total_params).map(|i| func_value.get_nth_param(i as u32).unwrap().into()).collect();
 
         // Call body function
-        let body_call = self.builder.build_call(
-            body_func,
-            &arg_values,
-            "body_result",
-        ).expect("Body call failed");
+        let body_call = self
+            .builder
+            .build_call(body_func, &arg_values, "body_result")
+            .expect("Body call failed");
         let result_value = match body_call.try_as_basic_value() {
             inkwell::values::ValueKind::Basic(bv) => bv,
-            _ => return crate::codegen::codegen_error("Body function must return a value".to_string()),
+            _ => {
+                return crate::codegen::codegen_error(
+                    "Body function must return a value".to_string(),
+                )
+            }
         };
 
         // Cache the result - pass integer directly
@@ -748,22 +928,17 @@ impl<'ctx> CodeGen<'ctx> {
         let set_func = if is_lru { memo_funcs.lru_cache_set } else { memo_funcs.cache_set };
 
         // Use returns_bigint flag from analysis (includes both annotation and inferred BigInt)
-        let is_bigint_val = self.context.i32_type().const_int(
-            if returns_bigint { 1 } else { 0 },
-            false
-        );
+        let is_bigint_val =
+            self.context.i32_type().const_int(if returns_bigint { 1 } else { 0 }, false);
 
         // Note: ARC key embeds key_size, so we don't need to pass it separately
-        self.builder.build_call(
-            set_func,
-            &[
-                loaded_cache.into(),
-                key_value.into(),
-                result_value.into(),
-                is_bigint_val.into(),
-            ],
-            "",
-        ).unwrap();
+        self.builder
+            .build_call(
+                set_func,
+                &[loaded_cache.into(), key_value.into(), result_value.into(), is_bigint_val.into()],
+                "",
+            )
+            .unwrap();
 
         // Return the result
         self.builder.build_return(Some(&result_value)).expect("return");
@@ -804,7 +979,10 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Generate main function handling top-level statements
-    pub(crate) fn generate_main_with_statements(&mut self, stmts: &[Stmt]) -> crate::codegen::Result<()> {
+    pub(crate) fn generate_main_with_statements(
+        &mut self,
+        stmts: &[Stmt],
+    ) -> crate::codegen::Result<()> {
         let main_type = self.context.i64_type().fn_type(&[], false);
 
         // Check if user defined main and save it
@@ -953,7 +1131,8 @@ impl<'ctx> CodeGen<'ctx> {
                 Stmt::Class { name: class_name, body, .. } => {
                     // Declare class methods
                     for stmt in body {
-                        if let Stmt::Function { name: method_name, params, return_type, .. } = stmt {
+                        if let Stmt::Function { name: method_name, params, return_type, .. } = stmt
+                        {
                             // Use simple mangled name format for methods
                             let mangled_name = format!("__method_{}_{}", class_name, method_name);
 
@@ -965,7 +1144,8 @@ impl<'ctx> CodeGen<'ctx> {
                                 // For now, use a special marker that will be treated as pointer
                                 if method_params[0].type_ann.is_none() {
                                     // self without type annotation should be treated as pointer
-                                    method_params[0].type_ann = Some(Type::Class(class_name.clone()));
+                                    method_params[0].type_ann =
+                                        Some(Type::Class(class_name.clone()));
                                 }
                             }
 
@@ -974,7 +1154,8 @@ impl<'ctx> CodeGen<'ctx> {
                             // Exception: __init__ methods should have None (void) return type
                             let method_return_type = if method_name == "__init__" {
                                 Some(Type::None)
-                            } else if return_type.as_ref().map_or(true, |t| matches!(t, Type::None)) {
+                            } else if return_type.as_ref().map_or(true, |t| matches!(t, Type::None))
+                            {
                                 Some(Type::Str)
                             } else {
                                 return_type.clone()
@@ -1082,31 +1263,48 @@ impl<'ctx> CodeGen<'ctx> {
                         self.builder.build_in_bounds_gep(
                             array_type,
                             array_alloca,
-                            &[self.context.i32_type().const_zero(), self.context.i32_type().const_int(i as u64, false)],
-                            "ptr_gep"
+                            &[
+                                self.context.i32_type().const_zero(),
+                                self.context.i32_type().const_int(i as u64, false),
+                            ],
+                            "ptr_gep",
                         )
-                    }.unwrap();
+                    }
+                    .unwrap();
                     self.builder.build_store(gep, *ptr).unwrap();
                 }
 
                 // Call batch release
                 if let Some(batch_func) = self.module.get_function("vp_release_batch_local") {
-                    let array_ptr = self.builder.build_pointer_cast(
-                        array_alloca,
-                        self.context.ptr_type(inkwell::AddressSpace::default()),
-                        "array_cast"
-                    ).unwrap();
-                    self.builder.build_call(
-                        batch_func,
-                        &[array_ptr.into(), self.context.i32_type().const_int(local_vars.len() as u64, false).into()],
-                        "batch_release"
-                    ).unwrap();
+                    let array_ptr = self
+                        .builder
+                        .build_pointer_cast(
+                            array_alloca,
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            "array_cast",
+                        )
+                        .unwrap();
+                    self.builder
+                        .build_call(
+                            batch_func,
+                            &[
+                                array_ptr.into(),
+                                self.context
+                                    .i32_type()
+                                    .const_int(local_vars.len() as u64, false)
+                                    .into(),
+                            ],
+                            "batch_release",
+                        )
+                        .unwrap();
                 }
             } else {
                 // Individual releases for small counts
                 for ptr_val in local_vars {
                     if let Some(release_func) = self.module.get_function("vp_release_local") {
-                        self.builder.build_call(release_func, &[ptr_val.into()], "release_var").unwrap();
+                        self.builder
+                            .build_call(release_func, &[ptr_val.into()], "release_var")
+                            .unwrap();
                     }
                 }
             }
@@ -1116,7 +1314,9 @@ impl<'ctx> CodeGen<'ctx> {
         let null_ptr = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
         for ptr_val in shared_vars {
             if let Some(release_func) = self.module.get_function("vp_release") {
-                self.builder.build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var").unwrap();
+                self.builder
+                    .build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var")
+                    .unwrap();
             }
         }
     }
@@ -1142,7 +1342,7 @@ fn is_pure_statement(stmt: &Stmt) -> bool {
         // Pure statements
         Stmt::Declare { value, .. } => value.as_ref().map_or(true, is_pure_expr),
         Stmt::Assign { value, .. } => is_pure_expr(value),
-        
+
         // Control flow - check nested statements
         Stmt::If { body, else_body, condition, .. } => {
             is_pure_expr(condition)
@@ -1152,45 +1352,41 @@ fn is_pure_statement(stmt: &Stmt) -> bool {
         Stmt::While { condition, body, .. } => {
             is_pure_expr(condition) && body.iter().all(is_pure_statement)
         }
-        Stmt::For { iter, body, .. } => {
-            is_pure_expr(iter) && body.iter().all(is_pure_statement)
-        }
-        
+        Stmt::For { iter, body, .. } => is_pure_expr(iter) && body.iter().all(is_pure_statement),
+
         // Return is pure if the value is pure
         Stmt::Return { value, .. } => value.as_ref().map_or(true, is_pure_expr),
-        
+
         // Expressions are pure if the expression is pure
         Stmt::Expr(expr) => is_pure_expr(expr),
-        
+
         // These statements have side effects
-        Stmt::AugAssign { .. } => false,  // Mutation
-        
+        Stmt::AugAssign { .. } => false, // Mutation
+
         // Functions and classes are declarations, not statements in function body
-        Stmt::Function { .. } => false,  // Nested function definition is impure
+        Stmt::Function { .. } => false, // Nested function definition is impure
         Stmt::Class { .. } => false,
-        
+
         // Import statements
         Stmt::Import { .. } => false,
         Stmt::FromImport { .. } => false,
-        
+
         // Break/Continue are control flow, not side effects
         Stmt::Break(_) => true,
         Stmt::Continue(_) => true,
-        
+
         // Pass is pure
         Stmt::Pass(_) => true,
-        
+
         // External function calls are impure (unknown side effects)
         Stmt::Extern { .. } => false,
-        
+
         // Match/Select - check nested statements
         Stmt::Match { cases, subject, .. } => {
             is_pure_expr(subject) && cases.iter().all(|c| c.body.iter().all(is_pure_statement))
         }
-        Stmt::Select { cases, .. } => {
-            cases.iter().all(|c| c.body.iter().all(is_pure_statement))
-        }
-        
+        Stmt::Select { cases, .. } => cases.iter().all(|c| c.body.iter().all(is_pure_statement)),
+
         // Concurrency primitives have side effects
         Stmt::Task { .. } => false,
         Stmt::Sync { .. } => false,
@@ -1200,7 +1396,7 @@ fn is_pure_statement(stmt: &Stmt) -> bool {
         Stmt::WaitGroup { .. } => false,
         Stmt::WgAdd { .. } => false,
         Stmt::WgDone { .. } => false,
-        
+
         // Exception handling
         Stmt::Try { body, handlers, .. } => {
             body.iter().all(is_pure_statement)
@@ -1208,13 +1404,13 @@ fn is_pure_statement(stmt: &Stmt) -> bool {
         }
         Stmt::Raise { .. } => false,
         Stmt::Assert { .. } => false,
-        
+
         // Other statements
         Stmt::Global { .. } => false,
         Stmt::Nonlocal { .. } => false,
         Stmt::Const { .. } => false,
         Stmt::Struct { .. } => false,
-        
+
         // Additional concurrency and misc statements
         Stmt::WgWait { .. } => false,
         Stmt::TypeAlias { .. } => false,
@@ -1228,16 +1424,22 @@ fn is_pure_statement(stmt: &Stmt) -> bool {
 fn is_pure_expr(expr: &Expr) -> bool {
     match expr {
         // Literals are pure
-        Expr::Int(_, _) | Expr::Float(_, _) | Expr::Bool(_, _) | Expr::Str(_, _)
-        | Expr::BigInt(_, _) | Expr::None(_) | Expr::Bytes(_, _) | Expr::FString(_, _) => true,
-        
+        Expr::Int(_, _)
+        | Expr::Float(_, _)
+        | Expr::Bool(_, _)
+        | Expr::Str(_, _)
+        | Expr::BigInt(_, _)
+        | Expr::None(_)
+        | Expr::Bytes(_, _)
+        | Expr::FString(_, _) => true,
+
         // Identifiers are pure
         Expr::Ident(_, _) => true,
-        
+
         // Binary/unary ops are pure if operands are pure
         Expr::BinOp { left, right, .. } => is_pure_expr(left) && is_pure_expr(right),
         Expr::UnaryOp { operand, .. } => is_pure_expr(operand),
-        
+
         // Index/Attribute access is pure if object is pure
         Expr::Index { obj, index, .. } => is_pure_expr(obj) && is_pure_expr(index),
         Expr::Attribute { obj, .. } => is_pure_expr(obj),
@@ -1247,49 +1449,64 @@ fn is_pure_expr(expr: &Expr) -> bool {
                 && end.as_ref().map_or(true, |e| is_pure_expr(e))
                 && step.as_ref().map_or(true, |s| is_pure_expr(s))
         }
-        
+
         // Calls are impure unless they're known pure builtins
         Expr::Call { func, args, .. } => {
             // Check if it's a pure builtin
             let is_pure_builtin = if let Expr::Ident(name, _) = func.as_ref() {
-                matches!(name.as_str(), 
-                    "len" | "abs" | "min" | "max" | "sum" | "range" |
-                    "str" | "int" | "float" | "bool" | "repr" |
-                    "ord" | "chr" | "hex" | "bin" | "oct" |
-                    "hash" | "id" | "type" | "isinstance"
+                matches!(
+                    name.as_str(),
+                    "len"
+                        | "abs"
+                        | "min"
+                        | "max"
+                        | "sum"
+                        | "range"
+                        | "str"
+                        | "int"
+                        | "float"
+                        | "bool"
+                        | "repr"
+                        | "ord"
+                        | "chr"
+                        | "hex"
+                        | "bin"
+                        | "oct"
+                        | "hash"
+                        | "id"
+                        | "type"
+                        | "isinstance"
                 )
             } else {
                 false
             };
-            
+
             is_pure_builtin && args.iter().all(is_pure_expr)
         }
-        
+
         // Lambda is impure (function definition)
         Expr::Lambda { .. } => false,
-        
+
         // Collections are pure if elements are pure
         Expr::List { elements, .. } => elements.iter().all(is_pure_expr),
         Expr::Tuple { elements, .. } => elements.iter().all(is_pure_expr),
-        Expr::Dict { pairs, .. } => {
-            pairs.iter().all(|(k, v)| is_pure_expr(k) && is_pure_expr(v))
-        }
+        Expr::Dict { pairs, .. } => pairs.iter().all(|(k, v)| is_pure_expr(k) && is_pure_expr(v)),
         Expr::Array { elements, .. } => elements.iter().all(is_pure_expr),
-        
+
         // Comprehensions are impure (contain loops)
         Expr::ListComprehension { .. } => false,
-        
+
         // Conditional is pure if all parts are pure
         Expr::Conditional { condition, then_expr, else_expr, .. } => {
             is_pure_expr(condition) && is_pure_expr(then_expr) && is_pure_expr(else_expr)
         }
-        
+
         // Await is impure (side effect of async)
         Expr::Await { .. } => false,
-        
+
         // Assignment expression is impure (mutation)
         Expr::AssignmentExpr { .. } => false,
-        
+
         // Super call is impure
         Expr::Super(_) => false,
     }
@@ -1301,10 +1518,24 @@ fn is_impure_expr(expr: &Expr) -> bool {
         // Calls to impure functions
         Expr::Call { func, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
-                matches!(name.as_str(),
-                    "print" | "input" | "exit" | "open" | "read" | "write" |
-                    "append" | "pop" | "remove" | "clear" | "sort" | "reverse" |
-                    "send" | "recv" | "done" | "wait"
+                matches!(
+                    name.as_str(),
+                    "print"
+                        | "input"
+                        | "exit"
+                        | "open"
+                        | "read"
+                        | "write"
+                        | "append"
+                        | "pop"
+                        | "remove"
+                        | "clear"
+                        | "sort"
+                        | "reverse"
+                        | "send"
+                        | "recv"
+                        | "done"
+                        | "wait"
                 )
             } else {
                 false

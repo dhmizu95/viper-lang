@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use crate::ast::Type;
 use crate::codegen::builder::IRBuilder;
 use crate::codegen::variables::{LoopContext, VarInfo};
-use crate::semantic::escape_analysis::EscapeAnalyzer;
 use crate::semantic::closure_analysis::ClosureAnalyzer;
+use crate::semantic::escape_analysis::EscapeAnalyzer;
 
 /// Information about a closure cell
 #[derive(Debug, Clone)]
@@ -33,14 +33,14 @@ pub struct CodeGenState<'a, 'ctx> {
     pub loop_stack: &'a mut Vec<LoopContext<'ctx>>,
     pub list_vars: &'a mut HashSet<String>,
     pub dict_vars: &'a mut HashSet<String>,
-    pub bool_list_vars: &'a mut HashSet<String>,  // Track bool-specific lists
-    pub bigint_vars: &'a mut HashSet<String>,     // Track BigInt variables
-    pub var_types: &'a mut HashMap<String, Type>,  // Type information for variables
+    pub bool_list_vars: &'a mut HashSet<String>, // Track bool-specific lists
+    pub bigint_vars: &'a mut HashSet<String>,    // Track BigInt variables
+    pub var_types: &'a mut HashMap<String, Type>, // Type information for variables
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
-    pub closure_analyzer: Option<&'a ClosureAnalyzer>,  // Reference to closure analyzer
+    pub closure_analyzer: Option<&'a ClosureAnalyzer>, // Reference to closure analyzer
     pub current_function: Option<&'a str>,
-    pub current_class: Option<String>,  // Current class context for super() and methods
-    pub in_classmethod: bool,  // True when generating code for a @classmethod
+    pub current_class: Option<String>, // Current class context for super() and methods
+    pub in_classmethod: bool,          // True when generating code for a @classmethod
     /// True when generating code for a memoized function body (not the wrapper)
     pub in_memoized_body: bool,
     /// Name of the memoized function (without __body suffix)
@@ -205,7 +205,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         if self.is_bigint(var_name) {
             return true;
         }
-        
+
         if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_ref(), self.current_function)
         {
             analyzer.needs_arc(func, var_name)
@@ -288,7 +288,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
     /// Mark a variable as a bool list
     pub fn mark_as_bool_list(&mut self, name: String) {
         self.bool_list_vars.insert(name.clone());
-        self.list_vars.insert(name);  // Bool lists are also lists
+        self.list_vars.insert(name); // Bool lists are also lists
     }
 
     /// Check if a variable is a bool list
@@ -305,7 +305,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
     pub fn mark_as_bigint(&mut self, name: String) {
         self.bigint_vars.insert(name.clone());
         // BigInt variables always need ARC cleanup at function exit
-        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_mut(), self.current_function) {
+        if let (Some(analyzer), Some(func)) = (self.escape_analyzer.as_mut(), self.current_function)
+        {
             analyzer.mark_needs_cleanup(func, &name);
         }
     }
@@ -321,11 +322,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             return;
         }
 
-        let func_name = if self.is_thread_shared(name) {
-            "vp_retain"
-        } else {
-            "vp_retain_local"
-        };
+        let func_name = if self.is_thread_shared(name) { "vp_retain" } else { "vp_retain_local" };
 
         if let Some(retain_func) = self.module.get_function(func_name) {
             self.builder
@@ -339,7 +336,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         // Always release pointer values (BigInt, lists, etc.)
         let is_pointer = value.is_pointer_value();
         let needs_arc = self.needs_arc(name);
-        
+
         if !needs_arc && !is_pointer {
             return;
         }
@@ -359,11 +356,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         } else {
             if let Some(release_func) = self.module.get_function("vp_release_local") {
                 self.builder
-                    .build_call(
-                        release_func,
-                        &[value.into()],
-                        &format!("release_{}", name),
-                    )
+                    .build_call(release_func, &[value.into()], &format!("release_{}", name))
                     .expect("build release_local call");
             }
         }

@@ -21,8 +21,12 @@ pub fn generate_isinstance_check<'ctx>(
     // Get the type name from the second argument (should be a type identifier or None)
     let type_name = match &args[1] {
         Expr::Ident(name, _) => name.clone(),
-        Expr::None(_) => "None".to_string(),  // Handle None literal
-        _ => return crate::codegen::codegen_error("isinstance() second argument must be a type name".to_string()),
+        Expr::None(_) => "None".to_string(), // Handle None literal
+        _ => {
+            return crate::codegen::codegen_error(
+                "isinstance() second argument must be a type name".to_string(),
+            )
+        }
     };
 
     // For now, implement basic type checks based on the expected type
@@ -60,7 +64,7 @@ pub fn generate_isinstance_check<'ctx>(
                 // For strings, we'd need to check the actual runtime type
                 // For now, assume pointers could be strings
                 // A full implementation would check the type tag
-                state.context.bool_type().const_int(1, false)  // Conservative: assume true for pointers
+                state.context.bool_type().const_int(1, false) // Conservative: assume true for pointers
             } else {
                 state.context.bool_type().const_int(0, false)
             }
@@ -84,29 +88,35 @@ pub fn generate_isinstance_check<'ctx>(
             // Check if value is null pointer or special None value (i64 0)
             if obj_val.is_pointer_value() {
                 let ptr = obj_val.into_pointer_value();
-                let null_ptr = state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                let null_ptr =
+                    state.context.ptr_type(inkwell::AddressSpace::default()).const_null();
                 // Convert pointers to integers for comparison
                 let intptr_type = state.context.i64_type();
-                let ptr_int = state.builder.build_ptr_to_int(ptr, intptr_type, "ptr_int")
+                let ptr_int = state
+                    .builder
+                    .build_ptr_to_int(ptr, intptr_type, "ptr_int")
                     .map_err(|e| format!("Failed to convert ptr to int: {:?}", e))?;
-                let null_int = state.builder.build_ptr_to_int(null_ptr, intptr_type, "null_int")
+                let null_int = state
+                    .builder
+                    .build_ptr_to_int(null_ptr, intptr_type, "null_int")
                     .map_err(|e| format!("Failed to convert null to int: {:?}", e))?;
-                let is_null = state.builder.build_int_compare(
-                    inkwell::IntPredicate::EQ,
-                    ptr_int,
-                    null_int,
-                    "is_none",
-                ).map_err(|e| format!("Failed to compare: {:?}", e))?;
+                let is_null = state
+                    .builder
+                    .build_int_compare(inkwell::IntPredicate::EQ, ptr_int, null_int, "is_none")
+                    .map_err(|e| format!("Failed to compare: {:?}", e))?;
                 is_null
             } else if obj_val.is_int_value() {
                 // None is represented as i64(0)
                 let zero = state.context.i64_type().const_zero();
-                let is_none = state.builder.build_int_compare(
-                    inkwell::IntPredicate::EQ,
-                    obj_val.into_int_value(),
-                    zero,
-                    "is_none_int",
-                ).map_err(|e| format!("Failed to compare: {:?}", e))?;
+                let is_none = state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::EQ,
+                        obj_val.into_int_value(),
+                        zero,
+                        "is_none_int",
+                    )
+                    .map_err(|e| format!("Failed to compare: {:?}", e))?;
                 is_none
             } else {
                 state.context.bool_type().const_int(0, false)
@@ -141,9 +151,7 @@ pub fn generate_type_call<'ctx>(
         .get_function("vp_type_of")
         .ok_or_else(|| "vp_type_of not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[obj_val.into()], "type_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "type_result");
     Ok(result.unwrap())
 }
 
@@ -165,11 +173,10 @@ pub fn generate_id_call<'ctx>(
     if obj_val.is_float_value() {
         // Convert float bits to int
         let float_val = obj_val.into_float_value();
-        let int_val = state.builder.build_float_to_signed_int(
-            float_val,
-            state.context.i64_type(),
-            "float_to_int_id",
-        ).expect("float to int");
+        let int_val = state
+            .builder
+            .build_float_to_signed_int(float_val, state.context.i64_type(), "float_to_int_id")
+            .expect("float to int");
         return Ok(int_val.into());
     }
 
@@ -179,9 +186,7 @@ pub fn generate_id_call<'ctx>(
         .get_function("vp_object_id")
         .ok_or_else(|| "vp_object_id not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[obj_val.into()], "id_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "id_result");
     Ok(result.unwrap())
 }
 
@@ -211,9 +216,7 @@ pub fn generate_repr_call<'ctx>(
         .get_function(func_name)
         .ok_or_else(|| format!("{} not declared", func_name))?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[obj_val.into()], "repr_result");
+    let result = state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "repr_result");
     Ok(result.unwrap())
 }
 
@@ -223,7 +226,9 @@ pub fn generate_callable_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return crate::codegen::codegen_error("callable() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error(
+            "callable() requires at least 1 argument".to_string(),
+        );
     }
 
     let obj_val = generate_expr(state, &args[0])?;
@@ -233,8 +238,7 @@ pub fn generate_callable_call<'ctx>(
         .get_function("vp_is_callable")
         .ok_or_else(|| "vp_is_callable not declared".to_string())?;
 
-    let result = state
-        .ir_builder
-        .build_call(state.builder, func, &[obj_val.into()], "callable_result");
+    let result =
+        state.ir_builder.build_call(state.builder, func, &[obj_val.into()], "callable_result");
     Ok(result.unwrap())
 }

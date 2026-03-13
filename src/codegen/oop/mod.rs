@@ -4,18 +4,8 @@
 pub mod classes;
 
 pub use classes::{
-    generate_class_instantiation,
-    generate_attribute_access,
-    generate_user_method_call,
-    generate_field_assignment,
-    generate_class_metadata,
-    init_class_registry,
-    calculate_all_mros,
-    class_exists,
-    with_class_registry,
-    with_class_registry_mut,
-    ClassMetadata,
-    FieldInfo,
-    MethodInfo,
-    ClassRegistry,
+    calculate_all_mros, class_exists, generate_attribute_access, generate_class_instantiation,
+    generate_class_metadata, generate_field_assignment, generate_user_method_call,
+    init_class_registry, with_class_registry, with_class_registry_mut, ClassMetadata,
+    ClassRegistry, FieldInfo, MethodInfo,
 };

@@ -23,7 +23,8 @@ pub fn declare_tuple_functions<'ctx>(
     module.add_function("vp_tuple_get", tuple_get_type, None);
 
     // vp_tuple_set(tuple: ViperTuple*, index: i64, value: i64) -> void
-    let tuple_set_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    let tuple_set_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_tuple_set", tuple_set_type, None);
 
     // vp_tuple_len(tuple: ViperTuple*) -> i64
@@ -40,7 +41,8 @@ pub fn declare_tuple_functions<'ctx>(
     module.add_function("vp_tuple_hash", tuple_hash_type, None);
 
     // vp_tuple_slice(tuple: ViperTuple*, start: i64, end: i64) -> ViperTuple*
-    let tuple_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    let tuple_slice_type =
+        ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_tuple_slice", tuple_slice_type, None);
 
     // vp_tuple_concat(a: ViperTuple*, b: ViperTuple*) -> ViperTuple*

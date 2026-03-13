@@ -134,7 +134,10 @@ pub fn generate_if<'ctx>(
     if then_terminates && else_terminates {
         // Both paths terminate - merge_block is unreachable, but LLVM requires all blocks to have terminators
         state.builder.position_at_end(merge_block);
-        state.builder.build_unreachable().map_err(|e| format!("Failed to build unreachable: {:?}", e))?;
+        state
+            .builder
+            .build_unreachable()
+            .map_err(|e| format!("Failed to build unreachable: {:?}", e))?;
     } else {
         state.builder.position_at_end(merge_block);
     }

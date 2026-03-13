@@ -12,7 +12,7 @@ impl<'ctx> CodeGen<'ctx> {
         for stmt in stmts {
             if let Stmt::Class { name, bases, body, span: _, decorators, fields, methods } = stmt {
                 let metadata = crate::codegen::oop::generate_class_metadata(
-                    name, bases, body, decorators, fields, methods
+                    name, bases, body, decorators, fields, methods,
                 )?;
                 crate::codegen::oop::with_class_registry_mut(|reg| {
                     reg.register_class(metadata);
@@ -29,7 +29,9 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Second pass: generate class code and methods
         for stmt in stmts {
-            if let Stmt::Class { name, bases: _, body, span: _, decorators: _, fields, methods } = stmt {
+            if let Stmt::Class { name, bases: _, body, span: _, decorators: _, fields, methods } =
+                stmt
+            {
                 self.generate_class_def(name, body, fields, methods)?;
             }
         }
@@ -45,9 +47,8 @@ impl<'ctx> CodeGen<'ctx> {
         _methods: &[String],
     ) -> crate::codegen::Result<()> {
         // Get class metadata from registry
-        let metadata = crate::codegen::oop::with_class_registry(|reg| {
-            reg.get_class(name).cloned()
-        }).ok_or_else(|| format!("Class metadata not found for '{}'", name))?;
+        let metadata = crate::codegen::oop::with_class_registry(|reg| reg.get_class(name).cloned())
+            .ok_or_else(|| format!("Class metadata not found for '{}'", name))?;
 
         let context = self.context;
 
@@ -61,16 +62,19 @@ impl<'ctx> CodeGen<'ctx> {
         // - instance_size: i64
         // - init: function pointer (void*)
         // - dealloc: function pointer (void*)
-        let class_struct_type = context.struct_type(&[
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // name
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // bases
-            context.i64_type().into(),  // base_count
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // methods
-            context.i64_type().into(),  // method_count
-            context.i64_type().into(),  // instance_size
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // init
-            context.ptr_type(inkwell::AddressSpace::default()).into(),  // dealloc
-        ], false);
+        let class_struct_type = context.struct_type(
+            &[
+                context.ptr_type(inkwell::AddressSpace::default()).into(), // name
+                context.ptr_type(inkwell::AddressSpace::default()).into(), // bases
+                context.i64_type().into(),                                 // base_count
+                context.ptr_type(inkwell::AddressSpace::default()).into(), // methods
+                context.i64_type().into(),                                 // method_count
+                context.i64_type().into(),                                 // instance_size
+                context.ptr_type(inkwell::AddressSpace::default()).into(), // init
+                context.ptr_type(inkwell::AddressSpace::default()).into(), // dealloc
+            ],
+            false,
+        );
 
         // Create class metadata global
         let class_global_name = format!("__viper_class_{}", name);
@@ -83,7 +87,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Create initializer values
         let null_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
-        let base_count_val = context.i64_type().const_int(0, false);  // Will be updated with inheritance
+        let base_count_val = context.i64_type().const_int(0, false); // Will be updated with inheritance
         let method_count_val = context.i64_type().const_int(metadata.methods.len() as u64, false);
         let instance_size_val = context.i64_type().const_int(metadata.instance_size as u64, false);
         let init_ptr = context.ptr_type(inkwell::AddressSpace::default()).const_null();
@@ -91,14 +95,14 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Create initializer for class struct
         let class_init = class_struct_type.const_named_struct(&[
-            name_str.as_basic_value_enum(),  // name
-            null_ptr.as_basic_value_enum(),  // bases
-            base_count_val.as_basic_value_enum(),  // base_count
-            null_ptr.as_basic_value_enum(),  // methods
+            name_str.as_basic_value_enum(),          // name
+            null_ptr.as_basic_value_enum(),          // bases
+            base_count_val.as_basic_value_enum(),    // base_count
+            null_ptr.as_basic_value_enum(),          // methods
             method_count_val.as_basic_value_enum(),  // method_count
-            instance_size_val.as_basic_value_enum(),  // instance_size
-            init_ptr.as_basic_value_enum(),  // init
-            dealloc_ptr.as_basic_value_enum(),  // dealloc
+            instance_size_val.as_basic_value_enum(), // instance_size
+            init_ptr.as_basic_value_enum(),          // init
+            dealloc_ptr.as_basic_value_enum(),       // dealloc
         ]);
 
         class_global.set_initializer(&class_init);
@@ -109,7 +113,15 @@ impl<'ctx> CodeGen<'ctx> {
         self.current_class = Some(name.to_string());
 
         for stmt in body {
-            if let Stmt::Function { name: method_name, params, return_type, body: method_body, decorators, .. } = stmt {
+            if let Stmt::Function {
+                name: method_name,
+                params,
+                return_type,
+                body: method_body,
+                decorators,
+                ..
+            } = stmt
+            {
                 // Check for staticmethod and classmethod decorators
                 let is_static = decorators.iter().any(|d| d.name == "staticmethod");
                 let is_class_method = decorators.iter().any(|d| d.name == "classmethod");
@@ -125,7 +137,8 @@ impl<'ctx> CodeGen<'ctx> {
                 // Exception: __init__ methods should have None (void) return type
                 let method_return_type = if method_name == "__init__" {
                     &Some(crate::ast::Type::None)
-                } else if return_type.as_ref().map_or(true, |t| matches!(t, crate::ast::Type::None)) {
+                } else if return_type.as_ref().map_or(true, |t| matches!(t, crate::ast::Type::None))
+                {
                     &Some(crate::ast::Type::Str)
                 } else {
                     return_type
@@ -136,10 +149,24 @@ impl<'ctx> CodeGen<'ctx> {
                 let empty_nonlocal: Vec<String> = Vec::new();
                 if is_static {
                     // Static method - no self parameter
-                    self.define_function(&mangled_name, method_name, params, method_return_type, method_body, &empty_nonlocal)?;
+                    self.define_function(
+                        &mangled_name,
+                        method_name,
+                        params,
+                        method_return_type,
+                        method_body,
+                        &empty_nonlocal,
+                    )?;
                 } else {
                     // Instance method - already has self parameter in AST
-                    self.define_function(&mangled_name, method_name, params, method_return_type, method_body, &empty_nonlocal)?;
+                    self.define_function(
+                        &mangled_name,
+                        method_name,
+                        params,
+                        method_return_type,
+                        method_body,
+                        &empty_nonlocal,
+                    )?;
                 }
 
                 // Restore classmethod flag

@@ -15,12 +15,7 @@ fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) ->
             Stmt::Return { value: Some(expr), .. } => {
                 return Some(infer_type_from_expr(expr, param_types));
             }
-            Stmt::If {
-                body,
-                elif_blocks,
-                else_body,
-                ..
-            } => {
+            Stmt::If { body, elif_blocks, else_body, .. } => {
                 if let Some(rt) = infer_return_type_from_body(body, param_types) {
                     return Some(rt);
                 }
@@ -94,7 +89,11 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
                 let rt = infer_type_from_expr(right, param_types);
                 if lt == Type::Str && rt == Type::Str {
                     Type::Str
-                } else if lt == Type::BigInt || rt == Type::BigInt || lt == Type::Int || rt == Type::Int {
+                } else if lt == Type::BigInt
+                    || rt == Type::BigInt
+                    || lt == Type::Int
+                    || rt == Type::Int
+                {
                     Type::Int
                 } else if lt == Type::F64 || rt == Type::F64 {
                     Type::F64
@@ -189,13 +188,10 @@ fn param_is_used_as_iterable(param_name: &str, body: &[Stmt]) -> bool {
 fn stmt_contains_iterable_usage(param_name: &str, stmt: &Stmt) -> bool {
     match stmt {
         Stmt::For { iter, body, else_body, .. } => {
-            let used_as_iter = if let Expr::Ident(name, _) = iter.as_ref() {
-                name == param_name
-            } else {
-                false
-            };
-            
-            used_as_iter 
+            let used_as_iter =
+                if let Expr::Ident(name, _) = iter.as_ref() { name == param_name } else { false };
+
+            used_as_iter
                 || body.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
                 || else_body.as_ref().map_or(false, |eb| {
                     eb.iter().any(|s| stmt_contains_iterable_usage(param_name, s))
@@ -259,7 +255,22 @@ fn param_is_used_as_bigint(param_name: &str, body: &[Stmt]) -> bool {
 
 /// Built-in functions that accept any type (should not trigger list inference)
 fn is_universal_builtin(name: &str) -> bool {
-    matches!(name, "print" | "len" | "str" | "int" | "float" | "bool" | "repr" | "type" | "isinstance" | "hasattr" | "getattr" | "setattr" | "delattr")
+    matches!(
+        name,
+        "print"
+            | "len"
+            | "str"
+            | "int"
+            | "float"
+            | "bool"
+            | "repr"
+            | "type"
+            | "isinstance"
+            | "hasattr"
+            | "getattr"
+            | "setattr"
+            | "delattr"
+    )
 }
 
 /// Check if a parameter is passed as argument to a LIST function call
@@ -298,18 +309,16 @@ fn stmt_contains_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
 /// Check if a parameter is used with BigInt (assigned BigInt or used in BigInt operations)
 fn stmt_contains_bigint_usage(param_name: &str, stmt: &Stmt) -> bool {
     match stmt {
-        Stmt::Assign { value, .. } => {
-            expr_contains_bigint_usage(param_name, value)
-        }
+        Stmt::Assign { value, .. } => expr_contains_bigint_usage(param_name, value),
         Stmt::Declare { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_bigint_usage(param_name, v))
         }
         Stmt::If { condition, body, else_body, .. } => {
             expr_contains_bigint_usage(param_name, condition)
                 || body.iter().any(|s| stmt_contains_bigint_usage(param_name, s))
-                || else_body
-                    .as_ref()
-                    .map_or(false, |eb| eb.iter().any(|s| stmt_contains_bigint_usage(param_name, s)))
+                || else_body.as_ref().map_or(false, |eb| {
+                    eb.iter().any(|s| stmt_contains_bigint_usage(param_name, s))
+                })
         }
         Stmt::While { condition, body, .. } => {
             expr_contains_bigint_usage(param_name, condition)
@@ -336,9 +345,9 @@ fn expr_contains_bigint_usage(param_name: &str, expr: &Expr) -> bool {
             // Check if calling BigInt constructor or related functions
             if let Expr::Ident(name, _) = func.as_ref() {
                 if name == "bigint" || name == "int" {
-                    return args.iter().any(|arg| {
-                        matches!(arg, Expr::Ident(n, _) if n == param_name)
-                    });
+                    return args
+                        .iter()
+                        .any(|arg| matches!(arg, Expr::Ident(n, _) if n == param_name));
                 }
             }
             args.iter().any(|arg| expr_contains_bigint_usage(param_name, arg))
@@ -378,9 +387,7 @@ fn expr_contains_scalar_usage(param_name: &str, expr: &Expr) -> bool {
         }
         // Function calls - passing a parameter to a function doesn't indicate scalar usage
         // We only check the function expression itself (for method calls like obj.method())
-        Expr::Call { func, .. } => {
-            expr_contains_scalar_usage(param_name, func)
-        }
+        Expr::Call { func, .. } => expr_contains_scalar_usage(param_name, func),
         Expr::Attribute { obj, .. } => expr_contains_scalar_usage(param_name, obj),
         _ => false,
     }
@@ -463,21 +470,23 @@ fn stmt_contains_list_function_call_with_param(param_name: &str, stmt: &Stmt) ->
         }
         Stmt::While { condition, body, .. } => {
             expr_contains_list_function_call_with_param(param_name, condition)
-            || body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
+                || body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
         }
         Stmt::For { body, .. } => {
             body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
         }
-        Stmt::Return { value, .. } => {
-            value.as_ref().map_or(false, |v| expr_contains_list_function_call_with_param(param_name, v))
-        }
+        Stmt::Return { value, .. } => value
+            .as_ref()
+            .map_or(false, |v| expr_contains_list_function_call_with_param(param_name, v)),
         Stmt::Function { body, .. } => {
             body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
         }
-        Stmt::Declare { value, .. } => {
-            value.as_ref().map_or(false, |v| expr_contains_list_function_call_with_param(param_name, v))
+        Stmt::Declare { value, .. } => value
+            .as_ref()
+            .map_or(false, |v| expr_contains_list_function_call_with_param(param_name, v)),
+        Stmt::AugAssign { value, .. } => {
+            expr_contains_list_function_call_with_param(param_name, value)
         }
-        Stmt::AugAssign { value, .. } => expr_contains_list_function_call_with_param(param_name, value),
         _ => false,
     }
 }
@@ -493,7 +502,7 @@ fn expr_contains_list_function_call_with_param(param_name: &str, expr: &Expr) ->
             } else {
                 false
             };
-            
+
             if !is_universal {
                 // Check if any argument is the parameter
                 let param_is_arg = args.iter().any(|arg| {
@@ -539,7 +548,7 @@ pub fn declare_function<'ctx>(
 ) -> crate::codegen::Result<()> {
     // Normalize return type (convert GenericApp Result to Type::Result)
     let normalized_return_type = return_type.as_ref().map(|t| normalize_type(t));
-    
+
     // Infer parameter types from body if not annotated
     let param_types = if let Some(body) = body {
         infer_param_types_from_body(params, body)
@@ -619,7 +628,11 @@ pub fn declare_function_with_closure<'ctx>(
     }
 
     // Compute mangled name
-    let mangled_name = crate::utils::mangling::mangle_function_name_with_closure(name, &param_types, nonlocal_vars);
+    let mangled_name = crate::utils::mangling::mangle_function_name_with_closure(
+        name,
+        &param_types,
+        nonlocal_vars,
+    );
 
     // If no return type annotation, try to infer from body
     let param_type_pairs: Vec<(String, Type)> =
@@ -718,10 +731,7 @@ fn normalize_type(ty: &Type) -> Type {
         }
         // Recursively normalize nested types
         Type::List(inner) => Type::List(Box::new(normalize_type(inner))),
-        Type::Dict(k, v) => Type::Dict(
-            Box::new(normalize_type(k)),
-            Box::new(normalize_type(v)),
-        ),
+        Type::Dict(k, v) => Type::Dict(Box::new(normalize_type(k)), Box::new(normalize_type(v))),
         Type::Tuple(types) => Type::Tuple(types.iter().map(|t| normalize_type(t)).collect()),
         Type::Fn(params, ret) => Type::Fn(
             params.iter().map(|p| normalize_type(p)).collect(),

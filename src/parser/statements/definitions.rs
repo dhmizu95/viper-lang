@@ -11,7 +11,7 @@ pub fn parse_decorators(parser: &mut StatementParser) -> crate::error::Result<Ve
 
         // Parse decorator name (may include dots like @property.setter)
         let mut name = parser.expect_ident()?;
-        
+
         // Check for dotted name (e.g., property.setter)
         while parser.match_token(&TokenKind::Dot) {
             let suffix = parser.expect_ident()?;
@@ -49,7 +49,7 @@ pub fn parse_decorators(parser: &mut StatementParser) -> crate::error::Result<Ve
 
         // Skip newlines after decorator until we hit non-newline token
         while parser.match_token(&TokenKind::Newline) {
-            parser.advance();  // Actually consume the newline
+            parser.advance(); // Actually consume the newline
         }
     }
 
@@ -59,7 +59,7 @@ pub fn parse_decorators(parser: &mut StatementParser) -> crate::error::Result<Ve
 pub fn parse_function_def(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     // Parse decorators first
     let decorators = parse_decorators(parser)?;
-    
+
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Def)?;
 
@@ -159,7 +159,7 @@ pub fn parse_extern_decl(parser: &mut StatementParser) -> crate::error::Result<S
 pub fn parse_async_function_def(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     // Parse decorators first
     let decorators = parse_decorators(parser)?;
-    
+
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Async)?;
     parser.expect(&TokenKind::Def)?;
@@ -205,14 +205,14 @@ pub fn parse_async_function_def(parser: &mut StatementParser) -> crate::error::R
 
 pub fn parse_param(parser: &mut StatementParser) -> crate::error::Result<Param> {
     let span = parser.current().span;
-    
+
     // Check for *args or **kwargs
     // Tokenizer creates: * = Star, ** = DoubleStar
     // match_token consumes the token if it matches
     let is_kw_variadic = parser.match_token(&TokenKind::DoubleStar);
     let is_variadic = is_kw_variadic || parser.match_token(&TokenKind::Star);
     // Note: match_token already consumed the * or **
-    
+
     let name = parser.expect_ident()?;
 
     let type_ann = if parser.match_token(&TokenKind::Colon) {
@@ -236,7 +236,7 @@ pub fn parse_type_annotation(parser: &mut StatementParser) -> crate::error::Resu
         loop {
             let variant = parse_base_type(parser)?;
             variants.push(variant);
-            
+
             if !parser.match_token(&TokenKind::Pipe) {
                 break;
             }
@@ -257,7 +257,10 @@ fn parse_base_type(parser: &mut StatementParser) -> crate::error::Result<Type> {
         let size = match &size_token.kind {
             TokenKind::Int(n) => {
                 if *n < 0 || *n > usize::MAX as i128 {
-                    return crate::parser::parse_error(format!("Array size must be a positive usize: {}", n));
+                    return crate::parser::parse_error(format!(
+                        "Array size must be a positive usize: {}",
+                        n
+                    ));
                 }
                 *n as usize
             }
@@ -410,7 +413,7 @@ fn parse_base_type(parser: &mut StatementParser) -> crate::error::Result<Type> {
             _ => {
                 let type_name = name.clone();
                 parser.advance();
-                
+
                 // Check for generic application: Type[T, U, ...]
                 if parser.match_token(&TokenKind::LBracket) {
                     let mut type_args = Vec::new();
@@ -421,18 +424,20 @@ fn parse_base_type(parser: &mut StatementParser) -> crate::error::Result<Type> {
                         }
                     }
                     parser.expect(&TokenKind::RBracket)?;
-                    return Ok(Type::GenericApp {
-                        name: type_name,
-                        type_args,
-                    });
+                    return Ok(Type::GenericApp { name: type_name, type_args });
                 }
-                
+
                 // Simple type variable or named type
                 Type::Var(type_name)
             }
         },
         TokenKind::None | TokenKind::Void => Type::None,
-        _ => return crate::parser::parse_error(format!("Expected type name, found {:?}", token.kind)),
+        _ => {
+            return crate::parser::parse_error(format!(
+                "Expected type name, found {:?}",
+                token.kind
+            ))
+        }
     };
     parser.advance();
 
@@ -446,7 +451,7 @@ fn parse_base_type(parser: &mut StatementParser) -> crate::error::Result<Type> {
 pub fn parse_class_def(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     // Parse decorators first
     let decorators = parse_decorators(parser)?;
-    
+
     let start_span = parser.current().span;
     parser.expect(&TokenKind::Class)?;
 
@@ -473,7 +478,7 @@ pub fn parse_class_def(parser: &mut StatementParser) -> crate::error::Result<Stm
     // Extract fields and methods from the class body
     let mut fields = Vec::new();
     let mut methods = Vec::new();
-    
+
     for stmt in &body {
         match stmt {
             Stmt::Assign { target, .. } => {

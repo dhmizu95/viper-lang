@@ -308,10 +308,14 @@ pub fn parse_select_stmt(parser: &mut StatementParser) -> crate::error::Result<S
                 parser.advance();
                 SelectCaseKind::Default
             } else {
-                return crate::parser::parse_error("Expected 'recv', 'send', or 'default' in select case".to_string());
+                return crate::parser::parse_error(
+                    "Expected 'recv', 'send', or 'default' in select case".to_string(),
+                );
             }
         } else {
-            return crate::parser::parse_error("Expected 'recv', 'send', or 'default' in select case".to_string());
+            return crate::parser::parse_error(
+                "Expected 'recv', 'send', or 'default' in select case".to_string(),
+            );
         };
 
         parser.expect(&TokenKind::Colon)?;
@@ -407,7 +411,9 @@ pub fn parse_match_pattern(parser: &mut StatementParser) -> crate::error::Result
     }
 }
 
-pub fn parse_match_list_pattern(parser: &mut StatementParser) -> crate::error::Result<MatchPattern> {
+pub fn parse_match_list_pattern(
+    parser: &mut StatementParser,
+) -> crate::error::Result<MatchPattern> {
     parser.expect(&TokenKind::LBracket)?;
 
     let mut elements = Vec::new();
@@ -432,7 +438,9 @@ pub fn parse_match_list_pattern(parser: &mut StatementParser) -> crate::error::R
     Ok(MatchPattern::List { elements, rest })
 }
 
-pub fn parse_match_tuple_pattern(parser: &mut StatementParser) -> crate::error::Result<MatchPattern> {
+pub fn parse_match_tuple_pattern(
+    parser: &mut StatementParser,
+) -> crate::error::Result<MatchPattern> {
     parser.expect(&TokenKind::LParen)?;
 
     let mut elements = Vec::new();

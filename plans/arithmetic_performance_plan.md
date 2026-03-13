@@ -67,7 +67,7 @@ Success criteria:
 
 ### 2. Inline Small-Int Fast Path in Codegen
 
-**Status:** `INF`
+**Status:** `WIP`
 
 Tasks:
 
@@ -127,7 +127,7 @@ Success criteria:
 
 ### 6. Regression Tests
 
-**Status:** `INF`
+**Status:** `WIP`
 
 Tasks:
 

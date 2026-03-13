@@ -43,18 +43,16 @@ pub fn declare_closure_cell_functions<'ctx>(
 
     // Allocate memory for the cell structure
     let cell_size = i64_type.const_int(8, false); // Size of a pointer on 64-bit
-    let call_result = builder
-        .build_call(malloc_fn, &[cell_size.into()], "cell_raw")
-        .expect("call malloc");
+    let call_result =
+        builder.build_call(malloc_fn, &[cell_size.into()], "cell_raw").expect("call malloc");
     let cell_raw = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
         _ => return crate::codegen::codegen_error("malloc didn't return a value".to_string()),
     };
 
     // Initialize the cell with null pointer
-    let cell_ptr = builder
-        .build_pointer_cast(cell_raw, cell_ptr_type, "cell")
-        .expect("cast to cell");
+    let cell_ptr =
+        builder.build_pointer_cast(cell_raw, cell_ptr_type, "cell").expect("cast to cell");
     let null_ptr = i8_ptr_type.const_null();
     builder
         .build_store(
@@ -78,9 +76,7 @@ pub fn declare_closure_cell_functions<'ctx>(
     let cell_arg = free_cell_fn.get_nth_param(0).expect("cell arg");
 
     // Free the cell structure
-    builder
-        .build_call(free_fn, &[cell_arg.into()], "")
-        .expect("call free");
+    builder.build_call(free_fn, &[cell_arg.into()], "").expect("call free");
 
     builder.build_return(None).expect("return void");
 
@@ -95,9 +91,8 @@ pub fn declare_closure_cell_functions<'ctx>(
     let cell_arg = set_fn.get_nth_param(0).expect("cell arg").into_pointer_value();
     let value_ptr_arg = set_fn.get_nth_param(1).expect("value_ptr arg").into_pointer_value();
 
-    let cell_ptr = builder
-        .build_pointer_cast(cell_arg, cell_ptr_type, "cell")
-        .expect("cast to cell");
+    let cell_ptr =
+        builder.build_pointer_cast(cell_arg, cell_ptr_type, "cell").expect("cast to cell");
     let value_gep = builder
         .build_struct_gep(cell_struct_type, cell_ptr, 0, "cell_value")
         .expect("gep into cell");
@@ -115,9 +110,8 @@ pub fn declare_closure_cell_functions<'ctx>(
 
     let cell_arg = get_fn.get_nth_param(0).expect("cell arg").into_pointer_value();
 
-    let cell_ptr = builder
-        .build_pointer_cast(cell_arg, cell_ptr_type, "cell")
-        .expect("cast to cell");
+    let cell_ptr =
+        builder.build_pointer_cast(cell_arg, cell_ptr_type, "cell").expect("cast to cell");
     let value_gep = builder
         .build_struct_gep(cell_struct_type, cell_ptr, 0, "cell_value")
         .expect("gep into cell");
@@ -141,27 +135,28 @@ pub fn declare_closure_cell_functions<'ctx>(
 
     // Allocate space for the i64 value
     let value_size = i64_type.const_int(8, false);
-    let call_result = builder
-        .build_call(malloc_fn, &[value_size.into()], "value_raw")
-        .expect("call malloc");
+    let call_result =
+        builder.build_call(malloc_fn, &[value_size.into()], "value_raw").expect("call malloc");
     let value_raw = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
         _ => return crate::codegen::codegen_error("malloc didn't return a value".to_string()),
     };
 
     let value_ptr = builder
-        .build_pointer_cast(value_raw, context.ptr_type(inkwell::AddressSpace::default()), "value_ptr")
+        .build_pointer_cast(
+            value_raw,
+            context.ptr_type(inkwell::AddressSpace::default()),
+            "value_ptr",
+        )
         .expect("cast to i64*");
     builder.build_store(value_ptr, value_arg).expect("store value");
 
     // Cast value pointer to i8* and store in cell
-    let value_ptr_i8 = builder
-        .build_pointer_cast(value_ptr, i8_ptr_type, "value_ptr_i8")
-        .expect("cast to i8*");
+    let value_ptr_i8 =
+        builder.build_pointer_cast(value_ptr, i8_ptr_type, "value_ptr_i8").expect("cast to i8*");
 
-    let cell_ptr = builder
-        .build_pointer_cast(cell_arg, cell_ptr_type, "cell")
-        .expect("cast to cell");
+    let cell_ptr =
+        builder.build_pointer_cast(cell_arg, cell_ptr_type, "cell").expect("cast to cell");
     let value_gep = builder
         .build_struct_gep(cell_struct_type, cell_ptr, 0, "cell_value")
         .expect("gep into cell");
@@ -179,9 +174,8 @@ pub fn declare_closure_cell_functions<'ctx>(
 
     let cell_arg = get_i64_fn.get_nth_param(0).expect("cell arg").into_pointer_value();
 
-    let cell_ptr = builder
-        .build_pointer_cast(cell_arg, cell_ptr_type, "cell")
-        .expect("cast to cell");
+    let cell_ptr =
+        builder.build_pointer_cast(cell_arg, cell_ptr_type, "cell").expect("cast to cell");
     let value_gep = builder
         .build_struct_gep(cell_struct_type, cell_ptr, 0, "cell_value")
         .expect("gep into cell");
@@ -191,11 +185,13 @@ pub fn declare_closure_cell_functions<'ctx>(
         .into_pointer_value();
 
     let value_ptr = builder
-        .build_pointer_cast(value_ptr_i8, context.ptr_type(inkwell::AddressSpace::default()), "value_ptr")
+        .build_pointer_cast(
+            value_ptr_i8,
+            context.ptr_type(inkwell::AddressSpace::default()),
+            "value_ptr",
+        )
         .expect("cast to i64*");
-    let value = builder
-        .build_load(i64_type, value_ptr, "value")
-        .expect("load value");
+    let value = builder.build_load(i64_type, value_ptr, "value").expect("load value");
 
     builder.build_return(Some(&value)).expect("return value");
 
@@ -212,27 +208,28 @@ pub fn declare_closure_cell_functions<'ctx>(
 
     // Allocate space for the f64 value
     let value_size = i64_type.const_int(8, false);
-    let call_result = builder
-        .build_call(malloc_fn, &[value_size.into()], "value_raw")
-        .expect("call malloc");
+    let call_result =
+        builder.build_call(malloc_fn, &[value_size.into()], "value_raw").expect("call malloc");
     let value_raw = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
         _ => return crate::codegen::codegen_error("malloc didn't return a value".to_string()),
     };
 
     let value_ptr = builder
-        .build_pointer_cast(value_raw, context.ptr_type(inkwell::AddressSpace::default()), "value_ptr")
+        .build_pointer_cast(
+            value_raw,
+            context.ptr_type(inkwell::AddressSpace::default()),
+            "value_ptr",
+        )
         .expect("cast to f64*");
     builder.build_store(value_ptr, value_arg).expect("store value");
 
     // Cast value pointer to i8* and store in cell
-    let value_ptr_i8 = builder
-        .build_pointer_cast(value_ptr, i8_ptr_type, "value_ptr_i8")
-        .expect("cast to i8*");
+    let value_ptr_i8 =
+        builder.build_pointer_cast(value_ptr, i8_ptr_type, "value_ptr_i8").expect("cast to i8*");
 
-    let cell_ptr = builder
-        .build_pointer_cast(cell_arg, cell_ptr_type, "cell")
-        .expect("cast to cell");
+    let cell_ptr =
+        builder.build_pointer_cast(cell_arg, cell_ptr_type, "cell").expect("cast to cell");
     let value_gep = builder
         .build_struct_gep(cell_struct_type, cell_ptr, 0, "cell_value")
         .expect("gep into cell");
@@ -250,9 +247,8 @@ pub fn declare_closure_cell_functions<'ctx>(
 
     let cell_arg = get_f64_fn.get_nth_param(0).expect("cell arg").into_pointer_value();
 
-    let cell_ptr = builder
-        .build_pointer_cast(cell_arg, cell_ptr_type, "cell")
-        .expect("cast to cell");
+    let cell_ptr =
+        builder.build_pointer_cast(cell_arg, cell_ptr_type, "cell").expect("cast to cell");
     let value_gep = builder
         .build_struct_gep(cell_struct_type, cell_ptr, 0, "cell_value")
         .expect("gep into cell");
@@ -262,11 +258,13 @@ pub fn declare_closure_cell_functions<'ctx>(
         .into_pointer_value();
 
     let value_ptr = builder
-        .build_pointer_cast(value_ptr_i8, context.ptr_type(inkwell::AddressSpace::default()), "value_ptr")
+        .build_pointer_cast(
+            value_ptr_i8,
+            context.ptr_type(inkwell::AddressSpace::default()),
+            "value_ptr",
+        )
         .expect("cast to f64*");
-    let value = builder
-        .build_load(f64_type, value_ptr, "value")
-        .expect("load value");
+    let value = builder.build_load(f64_type, value_ptr, "value").expect("load value");
 
     builder.build_return(Some(&value)).expect("return value");
 

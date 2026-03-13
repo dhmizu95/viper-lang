@@ -5,7 +5,7 @@
 //! 2. Unify constraints to solve for type variables
 //! 3. Apply substitutions to infer concrete types
 
-use crate::ast::{Expr, Type, UnaryOp, BinOp};
+use crate::ast::{BinOp, Expr, Type, UnaryOp};
 use crate::semantic::symbol_table::{Symbol, SymbolKind};
 use crate::semantic::type_checker::{TypeChecker, TypeError};
 use std::collections::HashMap;
@@ -50,24 +50,33 @@ impl TypeChecker {
             "Hashable" => self.is_hashable_type(ty),
             "Comparable" => self.is_comparable_type(ty),
             "Numeric" => ty.is_numeric(),
-            _ => false,  // Unknown trait
+            _ => false, // Unknown trait
         }
     }
-    
+
     /// Check if a type is hashable
     fn is_hashable_type(&self, ty: &Type) -> bool {
         ty.is_hashable()
     }
-    
+
     /// Check if a type is comparable
     fn is_comparable_type(&self, ty: &Type) -> bool {
         // All types that can be compared
-        matches!(ty, 
-            Type::I8 | Type::I16 | Type::I32 | Type::I64 | 
-            Type::F32 | Type::F64 | Type::Bool | Type::Str | Type::BigInt | Type::Int
+        matches!(
+            ty,
+            Type::I8
+                | Type::I16
+                | Type::I32
+                | Type::I64
+                | Type::F32
+                | Type::F64
+                | Type::Bool
+                | Type::Str
+                | Type::BigInt
+                | Type::Int
         )
     }
-    
+
     /// Solve trait constraints after type unification
     pub fn solve_trait_constraints(
         &self,
@@ -75,11 +84,11 @@ impl TypeChecker {
         subst: &Substitution,
     ) -> Result<(), Vec<TypeError>> {
         let mut errors = Vec::new();
-        
+
         for constraint in trait_constraints {
             // Apply substitution to get the concrete type
             let concrete_ty = constraint.ty.substitute(subst);
-            
+
             // Check if the concrete type satisfies the trait
             if !self.check_trait_constraint(&concrete_ty, &constraint.trait_name) {
                 errors.push(TypeError::new(
@@ -91,7 +100,7 @@ impl TypeChecker {
                 ));
             }
         }
-        
+
         if errors.is_empty() {
             Ok(())
         } else {
@@ -126,7 +135,7 @@ impl TypeChecker {
                     (Type::Var(tvar.clone()), vec![])
                 }
             }
-            
+
             Expr::List { elements, span: _ } => {
                 if elements.is_empty() {
                     // Empty list: [T] where T is fresh
@@ -135,56 +144,60 @@ impl TypeChecker {
                 } else {
                     // Infer type from first element
                     let (first_ty, mut constraints) = self.infer_expr_hm(&elements[0]);
-                    
+
                     // All other elements must have the same type
                     for elem in &elements[1..] {
                         let (elem_ty, elem_constraints) = self.infer_expr_hm(elem);
                         constraints.extend(elem_constraints);
                         constraints.push(Constraint::new(first_ty.clone(), elem_ty, elem.span()));
                     }
-                    
+
                     (Type::List(Box::new(first_ty)), constraints)
                 }
             }
-            
+
             Expr::Tuple { elements, span: _ } => {
                 let mut tuple_types = Vec::new();
                 let mut all_constraints = Vec::new();
-                
+
                 for elem in elements {
                     let (elem_ty, elem_constraints) = self.infer_expr_hm(elem);
                     tuple_types.push(elem_ty);
                     all_constraints.extend(elem_constraints);
                 }
-                
+
                 (Type::Tuple(tuple_types), all_constraints)
             }
-            
+
             Expr::Call { func, args, span } => {
                 // Check for builtin BigInt functions
                 if let Expr::Ident(name, _) = func.as_ref() {
-                    if let Some(builtin_sig) = self.get_bigint_builtin_signature(name, args, *span) {
+                    if let Some(builtin_sig) = self.get_bigint_builtin_signature(name, args, *span)
+                    {
                         let (arg_tys, return_ty) = builtin_sig;
                         let mut constraints = Vec::new();
-                        
+
                         // Constrain arguments to expected types
                         for (arg, expected_arg_ty) in args.iter().zip(arg_tys.iter()) {
                             let (arg_ty, arg_constraints) = self.infer_expr_hm(arg);
                             constraints.extend(arg_constraints);
-                            constraints.push(Constraint::new(arg_ty, expected_arg_ty.clone(), arg.span()));
+                            constraints.push(Constraint::new(
+                                arg_ty,
+                                expected_arg_ty.clone(),
+                                arg.span(),
+                            ));
                         }
-                        
+
                         return (return_ty, constraints);
                     }
                 }
-                
+
                 // Infer function type (non-builtin case)
                 let (func_ty, mut constraints) = self.infer_expr_hm(func);
 
                 // Create fresh type variables for argument and return types
-                let arg_tys: Vec<Type> = args.iter()
-                    .map(|_| Type::Var(self.fresh_type_var()))
-                    .collect();
+                let arg_tys: Vec<Type> =
+                    args.iter().map(|_| Type::Var(self.fresh_type_var())).collect();
                 let return_ty = Type::Var(self.fresh_type_var());
 
                 // Function type should be: arg1 -> arg2 -> ... -> return
@@ -202,24 +215,35 @@ impl TypeChecker {
 
                 (return_ty, constraints)
             }
-            
+
             Expr::BinOp { left, op, right, span } => {
                 let (left_ty, left_constraints) = self.infer_expr_hm(left);
                 let (right_ty, right_constraints) = self.infer_expr_hm(right);
                 let mut constraints = left_constraints;
                 constraints.extend(right_constraints);
-                
+
                 // Determine result type based on operator
                 let result_ty = match op {
                     // Arithmetic operators: require numeric types, result is the common type
-                    BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod | BinOp::FloorDiv | BinOp::Pow => {
+                    BinOp::Add
+                    | BinOp::Sub
+                    | BinOp::Mul
+                    | BinOp::Div
+                    | BinOp::Mod
+                    | BinOp::FloorDiv
+                    | BinOp::Pow => {
                         // Constrain both operands to be the same type
                         constraints.push(Constraint::new(left_ty.clone(), right_ty.clone(), *span));
                         // Result type is the same as operands
                         left_ty
                     }
                     // Comparison operators: return bool
-                    BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => {
+                    BinOp::Eq
+                    | BinOp::NotEq
+                    | BinOp::Lt
+                    | BinOp::LtEq
+                    | BinOp::Gt
+                    | BinOp::GtEq => {
                         // For equality, types should be compatible
                         constraints.push(Constraint::new(left_ty.clone(), right_ty.clone(), *span));
                         Type::Bool
@@ -233,13 +257,13 @@ impl TypeChecker {
                     // Default: i64
                     _ => Type::I64,
                 };
-                
+
                 (result_ty, constraints)
             }
-            
+
             Expr::UnaryOp { op, operand, span } => {
                 let (operand_ty, mut constraints) = self.infer_expr_hm(operand);
-                
+
                 let result_ty = match op {
                     UnaryOp::Neg | UnaryOp::Pos => {
                         // Numeric operand required
@@ -255,7 +279,8 @@ impl TypeChecker {
                         // Operand must be Result[T, E], result is T
                         let ok_tvar = Type::Var(self.fresh_type_var());
                         let err_tvar = Type::Var(self.fresh_type_var());
-                        let result_ty = Type::Result(Box::new(ok_tvar.clone()), Box::new(err_tvar.clone()));
+                        let result_ty =
+                            Type::Result(Box::new(ok_tvar.clone()), Box::new(err_tvar.clone()));
                         constraints.push(Constraint::new(operand_ty.clone(), result_ty, *span));
                         ok_tvar
                     }
@@ -263,31 +288,36 @@ impl TypeChecker {
                         // Operand must be Result[T, E], result is T
                         let ok_tvar = Type::Var(self.fresh_type_var());
                         let err_tvar = Type::Var(self.fresh_type_var());
-                        let result_ty = Type::Result(Box::new(ok_tvar.clone()), Box::new(err_tvar.clone()));
+                        let result_ty =
+                            Type::Result(Box::new(ok_tvar.clone()), Box::new(err_tvar.clone()));
                         constraints.push(Constraint::new(operand_ty.clone(), result_ty, *span));
                         ok_tvar
                     }
                     _ => Type::I64,
                 };
-                
+
                 (result_ty, constraints)
             }
-            
+
             Expr::Index { obj, index, span } => {
                 let (obj_ty, mut constraints) = self.infer_expr_hm(obj);
                 let (index_ty, index_constraints) = self.infer_expr_hm(index);
                 constraints.extend(index_constraints);
-                
+
                 // Index should be i64
                 constraints.push(Constraint::new(index_ty, Type::I64, *span));
-                
+
                 // Object should be List[T], result is T
                 let elem_tvar = Type::Var(self.fresh_type_var());
-                constraints.push(Constraint::new(obj_ty, Type::List(Box::new(elem_tvar.clone())), *span));
-                
+                constraints.push(Constraint::new(
+                    obj_ty,
+                    Type::List(Box::new(elem_tvar.clone())),
+                    *span,
+                ));
+
                 (elem_tvar, constraints)
             }
-            
+
             Expr::Attribute { obj, attr: _, span: _ } => {
                 let (_obj_ty, constraints) = self.infer_expr_hm(obj);
 
@@ -297,57 +327,59 @@ impl TypeChecker {
 
                 // TODO: Add proper field/method lookup here
                 // For class instances, look up the field/method type
-                
+
                 (result_ty, constraints)
             }
-            
+
             Expr::Conditional { condition, then_expr, else_expr, span } => {
                 let (cond_ty, mut cond_constraints) = self.infer_expr_hm(condition);
                 let (then_ty, then_constraints) = self.infer_expr_hm(then_expr);
                 let (else_ty, else_constraints) = self.infer_expr_hm(else_expr);
-                
+
                 cond_constraints.extend(then_constraints);
                 cond_constraints.extend(else_constraints);
-                
+
                 // Condition must be bool
                 cond_constraints.push(Constraint::new(cond_ty, Type::Bool, *span));
-                
+
                 // Then and else branches must have the same type
                 cond_constraints.push(Constraint::new(then_ty.clone(), else_ty, *span));
-                
+
                 (then_ty, cond_constraints)
             }
-            
+
             Expr::Lambda { params, body, span } => {
                 // Create type variables for each parameter
-                let param_tys: Vec<Type> = params.iter()
-                    .map(|_| Type::Var(self.fresh_type_var()))
-                    .collect();
+                let param_tys: Vec<Type> =
+                    params.iter().map(|_| Type::Var(self.fresh_type_var())).collect();
                 let return_ty = Type::Var(self.fresh_type_var());
-                
+
                 // Add parameters to symbol table temporarily
                 self.symbol_table.enter_scope();
                 for (i, param) in params.iter().enumerate() {
                     let symbol = Symbol::new(
                         param.clone(),
-                        SymbolKind::Variable { mutable: true, type_ann: Some(param_tys[i].clone()) },
+                        SymbolKind::Variable {
+                            mutable: true,
+                            type_ann: Some(param_tys[i].clone()),
+                        },
                         *span,
                         self.symbol_table.current_scope_id(),
                     );
                     let _ = self.symbol_table.insert(symbol);
                 }
-                
+
                 // Infer body type
                 let (body_ty, mut constraints) = self.infer_expr_hm(body);
-                
+
                 // Constrain body type to return type
                 constraints.push(Constraint::new(body_ty, return_ty.clone(), *span));
-                
+
                 self.symbol_table.exit_scope();
-                
+
                 (Type::Fn(param_tys, Box::new(return_ty)), constraints)
             }
-            
+
             // For other expressions, use simple inference
             _ => {
                 // Fall back to the existing inference
@@ -355,7 +387,7 @@ impl TypeChecker {
             }
         }
     }
-    
+
     /// Generate a fresh type variable name
     fn fresh_type_var(&self) -> String {
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -363,7 +395,7 @@ impl TypeChecker {
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
         format!("t{}", id)
     }
-    
+
     /// Freshen a type by replacing all type variables with fresh ones
     fn freshen_type(&self, ty: &Type) -> Type {
         match ty {
@@ -373,10 +405,9 @@ impl TypeChecker {
                 bounds: bounds.iter().map(|b| self.freshen_type(b)).collect(),
             },
             Type::List(inner) => Type::List(Box::new(self.freshen_type(inner))),
-            Type::Dict(k, v) => Type::Dict(
-                Box::new(self.freshen_type(k)),
-                Box::new(self.freshen_type(v)),
-            ),
+            Type::Dict(k, v) => {
+                Type::Dict(Box::new(self.freshen_type(k)), Box::new(self.freshen_type(v)))
+            }
             Type::Tuple(types) => Type::Tuple(types.iter().map(|t| self.freshen_type(t)).collect()),
             Type::Fn(params, ret) => Type::Fn(
                 params.iter().map(|p| self.freshen_type(p)).collect(),
@@ -386,26 +417,27 @@ impl TypeChecker {
                 name: name.clone(),
                 type_args: type_args.iter().map(|t| self.freshen_type(t)).collect(),
             },
-            Type::Result(ok, err) => Type::Result(
-                Box::new(self.freshen_type(ok)),
-                Box::new(self.freshen_type(err)),
-            ),
-            Type::Union(variants) => Type::Union(variants.iter().map(|t| self.freshen_type(t)).collect()),
+            Type::Result(ok, err) => {
+                Type::Result(Box::new(self.freshen_type(ok)), Box::new(self.freshen_type(err)))
+            }
+            Type::Union(variants) => {
+                Type::Union(variants.iter().map(|t| self.freshen_type(t)).collect())
+            }
             _ => ty.clone(),
         }
     }
-    
+
     /// Unify a list of constraints to produce a substitution
     pub fn unify(&self, constraints: Vec<Constraint>) -> Result<Substitution, TypeError> {
         let mut subst = Substitution::new();
-        
+
         for constraint in constraints {
             self.unify_types(&mut subst, constraint.ty1, constraint.ty2, constraint.span)?;
         }
-        
+
         Ok(subst)
     }
-    
+
     /// Unify two types, extending the substitution
     fn unify_types(
         &self,
@@ -417,11 +449,11 @@ impl TypeChecker {
         // Apply current substitution
         let ty1 = self.apply_subst(&subst, ty1);
         let ty2 = self.apply_subst(&subst, ty2);
-        
+
         if ty1 == ty2 {
             return Ok(());
         }
-        
+
         match (ty1, ty2) {
             // Type variable cases
             (Type::Var(var), ty) | (ty, Type::Var(var)) => {
@@ -435,7 +467,7 @@ impl TypeChecker {
                 subst.insert(var, ty);
                 Ok(())
             }
-            
+
             // Compound type cases
             (Type::List(inner1), Type::List(inner2)) => {
                 self.unify_types(subst, *inner1, *inner2, span)
@@ -484,16 +516,23 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            
+
             // Primitive types must match exactly
-            (Type::I8, Type::I8) | (Type::I16, Type::I16) | (Type::I32, Type::I32) |
-            (Type::I64, Type::I64) | (Type::F32, Type::F32) | (Type::F64, Type::F64) |
-            (Type::Bool, Type::Bool) | (Type::Str, Type::Str) | (Type::BigInt, Type::BigInt) |
-            (Type::None, Type::None) | (Type::Int, Type::Int) => Ok(()),
-            
+            (Type::I8, Type::I8)
+            | (Type::I16, Type::I16)
+            | (Type::I32, Type::I32)
+            | (Type::I64, Type::I64)
+            | (Type::F32, Type::F32)
+            | (Type::F64, Type::F64)
+            | (Type::Bool, Type::Bool)
+            | (Type::Str, Type::Str)
+            | (Type::BigInt, Type::BigInt)
+            | (Type::None, Type::None)
+            | (Type::Int, Type::Int) => Ok(()),
+
             // Infer is compatible with anything
             (Type::Infer, _) | (_, Type::Infer) => Ok(()),
-            
+
             // Error case: types don't unify
             (ty1, ty2) => Err(TypeError::new(
                 format!("Type mismatch: cannot unify {} with {}", ty1, ty2),
@@ -501,7 +540,7 @@ impl TypeChecker {
             )),
         }
     }
-    
+
     /// Check if a type variable occurs in a type (occurs check)
     fn occurs_in(&self, var: &str, ty: &Type) -> bool {
         match ty {
@@ -523,7 +562,7 @@ impl TypeChecker {
             _ => false,
         }
     }
-    
+
     /// Apply a substitution to a type
     fn apply_subst(&self, subst: &Substitution, ty: Type) -> Type {
         ty.substitute(subst)
@@ -606,8 +645,7 @@ impl TypeChecker {
         let (ty, constraints) = self.infer_expr_hm(expr);
 
         // Unify constraints
-        let subst = self.unify(constraints)
-            .map_err(|e| vec![e])?;
+        let subst = self.unify(constraints).map_err(|e| vec![e])?;
 
         // Apply substitution to get final type
         let final_ty = self.apply_subst(&subst, ty);

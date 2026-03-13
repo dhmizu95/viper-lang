@@ -1,10 +1,10 @@
 // Socket module stubs for JIT - Phase 3
 // POSIX socket wrappers
 
-use std::net::{TcpListener, TcpStream, UdpSocket};
-use std::io::{Read, Write};
 use std::collections::HashMap;
-use std::sync::{Mutex, Arc};
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream, UdpSocket};
+use std::sync::{Arc, Mutex};
 
 lazy_static::lazy_static! {
     static ref SOCKET_REGISTRY: Mutex<HashMap<i64, Arc<Mutex<SocketHandle>>>> = Mutex::new(HashMap::new());
@@ -15,7 +15,7 @@ enum SocketHandle {
     TcpListener(TcpListener),
     TcpStream(TcpStream),
     Udp(UdpSocket),
-    None,  // Placeholder before connect
+    None, // Placeholder before connect
 }
 
 fn get_next_socket_id() -> i64 {
@@ -29,8 +29,9 @@ pub extern "C" fn vp_socket_create(family: i64, sock_type: i64, protocol: i64) -
     // Simplified: only support TCP for now
     let _ = family;
     let _ = protocol;
-    
-    if sock_type == 1 {  // SOCK_STREAM
+
+    if sock_type == 1 {
+        // SOCK_STREAM
         let id = get_next_socket_id();
         // Placeholder - actual socket created on connect
         SOCKET_REGISTRY.lock().unwrap().insert(id, Arc::new(Mutex::new(SocketHandle::None)));
@@ -45,14 +46,14 @@ pub extern "C" fn vp_socket_connect(sock_id: i64, host: *const i8, port: i64) ->
     if host.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(host);
         let host_str = match c_str.to_str() {
             Ok(s) => s,
             Err(_) => return -1,
         };
-        
+
         let addr = format!("{}:{}", host_str, port);
         match TcpStream::connect(&addr) {
             Ok(stream) => {
@@ -70,7 +71,7 @@ pub extern "C" fn vp_socket_send(sock_id: i64, data: *const i8, len: i64) -> i64
     if data.is_null() || len <= 0 {
         return -1;
     }
-    
+
     let registry = SOCKET_REGISTRY.lock().unwrap();
     if let Some(handle_arc) = registry.get(&sock_id) {
         let mut handle = handle_arc.lock().unwrap();
@@ -83,7 +84,7 @@ pub extern "C" fn vp_socket_send(sock_id: i64, data: *const i8, len: i64) -> i64
                 }
             }
         } else {
-            -1  // Socket not connected
+            -1 // Socket not connected
         }
     } else {
         -1
@@ -95,7 +96,7 @@ pub extern "C" fn vp_socket_recv(sock_id: i64, buffer: *mut i8, maxlen: i64) -> 
     if buffer.is_null() || maxlen <= 0 {
         return -1;
     }
-    
+
     let registry = SOCKET_REGISTRY.lock().unwrap();
     if let Some(handle_arc) = registry.get(&sock_id) {
         let mut handle = handle_arc.lock().unwrap();
@@ -108,7 +109,7 @@ pub extern "C" fn vp_socket_recv(sock_id: i64, buffer: *mut i8, maxlen: i64) -> 
                 }
             }
         } else {
-            -1  // Socket not connected
+            -1 // Socket not connected
         }
     } else {
         -1
@@ -127,14 +128,14 @@ pub extern "C" fn vp_socket_bind(sock_id: i64, host: *const i8, port: i64) -> i6
     if host.is_null() {
         return -1;
     }
-    
+
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(host);
         let host_str = match c_str.to_str() {
             Ok(s) => s,
             Err(_) => return -1,
         };
-        
+
         let addr = format!("{}:{}", host_str, port);
         match TcpListener::bind(&addr) {
             Ok(listener) => {
@@ -170,10 +171,10 @@ pub extern "C" fn vp_socket_accept(sock_id: i64) -> i64 {
                     let new_id = get_next_socket_id();
                     drop(handle);
                     drop(registry);
-                    SOCKET_REGISTRY.lock().unwrap().insert(
-                        new_id, 
-                        Arc::new(Mutex::new(SocketHandle::TcpStream(stream)))
-                    );
+                    SOCKET_REGISTRY
+                        .lock()
+                        .unwrap()
+                        .insert(new_id, Arc::new(Mutex::new(SocketHandle::TcpStream(stream))));
                     new_id
                 }
                 Err(_) => -1,
@@ -240,31 +241,51 @@ pub extern "C" fn vp_socket_fileno(sock_id: i64) -> i64 {
 
 // Constants
 #[no_mangle]
-pub extern "C" fn vp_socket_af_inet() -> i64 { 2 }
+pub extern "C" fn vp_socket_af_inet() -> i64 {
+    2
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_af_inet6() -> i64 { 10 }
+pub extern "C" fn vp_socket_af_inet6() -> i64 {
+    10
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_sock_stream() -> i64 { 1 }
+pub extern "C" fn vp_socket_sock_stream() -> i64 {
+    1
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_sock_dgram() -> i64 { 2 }
+pub extern "C" fn vp_socket_sock_dgram() -> i64 {
+    2
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_sol_socket() -> i64 { 1 }
+pub extern "C" fn vp_socket_sol_socket() -> i64 {
+    1
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_so_reuseaddr() -> i64 { 2 }
+pub extern "C" fn vp_socket_so_reuseaddr() -> i64 {
+    2
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_tcp_nodelay() -> i64 { 1 }
+pub extern "C" fn vp_socket_tcp_nodelay() -> i64 {
+    1
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_shut_rd() -> i64 { 0 }
+pub extern "C" fn vp_socket_shut_rd() -> i64 {
+    0
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_shut_wr() -> i64 { 1 }
+pub extern "C" fn vp_socket_shut_wr() -> i64 {
+    1
+}
 
 #[no_mangle]
-pub extern "C" fn vp_socket_shut_rdwr() -> i64 { 2 }
+pub extern "C" fn vp_socket_shut_rdwr() -> i64 {
+    2
+}

@@ -21,17 +21,13 @@ pub fn generate_user_main_call<'ctx>(
         .copied()
         .ok_or_else(|| "__user_main function not found".to_string())?;
 
-    let call_result = state
-        .builder
-        .build_call(user_main_func, &[], "user_main_call");
+    let call_result = state.builder.build_call(user_main_func, &[], "user_main_call");
 
     match call_result {
-        Ok(call_site) => {
-            match call_site.try_as_basic_value() {
-                inkwell::values::ValueKind::Basic(bv) => Ok(bv),
-                _ => Ok(state.ir_builder.i64_const(0).into()),
-            }
-        }
+        Ok(call_site) => match call_site.try_as_basic_value() {
+            inkwell::values::ValueKind::Basic(bv) => Ok(bv),
+            _ => Ok(state.ir_builder.i64_const(0).into()),
+        },
         Err(e) => crate::codegen::codegen_error(format!("Call to __user_main failed: {:?}", e)),
     }
 }

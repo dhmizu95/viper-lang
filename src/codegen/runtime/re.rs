@@ -23,12 +23,14 @@ pub fn declare_re_functions<'ctx>(
 
     // vp_re_match - Match at beginning of string
     // Signature: ViperMatch* vp_re_match(ViperPattern* pattern, const char* string, int64_t pos)
-    let re_match_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+    let re_match_type =
+        ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_re_match", re_match_type, None);
 
     // vp_re_search - Search anywhere in string
     // Signature: ViperMatch* vp_re_search(ViperPattern* pattern, const char* string, int64_t pos, int64_t endpos)
-    let re_search_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    let re_search_type = ptr_type
+        .fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_re_search", re_search_type, None);
 
     // vp_re_findall - Find all matches
@@ -43,7 +45,8 @@ pub fn declare_re_functions<'ctx>(
 
     // vp_re_sub - Substitute matches
     // Signature: char* vp_re_sub(ViperPattern* pattern, const char* repl, const char* string, int64_t count)
-    let re_sub_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+    let re_sub_type = ptr_type
+        .fn_type(&[ptr_type.into(), ptr_type.into(), ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_re_sub", re_sub_type, None);
 
     // vp_re_fullmatch - Full match check

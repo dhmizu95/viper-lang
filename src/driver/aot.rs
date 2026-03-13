@@ -39,8 +39,7 @@ pub fn compile_file_aot(
         println!("   PGO: {} mode", pgo_mode);
     }
 
-    let source = fs::read_to_string(input_path)
-        .map_err(ViperError::Io)?;
+    let source = fs::read_to_string(input_path).map_err(ViperError::Io)?;
 
     println!("   [1/4] Lexing...");
     let mut lexer = lexer::Lexer::new(&source);
@@ -113,7 +112,10 @@ pub fn compile_file_aot(
     // Report BigInt functions (they have special optimization handling)
     let bigint_funcs = codegen.bigint_functions();
     if !bigint_funcs.is_empty() {
-        println!("   ℹ BigInt functions (optnone applied): {}", bigint_funcs.iter().cloned().collect::<Vec<_>>().join(", "));
+        println!(
+            "   ℹ BigInt functions (optnone applied): {}",
+            bigint_funcs.iter().cloned().collect::<Vec<_>>().join(", ")
+        );
     }
 
     let module = codegen.module();
@@ -121,9 +123,9 @@ pub fn compile_file_aot(
     /* Emit LLVM IR to .ll file if requested */
     if emit_llvm {
         let ll_path = format!("{}.ll", module_name);
-        module
-            .print_to_file(&ll_path)
-            .map_err(|e| ViperError::driver(format!("Failed to write LLVM IR to '{}': {}", ll_path, e)))?;
+        module.print_to_file(&ll_path).map_err(|e| {
+            ViperError::driver(format!("Failed to write LLVM IR to '{}': {}", ll_path, e))
+        })?;
         println!("   ✓ Emitted LLVM IR: {}", ll_path);
     }
 
@@ -180,13 +182,21 @@ pub fn compile_file_aot(
         let context = Context::create();
         let opt_module =
             inkwell::module::Module::parse_bitcode_from_path(Path::new(&opt_bc), &context)
-                .map_err(|e| ViperError::driver(format!("Failed to load optimized bitcode '{}': {}", opt_bc, e)))?;
+                .map_err(|e| {
+                    ViperError::driver(format!(
+                        "Failed to load optimized bitcode '{}': {}",
+                        opt_bc, e
+                    ))
+                })?;
 
         // Emit optimized LLVM IR to .ll file if requested (shows optimized IR, not raw)
         if emit_llvm {
             let opt_ll_path = format!("{}.opt.ll", module_name);
             opt_module.print_to_file(&opt_ll_path).map_err(|e| {
-                ViperError::driver(format!("Failed to write optimized LLVM IR to '{}': {}", opt_ll_path, e))
+                ViperError::driver(format!(
+                    "Failed to write optimized LLVM IR to '{}': {}",
+                    opt_ll_path, e
+                ))
             })?;
             println!("   ✓ Emitted optimized LLVM IR: {}", opt_ll_path);
         }
@@ -216,8 +226,8 @@ pub fn emit_object_file(
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| ViperError::driver(format!("Failed to initialize native target: {}", e)))?;
 
-    let target =
-        Target::from_triple(&target_triple).map_err(|e| ViperError::driver(format!("Failed to get target: {}", e)))?;
+    let target = Target::from_triple(&target_triple)
+        .map_err(|e| ViperError::driver(format!("Failed to get target: {}", e)))?;
 
     // Map optimization level to LLVM optimization
     let llvm_opt = match opt_level {
@@ -279,7 +289,8 @@ pub fn link_with_gcc(
         }
     }
 
-    let runtime_path = runtime_path.ok_or_else(|| ViperError::driver("Runtime object files not found"))?;
+    let runtime_path =
+        runtime_path.ok_or_else(|| ViperError::driver("Runtime object files not found"))?;
 
     let mut args = vec![obj_path.to_string()];
 
@@ -319,26 +330,16 @@ pub fn link_with_gcc(
     // Adding both causes duplicate symbol errors (e.g., vp_print_str defined in both)
 
     // Add library path and libraries
-    args.extend_from_slice(&[
-        format!("-L{}", runtime_path),
-        "-lviper".to_string(),
-    ]);
+    args.extend_from_slice(&[format!("-L{}", runtime_path), "-lviper".to_string()]);
 
     // Add vendor GMP library path
     args.push("-Lvendor/gmp/lib".to_string());
 
     // Link libraries (GMP for BigInt support)
-    args.extend_from_slice(&[
-        "-lgmp".to_string(),
-        "-lm".to_string(),
-        "-lpthread".to_string(),
-    ]);
+    args.extend_from_slice(&["-lgmp".to_string(), "-lm".to_string(), "-lpthread".to_string()]);
 
     println!("   Linking with GCC...");
-        let output = std::process::Command::new("gcc")
-        .args(&args)
-        .output()
-            .map_err(ViperError::Io)?;
+    let output = std::process::Command::new("gcc").args(&args).output().map_err(ViperError::Io)?;
 
     if !output.status.success() {
         return Err(ViperError::driver(format!(
@@ -377,8 +378,7 @@ pub fn compile_file_optimized(input_path: &str) -> Result<()> {
     println!("🐍 Viper Compiler {} (AOT + opt)", env!("CARGO_PKG_VERSION"));
     println!("   Compiling: {}", input_path);
 
-    let source = fs::read_to_string(input_path)
-        .map_err(ViperError::Io)?;
+    let source = fs::read_to_string(input_path).map_err(ViperError::Io)?;
 
     println!("   [1/5] Lexing...");
     let mut lexer = lexer::Lexer::new(&source);

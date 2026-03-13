@@ -27,7 +27,12 @@ impl ExceptionInfo {
         }
     }
 
-    pub fn with_cause(exception_type: &str, message: &str, code: i64, cause: ExceptionInfo) -> Self {
+    pub fn with_cause(
+        exception_type: &str,
+        message: &str,
+        code: i64,
+        cause: ExceptionInfo,
+    ) -> Self {
         Self {
             exception_type: exception_type.to_string(),
             message: message.to_string(),
@@ -39,12 +44,7 @@ impl ExceptionInfo {
 
 impl Default for ExceptionInfo {
     fn default() -> Self {
-        Self {
-            exception_type: String::new(),
-            message: String::new(),
-            code: 0,
-            cause: None,
-        }
+        Self { exception_type: String::new(), message: String::new(), code: 0, cause: None }
     }
 }
 
@@ -67,13 +67,13 @@ fn cstr_to_str(ptr: *const i8) -> Option<&'static str> {
 pub extern "C" fn viper_raise_exception(exc_type: *const i8, message: *const i8) {
     let type_str = cstr_to_str(exc_type).unwrap_or("Exception");
     let msg_str = cstr_to_str(message).unwrap_or("");
-    
+
     let exc = ExceptionInfo::new(type_str, msg_str, 0);
-    
+
     CURRENT_EXCEPTION.with(|e| {
         *e.borrow_mut() = Some(exc);
     });
-    
+
     eprintln!("{}: {}", type_str, msg_str);
     std::process::exit(1);
 }
@@ -131,18 +131,16 @@ pub extern "C" fn viper_catch_exception(exc_type: *const i8) -> i8 {
         Some(s) => s,
         None => return 0,
     };
-    
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
-            None => 0,
-            Some(ref exc) => {
-                if exc.exception_type == type_str {
-                    1
-                } else if type_str == "Exception" {
-                    1
-                } else {
-                    0
-                }
+
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        None => 0,
+        Some(ref exc) => {
+            if exc.exception_type == type_str {
+                1
+            } else if type_str == "Exception" {
+                1
+            } else {
+                0
             }
         }
     })
@@ -151,29 +149,21 @@ pub extern "C" fn viper_catch_exception(exc_type: *const i8) -> i8 {
 /// Get the type of the current exception
 #[no_mangle]
 pub extern "C" fn viper_get_exception_type() -> *mut i8 {
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
-            None => ptr::null_mut(),
-            Some(ref exc) => {
-                CString::new(exc.exception_type.clone())
-                    .map(|c| c.into_raw())
-                    .unwrap_or(ptr::null_mut())
-            }
-        }
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        None => ptr::null_mut(),
+        Some(ref exc) => CString::new(exc.exception_type.clone())
+            .map(|c| c.into_raw())
+            .unwrap_or(ptr::null_mut()),
     })
 }
 
 /// Get the message of the current exception
 #[no_mangle]
 pub extern "C" fn viper_get_exception_message() -> *mut i8 {
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
-            None => ptr::null_mut(),
-            Some(ref exc) => {
-                CString::new(exc.message.clone())
-                    .map(|c| c.into_raw())
-                    .unwrap_or(ptr::null_mut())
-            }
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        None => ptr::null_mut(),
+        Some(ref exc) => {
+            CString::new(exc.message.clone()).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
         }
     })
 }
@@ -181,11 +171,9 @@ pub extern "C" fn viper_get_exception_message() -> *mut i8 {
 /// Get the error code of the current exception
 #[no_mangle]
 pub extern "C" fn viper_get_exception_code() -> i64 {
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
-            None => 0,
-            Some(ref exc) => exc.code,
-        }
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        None => 0,
+        Some(ref exc) => exc.code,
     })
 }
 
@@ -202,9 +190,9 @@ pub extern "C" fn viper_clear_exception() {
 pub extern "C" fn viper_set_exception(exc_type: *const i8, message: *const i8, code: i64) {
     let type_str = cstr_to_str(exc_type).unwrap_or("Exception");
     let msg_str = cstr_to_str(message).unwrap_or("");
-    
+
     let exc = ExceptionInfo::new(type_str, msg_str, code);
-    
+
     CURRENT_EXCEPTION.with(|e| {
         *e.borrow_mut() = Some(exc);
     });
@@ -241,40 +229,28 @@ pub extern "C" fn viper_format_exception() -> *mut i8 {
 /// Get the cause exception type (for exception chaining)
 #[no_mangle]
 pub extern "C" fn viper_get_exception_cause_type() -> *mut i8 {
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        None => ptr::null_mut(),
+        Some(ref exc) => match &exc.cause {
             None => ptr::null_mut(),
-            Some(ref exc) => {
-                match &exc.cause {
-                    None => ptr::null_mut(),
-                    Some(cause) => {
-                        CString::new(cause.exception_type.clone())
-                            .map(|c| c.into_raw())
-                            .unwrap_or(ptr::null_mut())
-                    }
-                }
-            }
-        }
+            Some(cause) => CString::new(cause.exception_type.clone())
+                .map(|c| c.into_raw())
+                .unwrap_or(ptr::null_mut()),
+        },
     })
 }
 
 /// Get the cause exception message (for exception chaining)
 #[no_mangle]
 pub extern "C" fn viper_get_exception_cause_message() -> *mut i8 {
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        None => ptr::null_mut(),
+        Some(ref exc) => match &exc.cause {
             None => ptr::null_mut(),
-            Some(ref exc) => {
-                match &exc.cause {
-                    None => ptr::null_mut(),
-                    Some(cause) => {
-                        CString::new(cause.message.clone())
-                            .map(|c| c.into_raw())
-                            .unwrap_or(ptr::null_mut())
-                    }
-                }
+            Some(cause) => {
+                CString::new(cause.message.clone()).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
             }
-        }
+        },
     })
 }
 
@@ -296,15 +272,15 @@ pub extern "C" fn viper_exception_matches(actual_type: *const i8, expected_type:
         Some(s) => s,
         None => return 0,
     };
-    
+
     if actual == expected {
         return 1;
     }
-    
+
     if expected == "Exception" {
         return 1;
     }
-    
+
     0
 }
 
@@ -321,24 +297,20 @@ pub extern "C" fn viper_free_string(s: *mut i8) {
 /// Check if there is a current exception
 #[no_mangle]
 pub extern "C" fn viper_has_exception() -> i8 {
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
-            Some(_) => 1,
-            None => 0,
-        }
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        Some(_) => 1,
+        None => 0,
     })
 }
 
 /// Re-raise the current exception
 #[no_mangle]
 pub extern "C" fn viper_reraise_exception() {
-    CURRENT_EXCEPTION.with(|e| {
-        match *e.borrow() {
-            None => eprintln!("No active exception to re-raise"),
-            Some(ref exc) => eprintln!("{}: {}", exc.exception_type, exc.message),
-        }
+    CURRENT_EXCEPTION.with(|e| match *e.borrow() {
+        None => eprintln!("No active exception to re-raise"),
+        Some(ref exc) => eprintln!("{}: {}", exc.exception_type, exc.message),
     });
-    
+
     std::process::exit(1);
 }
 
@@ -352,14 +324,12 @@ pub extern "C" fn viper_exception_to_string(
 ) -> *mut i8 {
     let type_str = cstr_to_str(exc_type).unwrap_or("Exception");
     let msg_str = cstr_to_str(message).unwrap_or("");
-    
+
     let result = if code != 0 {
         format!("{} [{}]: {}", type_str, code, msg_str)
     } else {
         format!("{}: {}", type_str, msg_str)
     };
-    
-    CString::new(result)
-        .map(|c| c.into_raw())
-        .unwrap_or(ptr::null_mut())
+
+    CString::new(result).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
 }

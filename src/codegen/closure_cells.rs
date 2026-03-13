@@ -1,7 +1,7 @@
 //! Closure Cell Code Generation
 //!
 //! This module handles the creation and access of closure cells for nonlocal variables.
-//! 
+//!
 //! # Closure Cell Structure
 //!
 //! A closure cell is a heap-allocated structure containing:
@@ -29,10 +29,10 @@
 //!    }
 //!    ```
 
+use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::builder::Builder;
-use inkwell::values::{PointerValue, BasicValueEnum};
+use inkwell::values::{BasicValueEnum, PointerValue};
 
 /// Declare closure cell runtime functions
 pub fn declare_closure_cell_functions<'ctx>(
@@ -103,19 +103,21 @@ pub fn create_closure_cell<'ctx>(
     let i8_ptr_type = context.ptr_type(inkwell::AddressSpace::default());
 
     // Create the cell
-    let call_result = builder
-        .build_call(create_fn, &[], "closure_cell")
-        .expect("call closure cell create");
-    
+    let call_result =
+        builder.build_call(create_fn, &[], "closure_cell").expect("call closure cell create");
+
     let cell_ptr = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-        _ => return crate::codegen::codegen_error("closure cell create didn't return a value".to_string()),
+        _ => {
+            return crate::codegen::codegen_error(
+                "closure cell create didn't return a value".to_string(),
+            )
+        }
     };
 
     // Cast the value pointer to i8* for storage in the cell
-    let value_ptr_cast = builder
-        .build_pointer_cast(value_ptr, i8_ptr_type, "cast_to_i8")
-        .expect("cast value ptr");
+    let value_ptr_cast =
+        builder.build_pointer_cast(value_ptr, i8_ptr_type, "cast_to_i8").expect("cast value ptr");
 
     // Set the value pointer in the cell
     let set_fn = module
@@ -141,13 +143,16 @@ pub fn get_closure_cell_value<'ctx>(
         .get_function("vp_closure_cell_get")
         .ok_or("vp_closure_cell_get function not declared")?;
 
-    let call_result = builder
-        .build_call(get_fn, &[cell_ptr.into()], "cell_get")
-        .expect("call closure cell get");
-    
+    let call_result =
+        builder.build_call(get_fn, &[cell_ptr.into()], "cell_get").expect("call closure cell get");
+
     let value_ptr_i8 = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-        _ => return crate::codegen::codegen_error("closure cell get didn't return a value".to_string()),
+        _ => {
+            return crate::codegen::codegen_error(
+                "closure cell get didn't return a value".to_string(),
+            )
+        }
     };
 
     // Cast back to the actual value type
@@ -166,11 +171,15 @@ pub fn load_from_closure_cell<'ctx>(
     cell_ptr: PointerValue<'ctx>,
     value_type: inkwell::types::BasicTypeEnum<'ctx>,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
-    let value_ptr = get_closure_cell_value(context, module, builder, cell_ptr, context.ptr_type(inkwell::AddressSpace::default()))?;
-    
-    let value = builder
-        .build_load(value_type, value_ptr, "cell_load")
-        .expect("load from cell");
+    let value_ptr = get_closure_cell_value(
+        context,
+        module,
+        builder,
+        cell_ptr,
+        context.ptr_type(inkwell::AddressSpace::default()),
+    )?;
+
+    let value = builder.build_load(value_type, value_ptr, "cell_load").expect("load from cell");
 
     Ok(value)
 }
@@ -184,11 +193,15 @@ pub fn store_to_closure_cell<'ctx>(
     value: BasicValueEnum<'ctx>,
 ) -> crate::codegen::Result<()> {
     let _value_type = value.get_type();
-    let value_ptr = get_closure_cell_value(context, module, builder, cell_ptr, context.ptr_type(inkwell::AddressSpace::default()))?;
-    
-    builder
-        .build_store(value_ptr, value)
-        .expect("store to cell");
+    let value_ptr = get_closure_cell_value(
+        context,
+        module,
+        builder,
+        cell_ptr,
+        context.ptr_type(inkwell::AddressSpace::default()),
+    )?;
+
+    builder.build_store(value_ptr, value).expect("store to cell");
 
     Ok(())
 }
@@ -203,9 +216,7 @@ pub fn free_closure_cell<'ctx>(
         .get_function("vp_closure_cell_free")
         .ok_or("vp_closure_cell_free function not declared")?;
 
-    builder
-        .build_call(free_fn, &[cell_ptr.into()], "")
-        .expect("call closure cell free");
+    builder.build_call(free_fn, &[cell_ptr.into()], "").expect("call closure cell free");
 
     Ok(())
 }
