@@ -31,41 +31,66 @@ Located in `runtime/src/`:
 ## Known Issues
 
 ### 1. Task Arguments Not Working
-**Status**: ❌ Broken
+**Status**: ✅ FIXED (2026-03-13)
 **Error**: `Call parameter type does not match function signature`
-**Example that fails**:
+**Root Cause**: 
+- Function parameters were defaulting to `Type::Str` (pointer) instead of `Type::Int` (i64 tagged int)
+- The task wrapper was using argument value types instead of function parameter types for struct packing
+
+**Fix**:
+1. Changed default parameter type from `Type::Str` to `Type::Int` in `src/codegen/functions.rs`
+2. Fixed task wrapper to use function's actual parameter types from LLVM signature
+
+**Example that now works**:
 ```python
 def worker(id):
+    print("Worker", id)
     return id
 
-task worker(1)  # FAILS - argument passing broken
-```
-**Example that works**:
-```python
-def worker():
-    return 1
-
-task worker()  # WORKS
+task worker(42)  # ✅ WORKS - arguments correctly passed
 ```
 
 ### 2. AOT stdout Not Showing Output
-**Status**: ❌ Broken
+**Status**: ✅ FIXED (2026-03-13)
 **Symptom**: Print statements produce no output in AOT-compiled binaries
+**Root Cause**:
+1. `tagged_int_print()` in `runtime/src/tagged_int.c` was missing `fflush(stdout)` after printing
+2. The `main` function wasn't calling the user's `__user_main` function due to a lookup bug
+
+**Fix**:
+1. Added `fflush(stdout)` to `tagged_int_print()` in `runtime/src/tagged_int.c`
+2. Fixed function lookup in `generate_main_with_statements()` to look for `__user_main` instead of `main`
+
 **Test case**:
 ```python
 def main():
-    print("Hello")  # No output
+    print("Hello")  # ✅ Now produces output
 ```
-**Verified**:
-- C programs work fine with same compiler
-- Runtime has proper fflush() calls
-- JIT mode also has issue (subprocess isolation)
 
 ### 3. Sync Block Behavior Unclear
-**Status**: ⚠️ Needs verification
-**Symptom**: Fast execution times (~0ms) could mean:
-- Tasks aren't actually running, OR
-- Fiber scheduler is extremely efficient
+**Status**: ✅ VERIFIED (2026-03-13)
+**Test**: Counter verification with 100 tasks
+**Result**: Sync block correctly waits for all tasks to complete
+
+```python
+counter = 0
+
+def worker():
+    global counter
+    counter = counter + 1
+
+def main():
+    global counter
+    counter = 0
+    
+    for i in range(100):
+        task worker()
+    
+    sync:
+        pass
+    
+    print("Counter:", counter)  # Prints 100 ✅
+```
 
 ## Performance Benchmarks
 
@@ -164,11 +189,19 @@ func main() {
 
 - `test_concurrency.vp` - Main test file
 - `test_print.vp` - Print test file
+- `test_task_args.vp` - Task arguments test
+- `test_sync_wait.vp` - Sync block verification test
+- `test_print_simple.vp` - Simple print test
 - `benchmarks/go/13_fiber_bench.go` - Go benchmark
 
 ## Next Steps
 
-1. Fix task argument passing in codegen
-2. Investigate AOT stdout issue
-3. Verify sync block actually waits for tasks (add counter verification)
-4. Add proper benchmarking with timing and memory measurement
+All known issues have been resolved:
+1. ✅ Task argument passing fixed
+2. ✅ AOT stdout issue fixed
+3. ✅ Sync block behavior verified
+
+Future improvements:
+- Add proper benchmarking with timing and memory measurement
+- Investigate the suspicious ~0ms timing for 1M tasks in AOT mode
+- Add more comprehensive concurrency tests

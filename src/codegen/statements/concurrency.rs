@@ -1,7 +1,6 @@
 use super::*;
-use crate::ast::{Expr, Stmt, Type};
+use crate::ast::{Expr, Stmt};
 use crate::codegen::state::CodeGenState;
-use crate::utils::mangle_function_name;
 
 pub(crate) fn generate_sync<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -28,46 +27,41 @@ pub(crate) fn generate_task<'ctx>(
     // Task spawn - submit function to thread pool for parallel execution
     if let Expr::Call { func, args, .. } = call {
         if let Expr::Ident(name, _) = func.as_ref() {
-            // Evaluate all arguments first to get their types
+            // Evaluate all arguments first to get their LLVM values
             let mut arg_values = Vec::new();
             for a in args {
                 let v = crate::codegen::expressions::generate_expr(state, a)?;
                 arg_values.push(v);
             }
 
-            // Compute mangled name from argument types
-            let arg_types: Vec<Type> = arg_values
+            // First, try to find the function by looking for any match with the name prefix
+            // We need to find the actual function to get its parameter types
+            let func_val = state
+                .functions
                 .iter()
-                .map(|v| {
-                    // Map LLVM type back to Viper Type for mangling
-                    use inkwell::values::BasicValueEnum;
-                    match v {
-                        BasicValueEnum::IntValue(_) => Type::I64,
-                        BasicValueEnum::FloatValue(_) => Type::F64,
-                        BasicValueEnum::PointerValue(_) => Type::Str, // Simplified
-                        _ => Type::I64,                               // Default
-                    }
-                })
-                .collect();
-
-            let mangled_name = mangle_function_name(name, &arg_types);
-
-            // Look up function with mangled name (with fallback)
-            let func_val = if let Some(&f) = state.functions.get(&mangled_name) {
-                Some(f)
-            } else {
-                // Fallback: find any function that starts with the name
-                state
-                    .functions
-                    .iter()
-                    .find(|(k, _)| k.starts_with(&format!("{}_", name)))
-                    .map(|(_, v)| *v)
-            };
+                .find(|(k, _)| k.starts_with(&format!("{}_", name)) || k == &name)
+                .map(|(_, v)| *v);
 
             if let Some(func_val) = func_val {
-                // Create a struct type to pack all arguments
-                let arg_types: Vec<_> = arg_values.iter().map(|v| v.get_type().into()).collect();
-                let struct_type = state.context.struct_type(&arg_types, false);
+                // Get the actual parameter types from the function signature
+                let fn_type = func_val.get_type();
+                let param_types = fn_type.get_param_types();
+                
+                // Verify argument count matches
+                if param_types.len() != arg_values.len() {
+                    return crate::codegen::codegen_error(format!(
+                        "Function {} expects {} arguments but got {}",
+                        name,
+                        param_types.len(),
+                        arg_values.len()
+                    ));
+                }
+
+                // Use the argument value types directly for struct creation
+                // These should match the function's parameter types
+                let llvm_arg_types: Vec<_> = arg_values.iter().map(|v| v.get_type()).collect();
+                let llvm_arg_types_ref: Vec<_> = llvm_arg_types.iter().copied().collect();
+                let struct_type = state.context.struct_type(&llvm_arg_types_ref, false);
 
                 // Generate wrapper function: void wrapper(void* args)
                 let void_type = state.context.void_type();
@@ -83,13 +77,14 @@ pub(crate) fn generate_task<'ctx>(
                 state.builder.position_at_end(wrapper_entry);
                 let arg_ptr = wrapper_fn.get_first_param().unwrap().into_pointer_value();
 
-                // Unpack arguments from the struct
+                // Unpack arguments from the struct using the argument value types
                 let mut call_args = Vec::new();
                 for (i, arg_val) in arg_values.iter().enumerate() {
                     let gep = state
                         .builder
                         .build_struct_gep(struct_type, arg_ptr, i as u32, "struct_gep")
                         .unwrap();
+                    // Load using the same type as the original argument value
                     let val = state.builder.build_load(arg_val.get_type(), gep, "arg").unwrap();
                     call_args.push(val.into());
                 }

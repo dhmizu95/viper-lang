@@ -865,6 +865,7 @@ void tagged_int_print(TaggedInt value) {
     if (str) {
         const char* c_str = vp_str_data_inline(str);
         printf("%s", c_str);
+        fflush(stdout);
         vp_str_free(str);
     }
 }

@@ -313,7 +313,7 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 Type::List(elem_type) => {
                     // If element type is Infer, try to determine from variable name
                     if matches!(elem_type.as_ref(), Type::Infer) {
-                        if let Expr::Ident(name, _) = obj {
+                        if let Expr::Ident(name, _) = obj.as_ref() {
                             // Heuristic: common float list variable names in benchmarks
                             if matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass") {
                                 return Type::F64;

@@ -986,7 +986,8 @@ impl<'ctx> CodeGen<'ctx> {
         let main_type = self.context.i64_type().fn_type(&[], false);
 
         // Check if user defined main and save it
-        let user_main_func = self.functions.remove("main");
+        // Note: main was already declared as __user_main in define_all_functions
+        let user_main_func = self.functions.remove("__user_main");
         let has_user_main = user_main_func.is_some();
 
         // Detect whether the module-level statements already call main() explicitly

@@ -158,8 +158,9 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return Type::BigInt;
             }
 
-            // Default to Str (pointer) for unannotated parameters to handle string/reference types
-            Type::Str
+            // Default to Int (tagged integer) for unannotated parameters
+            // This is the most common case in Viper code
+            Type::Int
         })
         .collect()
 }
@@ -553,8 +554,8 @@ pub fn declare_function<'ctx>(
     let param_types = if let Some(body) = body {
         infer_param_types_from_body(params, body)
     } else {
-        // Default to Str (pointer) for unannotated parameters to handle string/reference types
-        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Str)).collect()
+        // Default to Int (tagged integer) for unannotated parameters
+        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Int)).collect()
     };
 
     let param_llvm_types: Vec<_> = param_types
@@ -612,7 +613,7 @@ pub fn declare_function_with_closure<'ctx>(
     let param_types: Vec<Type> = if let Some(body) = body {
         infer_param_types_from_body(params, body)
     } else {
-        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Str)).collect()
+        params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::Int)).collect()
     };
 
     // Build LLVM parameter types for regular params
