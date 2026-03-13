@@ -46,8 +46,10 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Verify the generated code
-    pub fn verify(&self) -> Result<(), String> {
-        self.module.verify().map_err(|e| e.to_string())
+    pub fn verify(&self) -> crate::codegen::Result<()> {
+        self.module
+            .verify()
+            .map_err(|e| crate::codegen::codegen_err(e.to_string()))
     }
 
     /// Print the generated IR

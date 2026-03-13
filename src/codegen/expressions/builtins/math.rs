@@ -13,9 +13,9 @@ pub fn generate_math_builtin<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     name: &str,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
+        return crate::codegen::codegen_error(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
     }
 
     // Use the same BigInt detection as operators
@@ -57,7 +57,7 @@ pub fn generate_math_builtin<'ctx>(
 
     let func_name = match name {
         "abs" => "vp_math_abs",
-        _ => return Err(format!("Unknown math builtin: {}", name)),
+        _ => return crate::codegen::codegen_error(format!("Unknown math builtin: {}", name)),
     };
 
     let math_func = state
@@ -75,9 +75,9 @@ pub fn generate_math_float_func<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     name: &str,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err(format!("{}() requires at least 1 argument", name));
+        return crate::codegen::codegen_error(format!("{}() requires at least 1 argument", name));
     }
 
     // Get the first argument and convert to float
@@ -90,7 +90,7 @@ pub fn generate_math_float_func<'ctx>(
             .build_signed_int_to_float(arg_val.into_int_value(), state.context.f64_type(), "int_to_float")
             .expect("int to float conversion")
     } else {
-        return Err(format!("{}() requires numeric argument", name));
+        return crate::codegen::codegen_error(format!("{}() requires numeric argument", name));
     };
 
     // Handle special cases
@@ -146,7 +146,7 @@ pub fn generate_math_float_func<'ctx>(
             state.ir_builder.build_call(state.builder, func, &[arg_float.into()], "ceil_result")
         }
         _ => {
-            return Err(format!("Unknown math function: {}", name));
+            return crate::codegen::codegen_error(format!("Unknown math function: {}", name));
         }
     };
 
@@ -157,12 +157,12 @@ pub fn generate_math_float_func<'ctx>(
 pub fn generate_math_constant<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     name: &str,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let value = match name {
         "pi" => std::f64::consts::PI,
         "e" => std::f64::consts::E,
         "tau" => std::f64::consts::TAU,
-        _ => return Err(format!("Unknown math constant: {}", name)),
+        _ => return crate::codegen::codegen_error(format!("Unknown math constant: {}", name)),
     };
     Ok(state.ir_builder.f64_const(value).into())
 }

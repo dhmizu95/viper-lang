@@ -7,7 +7,7 @@ use inkwell::module::Module;
 pub fn declare_runtime_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     super::print::declare_print_functions(context, module)?;
     super::lists::declare_list_functions(context, module)?;
     super::dicts::declare_dict_functions(context, module)?;
@@ -34,7 +34,7 @@ pub fn declare_runtime_functions<'ctx>(
 fn declare_panic_function<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let fn_type = context.void_type().fn_type(
         &[context.ptr_type(inkwell::AddressSpace::default()).into()],
         false,

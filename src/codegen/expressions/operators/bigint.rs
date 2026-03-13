@@ -18,7 +18,7 @@ pub fn generate_bigint_binop<'ctx>(
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Auto-promote i64 to BigInt if needed
     let lhs_ptr = if lhs.is_int_value() {
         promote_to_bigint(state, lhs)?
@@ -312,7 +312,7 @@ pub fn generate_bigint_binop<'ctx>(
             
             Ok(result_ptr.into())
         }
-        _ => Err(format!("Unsupported BigInt operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported BigInt operator: {:?}", op)),
     }
 }
 
@@ -321,7 +321,7 @@ pub fn generate_bigint_unary<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     op: &UnaryOp,
     operand: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let operand_ptr = operand.into_pointer_value();
 
     match op {
@@ -375,7 +375,7 @@ pub fn generate_bigint_unary<'ctx>(
             
             Ok(result.into())
         }
-        _ => Err(format!("Unsupported BigInt unary operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported BigInt unary operator: {:?}", op)),
     }
 }
 
@@ -383,7 +383,7 @@ pub fn generate_bigint_unary<'ctx>(
 /// Uses temp allocation (ref_count=0) since the result will be immediately assigned
 fn initialize_bigint_result<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
-) -> Result<inkwell::values::PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<inkwell::values::PointerValue<'ctx>> {
     let from_i64_temp_func = state
         .module
         .get_function("vp_bigint_from_i64_temp")
@@ -402,7 +402,7 @@ fn initialize_bigint_result<'ctx>(
 fn promote_to_bigint<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     val: BasicValueEnum<'ctx>,
-) -> Result<inkwell::values::PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<inkwell::values::PointerValue<'ctx>> {
     let from_i64_func = state
         .module
         .get_function("vp_bigint_from_i64")

@@ -6,7 +6,7 @@ pub fn generate_str_concat<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let str_concat = state
         .module
         .get_function("vp_str_concat")

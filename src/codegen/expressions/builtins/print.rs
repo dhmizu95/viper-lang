@@ -37,7 +37,7 @@ fn is_bigint_expr_for_print(expr: &Expr, state: &CodeGenState) -> bool {
 pub fn generate_print_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
         let newline_func = state
             .module
@@ -243,7 +243,7 @@ pub fn generate_print_call<'ctx>(
                 .ok_or_else(|| "vp_print_f64 not declared".to_string())?;
             state.builder.build_call(print_func, &[val.into()], "print_f64").expect("vp_print_f64");
         } else {
-            return Err(format!("print() does not support type {:?}", val.get_type()));
+            return crate::codegen::codegen_error(format!("print() does not support type {:?}", val.get_type()));
         }
 
         // Add space between arguments (but not after the last one)
@@ -282,7 +282,7 @@ pub fn generate_print_call<'ctx>(
 pub fn generate_exit_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Get exit code (default 0)
     let exit_code = if args.is_empty() {
         state.ir_builder.i64_const(0)
@@ -291,7 +291,7 @@ pub fn generate_exit_call<'ctx>(
         if val.is_int_value() {
             val.into_int_value()
         } else {
-            return Err("exit() requires an integer argument".to_string());
+            return crate::codegen::codegen_error("exit() requires an integer argument".to_string());
         }
     };
 

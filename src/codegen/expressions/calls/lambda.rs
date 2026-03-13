@@ -11,7 +11,7 @@ pub fn generate_lambda<'ctx>(
     params: &[String],
     body: &Expr,
     span: crate::utils::Span,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // We assume i64 for all lambda params and return type for now
     let i64_type = state.context.i64_type();
     let mut param_types = Vec::new();
@@ -53,7 +53,7 @@ pub fn generate_lambda<'ctx>(
     let body_int = if body_val.is_int_value() {
         body_val.into_int_value()
     } else {
-        return Err("Lambda must return int value currently".to_string());
+        return crate::codegen::codegen_error("Lambda must return int value currently".to_string());
     };
     state.builder.build_return(Some(&body_int)).expect("return");
 

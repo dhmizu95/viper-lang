@@ -11,9 +11,9 @@ use crate::codegen::expressions::core::generate_expr;
 pub fn generate_len_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("len() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("len() takes exactly 1 argument, got {}", args.len()));
     }
 
     let obj_expr = &args[0];

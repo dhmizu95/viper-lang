@@ -20,7 +20,7 @@ pub fn generate_index<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     obj: &Expr,
     index: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let obj_val = generate_expr(state, obj)?;
     let index_val = generate_expr(state, index)?;
 
@@ -74,14 +74,14 @@ pub fn generate_index<'ctx>(
                             if let Type::Tuple(element_types) = var_type {
                                 element_types.len() as i64
                             } else {
-                                return Err("Tuple variable has non-tuple type".to_string());
+                                return crate::codegen::codegen_error("Tuple variable has non-tuple type".to_string());
                             }
                         } else {
-                            return Err("Tuple variable type not found".to_string());
+                            return crate::codegen::codegen_error("Tuple variable type not found".to_string());
                         }
                     },
                     Expr::Tuple { elements, .. } => elements.len() as i64,
-                    _ => return Err("Tuple size unknown".to_string()),
+                    _ => return crate::codegen::codegen_error("Tuple size unknown".to_string()),
                 };
 
                 // Convert negative index to positive
@@ -92,7 +92,10 @@ pub fn generate_index<'ctx>(
                 };
 
                 if actual_index < 0 || actual_index >= tuple_size {
-                    return Err(format!("Tuple index {} out of range (size {})", const_index, tuple_size));
+                    return crate::codegen::codegen_error(format!(
+                        "Tuple index {} out of range (size {})",
+                        const_index, tuple_size
+                    ));
                 }
             }
         }

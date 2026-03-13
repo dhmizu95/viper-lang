@@ -11,7 +11,7 @@ pub fn generate_super_method_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     method_name: &str,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Get the current class from state (set when generating class methods)
     let class_name = state.current_class.clone()
         .ok_or_else(|| "super() can only be used inside a class method".to_string())?;
@@ -65,6 +65,6 @@ pub fn generate_super_method_call<'ctx>(
 
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
-        Err(format!("Parent method '{}' not found", method_name))
+        crate::codegen::codegen_error(format!("Parent method '{}' not found", method_name))
     }
 }

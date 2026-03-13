@@ -39,7 +39,7 @@ pub(crate) fn generate_declare<'ctx>(
     mutable: bool,
     value: &Option<Expr>,
     type_ann: &Option<Type>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     if let Some(expr) = value {
         let mut val = crate::codegen::expressions::generate_expr(state, expr)?;
 
@@ -254,7 +254,7 @@ pub(crate) fn generate_declare<'ctx>(
 pub(crate) fn generate_global<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     names: &[String],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // The 'global' keyword marks variables as referring to module-level scope
     // We need to track these so that assignments use the global variable
     // For now, we just ensure the variables exist in global_constants
@@ -276,7 +276,7 @@ pub(crate) fn generate_global<'ctx>(
 pub(crate) fn generate_nonlocal<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     names: &[String],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // The 'nonlocal' keyword marks variables as referring to enclosing (non-global) scope
     // This is used in nested functions to modify variables from the outer function
     // 
@@ -321,7 +321,7 @@ pub(crate) fn generate_const<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     name: &str,
     value: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let val = crate::codegen::expressions::generate_expr(state, value)?;
     let ty = val.get_type();
 
@@ -340,7 +340,7 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
     value: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Generate the value expression
     let val = crate::codegen::expressions::generate_expr(state, value)?;
 
@@ -349,7 +349,7 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
     if let Expr::Tuple { elements: value_elements, .. } = value {
         // Unpacking from a tuple literal
         if elements.len() != value_elements.len() {
-            return Err(format!(
+            return crate::codegen::codegen_error(format!(
                 "Tuple unpacking error: expected {} values, got {}",
                 elements.len(),
                 value_elements.len()
@@ -392,16 +392,16 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
                 state.builder.build_store(alloca, elem_val).expect("store");
                 state.variables.insert(name.clone(), VarInfo::new_stack(alloca, var_type));
             } else {
-                return Err("Tuple unpacking only supports simple variables".to_string());
+                return crate::codegen::codegen_error("Tuple unpacking only supports simple variables".to_string());
             }
         }
     } else if val.is_pointer_value() {
         // Unpacking from a function call or other expression
         // For now, we'll handle this by extracting elements via GEP if it's a struct
         // This is a simplified implementation - full support would need more work
-        return Err("Tuple unpacking from non-literal tuples not yet fully supported".to_string());
+        return crate::codegen::codegen_error("Tuple unpacking from non-literal tuples not yet fully supported".to_string());
     } else {
-        return Err("Tuple unpacking requires a tuple value".to_string());
+        return crate::codegen::codegen_error("Tuple unpacking requires a tuple value".to_string());
     }
 
     Ok(())

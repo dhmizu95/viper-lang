@@ -9,7 +9,7 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_input_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let prompt_val = if args.is_empty() {
         state.ir_builder.string_const(state.module, "").into()
     } else {

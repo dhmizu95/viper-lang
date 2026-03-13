@@ -15,7 +15,7 @@ pub fn generate_slice<'ctx>(
     start: &Option<Box<Expr>>,
     end: &Option<Box<Expr>>,
     step: &Option<Box<Expr>>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let obj_val = generate_expr(state, obj)?;
 
     // Check if this is a string
@@ -135,7 +135,7 @@ pub fn generate_assignment_expr<'ctx>(
     target: &Expr,
     value: &Expr,
     _span: crate::utils::Span,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Generate code for the value expression
     let value_val = generate_expr(state, value)?;
 
@@ -172,7 +172,7 @@ pub fn generate_assignment_expr<'ctx>(
                         state.builder.build_store(*value_ptr, value_val)
                             .map_err(|e| format!("Failed to store to closure cell: {:?}", e))?;
                     } else {
-                        return Err("Closure cell missing value pointer".to_string());
+                        return crate::codegen::codegen_error("Closure cell missing value pointer".to_string());
                     }
                 }
             }
@@ -192,7 +192,7 @@ pub fn generate_assignment_expr<'ctx>(
         // Return the value (walrus operator returns the assigned value)
         Ok(value_val)
     } else {
-        Err("Assignment expression target must be an identifier".to_string())
+        crate::codegen::codegen_error("Assignment expression target must be an identifier".to_string())
     }
 }
 
@@ -204,7 +204,7 @@ pub fn generate_assignment_expr<'ctx>(
 pub fn generate_list_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // list() with no args returns empty list
     if args.is_empty() {
         let list_func = state
@@ -218,7 +218,7 @@ pub fn generate_list_call<'ctx>(
     }
 
     if args.len() > 1 {
-        return Err(format!("list() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("list() takes at most 1 argument, got {}", args.len()));
     }
 
     let arg = &args[0];
@@ -326,7 +326,7 @@ pub fn generate_list_call<'ctx>(
 pub fn generate_tuple_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // tuple() with no args returns empty tuple
     if args.is_empty() {
         // Create empty list and convert to tuple (simplified)
@@ -341,7 +341,7 @@ pub fn generate_tuple_call<'ctx>(
     }
 
     if args.len() > 1 {
-        return Err(format!("tuple() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("tuple() takes at most 1 argument, got {}", args.len()));
     }
 
     let arg = &args[0];
@@ -414,7 +414,7 @@ pub fn generate_tuple_call<'ctx>(
 pub fn generate_set_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // set() with no args returns empty set
     if args.is_empty() {
         // Create empty set (using list as placeholder for now)
@@ -429,7 +429,7 @@ pub fn generate_set_call<'ctx>(
     }
 
     if args.len() > 1 {
-        return Err(format!("set() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("set() takes at most 1 argument, got {}", args.len()));
     }
 
     let arg = &args[0];

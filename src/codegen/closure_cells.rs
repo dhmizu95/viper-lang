@@ -38,7 +38,7 @@ use inkwell::values::{PointerValue, BasicValueEnum};
 pub fn declare_closure_cell_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let void_type = context.void_type();
     let _i8_type = context.i8_type();
     let i8_ptr_type = context.ptr_type(inkwell::AddressSpace::default());
@@ -95,7 +95,7 @@ pub fn create_closure_cell<'ctx>(
     builder: &Builder<'ctx>,
     value_ptr: PointerValue<'ctx>,
     _var_name: &str,
-) -> Result<PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<PointerValue<'ctx>> {
     let create_fn = module
         .get_function("vp_closure_cell_create")
         .ok_or("vp_closure_cell_create function not declared")?;
@@ -109,7 +109,7 @@ pub fn create_closure_cell<'ctx>(
     
     let cell_ptr = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-        _ => return Err("closure cell create didn't return a value".to_string()),
+        _ => return crate::codegen::codegen_error("closure cell create didn't return a value".to_string()),
     };
 
     // Cast the value pointer to i8* for storage in the cell
@@ -136,7 +136,7 @@ pub fn get_closure_cell_value<'ctx>(
     builder: &Builder<'ctx>,
     cell_ptr: PointerValue<'ctx>,
     value_type: inkwell::types::PointerType<'ctx>,
-) -> Result<PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<PointerValue<'ctx>> {
     let get_fn = module
         .get_function("vp_closure_cell_get")
         .ok_or("vp_closure_cell_get function not declared")?;
@@ -147,7 +147,7 @@ pub fn get_closure_cell_value<'ctx>(
     
     let value_ptr_i8 = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-        _ => return Err("closure cell get didn't return a value".to_string()),
+        _ => return crate::codegen::codegen_error("closure cell get didn't return a value".to_string()),
     };
 
     // Cast back to the actual value type
@@ -165,7 +165,7 @@ pub fn load_from_closure_cell<'ctx>(
     builder: &Builder<'ctx>,
     cell_ptr: PointerValue<'ctx>,
     value_type: inkwell::types::BasicTypeEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let value_ptr = get_closure_cell_value(context, module, builder, cell_ptr, context.ptr_type(inkwell::AddressSpace::default()))?;
     
     let value = builder
@@ -182,7 +182,7 @@ pub fn store_to_closure_cell<'ctx>(
     builder: &Builder<'ctx>,
     cell_ptr: PointerValue<'ctx>,
     value: BasicValueEnum<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let _value_type = value.get_type();
     let value_ptr = get_closure_cell_value(context, module, builder, cell_ptr, context.ptr_type(inkwell::AddressSpace::default()))?;
     
@@ -198,7 +198,7 @@ pub fn free_closure_cell<'ctx>(
     module: &Module<'ctx>,
     builder: &Builder<'ctx>,
     cell_ptr: PointerValue<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let free_fn = module
         .get_function("vp_closure_cell_free")
         .ok_or("vp_closure_cell_free function not declared")?;

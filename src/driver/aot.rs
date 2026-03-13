@@ -106,8 +106,8 @@ pub fn compile_file_aot(
     let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
-    codegen.generate(&ast).map_err(ViperError::codegen)?;
-    codegen.verify().map_err(ViperError::codegen)?;
+    codegen.generate(&ast)?;
+    codegen.verify()?;
     println!("   ✓ Generated LLVM IR");
 
     // Report BigInt functions (they have special optimization handling)
@@ -400,8 +400,8 @@ pub fn compile_file_optimized(input_path: &str) -> Result<()> {
     let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
-    codegen.generate(&ast).map_err(ViperError::codegen)?;
-    codegen.verify().map_err(ViperError::codegen)?;
+    codegen.generate(&ast)?;
+    codegen.verify()?;
     println!("   ✓ Generated LLVM IR");
 
     let module = codegen.module();

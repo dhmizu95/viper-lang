@@ -12,7 +12,7 @@ pub(crate) fn generate_raise<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     exception: Option<&Expr>,
     cause: Option<&Expr>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Check if we have a cause (raise X from Y)
     if cause.is_some() {
         return generate_raise_with_cause(state, exception, cause);
@@ -169,7 +169,7 @@ fn generate_raise_with_cause<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     exception: Option<&Expr>,
     cause: Option<&Expr>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Get the raise with cause function
     let raise_cause_func = state.module.get_function("viper_raise_with_cause")
         .ok_or("viper_raise_with_cause function not found")?;
@@ -241,7 +241,7 @@ fn generate_raise_with_cause<'ctx>(
 fn extract_exception_info<'ctx>(
     _state: &mut CodeGenState<'_, 'ctx>,
     expr: Option<&Expr>,
-) -> Result<(String, String), String> {
+) -> crate::codegen::Result<(String, String)> {
     match expr {
         Some(exc) => {
             match exc {
@@ -282,7 +282,7 @@ pub(crate) fn generate_try_except<'ctx>(
     _handlers: &[crate::ast::ExceptHandler],
     else_body: Option<&[crate::ast::Stmt]>,
     finally_body: Option<&[crate::ast::Stmt]>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // For now, generate the try body only
     // Full exception handling requires more complex LLVM unwinding support
     for stmt in body {

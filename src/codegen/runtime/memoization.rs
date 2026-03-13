@@ -43,7 +43,7 @@ pub struct MemoizationFunctions<'ctx> {
 pub fn declare_memoization_functions<'ctx>(
     context: &'ctx Context,
     module: &mut Module<'ctx>,
-) -> Result<MemoizationFunctions<'ctx>, String> {
+) -> crate::codegen::Result<MemoizationFunctions<'ctx>> {
     let i8_ptr_type = context.ptr_type(inkwell::AddressSpace::default());
     let i64_type = context.i64_type();
     let i32_type = context.i32_type();

@@ -16,9 +16,9 @@ use crate::codegen::state::CodeGenState;
 pub fn generate_chan_create<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("chan() takes 1 argument (capacity), got {}", args.len()));
+        return crate::codegen::codegen_error(format!("chan() takes 1 argument (capacity), got {}", args.len()));
     }
 
     let size_val = generate_expr(state, &args[0])?;
@@ -36,9 +36,9 @@ pub fn generate_chan_create<'ctx>(
 pub fn generate_chan_send<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return Err(format!("send() takes 2 arguments (chan, value), got {}", args.len()));
+        return crate::codegen::codegen_error(format!("send() takes 2 arguments (chan, value), got {}", args.len()));
     }
 
     let chan_val = generate_expr(state, &args[0])?;
@@ -61,9 +61,9 @@ pub fn generate_chan_send<'ctx>(
 pub fn generate_chan_recv<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("recv() takes 1 argument (chan), got {}", args.len()));
+        return crate::codegen::codegen_error(format!("recv() takes 1 argument (chan), got {}", args.len()));
     }
 
     let chan_val = generate_expr(state, &args[0])?;
@@ -82,9 +82,9 @@ pub fn generate_chan_recv<'ctx>(
 pub fn generate_waitgroup_create<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if !args.is_empty() {
-        return Err(format!("WaitGroup() takes no arguments, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("WaitGroup() takes no arguments, got {}", args.len()));
     }
 
     let wg_func = state
@@ -101,9 +101,9 @@ pub fn generate_waitgroup_create<'ctx>(
 pub fn generate_waitgroup_add<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return Err(format!("add() takes 2 arguments (wg, n), got {}", args.len()));
+        return crate::codegen::codegen_error(format!("add() takes 2 arguments (wg, n), got {}", args.len()));
     }
 
     let wg_val = generate_expr(state, &args[0])?;
@@ -121,9 +121,9 @@ pub fn generate_waitgroup_add<'ctx>(
 pub fn generate_waitgroup_done<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("done() takes 1 argument (wg), got {}", args.len()));
+        return crate::codegen::codegen_error(format!("done() takes 1 argument (wg), got {}", args.len()));
     }
 
     let wg_val = generate_expr(state, &args[0])?;
@@ -140,9 +140,9 @@ pub fn generate_waitgroup_done<'ctx>(
 pub fn generate_waitgroup_wait<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("wait() takes 1 argument (wg), got {}", args.len()));
+        return crate::codegen::codegen_error(format!("wait() takes 1 argument (wg), got {}", args.len()));
     }
 
     let wg_val = generate_expr(state, &args[0])?;
@@ -159,7 +159,7 @@ pub fn generate_waitgroup_wait<'ctx>(
 pub fn generate_await<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     future: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // For now, generate a simple call to vp_future_await
     // A full implementation would transform the async function into a state machine
     let future_val = generate_expr(state, future)?;

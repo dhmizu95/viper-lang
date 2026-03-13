@@ -9,9 +9,9 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_bigint_to_str<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("str_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("str_bigint() takes exactly 1 argument, got {}", args.len()));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -37,9 +37,9 @@ pub fn generate_bigint_to_str<'ctx>(
 pub fn generate_bigint_to_i64<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("int_bigint() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("int_bigint() takes exactly 1 argument, got {}", args.len()));
     }
 
     let bigint_val = generate_expr(state, &args[0])?;
@@ -62,9 +62,9 @@ pub fn generate_bigint_to_i64<'ctx>(
 pub fn generate_bin_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("bin() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("bin() requires at least 1 argument".to_string());
     }
 
     let num_val = generate_expr(state, &args[0])?.into_int_value();
@@ -84,9 +84,9 @@ pub fn generate_bin_call<'ctx>(
 pub fn generate_oct_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("oct() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("oct() requires at least 1 argument".to_string());
     }
 
     let num_val = generate_expr(state, &args[0])?.into_int_value();
@@ -106,9 +106,9 @@ pub fn generate_oct_call<'ctx>(
 pub fn generate_hex_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("hex() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("hex() requires at least 1 argument".to_string());
     }
 
     let num_val = generate_expr(state, &args[0])?.into_int_value();
@@ -128,9 +128,9 @@ pub fn generate_hex_call<'ctx>(
 pub fn generate_chr_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("chr() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("chr() requires at least 1 argument".to_string());
     }
 
     let num_val = generate_expr(state, &args[0])?.into_int_value();
@@ -150,9 +150,9 @@ pub fn generate_chr_call<'ctx>(
 pub fn generate_ord_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("ord() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("ord() requires at least 1 argument".to_string());
     }
 
     let str_val = generate_expr(state, &args[0])?;

@@ -7,7 +7,7 @@ use crate::codegen::core::context::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
     /// Generate code for all class definitions in a module
-    pub(crate) fn generate_classes(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub(crate) fn generate_classes(&mut self, stmts: &[Stmt]) -> crate::codegen::Result<()> {
         // First pass: collect all class metadata
         for stmt in stmts {
             if let Stmt::Class { name, bases, body, span: _, decorators, fields, methods } = stmt {
@@ -43,7 +43,7 @@ impl<'ctx> CodeGen<'ctx> {
         body: &[Stmt],
         _fields: &[(String, Option<Type>, bool)],
         _methods: &[String],
-    ) -> Result<(), String> {
+    ) -> crate::codegen::Result<()> {
         // Get class metadata from registry
         let metadata = crate::codegen::oop::with_class_registry(|reg| {
             reg.get_class(name).cloned()

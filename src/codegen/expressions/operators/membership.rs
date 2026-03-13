@@ -10,7 +10,7 @@ pub fn generate_membership_op<'ctx>(
     left: &Expr,
     op: &BinOp,
     right: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let value_val = generate_expr(state, left)?;
     let list_val = generate_expr(state, right)?;
 

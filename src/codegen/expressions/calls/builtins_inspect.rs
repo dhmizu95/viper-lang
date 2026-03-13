@@ -10,9 +10,9 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_isinstance_check<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<inkwell::values::BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return Err("isinstance() takes exactly 2 arguments".to_string());
+        return crate::codegen::codegen_error("isinstance() takes exactly 2 arguments".to_string());
     }
 
     // Generate the object expression
@@ -22,7 +22,7 @@ pub fn generate_isinstance_check<'ctx>(
     let type_name = match &args[1] {
         Expr::Ident(name, _) => name.clone(),
         Expr::None(_) => "None".to_string(),  // Handle None literal
-        _ => return Err("isinstance() second argument must be a type name".to_string()),
+        _ => return crate::codegen::codegen_error("isinstance() second argument must be a type name".to_string()),
     };
 
     // For now, implement basic type checks based on the expected type
@@ -129,9 +129,9 @@ pub fn generate_isinstance_check<'ctx>(
 pub fn generate_type_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("type() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("type() requires at least 1 argument".to_string());
     }
 
     let obj_val = generate_expr(state, &args[0])?;
@@ -151,9 +151,9 @@ pub fn generate_type_call<'ctx>(
 pub fn generate_id_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("id() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("id() requires at least 1 argument".to_string());
     }
 
     let obj_val = generate_expr(state, &args[0])?;
@@ -189,9 +189,9 @@ pub fn generate_id_call<'ctx>(
 pub fn generate_repr_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("repr() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("repr() requires at least 1 argument".to_string());
     }
 
     let obj_val = generate_expr(state, &args[0])?;
@@ -221,9 +221,9 @@ pub fn generate_repr_call<'ctx>(
 pub fn generate_callable_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("callable() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("callable() requires at least 1 argument".to_string());
     }
 
     let obj_val = generate_expr(state, &args[0])?;

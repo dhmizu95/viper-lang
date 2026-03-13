@@ -11,7 +11,7 @@ pub fn generate_method_call<'ctx>(
     obj: &Expr,
     method_name: &str,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let obj_val = generate_expr(state, obj)?;
 
     // For Result methods, we need to load the struct value from alloca if it's a pointer
@@ -50,7 +50,7 @@ pub fn generate_method_call<'ctx>(
     match method_name {
         "append" => {
             if args.len() != 1 {
-                return Err(format!("append() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("append() takes exactly 1 argument, got {}", args.len()));
             }
             let val = generate_expr(state, &args[0])?;
 
@@ -58,7 +58,7 @@ pub fn generate_method_call<'ctx>(
             let list_ptr = if obj_val.is_pointer_value() {
                 obj_val.into_pointer_value()
             } else {
-                return Err("append() requires a list reference".to_string());
+                return crate::codegen::codegen_error("append() requires a list reference".to_string());
             };
 
             // Use inline append for optimized performance
@@ -76,7 +76,7 @@ pub fn generate_method_call<'ctx>(
                         "i64_to_bool",
                     ).map_err(|e| format!("Failed to convert to bool: {:?}", e))?
                 } else {
-                    return Err("append() value must be integer for bool list".to_string());
+                    return crate::codegen::codegen_error("append() value must be integer for bool list".to_string());
                 };
 
                 crate::codegen::inline_lists::inline_bool_list_append(state, list_ptr, bool_val)
@@ -93,7 +93,7 @@ pub fn generate_method_call<'ctx>(
                         "f64_to_i64",
                     ).map_err(|e| format!("Failed to convert float to int: {:?}", e))?
                 } else {
-                    return Err("append() value must be numeric".to_string());
+                    return crate::codegen::codegen_error("append() value must be numeric".to_string());
                 };
 
                 crate::codegen::inline_lists::inline_i64_list_append(state, list_ptr, int_val)
@@ -104,7 +104,7 @@ pub fn generate_method_call<'ctx>(
         }
         "reserve" => {
             if args.len() != 1 {
-                return Err(format!("reserve() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("reserve() takes exactly 1 argument, got {}", args.len()));
             }
             let capacity = generate_expr(state, &args[0])?.into_int_value();
             let list_reserve = state
@@ -121,7 +121,7 @@ pub fn generate_method_call<'ctx>(
         }
         "insert" => {
             if args.len() != 2 {
-                return Err(format!("insert() takes exactly 2 arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("insert() takes exactly 2 arguments, got {}", args.len()));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
             let val = generate_expr(state, &args[1])?;
@@ -149,7 +149,7 @@ pub fn generate_method_call<'ctx>(
         }
         "remove" => {
             if args.len() != 1 {
-                return Err(format!("remove() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("remove() takes exactly 1 argument, got {}", args.len()));
             }
             let index = generate_expr(state, &args[0])?.into_int_value();
 
@@ -176,7 +176,7 @@ pub fn generate_method_call<'ctx>(
         }
         "pop" => {
             if args.len() > 1 {
-                return Err(format!("pop() takes at most 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("pop() takes at most 1 argument, got {}", args.len()));
             }
             if args.is_empty() {
                 // pop() - pop last element
@@ -225,7 +225,7 @@ pub fn generate_method_call<'ctx>(
         }
         "clear" => {
             if !args.is_empty() {
-                return Err(format!("clear() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("clear() takes no arguments, got {}", args.len()));
             }
             let list_clear = state
                 .module
@@ -236,7 +236,7 @@ pub fn generate_method_call<'ctx>(
         }
         "extend" => {
             if args.len() != 1 {
-                return Err(format!("extend() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("extend() takes exactly 1 argument, got {}", args.len()));
             }
             let other_val = generate_expr(state, &args[0])?;
 
@@ -263,7 +263,7 @@ pub fn generate_method_call<'ctx>(
         }
         "index" => {
             if args.len() != 1 {
-                return Err(format!("index() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("index() takes exactly 1 argument, got {}", args.len()));
             }
             let value = generate_expr(state, &args[0])?;
 
@@ -290,7 +290,7 @@ pub fn generate_method_call<'ctx>(
         }
         "count" => {
             if args.len() != 1 {
-                return Err(format!("count() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("count() takes exactly 1 argument, got {}", args.len()));
             }
             let value = generate_expr(state, &args[0])?;
 
@@ -317,7 +317,7 @@ pub fn generate_method_call<'ctx>(
         }
         "sort" => {
             if !args.is_empty() {
-                return Err(format!("sort() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("sort() takes no arguments, got {}", args.len()));
             }
             let list_sort = state
                 .module
@@ -328,7 +328,7 @@ pub fn generate_method_call<'ctx>(
         }
         "reverse" => {
             if !args.is_empty() {
-                return Err(format!("reverse() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("reverse() takes no arguments, got {}", args.len()));
             }
 
             // Use bit vector reverse for bool lists
@@ -354,7 +354,7 @@ pub fn generate_method_call<'ctx>(
         }
         "copy" => {
             if !args.is_empty() {
-                return Err(format!("copy() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("copy() takes no arguments, got {}", args.len()));
             }
 
             // Use bit vector copy for bool lists
@@ -380,7 +380,7 @@ pub fn generate_method_call<'ctx>(
         }
         "upper" => {
             if !args.is_empty() {
-                return Err("upper() takes no arguments".to_string());
+                return crate::codegen::codegen_error("upper() takes no arguments".to_string());
             }
             let func = state.module.get_function("vp_str_upper").unwrap();
             let result =
@@ -389,7 +389,7 @@ pub fn generate_method_call<'ctx>(
         }
         "lower" => {
             if !args.is_empty() {
-                return Err("lower() takes no arguments".to_string());
+                return crate::codegen::codegen_error("lower() takes no arguments".to_string());
             }
             let func = state.module.get_function("vp_str_lower").unwrap();
             let result =
@@ -398,7 +398,7 @@ pub fn generate_method_call<'ctx>(
         }
         "split" => {
             if args.len() != 1 {
-                return Err("split() takes exactly 1 argument".to_string());
+                return crate::codegen::codegen_error("split() takes exactly 1 argument".to_string());
             }
             let delim_val = generate_expr(state, &args[0])?;
             let func = state.module.get_function("vp_str_split").unwrap();
@@ -412,7 +412,7 @@ pub fn generate_method_call<'ctx>(
         }
         "replace" => {
             if args.len() != 2 {
-                return Err("replace() takes exactly 2 arguments".to_string());
+                return crate::codegen::codegen_error("replace() takes exactly 2 arguments".to_string());
             }
             let old_val = generate_expr(state, &args[0])?;
             let new_val = generate_expr(state, &args[1])?;
@@ -429,7 +429,7 @@ pub fn generate_method_call<'ctx>(
             // String format method: "Hello {}".format(name)
             // For simplicity, we'll handle basic {} placeholders
             if args.is_empty() {
-                return Err("format() takes at least 1 argument".to_string());
+                return crate::codegen::codegen_error("format() takes at least 1 argument".to_string());
             }
 
             // Generate all argument values and convert to strings
@@ -491,7 +491,7 @@ pub fn generate_method_call<'ctx>(
         // Result methods
         "is_ok" => {
             if !args.is_empty() {
-                return Err(format!("is_ok() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("is_ok() takes no arguments, got {}", args.len()));
             }
             // obj_val is now a struct value, not a pointer
             let result_struct = obj_val.into_struct_value();
@@ -511,7 +511,7 @@ pub fn generate_method_call<'ctx>(
         }
         "is_err" => {
             if !args.is_empty() {
-                return Err(format!("is_err() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("is_err() takes no arguments, got {}", args.len()));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
@@ -531,7 +531,7 @@ pub fn generate_method_call<'ctx>(
         }
         "unwrap" => {
             if !args.is_empty() {
-                return Err(format!("unwrap() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("unwrap() takes no arguments, got {}", args.len()));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
@@ -543,7 +543,7 @@ pub fn generate_method_call<'ctx>(
         }
         "unwrap_err" => {
             if !args.is_empty() {
-                return Err(format!("unwrap_err() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("unwrap_err() takes no arguments, got {}", args.len()));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
@@ -555,7 +555,7 @@ pub fn generate_method_call<'ctx>(
         }
         "expect" => {
             if args.len() != 1 {
-                return Err(format!("expect() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("expect() takes exactly 1 argument, got {}", args.len()));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
@@ -567,7 +567,7 @@ pub fn generate_method_call<'ctx>(
         }
         "unwrap_or" => {
             if args.len() != 1 {
-                return Err(format!("unwrap_or() takes exactly 1 argument, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("unwrap_or() takes exactly 1 argument, got {}", args.len()));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
@@ -595,7 +595,7 @@ pub fn generate_method_call<'ctx>(
             let default_int = if default_value.is_int_value() {
                 default_value.into_int_value()
             } else {
-                return Err("unwrap_or default value must be integer".to_string());
+                return crate::codegen::codegen_error("unwrap_or default value must be integer".to_string());
             };
 
             // Select based on is_ok
@@ -610,7 +610,7 @@ pub fn generate_method_call<'ctx>(
         }
         "unwrap_or_default" => {
             if !args.is_empty() {
-                return Err(format!("unwrap_or_default() takes no arguments, got {}", args.len()));
+                return crate::codegen::codegen_error(format!("unwrap_or_default() takes no arguments, got {}", args.len()));
             }
             // obj_val is a struct value
             let result_struct = obj_val.into_struct_value();
@@ -646,8 +646,8 @@ pub fn generate_method_call<'ctx>(
 
             Ok(selected.into())
         }
-        "len" => Err("len() is a builtin function, not a method".to_string()),
-        _ => Err(format!("Unknown method: {}", method_name)),
+        "len" => crate::codegen::codegen_error("len() is a builtin function, not a method".to_string()),
+        _ => crate::codegen::codegen_error(format!("Unknown method: {}", method_name)),
     }
 }
 
@@ -655,9 +655,9 @@ pub fn generate_method_call<'ctx>(
 pub fn generate_sorted_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("sorted() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("sorted() takes exactly 1 argument, got {}", args.len()));
     }
 
     let list_val = generate_expr(state, &args[0])?;
@@ -674,9 +674,9 @@ pub fn generate_sorted_call<'ctx>(
 pub fn generate_reversed_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("reversed() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("reversed() takes exactly 1 argument, got {}", args.len()));
     }
 
     let list_val = generate_expr(state, &args[0])?;
@@ -697,7 +697,7 @@ pub fn generate_reversed_call<'ctx>(
 pub fn generate_dict_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // dict() with no args returns empty dict
     if args.is_empty() {
         let func = state

@@ -145,7 +145,7 @@ impl ClassRegistry {
 pub fn calculate_mro(
     class_name: &str,
     registry: &ClassRegistry,
-) -> Result<Vec<String>, String> {
+) -> crate::codegen::Result<Vec<String>> {
     let class = registry
         .classes
         .get(class_name)
@@ -159,7 +159,7 @@ pub fn calculate_mro(
     let mut seen_bases = std::collections::HashSet::new();
     for base in &class.base_classes {
         if !seen_bases.insert(base) {
-            return Err(format!(
+            return crate::codegen::codegen_error(format!(
                 "Duplicate base class '{}' in class '{}'. Multiple inheritance should not list the same class twice.",
                 base, class_name
             ));
@@ -201,7 +201,7 @@ fn check_inheritance_cycle(
     class_name: &str,
     registry: &ClassRegistry,
     path: &mut Vec<String>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let class = match registry.classes.get(class_name) {
         Some(c) => c,
         None => return Ok(()), // External class, can't check
@@ -212,7 +212,7 @@ fn check_inheritance_cycle(
         if let Some(cycle_start) = path.iter().position(|x| x == base) {
             let mut cycle_path: Vec<_> = path[cycle_start..].to_vec();
             cycle_path.push(base.clone());
-            return Err(format!(
+            return crate::codegen::codegen_error(format!(
                 "Circular inheritance detected: {} -> {}",
                 class_name,
                 cycle_path.join(" -> ")
@@ -234,14 +234,14 @@ fn merge_sequences(
     result: &mut Vec<String>,
     sequences: &mut [Vec<String>],
     class_name: &str,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let max_iterations = 1000; // Prevent infinite loops
     let mut iterations = 0;
 
     loop {
         iterations += 1;
         if iterations > max_iterations {
-            return Err(format!(
+            return crate::codegen::codegen_error(format!(
                 "MRO calculation exceeded maximum iterations for class '{}'. \
                  This may indicate a very complex or pathological inheritance hierarchy.",
                 class_name
@@ -295,7 +295,7 @@ fn merge_sequences(
                 }
             }
 
-            return Err(format!(
+            return crate::codegen::codegen_error(format!(
                 "Inconsistent class hierarchy for class '{}'. \
                  C3 linearization failed due to conflicting inheritance order.{} \n\n\
                  This typically happens when:\n\
@@ -316,7 +316,7 @@ fn merge_sequences(
 }
 
 /// Calculate and set MRO for all classes in the registry
-pub fn calculate_all_mros(registry: &mut ClassRegistry) -> Result<(), String> {
+pub fn calculate_all_mros(registry: &mut ClassRegistry) -> crate::codegen::Result<()> {
     let class_names: Vec<String> = registry.classes.keys().cloned().collect();
 
     for name in class_names {
@@ -378,7 +378,7 @@ pub fn generate_class_metadata(
     decorators: &[crate::ast::Decorator],
     fields: &[(String, Option<Type>, bool)],
     _methods: &[String],
-) -> Result<ClassMetadata, String> {
+) -> crate::codegen::Result<ClassMetadata> {
     let mut metadata = ClassMetadata::new(name.to_string());
 
     // Check for @dataclass decorator on class
@@ -627,7 +627,7 @@ pub fn generate_class_instantiation<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     class_name: &str,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let metadata = with_class_registry(|r| {
         r.get_class(class_name).cloned()
     }).ok_or_else(|| format!("Class '{}' not found", class_name))?;
@@ -683,7 +683,7 @@ pub fn generate_class_instantiation<'ctx>(
 fn allocate_instance<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     metadata: &ClassMetadata,
-) -> Result<PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<PointerValue<'ctx>> {
     let i64_type = state.context.i64_type();
     
     // Get malloc function
@@ -712,12 +712,12 @@ pub fn generate_attribute_access<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     obj: &Expr,
     attr_name: &str,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Generate object expression to get instance pointer
     let obj_val = generate_expr(state, obj)?;
 
     if !obj_val.is_pointer_value() {
-        return Err("Attribute access on non-object type".to_string());
+        return crate::codegen::codegen_error("Attribute access on non-object type".to_string());
     }
 
     let obj_ptr = obj_val.into_pointer_value();
@@ -741,7 +741,7 @@ pub fn generate_attribute_access<'ctx>(
         }
     }
 
-    Err(format!("Unknown attribute '{}' on object", attr_name))
+    crate::codegen::codegen_error(format!("Unknown attribute '{}' on object", attr_name))
 }
 
 /// Generate field access with offset calculation
@@ -749,7 +749,7 @@ fn generate_field_access<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     obj_ptr: PointerValue<'ctx>,
     field: &FieldInfo,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let i64_type = state.context.i64_type();
     let i8_ptr_type = state.context.ptr_type(AddressSpace::default());
 
@@ -820,7 +820,7 @@ fn generate_property_getter<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     obj_ptr: PointerValue<'ctx>,
     method: &MethodInfo,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
         let result = state.ir_builder.build_call(
             state.builder,
@@ -831,7 +831,7 @@ fn generate_property_getter<'ctx>(
         
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
-        Err(format!("Property getter '{}' not found", method.name))
+        crate::codegen::codegen_error(format!("Property getter '{}' not found", method.name))
     }
 }
 
@@ -841,12 +841,12 @@ pub fn generate_user_method_call<'ctx>(
     obj: &Expr,
     method_name: &str,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Generate object expression
     let obj_val = generate_expr(state, obj)?;
 
     if !obj_val.is_pointer_value() {
-        return Err("Method call on non-object type".to_string());
+        return crate::codegen::codegen_error("Method call on non-object type".to_string());
     }
 
     let obj_ptr = obj_val.into_pointer_value();
@@ -868,7 +868,7 @@ pub fn generate_user_method_call<'ctx>(
         }
     }
 
-    Err(format!("Method '{}' not found on object", method_name))
+    crate::codegen::codegen_error(format!("Method '{}' not found on object", method_name))
 }
 
 /// Generate static method call
@@ -876,7 +876,7 @@ fn generate_static_method_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     method: &MethodInfo,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
         let arg_values: Vec<_> = args.iter()
             .map(|a| generate_expr(state, a)
@@ -892,7 +892,7 @@ fn generate_static_method_call<'ctx>(
         
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
-        Err(format!("Static method '{}' not found", method.name))
+        crate::codegen::codegen_error(format!("Static method '{}' not found", method.name))
     }
 }
 
@@ -902,7 +902,7 @@ fn generate_instance_method_call<'ctx>(
     obj_ptr: PointerValue<'ctx>,
     method: &MethodInfo,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
         // Build argument list: self + user args
         let mut arg_values: Vec<_> = args.iter()
@@ -922,7 +922,7 @@ fn generate_instance_method_call<'ctx>(
         
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
-        Err(format!("Method '{}' not found", method.name))
+        crate::codegen::codegen_error(format!("Method '{}' not found", method.name))
     }
 }
 
@@ -932,7 +932,7 @@ fn generate_class_method_call<'ctx>(
     class_name: &str,
     method: &MethodInfo,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(func_val) = state.functions.get(&method.mangled_name).copied() {
         // Build argument list: class metadata pointer + user args
         let mut arg_values: Vec<_> = args.iter()
@@ -961,7 +961,7 @@ fn generate_class_method_call<'ctx>(
 
         Ok(result.unwrap_or(state.context.i64_type().const_int(0, false).into()))
     } else {
-        Err(format!("Class method '{}' not found", method.name))
+        crate::codegen::codegen_error(format!("Class method '{}' not found", method.name))
     }
 }
 
@@ -993,11 +993,11 @@ pub fn generate_field_assignment<'ctx>(
     obj: &Expr,
     field_name: &str,
     value: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let obj_val = generate_expr(state, obj)?;
 
     if !obj_val.is_pointer_value() {
-        return Err("Field assignment on non-object type".to_string());
+        return crate::codegen::codegen_error("Field assignment on non-object type".to_string());
     }
 
     let obj_ptr = obj_val.into_pointer_value();
@@ -1030,7 +1030,7 @@ pub fn generate_field_assignment<'ctx>(
         }
     }
 
-    Err(format!("Field '{}' not found on object", field_name))
+    crate::codegen::codegen_error(format!("Field '{}' not found on object", field_name))
 }
 
 /// Store value to a field - all fields stored as i64 (pointer-sized)
@@ -1039,7 +1039,7 @@ fn store_field<'ctx>(
     obj_ptr: PointerValue<'ctx>,
     field: &FieldInfo,
     value: BasicValueEnum<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let i64_type = state.context.i64_type();
     let i8_ptr_type = state.context.ptr_type(AddressSpace::default());
 

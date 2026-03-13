@@ -9,7 +9,7 @@ pub fn generate_float_binop<'ctx>(
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let builder = state.builder;
     let lhs = lhs.into_float_value();
     let rhs = rhs.into_float_value();
@@ -72,9 +72,9 @@ pub fn generate_float_binop<'ctx>(
             Ok(result)
         }
         BinOp::In | BinOp::NotIn => {
-            Err("Membership operators not supported for float types".to_string())
+            crate::codegen::codegen_error("Membership operators not supported for float types".to_string())
         }
-        _ => Err(format!("Unsupported float operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported float operator: {:?}", op)),
     }
 }
 
@@ -84,7 +84,7 @@ pub fn generate_bool_binop<'ctx>(
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let lhs = lhs.into_int_value();
     let rhs = rhs.into_int_value();
 
@@ -96,7 +96,7 @@ pub fn generate_bool_binop<'ctx>(
         }
         BinOp::And => Ok(state.builder.build_and(lhs, rhs, "bool_and").expect("and").into()),
         BinOp::Or => Ok(state.builder.build_or(lhs, rhs, "bool_or").expect("or").into()),
-        _ => Err(format!("Unsupported boolean operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported boolean operator: {:?}", op)),
     }
 }
 
@@ -106,7 +106,7 @@ pub fn generate_int_binop<'ctx>(
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let lhs = lhs.into_int_value();
     let rhs = rhs.into_int_value();
 
@@ -168,7 +168,7 @@ pub fn generate_int_binop<'ctx>(
 
             Ok(result.into())
         }
-        _ => Err(format!("Unsupported int operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported int operator: {:?}", op)),
     }
 }
 
@@ -178,7 +178,7 @@ pub fn generate_tagged_int_binop<'ctx>(
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Promote i64 values to tagged ints if needed
     let lhs_tagged = if lhs.is_int_value() {
         lhs
@@ -189,7 +189,7 @@ pub fn generate_tagged_int_binop<'ctx>(
         let tagged = state.builder.build_or(intptr, state.context.i64_type().const_int(1, false), "tagged_ptr").expect("tag");
         tagged.into()
     } else {
-        return Err(format!("Cannot convert {:?} to tagged int", lhs.get_type()));
+        return crate::codegen::codegen_error(format!("Cannot convert {:?} to tagged int", lhs.get_type()));
     };
 
     let rhs_tagged = if rhs.is_int_value() {
@@ -201,7 +201,7 @@ pub fn generate_tagged_int_binop<'ctx>(
         let tagged = state.builder.build_or(intptr, state.context.i64_type().const_int(1, false), "tagged_ptr").expect("tag");
         tagged.into()
     } else {
-        return Err(format!("Cannot convert {:?} to tagged int", rhs.get_type()));
+        return crate::codegen::codegen_error(format!("Cannot convert {:?} to tagged int", rhs.get_type()));
     };
 
     match op {
@@ -236,7 +236,7 @@ pub fn generate_tagged_int_binop<'ctx>(
             let eq = crate::codegen::runtime::tagged_int::generate_tagged_int_eq(state, lhs_tagged, rhs_tagged)?;
             Ok(state.builder.build_not(eq.into_int_value(), "isnot").expect("not").into())
         }
-        _ => Err(format!("Unsupported tagged int operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported tagged int operator: {:?}", op)),
     }
 }
 
@@ -245,7 +245,7 @@ pub fn generate_tagged_int_unary<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     op: &UnaryOp,
     operand: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     match op {
         UnaryOp::Neg => crate::codegen::runtime::tagged_int::generate_tagged_int_neg(state, operand),
         UnaryOp::Pos => Ok(operand),
@@ -259,6 +259,6 @@ pub fn generate_tagged_int_unary<'ctx>(
             
             Ok(tagged_inverted.into())
         }
-        _ => Err(format!("Unsupported tagged int unary operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported tagged int unary operator: {:?}", op)),
     }
 }

@@ -19,7 +19,7 @@ pub fn generate_binop<'ctx>(
     left: &Expr,
     op: &BinOp,
     right: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if matches!(op, BinOp::And | BinOp::Or) {
         return logical::generate_logical_op(state, left, op, right);
     }
@@ -87,7 +87,7 @@ pub fn generate_binop<'ctx>(
                                 (int_val.into(), "vp_list_repeat")
                             }
                         } else {
-                            return Err(
+                            return crate::codegen::codegen_error(
                                 "List repeat requires integer or boolean elements".to_string()
                             );
                         }
@@ -131,7 +131,7 @@ pub fn generate_binop<'ctx>(
             let count_int = if count_val.is_int_value() {
                 count_val.into_int_value()
             } else {
-                return Err("String repetition count must be an integer".to_string());
+                return crate::codegen::codegen_error("String repetition count must be an integer".to_string());
             };
 
             // Call vp_str_repeat
@@ -169,7 +169,7 @@ pub fn generate_binop<'ctx>(
             let count_int = if count_val.is_int_value() {
                 count_val.into_int_value()
             } else {
-                return Err("String repetition count must be an integer".to_string());
+                return crate::codegen::codegen_error("String repetition count must be an integer".to_string());
             };
             // Generate the string
             let str_val = generate_expr(state, right)?;
@@ -370,7 +370,7 @@ pub fn generate_binop<'ctx>(
 
     // Reject pointer values in arithmetic operations (except for Add with strings, handled above)
     if lhs_val.is_pointer_value() || rhs_val.is_pointer_value() {
-        return Err("Binary operators cannot be applied to pointer values (lists)".to_string());
+        return crate::codegen::codegen_error("Binary operators cannot be applied to pointer values (lists)".to_string());
     }
 
     // Handle boolean comparisons (both operands are i1)
@@ -411,7 +411,7 @@ pub fn generate_unary<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     op: &UnaryOp,
     operand: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Handle increment and decrement operators specially
     if matches!(
         op,
@@ -444,7 +444,7 @@ pub fn generate_unary<'ctx>(
             }
             UnaryOp::Pos => Ok(val),
             UnaryOp::Not | UnaryOp::Invert => {
-                Err(format!("Unary operator {:?} not supported for float types", op))
+                crate::codegen::codegen_error(format!("Unary operator {:?} not supported for float types", op))
             }
             UnaryOp::PreIncrement
             | UnaryOp::PreDecrement
@@ -490,7 +490,7 @@ fn generate_unwrap<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     _op: &UnaryOp,
     operand: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Generate the operand expression (should be a Result struct by value)
     let result_val = generate_expr(state, operand)?;
 
@@ -628,7 +628,7 @@ fn generate_unwrap<'ctx>(
             "err_int_to_ptr",
         ).map_err(|e| format!("Failed to bitcast int to ptr: {:?}", e))?
     } else {
-        return Err(format!("Unsupported error value type: {:?}", error_val.get_type()));
+        return crate::codegen::codegen_error(format!("Unsupported error value type: {:?}", error_val.get_type()));
     };
 
     state.builder.build_store(error_ptr_ptr, error_ptr)

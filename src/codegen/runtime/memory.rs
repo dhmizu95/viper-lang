@@ -5,7 +5,7 @@ use inkwell::module::Module;
 pub fn declare_memory_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let void_type = context.void_type();
     let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
 

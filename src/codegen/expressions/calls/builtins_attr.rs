@@ -9,9 +9,9 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_hasattr_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return Err("hasattr() requires exactly 2 arguments".to_string());
+        return crate::codegen::codegen_error("hasattr() requires exactly 2 arguments".to_string());
     }
 
     let obj_val = generate_expr(state, &args[0])?;
@@ -32,22 +32,22 @@ pub fn generate_hasattr_call<'ctx>(
 pub fn generate_getattr_call<'ctx>(
     _state: &mut CodeGenState<'_, 'ctx>,
     _args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
-    Err("getattr() not yet implemented".to_string())
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    crate::codegen::codegen_error("getattr() not yet implemented".to_string())
 }
 
 /// Generate setattr() call - placeholder
 pub fn generate_setattr_call<'ctx>(
     _state: &mut CodeGenState<'_, 'ctx>,
     _args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
-    Err("setattr() not yet implemented".to_string())
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    crate::codegen::codegen_error("setattr() not yet implemented".to_string())
 }
 
 /// Generate delattr() call - placeholder
 pub fn generate_delattr_call<'ctx>(
     _state: &mut CodeGenState<'_, 'ctx>,
     _args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
-    Err("delattr() not yet implemented".to_string())
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    crate::codegen::codegen_error("delattr() not yet implemented".to_string())
 }

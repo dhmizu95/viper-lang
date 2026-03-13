@@ -37,7 +37,7 @@ pub fn generate_stmt<'ctx>(
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let mut closure_cells = HashMap::new();
     let mut state = CodeGenState::new(
         context,
@@ -78,7 +78,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
     current_class: Option<&str>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let mut closure_cells = HashMap::new();
     let mut state = CodeGenState::with_escape_analysis(
         context,
@@ -123,7 +123,7 @@ pub fn generate_stmt_with_closure<'ctx>(
     current_function: &str,
     closure_analyzer: &ClosureAnalyzer,
     current_class: Option<&str>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Create a dummy closure_cells for single-statement generation
     // This is used for module-level statements where closure cells aren't needed
     let mut closure_cells = HashMap::new();
@@ -156,7 +156,7 @@ pub fn generate_stmt_with_closure<'ctx>(
 pub(crate) fn generate_stmt_internal<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     stmt: &Stmt,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     match stmt {
         Stmt::Expr(expr) => {
             crate::codegen::expressions::generate_expr(state, expr)?;

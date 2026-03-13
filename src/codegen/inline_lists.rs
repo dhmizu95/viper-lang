@@ -26,7 +26,7 @@ use crate::codegen::state::CodeGenState;
 pub fn get_list_data_ptr<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
-) -> Result<PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<PointerValue<'ctx>> {
     // The ViperList struct layout (as opaque struct):
     // We access fields by byte offset using GEP with i8 element type
     // struct ViperList {
@@ -73,7 +73,7 @@ pub fn get_list_data_ptr<'ctx>(
 pub fn get_list_length<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
-) -> Result<IntValue<'ctx>, String> {
+) -> crate::codegen::Result<IntValue<'ctx>> {
     let i64_type = state.context.i64_type();
     let length_ptr = unsafe {
         state.builder.build_in_bounds_gep(
@@ -108,7 +108,7 @@ pub fn inline_bool_list_get<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
     index_val: IntValue<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Get the data pointer (i8* for bool lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
     
@@ -152,7 +152,7 @@ pub fn inline_bool_list_set<'ctx>(
     list_val: PointerValue<'ctx>,
     index_val: IntValue<'ctx>,
     value_val: BasicValueEnum<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Get the data pointer (i8* for bool lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
     
@@ -181,7 +181,7 @@ pub fn inline_bool_list_set<'ctx>(
             .build_int_truncate(value_val.into_int_value(), i8_type, "i64_to_i8")
             .map_err(|e| format!("Failed to truncate to i8: {:?}", e))?
     } else {
-        return Err("Expected bool or integer value for bool list set".to_string());
+        return crate::codegen::codegen_error("Expected bool or integer value for bool list set".to_string());
     };
 
     // Store the value
@@ -198,7 +198,7 @@ pub fn inline_i64_list_get<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
     index_val: IntValue<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Get the data pointer (needs to be cast to i64* for i64 lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
 
@@ -239,7 +239,7 @@ pub fn inline_i64_list_set<'ctx>(
     list_val: PointerValue<'ctx>,
     index_val: IntValue<'ctx>,
     value_val: BasicValueEnum<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Get the data pointer (needs to be cast to i64* for i64 lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
 
@@ -279,7 +279,7 @@ pub fn inline_f64_list_get<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
     index_val: IntValue<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Get the data pointer (needs to be cast to f64* for f64 lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
 
@@ -320,7 +320,7 @@ pub fn inline_f64_list_set<'ctx>(
     list_val: PointerValue<'ctx>,
     index_val: IntValue<'ctx>,
     value_val: BasicValueEnum<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Get the data pointer (needs to be cast to f64* for f64 lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
 
@@ -360,7 +360,7 @@ pub fn inline_bool_list_append<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
     value_val: IntValue<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let i64_type = state.context.i64_type();
     let context = state.context;
 
@@ -447,7 +447,7 @@ pub fn inline_bool_list_append<'ctx>(
 fn get_length_ptr<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
-) -> Result<PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<PointerValue<'ctx>> {
     // ViperList* is an opaque pointer, cast to i8* for byte addressing
     let i8_type = state.context.i8_type();
     let i8_ptr = state.builder
@@ -485,7 +485,7 @@ fn get_length_ptr<'ctx>(
 fn get_capacity_ptr<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
-) -> Result<PointerValue<'ctx>, String> {
+) -> crate::codegen::Result<PointerValue<'ctx>> {
     // ViperList* is an opaque pointer, cast to i8* for byte addressing
     let i8_type = state.context.i8_type();
     let i8_ptr = state.builder
@@ -525,7 +525,7 @@ pub fn inline_i64_list_append<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     list_val: PointerValue<'ctx>,
     value_val: IntValue<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let i64_type = state.context.i64_type();
     let context = state.context;
 

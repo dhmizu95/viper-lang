@@ -17,3 +17,13 @@ pub mod variables;
 pub use dce::DeadCodeEliminator;
 pub use licm::LicmPass;
 pub use core::CodeGen;
+
+pub(crate) type Result<T> = crate::error::Result<T>;
+
+pub(crate) fn codegen_err(message: impl Into<String>) -> crate::error::ViperError {
+    crate::error::ViperError::codegen(message)
+}
+
+pub(crate) fn codegen_error<T>(message: impl Into<String>) -> Result<T> {
+    Err(codegen_err(message))
+}

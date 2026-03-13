@@ -10,7 +10,7 @@ use inkwell::module::Module;
 pub fn declare_closure_cell_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let void_type = context.void_type();
     let _i8_type = context.i8_type();
     let i8_ptr_type = context.ptr_type(inkwell::AddressSpace::default());
@@ -48,7 +48,7 @@ pub fn declare_closure_cell_functions<'ctx>(
         .expect("call malloc");
     let cell_raw = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-        _ => return Err("malloc didn't return a value".to_string()),
+        _ => return crate::codegen::codegen_error("malloc didn't return a value".to_string()),
     };
 
     // Initialize the cell with null pointer
@@ -146,7 +146,7 @@ pub fn declare_closure_cell_functions<'ctx>(
         .expect("call malloc");
     let value_raw = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-        _ => return Err("malloc didn't return a value".to_string()),
+        _ => return crate::codegen::codegen_error("malloc didn't return a value".to_string()),
     };
 
     let value_ptr = builder
@@ -217,7 +217,7 @@ pub fn declare_closure_cell_functions<'ctx>(
         .expect("call malloc");
     let value_raw = match call_result.try_as_basic_value() {
         inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-        _ => return Err("malloc didn't return a value".to_string()),
+        _ => return crate::codegen::codegen_error("malloc didn't return a value".to_string()),
     };
 
     let value_ptr = builder

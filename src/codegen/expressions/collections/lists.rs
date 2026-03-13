@@ -12,7 +12,7 @@ use crate::codegen::expressions::generate_expr;
 pub fn generate_list<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Determine element type
     let is_float_list = elements.first().map(|e| matches!(e, Expr::Float(..))).unwrap_or(false);
     let is_bool_list = elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false);
@@ -83,7 +83,7 @@ pub fn generate_list_comprehension<'ctx>(
     var: &str,
     iter: &Expr,
     _span: crate::utils::Span,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Determine element type by analyzing the element expression
     let elem_type = crate::codegen::expressions::infer_expr_type(element);
     let is_float_list = matches!(elem_type, crate::ast::Type::F64);
@@ -117,7 +117,7 @@ pub fn generate_list_comprehension<'ctx>(
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
                 match args.len() {
-                    0 => return Err("range expected at least 1 argument, got 0".to_string()),
+                    0 => return crate::codegen::codegen_error("range expected at least 1 argument, got 0".to_string()),
                     1 => (
                         state.ir_builder.i64_const(0),
                         generate_expr(state, &args[0])?.into_int_value(),
@@ -128,13 +128,15 @@ pub fn generate_list_comprehension<'ctx>(
                     ),
                 }
             } else {
-                return Err("List comprehension only supports range() iterator".to_string());
+                return crate::codegen::codegen_error(
+                    "List comprehension only supports range() iterator".to_string(),
+                );
             }
         } else {
-            return Err("List comprehension only supports range() iterator".to_string());
+            return crate::codegen::codegen_error("List comprehension only supports range() iterator".to_string());
         }
     } else {
-        return Err("List comprehension only supports range() iterator".to_string());
+        return crate::codegen::codegen_error("List comprehension only supports range() iterator".to_string());
     };
 
     // Create loop blocks

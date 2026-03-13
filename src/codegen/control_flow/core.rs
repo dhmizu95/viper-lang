@@ -7,7 +7,7 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_return<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     value: &Option<Expr>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     if let Some(val) = value {
         // If it's an explicit None return, and the function returns void,
         // treat it as a void return.
@@ -39,7 +39,7 @@ fn coerce_return_value<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     value: BasicValueEnum<'ctx>,
     expected_type: Option<inkwell::types::BasicTypeEnum<'ctx>>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Some(expected) = expected_type {
         let value_type = value.get_type();
 
@@ -74,7 +74,7 @@ fn coerce_return_value<'ctx>(
         // Handle pointer -> i64 coercion (shouldn't happen normally, but for completeness)
         if value_type.is_pointer_type() && expected.is_int_type() {
             // This would be an error case - returning a pointer where int expected
-            return Err(format!(
+            return crate::codegen::codegen_error(format!(
                 "Cannot convert pointer to integer in return value. Expected {:?}, got {:?}",
                 expected, value_type
             ));
@@ -109,12 +109,12 @@ pub fn generate_break<'ctx>(
     builder: &inkwell::builder::Builder<'ctx>,
     ir_builder: &crate::codegen::builder::IRBuilder<'ctx>,
     loop_stack: &[LoopContext<'ctx>],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     if let Some(loop_ctx) = loop_stack.last() {
         ir_builder.build_branch(builder, loop_ctx.break_block);
         Ok(())
     } else {
-        Err("break statement outside of loop".to_string())
+        crate::codegen::codegen_error("break statement outside of loop".to_string())
     }
 }
 
@@ -123,11 +123,11 @@ pub fn generate_continue<'ctx>(
     builder: &inkwell::builder::Builder<'ctx>,
     ir_builder: &crate::codegen::builder::IRBuilder<'ctx>,
     loop_stack: &[LoopContext<'ctx>],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     if let Some(loop_ctx) = loop_stack.last() {
         ir_builder.build_branch(builder, loop_ctx.continue_block);
         Ok(())
     } else {
-        Err("continue statement outside of loop".to_string())
+        crate::codegen::codegen_error("continue statement outside of loop".to_string())
     }
 }

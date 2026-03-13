@@ -515,7 +515,7 @@ pub fn declare_function<'ctx>(
     params: &[Param],
     return_type: &Option<Type>,
     body: Option<&[Stmt]>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Normalize return type (convert GenericApp Result to Type::Result)
     let normalized_return_type = return_type.as_ref().map(|t| normalize_type(t));
     
@@ -574,7 +574,7 @@ pub fn declare_function_with_closure<'ctx>(
     return_type: &Option<Type>,
     body: Option<&[Stmt]>,
     nonlocal_vars: &[String],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // First declare with regular params
     let normalized_return_type = return_type.as_ref().map(|t| normalize_type(t));
 
@@ -639,7 +639,7 @@ pub fn declare_function_simple<'ctx>(
     name: &str,
     params: &[Param],
     return_type: &Option<Type>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Build LLVM parameter types directly
     let param_llvm_types: Vec<_> = params
         .iter()

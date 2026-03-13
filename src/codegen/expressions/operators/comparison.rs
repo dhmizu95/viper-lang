@@ -8,7 +8,7 @@ pub fn generate_pointer_binop<'ctx>(
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
     op: &BinOp,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let lhs = lhs.into_pointer_value();
     let rhs = rhs.into_pointer_value();
 
@@ -55,6 +55,6 @@ pub fn generate_pointer_binop<'ctx>(
             .build_int_compare(inkwell::IntPredicate::UGE, lhs_int, rhs_int, "ptr_gte")
             .expect("ptr_gte")
             .into()),
-        _ => Err(format!("Unsupported pointer operator: {:?}", op)),
+        _ => crate::codegen::codegen_error(format!("Unsupported pointer operator: {:?}", op)),
     }
 }

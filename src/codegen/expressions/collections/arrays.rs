@@ -12,7 +12,7 @@ pub fn generate_array<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
     size: Option<usize>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let array_size = size.unwrap_or_else(|| elements.len());
 
     if array_size == 0 {

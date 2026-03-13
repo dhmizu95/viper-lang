@@ -8,7 +8,7 @@ fn generate_if_chain<'ctx>(
     elif_blocks: &[(Expr, Vec<Stmt>)],
     else_body: &Option<Vec<Stmt>>,
     merge_block: inkwell::basic_block::BasicBlock<'ctx>,
-) -> Result<bool, String> {
+) -> crate::codegen::Result<bool> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
 
     if elif_blocks.is_empty() {
@@ -91,7 +91,7 @@ pub fn generate_if<'ctx>(
     body: &[Stmt],
     elif_blocks: &[(Expr, Vec<Stmt>)],
     else_body: &Option<Vec<Stmt>>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let cond_val = crate::codegen::expressions::generate_expr(state, condition)?.into_int_value();
 

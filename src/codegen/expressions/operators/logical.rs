@@ -9,7 +9,7 @@ pub fn generate_logical_op<'ctx>(
     left: &Expr,
     op: &BinOp,
     right: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Save the block where we evaluate lhs - this is where we'll branch from
     let lhs_block = state.builder.get_insert_block().unwrap();
 
@@ -58,7 +58,7 @@ pub fn generate_null_coalesce_op<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     left: &Expr,
     right: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     
     // Evaluate left operand

@@ -17,7 +17,7 @@ pub(crate) fn generate_import<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     module_name: &str,
     alias: Option<&str>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // For now, imports are handled at the semantic level
     // The module is loaded and its symbols are available
     // We just need to ensure the module is in the registry
@@ -49,7 +49,7 @@ pub(crate) fn generate_from_import<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     module_name: &str,
     names: &[(String, Option<String>)],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // For each imported name, create a reference to the module's symbol
     for (name, alias) in names {
         let import_name = alias.as_deref().unwrap_or(name);
@@ -75,7 +75,7 @@ pub(crate) fn generate_sync_with<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     items: &[crate::ast::WithItem],
     body: &[crate::ast::Stmt],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let with_num = WITH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
@@ -169,7 +169,7 @@ pub(crate) fn generate_sync_with<'ctx>(
 fn call_context_enter<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     context_val: &BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Context manager must be a pointer (object)
     if !context_val.is_pointer_value() {
         // For non-object types (like literals), just return the value
@@ -191,7 +191,7 @@ fn call_context_exit<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     context_val: &BasicValueEnum<'ctx>,
     has_exception: bool,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Context manager must be a pointer (object)
     if !context_val.is_pointer_value() {
         // For non-object types, nothing to do
@@ -223,7 +223,7 @@ fn call_method_on_object<'ctx>(
     obj_ptr: inkwell::values::PointerValue<'ctx>,
     method_name: &str,
     args: &[inkwell::values::BasicMetadataValueEnum<'ctx>],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     use crate::codegen::oop::with_class_registry;
     use crate::ast::Type;
 
@@ -283,7 +283,7 @@ pub(crate) fn generate_async_with<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     items: &[crate::ast::WithItem],
     body: &[crate::ast::Stmt],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let with_num = WITH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
@@ -377,7 +377,7 @@ pub(crate) fn generate_async_with<'ctx>(
 fn call_async_context_enter<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     context_val: &inkwell::values::BasicValueEnum<'ctx>,
-) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<inkwell::values::BasicValueEnum<'ctx>> {
     // Context manager must be a pointer (object)
     if !context_val.is_pointer_value() {
         // For non-object types, just return the value
@@ -397,7 +397,7 @@ fn call_async_context_exit<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     context_val: &inkwell::values::BasicValueEnum<'ctx>,
     has_exception: bool,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Context manager must be a pointer (object)
     if !context_val.is_pointer_value() {
         // For non-object types, nothing to do

@@ -11,7 +11,7 @@ pub fn generate_while<'ctx>(
     condition: &Expr,
     body: &[Stmt],
     else_body: &Option<Vec<Stmt>>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // For now, use simple loop - LLVM's opt will handle unrolling
     generate_while_simple(state, condition, body, else_body)
 }
@@ -21,7 +21,7 @@ fn generate_while_simple<'ctx>(
     condition: &Expr,
     body: &[Stmt],
     else_body: &Option<Vec<Stmt>>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let while_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
     let cond_block = state.context.append_basic_block(func, &format!("while_cond{}", while_num));
@@ -123,7 +123,7 @@ fn generate_for_with_iterator<'ctx>(
     iter: &Expr,
     body: &[Stmt],
     else_body: &Option<Vec<Stmt>>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
     
@@ -306,7 +306,7 @@ fn generate_for_with_iterator<'ctx>(
         Ok(())
     } else {
         // Fall back to simple iteration if vp_iterator_next not available
-        Err("Iterator protocol requires vp_iterator_next runtime function".to_string())
+        crate::codegen::codegen_error("Iterator protocol requires vp_iterator_next runtime function".to_string())
     }
 }
 
@@ -318,7 +318,7 @@ pub fn generate_for<'ctx>(
     body: &[Stmt],
     else_body: &Option<Vec<Stmt>>,
     is_async: bool,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     if is_async {
         return generate_async_for(state, target, iter, body);
     }
@@ -339,7 +339,7 @@ pub fn generate_for<'ctx>(
                 // Determine if start/step values need tagging based on arg count
                 // generate_expr returns tagged values, i64_const returns untagged
                 let (start_val, end_val, step_val) = match args.len() {
-                    0 => return Err("range expected at least 1 argument, got 0".to_string()),
+                    0 => return crate::codegen::codegen_error("range expected at least 1 argument, got 0".to_string()),
                     1 => (
                         // start = 0 (untagged, will be tagged below)
                         state.ir_builder.i64_const(0),
@@ -744,7 +744,7 @@ pub fn generate_async_for<'ctx>(
     target: &Expr,
     iter: &Expr,
     body: &[Stmt],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
 
@@ -797,7 +797,7 @@ pub fn generate_async_for<'ctx>(
                         crate::codegen::expressions::generate_expr(state, &args[2])?
                             .into_int_value(),
                     ),
-                    _ => return Err("async_range expects 1-3 arguments".to_string()),
+                    _ => return crate::codegen::codegen_error("async_range expects 1-3 arguments".to_string()),
                 };
 
                 let iter_ptr = state

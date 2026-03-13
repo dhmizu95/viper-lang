@@ -11,7 +11,7 @@ use crate::codegen::expressions::generate_expr;
 pub fn generate_dict<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     pairs: &[(Expr, Expr)],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let dict_create_func = state
         .module
         .get_function("vp_dict_create")
@@ -70,7 +70,7 @@ pub fn generate_dict<'ctx>(
             }
             _ => {
                 // Fallback for non-string keys (not yet supported)
-                return Err("Dict keys must be strings".to_string());
+                return crate::codegen::codegen_error("Dict keys must be strings".to_string());
             }
         }
     }

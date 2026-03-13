@@ -5,7 +5,7 @@ use crate::codegen::core::context::CodeGen;
 impl<'ctx> CodeGen<'ctx> {
     /// Generate __name__ builtin constant
     /// For the main module, use "__main__"; for imported modules, use the module name
-    pub(crate) fn generate_name_builtin(&mut self) -> Result<(), String> {
+    pub(crate) fn generate_name_builtin(&mut self) -> crate::codegen::Result<()> {
         // Create a global pointer variable for __name__ (will be initialized in viper_init)
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let global = self.module.add_global(ptr_type, None, "__name__");
@@ -23,7 +23,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Initialize __name__ builtin in viper_init
-    pub(crate) fn initialize_name_builtin(&mut self) -> Result<(), String> {
+    pub(crate) fn initialize_name_builtin(&mut self) -> crate::codegen::Result<()> {
         // For the main module, use "__main__" as the name
         // This allows if __name__ == "__main__" to work correctly
         let name_value = "__main__";

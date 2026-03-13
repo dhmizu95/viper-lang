@@ -9,9 +9,9 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_round_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("round() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("round() requires at least 1 argument".to_string());
     }
 
     let number_val = generate_expr(state, &args[0])?;
@@ -46,9 +46,9 @@ pub fn generate_round_call<'ctx>(
 pub fn generate_divmod_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 2 {
-        return Err("divmod() requires exactly 2 arguments".to_string());
+        return crate::codegen::codegen_error("divmod() requires exactly 2 arguments".to_string());
     }
 
     let a_val = generate_expr(state, &args[0])?;
@@ -64,7 +64,7 @@ pub fn generate_divmod_call<'ctx>(
             .get_function("vp_bigint_from_i64")
             .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
 
-        let get_bigint = |val: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'ctx>, String> {
+        let get_bigint = |val: BasicValueEnum<'ctx>| -> crate::codegen::Result<BasicValueEnum<'ctx>> {
             if val.is_pointer_value() {
                 Ok(val)
             } else if val.is_int_value() {
@@ -74,7 +74,7 @@ pub fn generate_divmod_call<'ctx>(
                     .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
                 Ok(res.into_pointer_value().into())
             } else {
-                Err("Cannot convert to BigInt for divmod".to_string())
+                crate::codegen::codegen_error("Cannot convert to BigInt for divmod".to_string())
             }
         };
 
@@ -138,9 +138,9 @@ pub fn generate_divmod_call<'ctx>(
 pub fn generate_pow_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() < 2 || args.len() > 3 {
-        return Err("pow() requires 2 or 3 arguments".to_string());
+        return crate::codegen::codegen_error("pow() requires 2 or 3 arguments".to_string());
     }
 
     let base_val = generate_expr(state, &args[0])?;
@@ -162,7 +162,7 @@ pub fn generate_pow_call<'ctx>(
             .get_function("vp_bigint_from_i64")
             .ok_or_else(|| "vp_bigint_from_i64 not declared".to_string())?;
 
-        let get_bigint = |val: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'ctx>, String> {
+        let get_bigint = |val: BasicValueEnum<'ctx>| -> crate::codegen::Result<BasicValueEnum<'ctx>> {
             if val.is_pointer_value() {
                 Ok(val)
             } else if val.is_int_value() {
@@ -170,7 +170,7 @@ pub fn generate_pow_call<'ctx>(
                     .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
                 Ok(res.into_pointer_value().into())
             } else {
-                Err("Cannot convert to BigInt for pow()".to_string())
+                crate::codegen::codegen_error("Cannot convert to BigInt for pow()".to_string())
             }
         };
 
@@ -215,7 +215,7 @@ pub fn generate_pow_call<'ctx>(
     }
 
     if args.len() == 3 {
-        return Err("3-argument pow() only supported for BigInt types currently".to_string());
+        return crate::codegen::codegen_error("3-argument pow() only supported for BigInt types currently".to_string());
     }
 
     // Use float pow for non-BigInt cases

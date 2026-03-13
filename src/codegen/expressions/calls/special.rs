@@ -10,9 +10,9 @@ use crate::codegen::state::CodeGenState;
 pub fn generate_user_main_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if !args.is_empty() {
-        return Err("main() takes no arguments".to_string());
+        return crate::codegen::codegen_error("main() takes no arguments".to_string());
     }
 
     let user_main_func = state
@@ -32,6 +32,6 @@ pub fn generate_user_main_call<'ctx>(
                 _ => Ok(state.ir_builder.i64_const(0).into()),
             }
         }
-        Err(e) => Err(format!("Call to __user_main failed: {:?}", e)),
+        Err(e) => crate::codegen::codegen_error(format!("Call to __user_main failed: {:?}", e)),
     }
 }

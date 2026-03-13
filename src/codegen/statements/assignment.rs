@@ -19,7 +19,7 @@ pub(crate) fn generate_assign<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     target: &Expr,
     value: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Handle tuple unpacking: a, b = (1, 2)
     if let Expr::Tuple { elements: targets, .. } = target {
         return generate_tuple_unpack(state, targets, value);
@@ -506,7 +506,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
     target: &Expr,
     op: &BinOp,
     value: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     if let Expr::Ident(name, _) = target {
         // Handle global variable augmented assignment
         if state.global_constants.contains_key(name) && !state.variables.contains_key(name) {
@@ -547,7 +547,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 BinOp::RShift => {
                     state.builder.build_right_shift(lhs, rhs, false, "rshift").expect("rshift")
                 }
-                _ => return Err(format!("Unsupported augmented assignment operator: {:?}", op)),
+                _ => return crate::codegen::codegen_error(format!("Unsupported augmented assignment operator: {:?}", op)),
             };
 
             state.builder.build_store(global_ptr, result).expect("store to global");
@@ -575,10 +575,10 @@ pub(crate) fn generate_aug_assign<'ctx>(
                                 let i64_type = state.context.i64_type();
                                 state.builder.build_load(i64_type, *alloca, name).expect("load")
                             }
-                            _ => return Err("Invalid var type".to_string()),
+                            _ => return crate::codegen::codegen_error("Invalid var type".to_string()),
                         }
                     } else {
-                        return Err("Invalid storage".to_string());
+                        return crate::codegen::codegen_error("Invalid storage".to_string());
                     }
                 }
             } else {
@@ -587,7 +587,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                     let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
                     state.builder.build_load(ptr_type, *alloca, name).expect("load")
                 } else {
-                    return Err("Reference types must be stack allocated".to_string());
+                    return crate::codegen::codegen_error("Reference types must be stack allocated".to_string());
                 }
             };
 
@@ -626,7 +626,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                         result.into_float_value()
                     }
                     _ => {
-                        return Err(format!(
+                        return crate::codegen::codegen_error(format!(
                             "Unsupported augmented assignment operator for float: {:?}",
                             op
                         ))
@@ -670,7 +670,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                         state.builder.build_right_shift(lhs, rhs, false, "rshift").expect("rshift")
                     }
                     _ => {
-                        return Err(format!(
+                        return crate::codegen::codegen_error(format!(
                             "Unsupported augmented assignment operator for int: {:?}",
                             op
                         ))
@@ -699,7 +699,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                         if let Some(value_ptr) = var_info.closure_value_ptr {
                             state.builder.build_store(value_ptr, result).expect("store to cell");
                         } else {
-                            return Err(format!(
+                            return crate::codegen::codegen_error(format!(
                                 "Closure cell for '{}' missing value pointer",
                                 name
                             ));
@@ -708,7 +708,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
                 }
             }
         } else {
-            return Err(format!("Undefined variable in augmented assignment: {}", name));
+            return crate::codegen::codegen_error(format!("Undefined variable in augmented assignment: {}", name));
         }
     }
     Ok(())
@@ -719,7 +719,7 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     targets: &[Expr],
     value: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Generate the value expression (should be a tuple pointer)
     let value_ptr = crate::codegen::expressions::generate_expr(state, value)?;
 
@@ -728,7 +728,7 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
     let tuple_ptr = if value_ptr.is_pointer_value() {
         value_ptr.into_pointer_value()
     } else {
-        return Err("Tuple unpacking requires a tuple value".to_string());
+        return crate::codegen::codegen_error("Tuple unpacking requires a tuple value".to_string());
     };
 
     // Load the elements pointer from the tuple struct (offset 16 = 2 * i64)
@@ -775,7 +775,7 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
             // Store in variable
             state.variables.insert(name.clone(), VarInfo::new_register(elem_val, VarType::Int));
         } else {
-            return Err("Tuple unpacking only supports simple identifiers".to_string());
+            return crate::codegen::codegen_error("Tuple unpacking only supports simple identifiers".to_string());
         }
     }
 

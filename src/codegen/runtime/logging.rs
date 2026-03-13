@@ -7,7 +7,7 @@ use inkwell::module::Module;
 pub fn declare_logging_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
     let i64_type = context.i64_type();
     let void_type = context.void_type();

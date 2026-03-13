@@ -13,9 +13,9 @@ pub fn generate_type_convert<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     name: &str,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
+        return crate::codegen::codegen_error(format!("{}() takes exactly 1 argument, got {}", name, args.len()));
     }
 
     let arg_val = generate_expr(state, &args[0])?;
@@ -45,7 +45,7 @@ pub fn generate_type_convert<'ctx>(
                     .into_float_value();
                 Ok(result.into())
             } else {
-                Err("Cannot convert to float".to_string())
+                crate::codegen::codegen_error("Cannot convert to float".to_string())
             }
         }
         "int" => {
@@ -89,7 +89,7 @@ pub fn generate_type_convert<'ctx>(
                     .unwrap();
                 Ok(result)
             } else {
-                Err("Cannot convert to int".to_string())
+                crate::codegen::codegen_error("Cannot convert to int".to_string())
             }
         }
         "bool" => {
@@ -139,10 +139,10 @@ pub fn generate_type_convert<'ctx>(
                     .expect("ptr to bool comparison");
                 Ok(result.into())
             } else {
-                Err("Cannot convert to bool".to_string())
+                crate::codegen::codegen_error("Cannot convert to bool".to_string())
             }
         }
-        _ => Err(format!("Unknown type conversion: {}", name)),
+        _ => crate::codegen::codegen_error(format!("Unknown type conversion: {}", name)),
     }
 }
 
@@ -150,9 +150,9 @@ pub fn generate_type_convert<'ctx>(
 pub fn generate_str_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("str() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("str() takes exactly 1 argument, got {}", args.len()));
     }
 
     let arg = &args[0];
@@ -197,9 +197,9 @@ pub fn generate_str_call<'ctx>(
 fn generate_tagged_int_to_str<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("str() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("str() takes exactly 1 argument, got {}", args.len()));
     }
 
     let tagged_val = generate_expr(state, &args[0])?;
@@ -223,7 +223,7 @@ fn generate_tagged_int_to_str<'ctx>(
 fn generate_tagged_int_to_str_val<'ctx>(
     _state: &mut CodeGenState<'_, 'ctx>,
     tagged_val: inkwell::values::BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Return the tagged int value directly
     // print() will use tagged_int_print to display it
     Ok(tagged_val)
@@ -233,7 +233,7 @@ fn generate_tagged_int_to_str_val<'ctx>(
 fn generate_bigint_to_str_direct<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     bigint_ptr: inkwell::values::BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Call vp_bigint_to_str(bigint_ptr, 10) - base 10
     let to_str_func = state
         .module
@@ -260,7 +260,7 @@ fn generate_bigint_to_str_direct<'ctx>(
 pub fn generate_bytes_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // bytes() with no args returns empty bytes
     if args.is_empty() {
         let bytes_func = state
@@ -286,7 +286,7 @@ pub fn generate_bytes_call<'ctx>(
     
     // bytes(arg) - convert argument to bytes
     if args.len() != 1 {
-        return Err(format!("bytes() takes at most 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("bytes() takes at most 1 argument, got {}", args.len()));
     }
     
     let arg_val = generate_expr(state, &args[0])?;

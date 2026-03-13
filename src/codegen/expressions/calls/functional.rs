@@ -9,9 +9,9 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_enumerate_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("enumerate() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("enumerate() requires at least 1 argument".to_string());
     }
 
     let iterable_val = generate_expr(state, &args[0])?;
@@ -36,9 +36,9 @@ pub fn generate_enumerate_call<'ctx>(
 pub fn generate_zip_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() < 2 {
-        return Err("zip() requires at least 2 arguments".to_string());
+        return crate::codegen::codegen_error("zip() requires at least 2 arguments".to_string());
     }
 
     let iter1_val = generate_expr(state, &args[0])?;
@@ -59,9 +59,9 @@ pub fn generate_zip_call<'ctx>(
 pub fn generate_sum_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("sum() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("sum() requires at least 1 argument".to_string());
     }
 
     let iterable_val = generate_expr(state, &args[0])?;
@@ -82,9 +82,9 @@ pub fn generate_sum_call<'ctx>(
 pub fn generate_min_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("min() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("min() requires at least 1 argument".to_string());
     }
 
     let iterable_val = generate_expr(state, &args[0])?;
@@ -104,9 +104,9 @@ pub fn generate_min_call<'ctx>(
 pub fn generate_max_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("max() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("max() requires at least 1 argument".to_string());
     }
 
     let iterable_val = generate_expr(state, &args[0])?;
@@ -126,9 +126,9 @@ pub fn generate_max_call<'ctx>(
 pub fn generate_any_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("any() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("any() requires at least 1 argument".to_string());
     }
 
     let iterable_val = generate_expr(state, &args[0])?;
@@ -148,9 +148,9 @@ pub fn generate_any_call<'ctx>(
 pub fn generate_all_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.is_empty() {
-        return Err("all() requires at least 1 argument".to_string());
+        return crate::codegen::codegen_error("all() requires at least 1 argument".to_string());
     }
 
     let iterable_val = generate_expr(state, &args[0])?;

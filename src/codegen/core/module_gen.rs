@@ -6,7 +6,7 @@ use crate::codegen::core::context::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
     /// Generate code for a complete module
-    pub fn generate(&mut self, module: &Module) -> Result<(), String> {
+    pub fn generate(&mut self, module: &Module) -> crate::codegen::Result<()> {
         // Run escape analysis first
         self.escape_analyzer.analyze_module(module);
 

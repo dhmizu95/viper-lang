@@ -6,7 +6,7 @@ use crate::utils::mangle_function_name;
 pub(crate) fn generate_sync<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     body: &[Stmt],
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Sync block - execute body and wait for all tasks
     for stmt in body {
         generate_stmt_internal(state, stmt)?;
@@ -16,7 +16,7 @@ pub(crate) fn generate_sync<'ctx>(
         let _ = state.builder.build_call(wait_func, &[], "wait_all");
         Ok(())
     } else {
-        Err("vp_wait_all_tasks not declared".to_string())
+        crate::codegen::codegen_error("vp_wait_all_tasks not declared".to_string())
     }
 }
 
@@ -24,7 +24,7 @@ pub(crate) fn generate_task<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     call: &Expr,
     span: &crate::utils::Span,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Task spawn - submit function to thread pool for parallel execution
     if let Expr::Call { func, args, .. } = call {
         if let Expr::Ident(name, _) = func.as_ref() {
@@ -134,7 +134,7 @@ pub(crate) fn generate_task<'ctx>(
                 );
                 Ok(())
             } else {
-                Err(format!("Unknown function for task: {}", name))
+                crate::codegen::codegen_error(format!("Unknown function for task: {}", name))
             }
         } else {
             // Non-identifier call - just execute inline
@@ -151,7 +151,7 @@ pub(crate) fn generate_task<'ctx>(
 pub(crate) fn generate_chan<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     size: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Channel creation - call runtime function
     let size_val = crate::codegen::expressions::generate_expr(state, size)?;
     let chan_func =
@@ -164,7 +164,7 @@ pub(crate) fn generate_send<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     chan: &Expr,
     value: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Channel send
     let chan_val = crate::codegen::expressions::generate_expr(state, chan)?;
     let val_val = crate::codegen::expressions::generate_expr(state, value)?;
@@ -179,7 +179,7 @@ pub(crate) fn generate_send<'ctx>(
 pub(crate) fn generate_recv<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     chan: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // Channel receive - returns value from channel
     let chan_val = crate::codegen::expressions::generate_expr(state, chan)?;
     let recv_func = state.module.get_function("vp_chan_recv").ok_or("vp_chan_recv not declared")?;
@@ -187,7 +187,7 @@ pub(crate) fn generate_recv<'ctx>(
     Ok(())
 }
 
-pub(crate) fn generate_waitgroup<'ctx>(state: &mut CodeGenState<'_, 'ctx>) -> Result<(), String> {
+pub(crate) fn generate_waitgroup<'ctx>(state: &mut CodeGenState<'_, 'ctx>) -> crate::codegen::Result<()> {
     // WaitGroup creation - returns a pointer to WaitGroup struct
     let wg_func = state
         .module
@@ -201,7 +201,7 @@ pub(crate) fn generate_wg_add<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     wg: &Expr,
     n: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // WaitGroup add
     let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
     let n_val = crate::codegen::expressions::generate_expr(state, n)?;
@@ -217,7 +217,7 @@ pub(crate) fn generate_wg_add<'ctx>(
 pub(crate) fn generate_wg_done<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     wg: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // WaitGroup done
     let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
     let done_func =
@@ -229,7 +229,7 @@ pub(crate) fn generate_wg_done<'ctx>(
 pub(crate) fn generate_wg_wait<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     wg: &Expr,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // WaitGroup wait
     let wg_val = crate::codegen::expressions::generate_expr(state, wg)?;
     let wait_func =

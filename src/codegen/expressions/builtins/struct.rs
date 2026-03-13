@@ -11,9 +11,9 @@ use crate::codegen::expressions::core::generate_expr;
 pub fn generate_struct_pack<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() < 2 {
-        return Err("struct.pack requires at least 2 arguments (format, value)".to_string());
+        return crate::codegen::codegen_error("struct.pack requires at least 2 arguments (format, value)".to_string());
     }
 
     // Generate format string (first arg)
@@ -33,7 +33,7 @@ pub fn generate_struct_pack<'ctx>(
             .build_float_to_signed_int(float_val, state.context.i64_type(), "float_to_int")
             .expect("float to int")
     } else {
-        return Err("Unsupported type for struct.pack".to_string());
+        return crate::codegen::codegen_error("Unsupported type for struct.pack".to_string());
     };
 
     let struct_pack_func = state
@@ -55,9 +55,9 @@ pub fn generate_struct_pack<'ctx>(
 pub fn generate_struct_unpack<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() < 2 {
-        return Err("struct.unpack requires at least 2 arguments (format, data)".to_string());
+        return crate::codegen::codegen_error("struct.unpack requires at least 2 arguments (format, data)".to_string());
     }
 
     // Generate format string (first arg)
@@ -91,9 +91,9 @@ pub fn generate_struct_unpack<'ctx>(
 pub fn generate_hash_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("hash() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("hash() takes exactly 1 argument, got {}", args.len()));
     }
 
     let arg = &args[0];
@@ -111,7 +111,7 @@ pub fn generate_hash_call<'ctx>(
         // String or other pointer type
         "vp_hash_str"
     } else {
-        return Err(format!("hash() not supported for type {:?}", arg_val.get_type()));
+        return crate::codegen::codegen_error(format!("hash() not supported for type {:?}", arg_val.get_type()));
     };
 
     let hash_func = state

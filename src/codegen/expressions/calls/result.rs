@@ -10,9 +10,9 @@ use inkwell::values::BasicValueEnum;
 pub fn generate_ok_constructor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("Ok() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("Ok() takes exactly 1 argument, got {}", args.len()));
     }
 
     // Generate the value expression
@@ -65,7 +65,7 @@ pub fn generate_ok_constructor<'ctx>(
             "ok_ptr_to_i64",
         ).map_err(|e| format!("Failed to convert ptr to i64: {:?}", e))?
     } else {
-        return Err(format!("Unsupported Ok value type: {:?}", value.get_type()));
+        return crate::codegen::codegen_error(format!("Unsupported Ok value type: {:?}", value.get_type()));
     };
 
     state.builder.build_store(value_i64_ptr, value_i64).expect("store");
@@ -80,9 +80,9 @@ pub fn generate_ok_constructor<'ctx>(
 pub fn generate_err_constructor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if args.len() != 1 {
-        return Err(format!("Err() takes exactly 1 argument, got {}", args.len()));
+        return crate::codegen::codegen_error(format!("Err() takes exactly 1 argument, got {}", args.len()));
     }
 
     // Generate the error expression
@@ -135,7 +135,7 @@ pub fn generate_err_constructor<'ctx>(
             "err_f64_to_i64",
         ).map_err(|e| format!("Failed to convert f64 to i64: {:?}", e))?
     } else {
-        return Err(format!("Unsupported Err value type: {:?}", error.get_type()));
+        return crate::codegen::codegen_error(format!("Unsupported Err value type: {:?}", error.get_type()));
     };
 
     state.builder.build_store(error_i64_ptr, error_i64).expect("store");

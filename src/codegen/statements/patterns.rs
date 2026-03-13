@@ -6,7 +6,7 @@ pub(crate) fn generate_match_pattern<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     pattern: &MatchPattern,
     subject_val: inkwell::values::BasicValueEnum<'ctx>,
-) -> Result<inkwell::values::IntValue<'ctx>, String> {
+) -> crate::codegen::Result<inkwell::values::IntValue<'ctx>> {
     match pattern {
         MatchPattern::Wildcard => Ok(state.context.bool_type().const_int(1, false)),
         MatchPattern::Constant(expr) => {

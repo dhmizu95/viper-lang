@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 impl<'ctx> CodeGen<'ctx> {
     /// Define all functions recursively (including nested functions)
-    pub(crate) fn define_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub(crate) fn define_all_functions(&mut self, stmts: &[Stmt]) -> crate::codegen::Result<()> {
         // Run recursion analysis if auto_memoize is enabled
         let mut recursion_analyzer = crate::semantic::RecursionAnalyzer::new();
         
@@ -142,7 +142,7 @@ impl<'ctx> CodeGen<'ctx> {
         return_type: &Option<Type>,
         body: &[Stmt],
         _nonlocal_vars_param: &[String],
-    ) -> Result<(), String> {
+    ) -> crate::codegen::Result<()> {
         // Save variables from previous function scope
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
@@ -405,7 +405,7 @@ impl<'ctx> CodeGen<'ctx> {
         is_lru: bool,
         maxsize: i64,
         returns_bigint: bool,
-    ) -> Result<(), String> {
+    ) -> crate::codegen::Result<()> {
         use crate::codegen::runtime::memoization;
         // Removed unused imports: BasicType, BasicValue
 
@@ -536,7 +536,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             2 => {
@@ -549,7 +549,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             3 => {
@@ -563,7 +563,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             4 => {
@@ -575,7 +575,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             5 => {
@@ -587,7 +587,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             6 => {
@@ -599,7 +599,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             7 => {
@@ -611,7 +611,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             8 => {
@@ -623,11 +623,14 @@ impl<'ctx> CodeGen<'ctx> {
                 ).expect("Failed to create cache key");
                 match key_call.try_as_basic_value() {
                     inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                    _ => return Err("Failed to create cache key".to_string()),
+                    _ => return crate::codegen::codegen_error("Failed to create cache key".to_string()),
                 }
             }
             n => {
-                return Err(format!("Memoization supports up to 8 parameters, got {}", n));
+                return crate::codegen::codegen_error(format!(
+                    "Memoization supports up to 8 parameters, got {}",
+                    n
+                ));
             }
         };
 
@@ -658,7 +661,7 @@ impl<'ctx> CodeGen<'ctx> {
             ).expect("Failed to create cache");
             match call.try_as_basic_value() {
                 inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                _ => return Err("Failed to create cache".to_string()),
+                _ => return crate::codegen::codegen_error("Failed to create cache".to_string()),
             }
         } else {
             // Create unbounded cache
@@ -669,7 +672,7 @@ impl<'ctx> CodeGen<'ctx> {
             ).expect("Failed to create cache");
             match call.try_as_basic_value() {
                 inkwell::values::ValueKind::Basic(bv) => bv.into_pointer_value(),
-                _ => return Err("Failed to create cache".to_string()),
+                _ => return crate::codegen::codegen_error("Failed to create cache".to_string()),
             }
         };
 
@@ -699,7 +702,7 @@ impl<'ctx> CodeGen<'ctx> {
         // Extract the return value (i64) from the call
         let cached_value = match cached_call.try_as_basic_value() {
             inkwell::values::ValueKind::Basic(bv) => bv,
-            _ => return Err("Cache get must return a value".to_string()),
+            _ => return crate::codegen::codegen_error("Cache get must return a value".to_string()),
         };
 
         // Load the found flag
@@ -737,7 +740,7 @@ impl<'ctx> CodeGen<'ctx> {
         ).expect("Body call failed");
         let result_value = match body_call.try_as_basic_value() {
             inkwell::values::ValueKind::Basic(bv) => bv,
-            _ => return Err("Body function must return a value".to_string()),
+            _ => return crate::codegen::codegen_error("Body function must return a value".to_string()),
         };
 
         // Cache the result - pass integer directly
@@ -801,7 +804,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Generate main function handling top-level statements
-    pub(crate) fn generate_main_with_statements(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub(crate) fn generate_main_with_statements(&mut self, stmts: &[Stmt]) -> crate::codegen::Result<()> {
         let main_type = self.context.i64_type().fn_type(&[], false);
 
         // Check if user defined main and save it
@@ -881,7 +884,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Declare all functions recursively (including nested functions)
-    pub(crate) fn declare_all_functions(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub(crate) fn declare_all_functions(&mut self, stmts: &[Stmt]) -> crate::codegen::Result<()> {
         for stmt in stmts {
             match stmt {
                 Stmt::Function { name, params, return_type, body, .. } => {
@@ -999,7 +1002,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Declare functions found in expressions (e.g., lambdas)
-    fn declare_functions_in_expr(&mut self, expr: &Expr) -> Result<(), String> {
+    fn declare_functions_in_expr(&mut self, expr: &Expr) -> crate::codegen::Result<()> {
         match expr {
             Expr::Lambda { body, .. } => {
                 // Lambda body is an expression, check if it contains nested functions

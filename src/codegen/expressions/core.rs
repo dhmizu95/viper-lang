@@ -12,7 +12,7 @@ use crate::codegen::expressions::operators::*;
 pub fn generate_tuple<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Use runtime function to create heap-allocated tuple
     let tuple_create_func = state
         .module
@@ -72,7 +72,7 @@ pub fn generate_tuple<'ctx>(
                         .build_int_z_extend(elem_val.into_int_value(), state.context.i64_type(), "bool_to_i64")
                         .map_err(|e| format!("Failed to extend bool to i64: {:?}", e))?
                 } else {
-                    return Err(format!("Unsupported tuple element type: {:?}", ty));
+                    return crate::codegen::codegen_error(format!("Unsupported tuple element type: {:?}", ty));
                 }
             };
 
@@ -248,7 +248,7 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
 pub fn generate_expr<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     expr: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     match expr {
         Expr::Int(n, _) => {
             let val = *n;
@@ -543,12 +543,12 @@ pub fn generate_expr<'ctx>(
                                 }
                             }
                         } else {
-                            Err(format!("Closure cell for '{}' missing value pointer", name))
+                            crate::codegen::codegen_error(format!("Closure cell for '{}' missing value pointer", name))
                         }
                     }
                 }
             } else {
-                Err(format!("Undefined variable: {}", name))
+                crate::codegen::codegen_error(format!("Undefined variable: {}", name))
             }
         }
         Expr::List { elements, span: _ } => generate_list(state, elements),

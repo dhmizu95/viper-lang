@@ -9,7 +9,7 @@ pub fn generate_incdec<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     op: &UnaryOp,
     operand: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Increment/decrement only works on variables
     let (name, alloca, var_type) = match operand {
         Expr::Ident(name, _) => {
@@ -31,22 +31,22 @@ pub fn generate_incdec<'ctx>(
                         if let Some(value_ptr) = &var_info.closure_value_ptr {
                             (name, *value_ptr, var_info.var_type)
                         } else {
-                            return Err(format!("Closure cell for '{}' missing value pointer", name));
+                            return crate::codegen::codegen_error(format!("Closure cell for '{}' missing value pointer", name));
                         }
                     }
                 }
             } else {
-                return Err(format!("Undefined variable: {}", name));
+                return crate::codegen::codegen_error(format!("Undefined variable: {}", name));
             }
         }
         _ => {
-            return Err("Increment/decrement only supported on variables".to_string());
+            return crate::codegen::codegen_error("Increment/decrement only supported on variables".to_string());
         }
     };
 
     // Only support integer types for now
     if var_type != VarType::Int {
-        return Err(format!(
+        return crate::codegen::codegen_error(format!(
             "Increment/decrement only supported on integer variables, found {:?}",
             var_type
         ));
@@ -66,7 +66,7 @@ pub fn generate_incdec<'ctx>(
         UnaryOp::PreDecrement | UnaryOp::PostDecrement => {
             state.builder.build_int_sub(current, one, "dec").expect("dec")
         }
-        _ => return Err("Expected Increment or Decrement".to_string()),
+        _ => return crate::codegen::codegen_error("Expected Increment or Decrement".to_string()),
     };
 
     // Store new value
@@ -85,7 +85,7 @@ pub fn generate_conditional<'ctx>(
     condition: &Expr,
     then_expr: &Expr,
     else_expr: &Expr,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let cond_val = generate_expr(state, condition)?.into_int_value();
 

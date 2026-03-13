@@ -37,7 +37,7 @@ pub fn generate_call<'ctx>(
     func: &Expr,
     args: &[Expr],
     _span: crate::utils::Span,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Expr::Attribute { obj, attr, .. } = func {
         // Check for super().method() call
         if let Expr::Super(_) = obj.as_ref() {
@@ -225,7 +225,7 @@ pub fn generate_call<'ctx>(
         // range() - returns a list of integers
         if name == "range" {
             let (start_val, end_val, _step_val) = match args.len() {
-                0 => return Err("range expected at least 1 argument, got 0".to_string()),
+                0 => return crate::codegen::codegen_error("range expected at least 1 argument, got 0".to_string()),
                 1 => (
                     state.ir_builder.i64_const(0),
                     generate_expr(state, &args[0])?.into_int_value(),
@@ -479,7 +479,7 @@ pub fn generate_call<'ctx>(
         }
     }
 
-    return Err(format!("Call target is not a function: {:?}", func));
+    return crate::codegen::codegen_error(format!("Call target is not a function: {:?}", func));
 }
 
 /// Find the best matching overload for a function call
@@ -695,7 +695,7 @@ fn generate_direct_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     func_val: inkwell::values::FunctionValue<'ctx>,
     args: &[crate::ast::Expr],
-) -> Result<inkwell::values::BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<inkwell::values::BasicValueEnum<'ctx>> {
     let arg_values: Vec<_> = args
         .iter()
         .map(|a| {

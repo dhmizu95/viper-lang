@@ -80,8 +80,8 @@ impl ReplSession {
         let module_name = format!("repl_chunk_{}", self.chunk_counter);
 
         let mut codegen = CodeGen::new(&context, &module_name);
-        codegen.generate(&ast).map_err(ViperError::codegen)?;
-        codegen.verify().map_err(ViperError::codegen)?;
+        codegen.generate(&ast)?;
+        codegen.verify()?;
 
         let execution_engine = codegen
             .module()

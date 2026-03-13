@@ -117,8 +117,8 @@ pub fn compile_and_run_jit_with_memo(input_path: &str, opt_level: u32, auto_memo
         // The codegen will run its own recursion analysis
     }
 
-    codegen.generate(&ast).map_err(ViperError::codegen)?;
-    codegen.verify().map_err(ViperError::codegen)?;
+    codegen.generate(&ast)?;
+    codegen.verify()?;
 
     // Report BigInt functions (they have optnone attribute for special handling)
     let bigint_funcs = codegen.bigint_functions();

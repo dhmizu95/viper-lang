@@ -11,7 +11,7 @@ use inkwell::AddressSpace;
 pub fn declare_exception_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     // __cxa_allocate_exception - allocate memory for an exception object
     let allocate_type = context.ptr_type(AddressSpace::default()).fn_type(
         &[context.i64_type().into()],
@@ -106,7 +106,7 @@ pub fn declare_exception_functions<'ctx>(
 fn declare_viper_exception_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let ptr_type = context.ptr_type(AddressSpace::default());
 
     // viper_raise_exception - raise a Viper exception with type and message

@@ -5,7 +5,7 @@ use inkwell::module::Module;
 pub fn declare_math_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let f64_type = context.f64_type();
     let i64_type = context.i64_type();
 
@@ -44,7 +44,7 @@ pub fn declare_math_functions<'ctx>(
 pub fn declare_hash_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let i64_type = context.i64_type();
     let f64_type = context.f64_type();
     let bool_type = context.bool_type();

@@ -7,7 +7,7 @@ use inkwell::module::Module;
 pub fn declare_bigint_functions<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let i64_type = context.i64_type();
     let bool_type = context.bool_type();
     let ptr_type = context.ptr_type(inkwell::AddressSpace::default());

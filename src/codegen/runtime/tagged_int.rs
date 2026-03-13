@@ -11,7 +11,7 @@ use inkwell::values::BasicValueEnum;
 pub fn declare_tagged_int_functions<'ctx>(
     context: &'ctx inkwell::context::Context,
     module: &inkwell::module::Module<'ctx>,
-) -> Result<(), String> {
+) -> crate::codegen::Result<()> {
     let i64_type = context.i64_type();
     let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
     let void_type = context.void_type();
@@ -165,7 +165,7 @@ pub fn generate_tagged_int_add<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_add")
@@ -184,7 +184,7 @@ pub fn generate_tagged_int_sub<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_sub")
@@ -203,7 +203,7 @@ pub fn generate_tagged_int_mul<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_mul")
@@ -222,7 +222,7 @@ pub fn generate_tagged_int_pow<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_pow")
@@ -241,7 +241,7 @@ pub fn generate_tagged_int_lshift<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_lshift")
@@ -260,7 +260,7 @@ pub fn generate_tagged_int_rshift<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_rshift")
@@ -279,7 +279,7 @@ pub fn generate_tagged_int_bitand<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_bitand")
@@ -298,7 +298,7 @@ pub fn generate_tagged_int_bitor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_bitor")
@@ -317,7 +317,7 @@ pub fn generate_tagged_int_bitxor<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_bitxor")
@@ -336,7 +336,7 @@ pub fn generate_tagged_int_div<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_div")
@@ -355,7 +355,7 @@ pub fn generate_tagged_int_mod<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_mod")
@@ -373,7 +373,7 @@ pub fn generate_tagged_int_mod<'ctx>(
 pub fn generate_tagged_int_neg<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     operand: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_neg")
@@ -392,7 +392,7 @@ pub fn generate_tagged_int_eq<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_eq")
@@ -411,7 +411,7 @@ pub fn generate_tagged_int_lt<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_lt")
@@ -430,7 +430,7 @@ pub fn generate_tagged_int_gt<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     lhs: BasicValueEnum<'ctx>,
     rhs: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_gt")
@@ -448,7 +448,7 @@ pub fn generate_tagged_int_gt<'ctx>(
 pub fn generate_tagged_int_from_i64<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     value: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, String> {
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
         .get_function("tagged_int_from_i64")
