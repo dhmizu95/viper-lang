@@ -402,6 +402,106 @@ pub fn generate_binop<'ctx>(
         );
     }
 
+    // Handle string-to-string comparison (both operands are pointers)
+    if matches!(op, BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq) {
+        if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
+            // Use string comparison functions
+            if matches!(op, BinOp::Eq | BinOp::NotEq) {
+                let str_equals_func = state.module.get_function("vp_str_equals")
+                    .ok_or_else(|| "vp_str_equals not declared".to_string())?;
+
+                let result = state.ir_builder.build_call(
+                    state.builder,
+                    str_equals_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "str_cmp",
+                ).ok_or_else(|| "vp_str_equals call failed".to_string())?;
+
+                if matches!(op, BinOp::NotEq) {
+                    let not_result = state.builder.build_not(result.into_int_value(), "str_neq")
+                        .map_err(|e| format!("Failed to negate: {:?}", e))?;
+                    return Ok(not_result.into());
+                }
+                return Ok(result.into());
+            }
+
+            // For <, >, <=, >=, use string comparison
+            let str_compare_func = state.module.get_function("vp_str_compare")
+                .ok_or_else(|| "vp_str_compare not declared".to_string())?;
+
+            let cmp_result = state.ir_builder.build_call(
+                state.builder,
+                str_compare_func,
+                &[lhs_val.into(), rhs_val.into()],
+                "str_compare",
+            ).ok_or_else(|| "vp_str_compare call failed".to_string())?;
+
+            let cmp_val = cmp_result.into_int_value();
+            let zero = state.context.i64_type().const_zero();
+
+            match op {
+                BinOp::Lt => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
+                        .map_err(|e| format!("str_lt: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                BinOp::Gt => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
+                        .map_err(|e| format!("str_gt: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                BinOp::LtEq => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
+                        .map_err(|e| format!("str_lte: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                BinOp::GtEq => {
+                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
+                        .map_err(|e| format!("str_gte: {:?}", e))?;
+                    return Ok(result.into());
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Special handling for string indexing comparison: text[i] == "a"
+    // text[i] returns an i64 (byte value), while "a" is a ViperString pointer
+    if (lhs_val.is_pointer_value() && rhs_val.is_int_value())
+        || (lhs_val.is_int_value() && rhs_val.is_pointer_value())
+    {
+        if matches!(
+            op,
+            BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq
+        ) {
+            let str_get_first = state
+                .module
+                .get_function("vp_str_get_first")
+                .ok_or_else(|| "vp_str_get_first not declared".to_string())?;
+
+            let (int_val, ptr_val, is_lhs_ptr) = if lhs_val.is_pointer_value() {
+                (rhs_val.into_int_value(), lhs_val, true)
+            } else {
+                (lhs_val.into_int_value(), rhs_val, false)
+            };
+
+            // Call vp_str_get_first to get the integer byte value of the first char in the string
+            let str_char_val = state
+                .ir_builder
+                .build_call(state.builder, str_get_first, &[ptr_val.into()], "str_char")
+                .ok_or_else(|| "vp_str_get_first call failed".to_string())?
+                .into_int_value();
+
+            let (lhs, rhs) = if is_lhs_ptr {
+                (str_char_val, int_val)
+            } else {
+                (int_val, str_char_val)
+            };
+
+            return arithmetic::generate_int_binop(state, lhs.into(), rhs.into(), op);
+        }
+    }
+
     // Reject pointer values in arithmetic operations (except for Add with strings, handled above)
     if lhs_val.is_pointer_value() || rhs_val.is_pointer_value() {
         return crate::codegen::codegen_error(

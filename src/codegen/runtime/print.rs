@@ -66,6 +66,10 @@ pub fn declare_print_functions<'ctx>(
     let str_compare_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_compare", str_compare_type, None);
 
+    // Get first character of a string as i64 byte value (for char-index comparison)
+    let str_get_first_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_get_first", str_get_first_type, None);
+
     let str_to_f64_type = module.get_context().f64_type().fn_type(&[ptr_type.into()], false);
     module.add_function("vp_f64_from_str", str_to_f64_type, None);
 

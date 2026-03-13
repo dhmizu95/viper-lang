@@ -1,6 +1,6 @@
 # Viper Benchmark Report
 
-**Date:** 2026-03-13 08:14:44  
+**Date:** 2026-03-13 09:38:04  
 **Iterations:** 3  
 **Max Memory Limit:** 4096MB  
 **Max Time Limit:** 300s  
@@ -10,43 +10,43 @@
 | Metric | Value |
 |--------|-------|
 | Total Tests | 96 |
-| Passed | 80 |
-| Failed/Crashed | 16 |
-| Success Rate | 83% |
+| Passed | 89 |
+| Failed/Crashed | 7 |
+| Success Rate | 92% |
 
 ## Performance (Time in ms)
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |
 |-----------|-----|--------|--------|--------|---|------|-----|--------|
-| 01_fibonacci | 163 | 113 | 111 | 119 | 61 | 62 | 77 | 700 |
-| 02_prime_sieve | 60 | 63 | 60 | 468 | 63 | 62 | 64 | 62 |
-| 03_matrix_mul | 63 | 60 | 60 | 62 | 63 | 64 | 62 | 63 |
-| 04_quicksort | 62 | 68 | 65 | 64 | 67 | 70 | 63 | 82 |
-| 05_matrix_mul | 97 | CRASH | CRASH | CRASH | 60 | 66 | 65 | 64 |
-| 06_prime_sieve | 85 | 64 | 65 | 61 | 63 | 67 | 67 | 63 |
-| 07_string_ops | CRASH | BUILD | BUILD | BUILD | 67 | 65 | 60 | 60 |
-| 08_int_hotloop | 112 | 579 | 598 | 600 | 63 | 65 | 67 | 221 |
-| 09_i64_hotloop | CRASH | BUILD | BUILD | BUILD | 66 | 65 | 65 | 217 |
-| 10_function_calls | 112 | 458 | 423 | 616 | 63 | 63 | 64 | 269 |
-| 11_string_concat_scan | CRASH | BUILD | BUILD | BUILD | 66 | 61 | 65 | 64 |
-| 12_bigint_overflow | 166 | 98 | 115 | 117 | 63 | 62 | BUILD | 62 |
+| 01_fibonacci | 245 | 240 | 199 | 262 | 90 | 109 | 124 | 1461 |
+| 02_prime_sieve | 127 | 101 | 119 | 144 | 85 | 92 | 77 | 137 |
+| 03_matrix_mul | 163 | 73 | 71 | 70 | 73 | 80 | 76 | 89 |
+| 04_quicksort | 122 | 103 | 74 | 81 | 75 | 79 | 68 | 116 |
+| 05_matrix_mul | 303 | CRASH | CRASH | CRASH | 73 | 81 | 73 | 126 |
+| 06_prime_sieve | 144 | 79 | 70 | 73 | 81 | 80 | 71 | 85 |
+| 07_string_ops | 128 | 72 | 69 | 75 | 73 | 71 | 76 | 89 |
+| 08_int_hotloop | 174 | 1245 | 2499 | 1136 | 75 | 72 | 75 | 461 |
+| 09_nbody | CRASH | BUILD | BUILD | BUILD | 76 | 73 | 72 | 70 |
+| 10_function_calls | 155 | 1371 | 790 | 833 | 73 | 69 | 95 | 637 |
+| 11_string_concat_scan | 125 | 78 | 74 | 76 | 72 | 73 | 70 | 67 |
+| 12_bigint_overflow | 335 | 158 | 204 | 140 | 69 | 80 | 110 | 164 |
 
 ## Memory (Peak RSS in KB)
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |
 |-----------|-----|--------|--------|--------|---|------|-----|--------|
-| 01_fibonacci | 66785 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 9984 |
-| 02_prime_sieve | 67221 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10112 |
-| 03_matrix_mul | 67658 | 3200 | 3200 | 3200 | 3200 | 3200 | 3157 | 10069 |
-| 04_quicksort | 68184 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10069 |
-| 05_matrix_mul | 68140 | N/A | N/A | N/A | 3200 | 3200 | 3200 | 10240 |
-| 06_prime_sieve | 67429 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10154 |
-| 07_string_ops | N/A | N/A | N/A | N/A | 3200 | 3200 | 3200 | 10026 |
-| 08_int_hotloop | 67177 | 55978 | 56021 | 56021 | 3200 | 3200 | 3200 | 10026 |
-| 09_i64_hotloop | N/A | N/A | N/A | N/A | 3200 | 3200 | 3200 | 10026 |
-| 10_function_calls | 67104 | 23850 | 23893 | 23893 | 3200 | 3200 | 3200 | 10026 |
-| 11_string_concat_scan | N/A | N/A | N/A | N/A | 3200 | 3200 | 3200 | 10197 |
-| 12_bigint_overflow | 207589 | 26880 | 26837 | 26837 | 3200 | 3200 | N/A | 10026 |
+| 01_fibonacci | 66766 | 3200 | 3200 | 3200 | 3114 | 3200 | 3200 | 9941 |
+| 02_prime_sieve | 67304 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10069 |
+| 03_matrix_mul | 67548 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10069 |
+| 04_quicksort | 68241 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10197 |
+| 05_matrix_mul | 68385 | N/A | N/A | N/A | 3200 | 3200 | 3200 | 10197 |
+| 06_prime_sieve | 67524 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10154 |
+| 07_string_ops | 67400 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 9984 |
+| 08_int_hotloop | 67298 | 55936 | 56064 | 55893 | 3200 | 3200 | 3200 | 9984 |
+| 09_nbody | N/A | N/A | N/A | N/A | 3200 | 3200 | 3200 | 10624 |
+| 10_function_calls | 67180 | 23850 | 23936 | 23893 | 3200 | 3200 | 3200 | 9984 |
+| 11_string_concat_scan | 67418 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 10112 |
+| 12_bigint_overflow | 207601 | 26922 | 26922 | 26922 | 3200 | 3200 | 6570 | 9941 |
 
 ## Status
 
@@ -58,12 +58,12 @@
 | 04_quicksort | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 05_matrix_mul | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | 06_prime_sieve | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 07_string_ops | ❌ | 🔨 | 🔨 | 🔨 | ✅ | ✅ | ✅ | ✅ |
+| 07_string_ops | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 08_int_hotloop | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 09_i64_hotloop | ❌ | 🔨 | 🔨 | 🔨 | ✅ | ✅ | ✅ | ✅ |
+| 09_nbody | ❌ | 🔨 | 🔨 | 🔨 | ✅ | ✅ | ✅ | ✅ |
 | 10_function_calls | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 11_string_concat_scan | ❌ | 🔨 | 🔨 | 🔨 | ✅ | ✅ | ✅ | ✅ |
-| 12_bigint_overflow | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🔨 | ✅ |
+| 11_string_concat_scan | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 12_bigint_overflow | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -73,67 +73,67 @@
 
 | Benchmark | JIT vs C | AOT-O1 vs C | AOT-O2 vs C | AOT-O3 vs C |
 |-----------|----------|-------------|-------------|-------------|
-| 01_fibonacci | 2.7× | 1.9× | 1.8× | 2.0× |
-| 02_prime_sieve | 1.0× | 1.0× | 1.0× | 7.4× |
-| 03_matrix_mul | 1.0× | 1.0× | 1.0× | 1.0× |
-| 04_quicksort | 0.9× | 1.0× | 1.0× | 1.0× |
-| 05_matrix_mul | 1.6× | N/A | N/A | N/A |
-| 06_prime_sieve | 1.3× | 1.0× | 1.0× | 1.0× |
-| 07_string_ops | N/A | N/A | N/A | N/A |
-| 08_int_hotloop | 1.8× | 9.2× | 9.5× | 9.5× |
-| 09_i64_hotloop | N/A | N/A | N/A | N/A |
-| 10_function_calls | 1.8× | 7.3× | 6.7× | 9.8× |
-| 11_string_concat_scan | N/A | N/A | N/A | N/A |
-| 12_bigint_overflow | 2.6× | 1.6× | 1.8× | 1.9× |
+| 01_fibonacci | 2.7× | 2.7× | 2.2× | 2.9× |
+| 02_prime_sieve | 1.5× | 1.2× | 1.4× | 1.7× |
+| 03_matrix_mul | 2.2× | 1.0× | 1.0× | 1.0× |
+| 04_quicksort | 1.6× | 1.4× | 1.0× | 1.1× |
+| 05_matrix_mul | 4.2× | N/A | N/A | N/A |
+| 06_prime_sieve | 1.8× | 1.0× | 0.9× | 0.9× |
+| 07_string_ops | 1.8× | 1.0× | 0.9× | 1.0× |
+| 08_int_hotloop | 2.3× | 16.6× | 33.3× | 15.1× |
+| 09_nbody | N/A | N/A | N/A | N/A |
+| 10_function_calls | 2.1× | 18.8× | 10.8× | 11.4× |
+| 11_string_concat_scan | 1.7× | 1.1× | 1.0× | 1.1× |
+| 12_bigint_overflow | 4.9× | 2.3× | 3.0× | 2.0× |
 
 ### Performance Ratio vs Rust
 
 | Benchmark | JIT vs Rust | AOT-O1 vs Rust | AOT-O2 vs Rust | AOT-O3 vs Rust |
 |-----------|-------------|----------------|----------------|----------------|
-| 01_fibonacci | 2.6× | 1.8× | 1.8× | 1.9× |
-| 02_prime_sieve | 1.0× | 1.0× | 1.0× | 7.5× |
-| 03_matrix_mul | 1.0× | 0.9× | 0.9× | 1.0× |
-| 04_quicksort | 0.9× | 1.0× | 0.9× | 0.9× |
-| 05_matrix_mul | 1.5× | N/A | N/A | N/A |
-| 06_prime_sieve | 1.3× | 1.0× | 1.0× | 0.9× |
-| 07_string_ops | N/A | N/A | N/A | N/A |
-| 08_int_hotloop | 1.7× | 8.9× | 9.2× | 9.2× |
-| 09_i64_hotloop | N/A | N/A | N/A | N/A |
-| 10_function_calls | 1.8× | 7.3× | 6.7× | 9.8× |
-| 11_string_concat_scan | N/A | N/A | N/A | N/A |
-| 12_bigint_overflow | 2.7× | 1.6× | 1.9× | 1.9× |
+| 01_fibonacci | 2.2× | 2.2× | 1.8× | 2.4× |
+| 02_prime_sieve | 1.4× | 1.1× | 1.3× | 1.6× |
+| 03_matrix_mul | 2.0× | 0.9× | 0.9× | 0.9× |
+| 04_quicksort | 1.5× | 1.3× | 0.9× | 1.0× |
+| 05_matrix_mul | 3.7× | N/A | N/A | N/A |
+| 06_prime_sieve | 1.8× | 1.0× | 0.9× | 0.9× |
+| 07_string_ops | 1.8× | 1.0× | 1.0× | 1.1× |
+| 08_int_hotloop | 2.4× | 17.3× | 34.7× | 15.8× |
+| 09_nbody | N/A | N/A | N/A | N/A |
+| 10_function_calls | 2.2× | 19.9× | 11.4× | 12.1× |
+| 11_string_concat_scan | 1.7× | 1.1× | 1.0× | 1.0× |
+| 12_bigint_overflow | 4.2× | 2.0× | 2.5× | 1.8× |
 
 ### Performance Ratio vs Go
 
 | Benchmark | JIT vs Go | AOT-O1 vs Go | AOT-O2 vs Go | AOT-O3 vs Go |
 |-----------|-----------|--------------|--------------|--------------|
-| 01_fibonacci | 2.1× | 1.5× | 1.4× | 1.5× |
-| 02_prime_sieve | 0.9× | 1.0× | 0.9× | 7.3× |
-| 03_matrix_mul | 1.0× | 1.0× | 1.0× | 1.0× |
-| 04_quicksort | 1.0× | 1.1× | 1.0× | 1.0× |
-| 05_matrix_mul | 1.5× | N/A | N/A | N/A |
-| 06_prime_sieve | 1.3× | 1.0× | 1.0× | 0.9× |
-| 07_string_ops | N/A | N/A | N/A | N/A |
-| 08_int_hotloop | 1.7× | 8.6× | 8.9× | 9.0× |
-| 09_i64_hotloop | N/A | N/A | N/A | N/A |
-| 10_function_calls | 1.8× | 7.2× | 6.6× | 9.6× |
-| 11_string_concat_scan | N/A | N/A | N/A | N/A |
-| 12_bigint_overflow | N/A | N/A | N/A | N/A |
+| 01_fibonacci | 2.0× | 1.9× | 1.6× | 2.1× |
+| 02_prime_sieve | 1.6× | 1.3× | 1.5× | 1.9× |
+| 03_matrix_mul | 2.1× | 1.0× | 0.9× | 0.9× |
+| 04_quicksort | 1.8× | 1.5× | 1.1× | 1.2× |
+| 05_matrix_mul | 4.2× | N/A | N/A | N/A |
+| 06_prime_sieve | 2.0× | 1.1× | 1.0× | 1.0× |
+| 07_string_ops | 1.7× | 0.9× | 0.9× | 1.0× |
+| 08_int_hotloop | 2.3× | 16.6× | 33.3× | 15.1× |
+| 09_nbody | N/A | N/A | N/A | N/A |
+| 10_function_calls | 1.6× | 14.4× | 8.3× | 8.8× |
+| 11_string_concat_scan | 1.8× | 1.1× | 1.1× | 1.1× |
+| 12_bigint_overflow | 3.0× | 1.4× | 1.9× | 1.3× |
 
 ### Memory Efficiency
 
 | Mode | Avg Memory (KB) | vs C |
 |------|-----------------|------|
-| Viper JIT | 83031 | 25.9× |
-| Viper AOT-O1 | 15338 | 4.8× |
-| Viper AOT-O2 | 15343 | 4.8× |
-| Viper AOT-O3 | 15343 | 4.8× |
+| Viper JIT | 80242 | 25.1× |
+| Viper AOT-O1 | 12910 | 4.0× |
+| Viper AOT-O2 | 12932 | 4.1× |
+| Viper AOT-O3 | 12910 | 4.0× |
 
 ### Key Findings
 
 1. **AOT-O1** typically offers the best performance/memory balance
-2. **JIT mode** has ~25.9× memory overhead (83031KB vs C's ~3200KB)
-3. **AOT memory** is ~4.8× C baseline (15342KB vs ~3200KB)
+2. **JIT mode** has ~25.1× memory overhead (80242KB vs C's ~3192KB)
+3. **AOT memory** is ~4.0× C baseline (12917KB vs ~3192KB)
 4. Performance varies by workload - see individual benchmark ratios above
 
 ---

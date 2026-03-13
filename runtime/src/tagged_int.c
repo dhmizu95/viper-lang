@@ -855,6 +855,10 @@ void tagged_int_print(TaggedInt value) {
     }
 }
 
+void* tagged_int_to_viper_str(TaggedInt value) {
+    return tagged_int_to_str(value);
+}
+
 void tagged_int_free(TaggedInt value) {
     if (tagged_int_is_bigint(value)) {
         ViperBigInt* bigint = tagged_int_get_bigint(value);

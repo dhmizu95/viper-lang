@@ -405,6 +405,18 @@ pub extern "C" fn tagged_int_to_str(val: i64) -> *mut c_char {
 }
 
 #[no_mangle]
+pub extern "C" fn tagged_int_to_viper_str(val: i64) -> *mut c_void {
+    let s_ptr = tagged_int_to_str(val);
+    unsafe {
+        let c_str = std::ffi::CStr::from_ptr(s_ptr);
+        let rust_str = c_str.to_str().unwrap();
+        let viper_str = crate::jit_stubs::strings::create_viper_string(rust_str) as *mut c_void;
+        libc::free(s_ptr as *mut libc::c_void);
+        viper_str
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn tagged_int_print(val: i64) {
     let s_ptr = tagged_int_to_str(val);
     unsafe {

@@ -249,6 +249,22 @@ pub fn create_viper_string(s: &str) -> *mut ViperString {
     }
 }
 
+/// Get first character of a string as i64 (byte value)
+/// Used for string indexing comparison: ch == "a" where ch = text[i]
+pub extern "C" fn vp_str_get_first_stub(s: *mut ViperString) -> i64 {
+    if s.is_null() {
+        return 0;
+    }
+    unsafe {
+        let slice = (*s).as_slice();
+        if slice.is_empty() {
+            0
+        } else {
+            slice[0] as i64
+        }
+    }
+}
+
 /// Exit stub for JIT - just exits the process
 pub extern "C" fn vp_exit_stub(code: i64) {
     std::process::exit(code as i32);

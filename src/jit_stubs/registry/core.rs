@@ -54,6 +54,7 @@ pub fn register_core_stubs(ee: &ExecutionEngine, module: &Module) {
         "tagged_int_from_i64" => super::super::tagged_int::tagged_int_from_i64,
         "tagged_int_from_str" => super::super::tagged_int::tagged_int_from_str,
         "tagged_int_to_str" => super::super::tagged_int::tagged_int_to_str,
+        "tagged_int_to_viper_str" => super::super::tagged_int::tagged_int_to_viper_str,
         "tagged_int_print" => super::super::tagged_int::tagged_int_print,
         "tagged_int_free" => super::super::tagged_int::tagged_int_free,
         "tagged_int_bitand" => super::super::tagged_int::tagged_int_bitand,

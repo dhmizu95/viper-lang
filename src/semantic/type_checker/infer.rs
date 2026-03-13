@@ -277,10 +277,6 @@ impl TypeChecker {
                     None
                 }
             }
-                } else {
-                    None
-                }
-            }
             Expr::Attribute { obj, attr, .. } => {
                 // Try to infer type from class field definition
                 if let Expr::Ident(obj_name, _) = obj.as_ref() {

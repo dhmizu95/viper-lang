@@ -20,6 +20,7 @@ pub fn register_string_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_str_format" => super::super::strings::vp_str_format_stub,
         "vp_str_equals" => super::super::strings::vp_str_equals_stub,
         "vp_str_compare" => super::super::strings::vp_str_compare_stub,
+        "vp_str_get_first" => super::super::strings::vp_str_get_first_stub,
         "vp_exit" => super::super::strings::vp_exit_stub,
     ]);
 

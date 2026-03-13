@@ -82,7 +82,10 @@ impl TypeChecker {
                             }
                         }
                         BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => {
-                            if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
+                            // Allow string comparisons (lexicographic ordering)
+                            if lt == Type::Str && rt == Type::Str {
+                                // String comparison is valid
+                            } else if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
                                 self.errors.push(TypeError::new(
                                     format!(
                                         "Comparison operators require numeric types, got {} and {}",

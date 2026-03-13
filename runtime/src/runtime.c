@@ -100,6 +100,15 @@ void vp_print_bytes(ViperBytes* bytes) {
 /* String Methods                               */
 /* ============================================ */
 
+/* Exported versions of inline string functions for AOT code generation */
+int64_t vp_str_len(ViperString* s) {
+    return vp_str_len_inline(s);
+}
+
+int64_t vp_str_get_first(ViperString* s) {
+    return vp_str_get_first_inline(s);
+}
+
 ViperString* vp_str_upper(ViperString* str) {
     if (!str) return NULL;
     int64_t len = vp_str_len_inline(str);

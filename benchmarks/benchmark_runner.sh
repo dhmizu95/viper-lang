@@ -40,7 +40,7 @@ BENCHMARKS=(
     "06_prime_sieve"
     "07_string_ops"
     "08_int_hotloop"
-    "09_i64_hotloop"
+    "09_nbody"
     "10_function_calls"
     "11_string_concat_scan"
     "12_bigint_overflow"
@@ -203,7 +203,7 @@ run_benchmark_safe() {
     log "  Viper JIT (-O3):"
     if [ -f "$file" ]; then
         local jit_result
-        jit_result=$(measure_benchmark "$VIPER_BIN run -O3 $file" "$ITERATIONS" "${name}_jit" 2>&1 | tee /dev/stderr | tail -1)
+        jit_result=$(measure_benchmark "$VIPER_BIN run -O3 $file" "$ITERATIONS" "${name}_jit" 2>&1 | tail -1)
         RESULTS["${name}_jit"]="$jit_result"
     else
         log "    ${YELLOW}Skipped (file not found)${NC}"
@@ -219,7 +219,7 @@ run_benchmark_safe() {
         if "$VIPER_BIN" build -O1 "$file" -o "$aot_bin" 2>&1; then
             if [ -f "$aot_bin_path" ]; then
                 local o1_result
-                o1_result=$(measure_benchmark "$aot_bin_path" "$ITERATIONS" "${name}_o1" 2>&1 | tee /dev/stderr | tail -1)
+                o1_result=$(measure_benchmark "$aot_bin_path" "$ITERATIONS" "${name}_o1" 2>&1 | tail -1)
                 RESULTS["${name}_o1"]="$o1_result"
             else
                 log "    ${RED}Binary not found${NC}"
@@ -244,7 +244,7 @@ run_benchmark_safe() {
         if "$VIPER_BIN" build -O2 "$file" -o "$aot_bin" 2>&1; then
             if [ -f "$aot_bin_path" ]; then
                 local o2_result
-                o2_result=$(measure_benchmark "$aot_bin_path" "$ITERATIONS" "${name}_o2" 2>&1 | tee /dev/stderr | tail -1)
+                o2_result=$(measure_benchmark "$aot_bin_path" "$ITERATIONS" "${name}_o2" 2>&1 | tail -1)
                 RESULTS["${name}_o2"]="$o2_result"
             else
                 log "    ${RED}Binary not found${NC}"
@@ -269,7 +269,7 @@ run_benchmark_safe() {
         if "$VIPER_BIN" build -O3 "$file" -o "$aot_bin" 2>&1; then
             if [ -f "$aot_bin_path" ]; then
                 local o3_result
-                o3_result=$(measure_benchmark "$aot_bin_path" "$ITERATIONS" "${name}_o3" 2>&1 | tee /dev/stderr | tail -1)
+                o3_result=$(measure_benchmark "$aot_bin_path" "$ITERATIONS" "${name}_o3" 2>&1 | tail -1)
                 RESULTS["${name}_o3"]="$o3_result"
             else
                 log "    ${RED}Binary not found${NC}"
@@ -292,7 +292,7 @@ run_benchmark_safe() {
         local c_bin="$TMPDIR/bench_c_$$"
         if gcc -O3 -o "$c_bin" "$c_file" 2>/dev/null; then
             local c_result
-            c_result=$(measure_benchmark "$c_bin" "$ITERATIONS" "${name}_c" 2>&1 | tee /dev/stderr | tail -1)
+            c_result=$(measure_benchmark "$c_bin" "$ITERATIONS" "${name}_c" 2>&1 | tail -1)
             RESULTS["${name}_c"]="$c_result"
         else
             log "    ${RED}Build failed${NC}"
@@ -311,7 +311,7 @@ run_benchmark_safe() {
         local rust_bin="$TMPDIR/bench_rs_$$"
         if rustc -O -o "$rust_bin" "$rust_file" 2>/dev/null; then
             local rust_result
-            rust_result=$(measure_benchmark "$rust_bin" "$ITERATIONS" "${name}_rust" 2>&1 | tee /dev/stderr | tail -1)
+            rust_result=$(measure_benchmark "$rust_bin" "$ITERATIONS" "${name}_rust" 2>&1 | tail -1)
             RESULTS["${name}_rust"]="$rust_result"
         else
             log "    ${RED}Build failed${NC}"
@@ -330,7 +330,7 @@ run_benchmark_safe() {
         local go_bin="$TMPDIR/bench_go_$$"
         if go build -o "$go_bin" "$go_file" 2>/dev/null; then
             local go_result
-            go_result=$(measure_benchmark "$go_bin" "$ITERATIONS" "${name}_go" 2>&1 | tee /dev/stderr | tail -1)
+            go_result=$(measure_benchmark "$go_bin" "$ITERATIONS" "${name}_go" 2>&1 | tail -1)
             RESULTS["${name}_go"]="$go_result"
         else
             log "    ${RED}Build failed${NC}"
@@ -347,7 +347,7 @@ run_benchmark_safe() {
     log "  Python:"
     if [ -n "$PYTHON_BIN" ] && [ -f "$py_file" ]; then
         local py_result
-        py_result=$(measure_benchmark "$PYTHON_BIN $py_file" "$ITERATIONS" "${name}_py" 2>&1 | tee /dev/stderr | tail -1)
+        py_result=$(measure_benchmark "$PYTHON_BIN $py_file" "$ITERATIONS" "${name}_py" 2>&1 | tail -1)
         RESULTS["${name}_py"]="$py_result"
     else
         log "    ${YELLOW}Skipped${NC}"

@@ -142,6 +142,18 @@ pub fn declare_tagged_int_functions<'ctx>(
         context.create_string_attribute("willreturn", ""),
     );
 
+    // tagged_int_to_viper_str returns ViperString* (allocates memory)
+    let to_viper_str_type = ptr_type.fn_type(&[i64_type.into()], false);
+    let func = module.add_function("tagged_int_to_viper_str", to_viper_str_type, None);
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("willreturn", ""),
+    );
+
     // tagged_int_print (has side effects - I/O)
     let print_type = void_type.fn_type(&[i64_type.into()], false);
     let func = module.add_function("tagged_int_print", print_type, None);

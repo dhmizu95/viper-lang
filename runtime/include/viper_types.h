@@ -234,6 +234,13 @@ static inline const char* vp_str_data_inline(ViperString* s) {
     return s->data.heap.heap_data;
 }
 
+/* Get first character from string (returns 0 for empty string) */
+static inline int64_t vp_str_get_first_inline(ViperString* s) {
+    if (!s) return 0;
+    if (vp_str_len_inline(s) == 0) return 0;
+    return (int64_t)(unsigned char)vp_str_data_inline(s)[0];
+}
+
 /* Create a small string with inline storage */
 static inline ViperString* vp_str_create_sso_small(const char* str, int64_t len) {
     ViperString* s = (ViperString*)vp_arc_alloc_local(sizeof(ViperString));
