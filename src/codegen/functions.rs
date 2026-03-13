@@ -143,11 +143,6 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return Type::List(Box::new(Type::Infer));
             }
 
-            // Check if parameter is passed to list-specific functions (indicating list type)
-            if param_is_passed_to_list_function(&param.name, body) {
-                return Type::List(Box::new(Type::Infer));
-            }
-
             // Arithmetic/comparison usage indicates the language-level int type.
             if param_is_used_as_scalar(&param.name, body) {
                 return Type::Int;
@@ -158,11 +153,30 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return Type::BigInt;
             }
 
+            // Check if parameter is only returned (identity function pattern like copy(x))
+            // In this case, use Infer to allow any type
+            if param_is_only_returned(&param.name, body) {
+                return Type::Infer;
+            }
+
             // Default to Int (tagged integer) for unannotated parameters
             // This is the most common case in Viper code
             Type::Int
         })
         .collect()
+}
+
+/// Check if a parameter is only used in a return statement (identity function pattern)
+fn param_is_only_returned(param_name: &str, body: &[Stmt]) -> bool {
+    // Check if the body is just a single return statement returning the parameter
+    if body.len() == 1 {
+        if let Stmt::Return { value: Some(expr), .. } = &body[0] {
+            if let Expr::Ident(name, _) = expr {
+                return name == param_name;
+            }
+        }
+    }
+    false
 }
 
 /// Check if a parameter is used as a list (indexed with [])
@@ -248,38 +262,6 @@ fn param_is_used_as_scalar(param_name: &str, body: &[Stmt]) -> bool {
 fn param_is_used_as_bigint(param_name: &str, body: &[Stmt]) -> bool {
     for stmt in body {
         if stmt_contains_bigint_usage(param_name, stmt) {
-            return true;
-        }
-    }
-    false
-}
-
-/// Built-in functions that accept any type (should not trigger list inference)
-fn is_universal_builtin(name: &str) -> bool {
-    matches!(
-        name,
-        "print"
-            | "len"
-            | "str"
-            | "int"
-            | "float"
-            | "bool"
-            | "repr"
-            | "type"
-            | "isinstance"
-            | "hasattr"
-            | "getattr"
-            | "setattr"
-            | "delattr"
-    )
-}
-
-/// Check if a parameter is passed as argument to a LIST function call
-/// This indicates the parameter might be a reference type (list, dict, etc.)
-/// Excludes universal builtins that accept any type
-fn param_is_passed_to_list_function(param_name: &str, body: &[Stmt]) -> bool {
-    for stmt in body {
-        if stmt_contains_list_function_call_with_param(param_name, stmt) {
             return true;
         }
     }
@@ -449,89 +431,6 @@ fn expr_contains_list_index(param_name: &str, expr: &Expr) -> bool {
                 || args.iter().any(|arg| expr_contains_list_index(param_name, arg))
         }
         Expr::Attribute { obj, .. } => expr_contains_list_index(param_name, obj),
-        _ => false,
-    }
-}
-
-/// Check if a statement contains a LIST function call where the parameter is passed as an argument
-/// Excludes universal builtins that accept any type
-fn stmt_contains_list_function_call_with_param(param_name: &str, stmt: &Stmt) -> bool {
-    match stmt {
-        Stmt::Expr(expr) => expr_contains_list_function_call_with_param(param_name, expr),
-        Stmt::Assign { target, value, .. } => {
-            expr_contains_list_function_call_with_param(param_name, target)
-                || expr_contains_list_function_call_with_param(param_name, value)
-        }
-        Stmt::If { condition, body, else_body, .. } => {
-            expr_contains_list_function_call_with_param(param_name, condition)
-                || body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
-                || else_body.as_ref().map_or(false, |eb| {
-                    eb.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
-                })
-        }
-        Stmt::While { condition, body, .. } => {
-            expr_contains_list_function_call_with_param(param_name, condition)
-                || body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
-        }
-        Stmt::For { body, .. } => {
-            body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
-        }
-        Stmt::Return { value, .. } => value
-            .as_ref()
-            .map_or(false, |v| expr_contains_list_function_call_with_param(param_name, v)),
-        Stmt::Function { body, .. } => {
-            body.iter().any(|s| stmt_contains_list_function_call_with_param(param_name, s))
-        }
-        Stmt::Declare { value, .. } => value
-            .as_ref()
-            .map_or(false, |v| expr_contains_list_function_call_with_param(param_name, v)),
-        Stmt::AugAssign { value, .. } => {
-            expr_contains_list_function_call_with_param(param_name, value)
-        }
-        _ => false,
-    }
-}
-
-/// Check if an expression contains a LIST function call where the parameter is passed as an argument
-/// Excludes universal builtins that accept any type
-fn expr_contains_list_function_call_with_param(param_name: &str, expr: &Expr) -> bool {
-    match expr {
-        Expr::Call { func, args, .. } => {
-            // Check if this is NOT a universal builtin and the parameter is an argument
-            let is_universal = if let Expr::Ident(func_name, _) = func.as_ref() {
-                is_universal_builtin(func_name)
-            } else {
-                false
-            };
-
-            if !is_universal {
-                // Check if any argument is the parameter
-                let param_is_arg = args.iter().any(|arg| {
-                    if let Expr::Ident(name, _) = arg {
-                        name == param_name
-                    } else {
-                        false
-                    }
-                });
-                if param_is_arg {
-                    return true;
-                }
-            }
-            // Also check nested calls in arguments
-            args.iter().any(|arg| expr_contains_list_function_call_with_param(param_name, arg))
-        }
-        Expr::BinOp { left, right, .. } => {
-            expr_contains_list_function_call_with_param(param_name, left)
-                || expr_contains_list_function_call_with_param(param_name, right)
-        }
-        Expr::UnaryOp { operand, .. } => {
-            expr_contains_list_function_call_with_param(param_name, operand)
-        }
-        Expr::Attribute { obj, .. } => expr_contains_list_function_call_with_param(param_name, obj),
-        Expr::Index { obj, index, .. } => {
-            expr_contains_list_function_call_with_param(param_name, obj)
-                || expr_contains_list_function_call_with_param(param_name, index)
-        }
         _ => false,
     }
 }

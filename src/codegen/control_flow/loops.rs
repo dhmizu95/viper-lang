@@ -389,16 +389,14 @@ pub fn generate_for<'ctx>(
                 // Track whether step needs tagging (true for 1 and 2 arg cases)
                 let step_needs_tagging = args.len() < 3;
 
+                // Get the current position and create blocks for the loop
                 let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
                 let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-                let init_block =
-                    state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
-                let cond_block =
-                    state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
-                let body_block =
-                    state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
-                let step_block =
-                    state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
+                let alloca_block = state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
+                let init_block = state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
+                let cond_block = state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
+                let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
+                let step_block = state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
                 let else_block = if else_body.is_some() {
                     Some(
                         state.context.append_basic_block(func_ctx, &format!("for_else{}", for_num)),
@@ -406,22 +404,23 @@ pub fn generate_for<'ctx>(
                 } else {
                     None
                 };
-                let exit_block =
-                    state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
+                let exit_block = state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
-                // Get the entry block of the function to place alloca there (proper dominance)
-                let entry_block = func_ctx.get_first_basic_block().unwrap();
+                // Branch from current position to alloca block
                 let old_position = state.builder.get_insert_block().unwrap();
+                if old_position.get_terminator().is_none() {
+                    state.ir_builder.build_branch(state.builder, alloca_block);
+                }
 
-                state.builder.position_at_end(entry_block);
+                // Create alloca in alloca_block
+                state.builder.position_at_end(alloca_block);
                 let counter = state
                     .builder
                     .build_alloca(state.context.i64_type(), "for_counter")
                     .expect("alloca");
-
-                // Restore builder position and initialize counter in init_block
-                state.builder.position_at_end(old_position);
                 state.ir_builder.build_branch(state.builder, init_block);
+
+                // Initialize counter in init_block
                 state.builder.position_at_end(init_block);
                 // Store tagged int value
                 // For 1-arg range: start_val = 0 (untagged), need to tag
@@ -442,8 +441,37 @@ pub fn generate_for<'ctx>(
                     .into_int_value();
                 // end_val is already tagged (from generate_expr), counter_val is also tagged
                 // Direct comparison works for tagged ints
-                let cond =
-                    state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "for_cond");
+                // For descending ranges (negative step), use icmp_gt instead of icmp_lt
+                let cond = if args.len() >= 3 {
+                    // 3-arg range: check if step is negative
+                    // Tagged integers: negative values remain negative after tagging
+                    let step_is_negative = state.ir_builder.build_icmp_lt(
+                        state.builder,
+                        step_val,
+                        state.ir_builder.i64_const(0),
+                        "step_is_neg",
+                    );
+                    let cond_lt = state.ir_builder.build_icmp_lt(
+                        state.builder,
+                        counter_val,
+                        end_val,
+                        "for_cond_lt",
+                    );
+                    let cond_gt = state.ir_builder.build_icmp_gt(
+                        state.builder,
+                        counter_val,
+                        end_val,
+                        "for_cond_gt",
+                    );
+                    state
+                        .builder
+                        .build_select(step_is_negative, cond_gt, cond_lt, "for_cond")
+                        .expect("select")
+                        .into_int_value()
+                } else {
+                    // 1 or 2 arg range: step is always positive (1)
+                    state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "for_cond")
+                };
                 // If condition is true, go to body; if false, go to else (if exists) or exit
                 let next_on_false = else_block.unwrap_or(exit_block);
                 state.ir_builder.build_cond_branch(state.builder, cond, body_block, next_on_false);
@@ -585,23 +613,26 @@ pub fn generate_for<'ctx>(
 
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let alloca_block = state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
     let init_block = state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
     let cond_block = state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
     let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
     let step_block = state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
     let exit_block = state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
-    // Get the entry block of the function to place alloca there (proper dominance)
-    let entry_block = func_ctx.get_first_basic_block().unwrap();
+    // Branch from current position to alloca block
     let old_position = state.builder.get_insert_block().unwrap();
+    if old_position.get_terminator().is_none() {
+        state.ir_builder.build_branch(state.builder, alloca_block);
+    }
 
-    state.builder.position_at_end(entry_block);
+    // Create alloca in alloca_block
+    state.builder.position_at_end(alloca_block);
     let counter =
         state.builder.build_alloca(state.context.i64_type(), "for_counter").expect("alloca");
-
-    // Restore builder position and initialize counter in init_block
-    state.builder.position_at_end(old_position);
     state.ir_builder.build_branch(state.builder, init_block);
+
+    // Initialize counter in init_block
     state.builder.position_at_end(init_block);
     state.builder.build_store(counter, start_val).expect("store");
     state.ir_builder.build_branch(state.builder, cond_block);

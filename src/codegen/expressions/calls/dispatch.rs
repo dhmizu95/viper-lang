@@ -408,14 +408,39 @@ pub fn generate_call<'ctx>(
         });
 
         if let Some(func_val) = func_val {
-            // Build argument values
-            let mut arg_values: Vec<_> = args
-                .iter()
-                .map(|a| {
-                    generate_expr(state, a)
-                        .map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
-                })
-                .collect::<Result<_, _>>()?;
+            // Get function parameter types for conversion
+            let fn_type = func_val.get_type();
+            let param_types = fn_type.get_param_types();
+
+            // Build argument values with type conversion if needed
+            let mut arg_values: Vec<inkwell::values::BasicMetadataValueEnum<'ctx>> = Vec::new();
+            for (i, a) in args.iter().enumerate() {
+                let arg_val = generate_expr(state, a)?;
+                // Convert pointer to i64 if function expects i64
+                let converted_val = if arg_val.is_pointer_value() {
+                    if let Some(&expected_ty) = param_types.get(i) {
+                        if expected_ty.is_int_type() && expected_ty.into_int_type().get_bit_width() == 64 {
+                            // Function expects i64, cast pointer to i64
+                            state
+                                .builder
+                                .build_ptr_to_int(
+                                    arg_val.into_pointer_value(),
+                                    state.context.i64_type(),
+                                    "ptr_to_i64",
+                                )
+                                .expect("ptr to int")
+                                .into()
+                        } else {
+                            arg_val
+                        }
+                    } else {
+                        arg_val
+                    }
+                } else {
+                    arg_val
+                };
+                arg_values.push(inkwell::values::BasicMetadataValueEnum::from(converted_val));
+            }
 
             // If this is a nested function call, append closure cells
             if let Some(closure_analyzer) = state.closure_analyzer {
@@ -460,17 +485,24 @@ pub fn generate_call<'ctx>(
     // Not a direct named function call or it's a variable reference
     let var_val = generate_expr(state, func).map_err(|e| format!("Call target failed: {}", e))?;
     if var_val.is_pointer_value() {
-        let arg_values: Vec<_> = args
-            .iter()
-            .map(|a| {
-                generate_expr(state, a).map(|v| inkwell::values::BasicMetadataValueEnum::from(v))
-            })
-            .collect::<Result<_, _>>()?;
-
+        // Indirect calls use i64 for all parameters - convert pointer args to i64
         let i64_type = state.context.i64_type();
         let mut param_types = Vec::new();
-        for _ in args {
+        let mut arg_values: Vec<_> = Vec::new();
+        for a in args {
             param_types.push(i64_type.into());
+            let arg_val = generate_expr(state, a)?;
+            // Convert pointer to i64 for indirect calls
+            let converted_val = if arg_val.is_pointer_value() {
+                state
+                    .builder
+                    .build_ptr_to_int(arg_val.into_pointer_value(), i64_type, "ptr_to_i64")
+                    .expect("ptr to int")
+                    .into()
+            } else {
+                arg_val
+            };
+            arg_values.push(inkwell::values::BasicMetadataValueEnum::from(converted_val));
         }
         let fn_type = i64_type.fn_type(&param_types, false);
         let result = state
