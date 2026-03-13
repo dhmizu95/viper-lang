@@ -1,9 +1,13 @@
 //! Code Generation Integration Tests
 
+use inkwell::context::Context;
 use std::env;
 use std::fs;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+use viper_lang::codegen::CodeGen;
+use viper_lang::lexer::Lexer;
+use viper_lang::parser::Parser;
 
 fn run_viper_code(code: &str) -> Result<String, String> {
     let temp_dir = env::temp_dir();
@@ -22,6 +26,20 @@ fn run_viper_code(code: &str) -> Result<String, String> {
         return Err(format!("stdout: {}\nstderr: {}", stdout, stderr));
     }
     Ok(stdout)
+}
+
+fn generate_module_ir(code: &str) -> Result<String, String> {
+    let mut lexer = Lexer::new(code);
+    let tokens = lexer.tokenize().map_err(|e| e.to_string())?;
+    let mut parser = Parser::new(tokens);
+    let ast = parser.parse().map_err(|e| e.to_string())?;
+
+    let context = Context::create();
+    let mut codegen = CodeGen::new(&context, "test_module");
+    codegen.generate(&ast).map_err(|e| e.to_string())?;
+    codegen.verify().map_err(|e| e.to_string())?;
+
+    Ok(codegen.module().print_to_string().to_string())
 }
 
 // Arithmetic Codegen
@@ -184,6 +202,49 @@ def test():
 test()
 "#;
     assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_codegen_task_global_aug_assign_is_atomic() {
+    let code = r#"
+counter = 0
+
+def bump():
+    global counter
+    counter += 1
+
+def test():
+    sync:
+        task bump()
+"#;
+
+    let ir = generate_module_ir(code).unwrap();
+    assert!(
+        ir.contains("atomicrmw add"),
+        "expected shared global increment to lower to atomicrmw, got:\n{}",
+        ir
+    );
+}
+
+#[test]
+fn test_codegen_global_aug_assign_preserves_rhs_evaluation_order() {
+    let code = r#"
+counter = 1
+
+def rhs():
+    global counter
+    counter = 10
+    return 2
+
+def test():
+    global counter
+    counter += rhs()
+    print(counter)
+test()
+"#;
+
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("\n3\n") || output.ends_with("3\n"), "unexpected output: {}", output);
 }
 
 // Closure Codegen

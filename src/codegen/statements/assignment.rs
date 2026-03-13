@@ -1,6 +1,112 @@
 use crate::ast::{BinOp, Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{VarInfo, VarStorage, VarType};
+use inkwell::values::{IntValue, PointerValue};
+use inkwell::{AtomicOrdering, AtomicRMWBinOp};
+
+fn is_pure_aug_assign_rhs(expr: &Expr) -> bool {
+    match expr {
+        Expr::Int(_, _)
+        | Expr::Float(_, _)
+        | Expr::Bool(_, _)
+        | Expr::Str(_, _)
+        | Expr::BigInt(_, _)
+        | Expr::None(_)
+        | Expr::Bytes(_, _)
+        | Expr::FString(_, _)
+        | Expr::Ident(_, _) => true,
+        Expr::BinOp { left, right, .. } => {
+            is_pure_aug_assign_rhs(left) && is_pure_aug_assign_rhs(right)
+        }
+        Expr::UnaryOp { operand, .. } => is_pure_aug_assign_rhs(operand),
+        Expr::Index { obj, index, .. } => {
+            is_pure_aug_assign_rhs(obj) && is_pure_aug_assign_rhs(index)
+        }
+        Expr::Attribute { obj, .. } => is_pure_aug_assign_rhs(obj),
+        Expr::Slice { obj, start, end, step, .. } => {
+            is_pure_aug_assign_rhs(obj)
+                && start.as_ref().map_or(true, |s| is_pure_aug_assign_rhs(s))
+                && end.as_ref().map_or(true, |e| is_pure_aug_assign_rhs(e))
+                && step.as_ref().map_or(true, |s| is_pure_aug_assign_rhs(s))
+        }
+        Expr::Call { func, args, .. } => {
+            let is_pure_builtin = if let Expr::Ident(name, _) = func.as_ref() {
+                matches!(
+                    name.as_str(),
+                    "len"
+                        | "abs"
+                        | "min"
+                        | "max"
+                        | "sum"
+                        | "range"
+                        | "str"
+                        | "int"
+                        | "float"
+                        | "bool"
+                        | "repr"
+                        | "ord"
+                        | "chr"
+                        | "hex"
+                        | "bin"
+                        | "oct"
+                        | "hash"
+                        | "id"
+                        | "type"
+                        | "isinstance"
+                )
+            } else {
+                false
+            };
+            is_pure_builtin && args.iter().all(is_pure_aug_assign_rhs)
+        }
+        Expr::List { elements, .. }
+        | Expr::Tuple { elements, .. }
+        | Expr::Array { elements, .. } => elements.iter().all(is_pure_aug_assign_rhs),
+        Expr::Dict { pairs, .. } => pairs
+            .iter()
+            .all(|(k, v)| is_pure_aug_assign_rhs(k) && is_pure_aug_assign_rhs(v)),
+        Expr::Conditional { condition, then_expr, else_expr, .. } => {
+            is_pure_aug_assign_rhs(condition)
+                && is_pure_aug_assign_rhs(then_expr)
+                && is_pure_aug_assign_rhs(else_expr)
+        }
+        Expr::Lambda { .. }
+        | Expr::ListComprehension { .. }
+        | Expr::Await { .. }
+        | Expr::AssignmentExpr { .. }
+        | Expr::Super(_) => false,
+    }
+}
+
+fn try_atomic_int_aug_assign<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    name: &str,
+    ptr: PointerValue<'ctx>,
+    op: &BinOp,
+    rhs: IntValue<'ctx>,
+) -> crate::codegen::Result<bool> {
+    if !state.is_thread_shared(name) {
+        return Ok(false);
+    }
+
+    let atomic_op = match op {
+        BinOp::Add => AtomicRMWBinOp::Add,
+        BinOp::Sub => AtomicRMWBinOp::Sub,
+        _ => return Ok(false),
+    };
+
+    state
+        .builder
+        .build_atomicrmw(
+            atomic_op,
+            ptr,
+            rhs,
+            AtomicOrdering::SequentiallyConsistent,
+        )
+        .map_err(|e| crate::codegen::codegen_err(format!("Failed to emit atomicrmw: {e}")))?;
+
+    Ok(true)
+}
 
 /// Get the type of an expression for assignment type tracking.
 /// Unlike infer_expr_type, this looks up identifier types from var_types.
@@ -720,11 +826,16 @@ pub(crate) fn generate_aug_assign<'ctx>(
             let i64_type = state.context.i64_type();
             let current =
                 state.builder.build_load(i64_type, global_ptr, name).expect("load global");
-
             let new_val = crate::codegen::expressions::generate_expr(state, value)?;
+            let rhs = new_val.into_int_value();
+
+            if is_pure_aug_assign_rhs(value)
+                && try_atomic_int_aug_assign(state, name, global_ptr, op, rhs)?
+            {
+                return Ok(());
+            }
 
             let lhs = current.into_int_value();
-            let rhs = new_val.into_int_value();
             let result = match op {
                 BinOp::Add => state.ir_builder.build_add(state.builder, lhs, rhs, "add"),
                 BinOp::Sub => state.ir_builder.build_sub(state.builder, lhs, rhs, "sub"),
@@ -806,6 +917,11 @@ pub(crate) fn generate_aug_assign<'ctx>(
             };
 
             let new_val = crate::codegen::expressions::generate_expr(state, value)?;
+            let rhs_int = if var_type == VarType::Int {
+                Some(new_val.into_int_value())
+            } else {
+                None
+            };
 
             let result: inkwell::values::BasicValueEnum<'ctx> = if var_type == VarType::Float {
                 let lhs = current.into_float_value();
@@ -895,10 +1011,22 @@ pub(crate) fn generate_aug_assign<'ctx>(
 
             // Store result back - for stack-allocated vars (the default), store to alloca.
             // Register vars are updated in-place in the HashMap (legacy path, kept for safety).
-            if let Some(var_info) = state.variables.get(name) {
-                match &var_info.storage {
+            if let Some(var_info) = state.variables.get(name).cloned() {
+                match var_info.storage {
                     VarStorage::Stack(alloca) => {
-                        state.builder.build_store(*alloca, result).expect("store");
+                        if var_type == VarType::Int
+                            && is_pure_aug_assign_rhs(value)
+                            && try_atomic_int_aug_assign(
+                                state,
+                                name,
+                                alloca,
+                                op,
+                                rhs_int.expect("int rhs"),
+                            )?
+                        {
+                            return Ok(());
+                        }
+                        state.builder.build_store(alloca, result).expect("store");
                     }
                     VarStorage::Register(_) => {
                         // Fallback: update the register value in the HashMap.
@@ -911,6 +1039,18 @@ pub(crate) fn generate_aug_assign<'ctx>(
                     VarStorage::ClosureCell(_) => {
                         // For closure cells, store through the value pointer
                         if let Some(value_ptr) = var_info.closure_value_ptr {
+                            if var_type == VarType::Int
+                                && is_pure_aug_assign_rhs(value)
+                                && try_atomic_int_aug_assign(
+                                    state,
+                                    name,
+                                    value_ptr,
+                                    op,
+                                    rhs_int.expect("int rhs"),
+                                )?
+                            {
+                                return Ok(());
+                            }
                             state.builder.build_store(value_ptr, result).expect("store to cell");
                         } else {
                             return crate::codegen::codegen_error(format!(
