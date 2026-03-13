@@ -285,7 +285,7 @@ pub(crate) fn generate_assign<'ctx>(
         } else {
             get_expr_type_for_assignment(state, value)
         };
-        eprintln!("DEBUG assignment: name={}, value_type={:?}", name, value_type);
+
         if value_type != crate::ast::Type::Infer {
             state.var_types.insert(name.clone(), value_type);
         }

@@ -1,7 +1,11 @@
 //! Method call code generation
 
 use crate::ast::Expr;
-use crate::codegen::expressions::core::generate_expr;
+use crate::ast::Type;
+use crate::codegen::expressions::concurrency::{
+    generate_waitgroup_add, generate_waitgroup_done, generate_waitgroup_wait,
+};
+use crate::codegen::expressions::core::{generate_expr, infer_expr_type};
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
@@ -13,6 +17,45 @@ pub fn generate_method_call<'ctx>(
     args: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let obj_val = generate_expr(state, obj)?;
+
+    // Special-case WaitGroup for method-style API: wg.add(), wg.done(), wg.wait()
+    if let Type::WaitGroup = infer_expr_type(obj) {
+        match method_name {
+            "add" => {
+                if args.len() != 1 {
+                    return crate::codegen::codegen_error(format!(
+                        "add() takes exactly 1 argument, got {}",
+                        args.len()
+                    ));
+                }
+                let mut call_args = Vec::with_capacity(2);
+                call_args.push(obj.clone());
+                call_args.push(args[0].clone());
+                return generate_waitgroup_add(state, &call_args);
+            }
+            "done" => {
+                if !args.is_empty() {
+                    return crate::codegen::codegen_error(format!(
+                        "done() takes no arguments, got {}",
+                        args.len()
+                    ));
+                }
+                let call_args = vec![obj.clone()];
+                return generate_waitgroup_done(state, &call_args);
+            }
+            "wait" => {
+                if !args.is_empty() {
+                    return crate::codegen::codegen_error(format!(
+                        "wait() takes no arguments, got {}",
+                        args.len()
+                    ));
+                }
+                let call_args = vec![obj.clone()];
+                return generate_waitgroup_wait(state, &call_args);
+            }
+            _ => {}
+        }
+    }
 
     // For Result methods, we need to load the struct value from alloca if it's a pointer
     let obj_val = if matches!(
