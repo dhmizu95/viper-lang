@@ -196,6 +196,19 @@ test()
     assert!(run_viper_code(code).is_ok());
 }
 
+#[test]
+fn test_comparison_mixed_bigint_and_small_int() {
+    let code = r#"
+def test():
+    big = 4611686018427387904
+    print(big > 3)
+    print(3 < big)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.matches("True").count() >= 2, "stdout was: {}", stdout);
+}
+
 // Logical Operators
 #[test]
 fn test_logical_and() {
@@ -314,6 +327,18 @@ test()
 }
 
 #[test]
+fn test_bitwise_or_mixed_bigint_and_small_int() {
+    let code = r#"
+def test():
+    big = 4611686018427387904
+    print(big | 1)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("4611686018427387905"), "stdout was: {}", stdout);
+}
+
+#[test]
 fn test_bitwise_or() {
     let code = r#"
 def test():
@@ -347,6 +372,17 @@ test()
 }
 
 #[test]
+fn test_bitwise_lshift_overflow_promotes_to_bigint() {
+    let code = r#"
+def test():
+    print(1 << 62)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("4611686018427387904"), "stdout was: {}", stdout);
+}
+
+#[test]
 fn test_bitwise_rshift() {
     let code = r#"
 def test():
@@ -355,6 +391,17 @@ def test():
 test()
 "#;
     assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_bitwise_rshift_negative_small_int_fast_path() {
+    let code = r#"
+def test():
+    print(-16 >> 2)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("-4"), "stdout was: {}", stdout);
 }
 
 // Bitwise Augmented Assignment
@@ -441,4 +488,28 @@ def test():
 test()
 "#;
     assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_unary_neg_bigint_boundary() {
+    let code = r#"
+def test():
+    big = 4611686018427387904
+    print(-big)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("-4611686018427387904"), "stdout was: {}", stdout);
+}
+
+#[test]
+fn test_mod_mixed_bigint_and_small_int() {
+    let code = r#"
+def test():
+    big = 4611686018427387904
+    print(big % 3)
+test()
+"#;
+    let stdout = run_viper_code(code).expect("program should run");
+    assert!(stdout.contains("\n1\n") || stdout.contains("\r\n1\r\n"), "stdout was: {}", stdout);
 }

@@ -428,7 +428,7 @@ TaggedInt tagged_int_div(TaggedInt a, TaggedInt b) {
 TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b) {
     /* Handle both SmallInt and BigInt for operand a */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
-    ViperBigInt* b_big = tagged_int_to_bigint(b);
+    ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
     ViperBigInt* result = alloc_bigint_for_tagged();
 
     if (result) {
@@ -444,14 +444,14 @@ TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b) {
         if (demoted != 0) {
             // mpz_clear handled by ARC destructor
             free_bigint_for_tagged(result);
-            free_temp_bigint(a_big);
-            free_temp_bigint(b_big);
+            if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+            if (tagged_int_is_small(b)) free_temp_bigint(b_big);
             return demoted;
         }
     }
 
-    free_temp_bigint(a_big);
-    free_temp_bigint(b_big);
+    if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+    if (tagged_int_is_small(b)) free_temp_bigint(b_big);
 
     return result ? tagged_int_from_bigint(result) : tagged_int_from_i64(0);
 }
@@ -471,10 +471,11 @@ int tagged_int_cmp(TaggedInt a, TaggedInt b) {
     }
 
     /* Case 2: At least one BigInt */
-    ViperBigInt* a_big = tagged_int_get_bigint(a);
-    ViperBigInt* b_big = tagged_int_to_bigint(b);
+    ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
+    ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
     int result = mpz_cmp(a_big->value, b_big->value);
-    free_temp_bigint(b_big);
+    if (tagged_int_is_small(a)) free_temp_bigint(a_big);
+    if (tagged_int_is_small(b)) free_temp_bigint(b_big);
 
     return result;
 }

@@ -52,7 +52,7 @@ Arithmetic-heavy workloads are slower than they should be because language-level
 
 ### 1. Baseline and Benchmark Harness
 
-**Status:** `INF`
+**Status:** `BLK`
 
 Tasks:
 
@@ -67,7 +67,7 @@ Success criteria:
 
 ### 2. Inline Small-Int Fast Path in Codegen
 
-**Status:** `WIP`
+**Status:** `DON`
 
 Tasks:
 
@@ -112,7 +112,7 @@ Success criteria:
 
 ### 5. AOT Optimization Validation
 
-**Status:** `INF`
+**Status:** `WIP`
 
 Tasks:
 
@@ -127,7 +127,7 @@ Success criteria:
 
 ### 6. Regression Tests
 
-**Status:** `WIP`
+**Status:** `DON`
 
 Tasks:
 
