@@ -1,7 +1,5 @@
 .PHONY: build test lint fmt run clean bench dev check aot
-.PHONY: bench-all bench-fibonacci bench-quicksort bench-compare
-.PHONY: bench-aot-test bench-opt-compare bench-aot-compare
-.PHONY: bench-safe bench-safe-one bench-safe-fib bench-safe-sort
+.PHONY: bench-safe bench-safe-one bench-safe-fib bench-safe-quicksort
 .PHONY: pgo pgo-clean pgo-bench
 
 # Default target: build the compiler
@@ -44,30 +42,6 @@ clean:
 # Run Viper internal benchmarks
 bench:
 	cargo run -- bench
-
-# Run cross-language benchmarks (all, JIT mode)
-bench-all:
-	cd benchmarks && ./runner.sh all
-
-# Run Fibonacci benchmark only
-bench-fibonacci:
-	cd benchmarks && ./runner.sh 01_fibonacci
-
-# Run QuickSort benchmark only
-bench-quicksort:
-	cd benchmarks && ./runner.sh 02_quicksort
-
-# Run all benchmarks with comparison output (10 iterations)
-bench-compare:
-	cd benchmarks && ./runner.sh -i 10 all
-
-# Run all optimization levels comparison (JIT, O1, O2, O3 + C/Rust/Go)
-bench-opt-compare:
-	cd benchmarks && ./runner.sh --opt-compare all
-
-# Run detailed AOT comparison table (all opt levels + C/Rust/Go)
-bench-aot-compare:
-	cd benchmarks && ./compare_aot.sh
 
 # Test AOT compilation (known issue: linking fails)
 bench-aot-test:

@@ -1,6 +1,6 @@
 # Viper Language Benchmarks
 
-Cross-language performance benchmarks comparing Viper against C, Rust, Go, and Python.
+Cross-language performance benchmarks for Viper, with the expanded suite integrated through `safe_runner.sh`.
 
 ## Benchmark Suite
 
@@ -22,9 +22,7 @@ Cross-language performance benchmarks comparing Viper against C, Rust, Go, and P
 ## Directory Structure
 
 - `viper/`, `c/`, `rust/`, `go/`, `python/`: per-language implementations
-- `runner.sh`: interactive cross-language runner with memory reporting
-- `safe_runner.sh`: crash-protected runner that writes `results/benchmark_report.md`
-- `compare_aot.sh`: AOT-focused timing comparison
+- `safe_runner.sh`: crash-protected runner and source of truth for the expanded suite
 
 ## Running Benchmarks
 
@@ -32,18 +30,14 @@ Prerequisites: built Viper compiler, GCC/Clang, Rust, Go, and optionally `python
 
 ```bash
 cd benchmarks
-./runner.sh
-./runner.sh 08_int_hotloop
 ./safe_runner.sh all
-./compare_aot.sh
+./safe_runner.sh 08_int_hotloop
 ```
 
 From the repo root:
 
 ```bash
-make bench-all
 make bench-safe
-make bench-aot-compare
 ```
 
 ## Compilation Flags
@@ -55,7 +49,7 @@ make bench-aot-compare
 | C | `gcc` | `-O3 -march=native -flto` |
 | Rust | `rustc` | `-C opt-level=3 -C lto=fat -C target-cpu=native` |
 | Go | `go build` | `-ldflags="-s -w"` |
-| Python | `python3` | direct interpreter execution |
+| Python | `python3` | direct interpreter execution via `safe_runner.sh` only |
 
 ## Results
 
@@ -65,11 +59,11 @@ Use `results/benchmark_report.md` as the source of truth for current numbers. Th
 
 1. Create matching implementations in `viper/`, `c/`, `rust/`, `go/`, and `python/`.
 2. Keep algorithms, input sizes, and printed checksums identical.
-3. Add the benchmark ID to `runner.sh`, `safe_runner.sh`, and `compare_aot.sh`.
+3. Add the benchmark ID to `safe_runner.sh`.
 4. Update this README.
 
 ## Notes
 
 - JIT compilation time is included for Viper JIT runs.
-- Python is included as an interpreted-language baseline, not a compiled reference.
+- Python is included as an interpreted-language baseline in safe mode only.
 - The suite now includes targeted arithmetic, call-overhead, string, and overflow cases for optimization work.
