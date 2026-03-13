@@ -1,10 +1,19 @@
-# Simple async test
-async def simple():
-    return 42
+# Concurrent async test
+async def worker(n):
+    return n * 2
 
 async def main():
-    f = simple()
-    result = await f
-    print("result:", result)
+    # Create multiple futures
+    f1 = worker(1)
+    f2 = worker(2)
+    f3 = worker(3)
+    
+    # Await all
+    r1 = await f1
+    r2 = await f2
+    r3 = await f3
+    
+    print("results:", r1, r2, r3)
+    print("sum:", r1 + r2 + r3)
 
 main()

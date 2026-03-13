@@ -128,16 +128,60 @@ pub extern "C" fn vp_wait_all_tasks() {
 /* Async/Await Runtime Stubs                   */
 /* ============================================ */
 
+// Minimal Future struct for JIT mode (must match runtime/src/async.c)
+#[repr(C)]
+struct JitFuture {
+    ref_count: i64,
+    state: i32,        // 0=PENDING, 1=READY, 2=RUNNING, 3=COMPLETED, 4=ERROR
+    _pad: i32,
+    result: i64,
+    callback: *mut std::ffi::c_void,
+    user_data: *mut std::ffi::c_void,
+    waiting_fiber: *mut std::ffi::c_void,
+}
+
 pub extern "C" fn vp_future_await(future: *mut std::ffi::c_void) -> i64 {
-    // Call the actual runtime function
-    // For now, just return 0 as stub
-    // The actual implementation is in runtime/src/async.c
+    // In JIT mode, use a simplified spin-wait implementation
     if future.is_null() {
         return 0;
     }
-    // In JIT mode, we need to call the actual runtime
-    // This is a simplified stub - real implementation uses fiber yield
-    0
+    
+    unsafe {
+        let fut = &*(future as *mut JitFuture);
+        
+        // Spin-wait until future is completed (state == 3) or error (state == 4)
+        // In a real implementation, this would yield the fiber
+        while fut.state != 3 && fut.state != 4 {
+            std::hint::spin_loop();
+        }
+        
+        fut.result
+    }
+}
+
+pub extern "C" fn vp_future_set_result(future: *mut std::ffi::c_void, result: i64) {
+    if future.is_null() {
+        return;
+    }
+    
+    unsafe {
+        let fut = &mut *(future as *mut JitFuture);
+        fut.result = result;
+        fut.state = 3; // COMPLETED
+    }
+}
+
+pub extern "C" fn vp_future_create() -> *mut std::ffi::c_void {
+    let future = Box::new(JitFuture {
+        ref_count: 1,
+        state: 0,  // PENDING
+        _pad: 0,
+        result: 0,
+        callback: std::ptr::null_mut(),
+        user_data: std::ptr::null_mut(),
+        waiting_fiber: std::ptr::null_mut(),
+    });
+    Box::into_raw(future) as *mut std::ffi::c_void
 }
 
 // Async range for "async for i in async_range(n)"
@@ -182,10 +226,14 @@ pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
 }
 
 pub extern "C" fn vp_async_spawn(
-    _func: extern "C" fn(*mut std::ffi::c_void),
-    _arg: *mut std::ffi::c_void,
+    func: extern "C" fn(*mut std::ffi::c_void),
+    arg: *mut std::ffi::c_void,
 ) -> i64 {
-    // Same as vp_submit_task for now
+    // For JIT mode, run the function synchronously
+    // This allows the future result to be set before await
+    if !arg.is_null() {
+        func(arg);
+    }
     0
 }
 

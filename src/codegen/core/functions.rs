@@ -482,9 +482,11 @@ impl<'ctx> CodeGen<'ctx> {
         let body_func = self.functions.get(&body_func_name).copied()
             .ok_or_else(|| format!("Async body function {} not found", body_func_name))?;
 
-        // Generate wrapper function body
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-        
+        let i64_type = self.context.i64_type();
+
+        // ========== WRAPPER FUNCTION ==========
+        // Takes original params, creates Future, packs into context, spawns fiber, returns Future
         let wrapper_entry = self.context.append_basic_block(wrapper_func, "entry");
         self.builder.position_at_end(wrapper_entry);
 
@@ -498,24 +500,41 @@ impl<'ctx> CodeGen<'ctx> {
             "future",
         ).unwrap().into_pointer_value();
 
-        // Create async context struct to hold future + args
-        // For simplicity, just store Future* and pass params directly via a closure-like approach
-        let context_type = self.context.struct_type(&[ptr_type.into()], false);
-        let context_ptr = self.builder.build_alloca(context_type, "context").expect("alloca context");
+        // Build context struct type: { Future*, param1, param2, ... }
+        let mut context_field_types: Vec<inkwell::types::BasicTypeEnum> = vec![ptr_type.into()];
+        let mut wrapper_param_vals: Vec<inkwell::values::BasicValueEnum> = Vec::new();
+        
+        for (i, _param) in params.iter().enumerate() {
+            let param_val = wrapper_func.get_nth_param(i as u32).unwrap();
+            wrapper_param_vals.push(param_val);
+            context_field_types.push(param_val.get_type());
+        }
+        
+        let context_type = self.context.struct_type(&context_field_types, false);
+        
+        // Allocate context on heap (not stack) so it can be freed by body function
+        let malloc_func = self.module.get_function("malloc")
+            .ok_or_else(|| "malloc not found".to_string())?;
+        let context_size = context_type.size_of().unwrap();
+        let context_ptr = self.ir_builder.build_call(
+            &self.builder,
+            malloc_func,
+            &[context_size.into()],
+            "context",
+        ).unwrap().into_pointer_value();
 
         // Store future in context (field 0)
         let future_gep = self.builder.build_struct_gep(context_type, context_ptr, 0, "future_gep").unwrap();
         let _ = self.builder.build_store(future_gep, future);
 
-        // For async functions, we need to create a trampoline that:
-        // 1. Unpacks context
-        // 2. Calls the actual function with proper args
-        // 3. Sets result in future
-        
-        // For now, use a simpler approach: just call the body function directly
-        // and wrap its result in a Future
-        
-        // Spawn fiber to run body - body function takes context and returns i64
+        // Store params in context (fields 1..n)
+        for (i, param_val) in wrapper_param_vals.iter().enumerate() {
+            let field_idx = (i + 1) as u32;
+            let param_gep = self.builder.build_struct_gep(context_type, context_ptr, field_idx, &format!("param{}_gep", i)).unwrap();
+            let _ = self.builder.build_store(param_gep, *param_val);
+        }
+
+        // Spawn fiber to run body
         let async_spawn = self.module.get_function("vp_async_spawn")
             .ok_or_else(|| "vp_async_spawn not found".to_string())?;
         let body_func_ptr = body_func.as_global_value().as_pointer_value();
@@ -529,18 +548,18 @@ impl<'ctx> CodeGen<'ctx> {
         // Return future
         let _ = self.builder.build_return(Some(&future));
 
-        // Generate body function that wraps the actual function logic
-        // This body function: takes context*, calls original logic, sets future result
+        // ========== BODY FUNCTION ==========
+        // Takes context ptr, unpacks params, runs body, sets future result
         let body_entry = self.context.append_basic_block(body_func, "entry");
         self.builder.position_at_end(body_entry);
-        
-        // Load context
+
+        // Load context (first param)
         let context_arg = body_func.get_first_param().unwrap().into_pointer_value();
-        
-        // Load future from context
+
+        // Load future from context (field 0)
         let future_gep = self.builder.build_struct_gep(context_type, context_arg, 0, "future_load_gep").unwrap();
         let future_val = self.builder.build_load(ptr_type, future_gep, "future_load").unwrap().into_pointer_value();
-        
+
         // Save current state
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
@@ -549,10 +568,14 @@ impl<'ctx> CodeGen<'ctx> {
         let saved_var_types = std::mem::take(&mut self.var_types);
         let saved_current_function = self.current_function.clone();
         self.current_function = Some(func_name.to_string());
-        
-        // Set up parameters as local variables
+
+        // Unpack params from context and create local variables
         for (i, param) in params.iter().enumerate() {
-            let param_val = wrapper_func.get_nth_param(i as u32).unwrap();
+            let field_idx = (i + 1) as u32;
+            let param_gep = self.builder.build_struct_gep(context_type, context_arg, field_idx, &format!("param{}_load_gep", i)).unwrap();
+            let param_val = self.builder.build_load(wrapper_param_vals[i].get_type(), param_gep, &format!("param{}_load", i)).unwrap();
+            
+            // Create alloca for this param
             let alloca = self.builder.build_alloca(param_val.get_type(), &param.name).expect("alloca param");
             let _ = self.builder.build_store(alloca, param_val);
             
@@ -567,11 +590,10 @@ impl<'ctx> CodeGen<'ctx> {
             };
             self.variables.insert(param.name.clone(), crate::codegen::variables::VarInfo::new_stack(alloca, var_type));
         }
-        
+
         // Create exit block
-        let func = body_func;
-        let body_exit = self.context.append_basic_block(func, "body_exit");
-        
+        let body_exit = self.context.append_basic_block(body_func, "body_exit");
+
         // Generate body statements
         let mut dummy_closure = std::collections::HashMap::new();
         for stmt in body {
@@ -600,15 +622,15 @@ impl<'ctx> CodeGen<'ctx> {
                             if v.is_int_value() {
                                 v.into_int_value()
                             } else {
-                                self.context.i64_type().const_zero()
+                                i64_type.const_zero()
                             }
                         }
-                        Err(_) => self.context.i64_type().const_zero(),
+                        Err(_) => i64_type.const_zero(),
                     }
                 } else {
-                    self.context.i64_type().const_zero()
+                    i64_type.const_zero()
                 };
-                
+
                 // Set result in future
                 let future_set_result = self.module.get_function("vp_future_set_result")
                     .ok_or_else(|| "vp_future_set_result not found".to_string())?;
@@ -618,11 +640,11 @@ impl<'ctx> CodeGen<'ctx> {
                     &[future_val.into(), ret_val.into()],
                     "set_result",
                 );
-                
-                self.builder.build_unconditional_branch(body_exit);
+
+                let _ = self.builder.build_unconditional_branch(body_exit);
                 continue;
             }
-            
+
             // Generate other statements
             let mut state = crate::codegen::state::CodeGenState::new(
                 self.context,
@@ -642,7 +664,7 @@ impl<'ctx> CodeGen<'ctx> {
             );
             let _ = crate::codegen::statements::generate_stmt_internal(&mut state, stmt);
         }
-        
+
         // Default return (no explicit return in all paths)
         if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
             let future_set_result = self.module.get_function("vp_future_set_result")
@@ -650,12 +672,12 @@ impl<'ctx> CodeGen<'ctx> {
             self.ir_builder.build_call(
                 &self.builder,
                 future_set_result,
-                &[future_val.into(), self.context.i64_type().const_zero().into()],
+                &[future_val.into(), i64_type.const_zero().into()],
                 "set_result_default",
             );
-            self.builder.build_unconditional_branch(body_exit);
+            let _ = self.builder.build_unconditional_branch(body_exit);
         }
-        
+
         // Exit block - free context and return
         self.builder.position_at_end(body_exit);
         let free_func = self.module.get_function("free")
@@ -666,8 +688,8 @@ impl<'ctx> CodeGen<'ctx> {
             &[context_arg.into()],
             "free_context",
         );
-        let _ = self.builder.build_return(Some(&self.context.i64_type().const_zero()));
-        
+        let _ = self.builder.build_return(Some(&i64_type.const_zero()));
+
         // Restore state
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;

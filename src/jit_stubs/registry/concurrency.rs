@@ -23,7 +23,9 @@ pub fn register_concurrency_stubs(ee: &ExecutionEngine, module: &Module) {
 
     // Future functions
     register_stubs!(ee, module, [
+        "vp_future_create" => super::super::concurrency::vp_future_create,
         "vp_future_await" => super::super::concurrency::vp_future_await,
+        "vp_future_set_result" => super::super::concurrency::vp_future_set_result,
     ]);
 
     // Async iteration runtime functions
