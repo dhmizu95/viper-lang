@@ -1,33 +1,40 @@
 // String Operations Benchmark - C Implementation
-// Character counting in byte array
+// String concatenation and character scanning
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define N 9000
+#define REPEATS 400
 
 int main() {
-    // Create array with repeating pattern
-    long s[N];
-    for (int i = 0; i < N; i++) {
-        s[i] = (i * 7 + 3) % 128;
+    const char* chunk = "alpha,beta,gamma,delta;";
+    size_t chunk_len = strlen(chunk);
+    size_t text_len = chunk_len * REPEATS;
+    char* text = (char*)malloc(text_len + 1);
+    char* cursor = text;
+
+    for (int i = 0; i < REPEATS; i++) {
+        memcpy(cursor, chunk, chunk_len);
+        cursor += chunk_len;
     }
-    
-    // Count occurrences of specific values
-    long count1 = 0, count2 = 0, count3 = 0, count4 = 0;
-    for (int i = 0; i < N; i++) {
-        if (s[i] == 65) {
-            count1++;
-        } else if (s[i] == 66) {
-            count2++;
-        } else if (s[i] == 67) {
-            count3++;
-        } else if (s[i] == 68) {
-            count4++;
+    text[text_len] = '\0';
+
+    long count_a = 0;
+    long count_comma = 0;
+    long count_semicolon = 0;
+    for (size_t i = 0; i < text_len; i++) {
+        if (text[i] == 'a') {
+            count_a++;
+        } else if (text[i] == ',') {
+            count_comma++;
+        } else if (text[i] == ';') {
+            count_semicolon++;
         }
     }
-    
-    // Calculate checksum
-    long checksum = N + count1 + count2 + count3 + count4;
+
+    long checksum = (long)text_len + count_a + count_comma + count_semicolon;
     printf("string operations checksum: %ld\n", checksum);
+    free(text);
     return 0;
 }
