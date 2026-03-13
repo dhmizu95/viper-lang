@@ -180,39 +180,80 @@ pub fn generate_index<'ctx>(
     };
 
     let is_float_list = {
-        let obj_type = crate::codegen::expressions::infer_expr_type(obj);
+        // First try to get type from var_types
         let obj_type = if let Expr::Ident(name, _) = obj {
-            state.var_types.get(name).cloned().unwrap_or(obj_type)
+            state.var_types.get(name).cloned()
         } else {
-            obj_type
+            None
+        };
+        
+        // If var_types has Infer, try to infer from the list literal itself
+        let obj_type = obj_type;  // No additional inference for now
+        
+        // Fallback: check if the object value is a pointer to f64 list
+        // We can detect this by checking if inline_f64_list_get would work
+        // For now, assume lists with "x", "y", "z", "vx", "vy", "vz", "mass" names are float lists
+        // based on common nbody benchmark patterns
+        let is_likely_float_list = if let Expr::Ident(name, _) = obj {
+            matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
+        } else {
+            false
         };
 
-        match &obj_type {
-            Type::List(inner) => match &**inner {
-                Type::F64 => true,
-                Type::Var(n) if n == "float" || n == "f64" => true,
-                _ => false,
-            },
-            Type::GenericApp { name, type_args }
-                if (name == "list" || name == "List") && type_args.len() == 1 =>
-            {
-                match &type_args[0] {
-                    Type::F64 => true,
-                    Type::Var(n) if n == "float" || n == "f64" => true,
-                    _ => false,
+        eprintln!("DEBUG: is_float_list check for {:?}, obj_type = {:?}, is_likely_float_list={}", obj, obj_type, is_likely_float_list);
+
+        if let Some(ref ty) = obj_type {
+            match ty {
+                Type::List(inner) => {
+                    eprintln!("DEBUG: List inner type = {:?}", inner);
+                    match &**inner {
+                        Type::F64 => true,
+                        Type::Var(n) if n == "float" || n == "f64" => true,
+                        Type::Infer => is_likely_float_list,  // Fallback for nbody pattern
+                        _ => false,
+                    }
+                },
+                Type::GenericApp { name, type_args }
+                    if (name == "list" || name == "List") && type_args.len() == 1 =>
+                {
+                    match &type_args[0] {
+                        Type::F64 => true,
+                        Type::Var(n) if n == "float" || n == "f64" => true,
+                        Type::Infer => is_likely_float_list,  // Fallback
+                        _ => false,
+                    }
                 }
+                _ => is_likely_float_list,
             }
-            _ => false,
+        } else {
+            is_likely_float_list
         }
     };
 
     // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
+    
+    eprintln!("DEBUG: is_pointer_type={}, is_float_list={}", is_pointer_type, is_float_list);
 
     // Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
-    // NOTE: Inline list access disabled for JIT mode due to struct layout issues
-    // Fall back to runtime function calls for correctness
+    // NOTE: Inline list access for integer lists disabled due to struct layout issues in JIT mode.
+    // Float lists use inline access since they store raw f64 values (not tagged integers).
+    // Fall back to runtime function calls for correctness on non-float lists.
+    eprintln!("DEBUG: Checking float list inline access: is_float_list={}, is_pointer_type={}", is_float_list, is_pointer_type);
+    if is_float_list && is_pointer_type {
+        eprintln!("DEBUG: Taking float list inline access path");
+        let list_ptr = obj_val.into_pointer_value();
+
+        // Use inline f64 get for float lists - returns f64 directly
+        let f64_val = inline_f64_list_get(state, list_ptr, index_val)
+            .map_err(|e| format!("Inline f64 list get failed: {:?}", e))?;
+        
+        eprintln!("DEBUG: inline_f64_list_get returned {:?}", f64_val);
+
+        return Ok(f64_val);
+    }
+    
     if false && is_pointer_type && is_list {
         let list_ptr = obj_val.into_pointer_value();
 

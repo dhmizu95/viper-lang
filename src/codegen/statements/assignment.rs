@@ -143,6 +143,7 @@ pub(crate) fn generate_assign<'ctx>(
 
         // Store the inferred type in var_types for future lookups
         let value_type = get_expr_type_for_assignment(state, value);
+        eprintln!("DEBUG assignment: name={}, value_type={:?}", name, value_type);
         if value_type != crate::ast::Type::Infer {
             state.var_types.insert(name.clone(), value_type);
         }
@@ -500,6 +501,156 @@ pub(crate) fn generate_assign<'ctx>(
     Ok(())
 }
 
+/// Generate augmented assignment for list index: lst[i] += value
+fn generate_aug_assign_index<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    obj: &Expr,
+    index: &Expr,
+    op: &BinOp,
+    value: &Expr,
+) -> crate::codegen::Result<()> {
+    use crate::codegen::inline_lists::{inline_f64_list_get, inline_f64_list_set};
+    
+    // Determine if this is a float list
+    let is_float_list = {
+        let obj_type = crate::codegen::expressions::infer_expr_type(obj);
+        let obj_type = if let Expr::Ident(name, _) = obj {
+            state.var_types.get(name).cloned().unwrap_or(obj_type)
+        } else {
+            obj_type
+        };
+
+        match &obj_type {
+            Type::List(inner) => match &**inner {
+                Type::F64 => true,
+                Type::Var(n) if n == "float" || n == "f64" => true,
+                _ => false,
+            },
+            Type::GenericApp { name, type_args }
+                if (name == "list" || name == "List") && type_args.len() == 1 =>
+            {
+                match &type_args[0] {
+                    Type::F64 => true,
+                    Type::Var(n) if n == "float" || n == "f64" => true,
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    };
+    
+    // Generate index value (untagged for runtime functions)
+    let index_val = crate::codegen::expressions::generate_expr(state, index)?.into_int_value();
+    
+    // For float lists, use inline access
+    if is_float_list {
+        let obj_val = crate::codegen::expressions::generate_expr(state, obj)?;
+        let list_ptr = obj_val.into_pointer_value();
+        
+        // Load current f64 value using inline access
+        let current_f64 = inline_f64_list_get(state, list_ptr, index_val)?;
+        
+        // Generate RHS value
+        let rhs_val = crate::codegen::expressions::generate_expr(state, value)?;
+        
+        // Perform float operation
+        let result_val = match op {
+            BinOp::Add => {
+                let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
+                let current: inkwell::values::BasicValueEnum = current_f64.into();
+                state.builder.build_float_add(current.into_float_value(), rhs_f64.into_float_value(), "fadd").expect("fadd").into()
+            },
+            BinOp::Sub => {
+                let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
+                let current: inkwell::values::BasicValueEnum = current_f64.into();
+                state.builder.build_float_sub(current.into_float_value(), rhs_f64.into_float_value(), "fsub").expect("fsub").into()
+            },
+            BinOp::Mul => {
+                let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
+                let current: inkwell::values::BasicValueEnum = current_f64.into();
+                state.builder.build_float_mul(current.into_float_value(), rhs_f64.into_float_value(), "fmul").expect("fmul").into()
+            },
+            BinOp::Div => {
+                let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
+                let current: inkwell::values::BasicValueEnum = current_f64.into();
+                state.builder.build_float_div(current.into_float_value(), rhs_f64.into_float_value(), "fdiv").expect("fdiv").into()
+            },
+            _ => {
+                return crate::codegen::codegen_error(format!(
+                    "Unsupported augmented assignment operator for float list: {:?}",
+                    op
+                ));
+            }
+        };
+        
+        // Store result using inline access
+        inline_f64_list_set(state, list_ptr, index_val, result_val)?;
+        return Ok(());
+    }
+    
+    // For non-float lists, fall back to runtime functions
+    // Load current tagged int value
+    let obj_val = crate::codegen::expressions::generate_expr(state, obj)?;
+    let list_get = state
+        .module
+        .get_function("vp_list_get")
+        .ok_or_else(|| "vp_list_get not declared".to_string())?;
+    
+    // Untag index
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        )
+        .expect("index untag");
+    
+    let current_tagged = state
+        .ir_builder
+        .build_call(
+            state.builder,
+            list_get,
+            &[obj_val.into(), index_untagged.into()],
+            "list_get",
+        )
+        .ok_or_else(|| "vp_list_get call failed".to_string())?;
+    
+    // Generate RHS and perform tagged int operation (simplified - just int for now)
+    let rhs_val = crate::codegen::expressions::generate_expr(state, value)?;
+    
+    let lhs = current_tagged.into_int_value();
+    let rhs = rhs_val.into_int_value();
+    
+    let result = match op {
+        BinOp::Add => state.ir_builder.build_add(state.builder, lhs, rhs, "add"),
+        BinOp::Sub => state.ir_builder.build_sub(state.builder, lhs, rhs, "sub"),
+        BinOp::Mul => state.ir_builder.build_mul(state.builder, lhs, rhs, "mul"),
+        _ => {
+            return crate::codegen::codegen_error(format!(
+                "Unsupported augmented assignment operator for int list: {:?}",
+                op
+            ));
+        }
+    };
+    
+    // Store using runtime function
+    let list_set = state
+        .module
+        .get_function("vp_list_set")
+        .ok_or_else(|| "vp_list_set not declared".to_string())?;
+    
+    let _ = state.ir_builder.build_call(
+        state.builder,
+        list_set,
+        &[obj_val.into(), index_untagged.into(), result.into()],
+        "list_set",
+    );
+    
+    Ok(())
+}
+
 /// Generate augmented assignment statement
 pub(crate) fn generate_aug_assign<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -507,6 +658,11 @@ pub(crate) fn generate_aug_assign<'ctx>(
     op: &BinOp,
     value: &Expr,
 ) -> crate::codegen::Result<()> {
+    // Handle list index augmented assignment: lst[i] += value
+    if let Expr::Index { obj, index, .. } = target {
+        return generate_aug_assign_index(state, obj, index, op, value);
+    }
+    
     if let Expr::Ident(name, _) = target {
         // Handle global variable augmented assignment
         if state.global_constants.contains_key(name) && !state.variables.contains_key(name) {

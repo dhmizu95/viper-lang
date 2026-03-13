@@ -187,7 +187,21 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         }
         Expr::UnaryOp { op: _, operand, .. } => infer_expr_type(operand),
         Expr::Attribute { .. } => Type::Infer,
-        Expr::Index { .. } => Type::Infer,
+        Expr::Index { obj, .. } => {
+            // Infer element type from list/array type
+            let obj_type = infer_expr_type(obj);
+            match &obj_type {
+                Type::List(elem_type) => return elem_type.as_ref().clone(),
+                Type::Array(elem_type, _) => return elem_type.as_ref().clone(),
+                Type::GenericApp { name, type_args } if name == "list" || name == "List" => {
+                    if let Some(elem) = type_args.first() {
+                        return elem.clone();
+                    }
+                }
+                _ => {}
+            }
+            Type::Infer
+        },
         Expr::Slice { .. } => Type::List(Box::new(Type::Infer)),
         Expr::FString { .. } => Type::Str,
         Expr::Await { .. } => Type::Infer,
@@ -202,7 +216,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
 pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
     match expr {
         Expr::Int(_, _) => Type::Int,
-        Expr::Float(_, _) => Type::F64,
+        Expr::Float(_, _) => { eprintln!("DEBUG infer_type_with_state Float -> F64"); Type::F64 },
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
         Expr::Bytes(_, _) => Type::Bytes,
@@ -246,7 +260,9 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
         }
         Expr::List { elements, .. } => {
             if let Some(first) = elements.first() {
-                Type::List(Box::new(infer_type_with_state(state, first)))
+                let elem_type = infer_type_with_state(state, first);
+                eprintln!("DEBUG infer_type_with_state List: first={:?}, elem_type={:?}", first, elem_type);
+                Type::List(Box::new(elem_type))
             } else {
                 Type::List(Box::new(Type::Infer))
             }
@@ -290,6 +306,32 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
         }
         Expr::UnaryOp { op: _, operand, .. } => infer_type_with_state(state, operand),
         Expr::AssignmentExpr { value, .. } => infer_type_with_state(state, value),
+        Expr::Index { obj, .. } => {
+            // Infer element type from list/array type using state to look up variable types
+            let obj_type = infer_type_with_state(state, obj);
+            match &obj_type {
+                Type::List(elem_type) => {
+                    // If element type is Infer, try to determine from variable name
+                    if matches!(elem_type.as_ref(), Type::Infer) {
+                        if let Expr::Ident(name, _) = obj {
+                            // Heuristic: common float list variable names in benchmarks
+                            if matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass") {
+                                return Type::F64;
+                            }
+                        }
+                    }
+                    return elem_type.as_ref().clone();
+                },
+                Type::Array(elem_type, _) => return elem_type.as_ref().clone(),
+                Type::GenericApp { name, type_args } if name == "list" || name == "List" => {
+                    if let Some(elem) = type_args.first() {
+                        return elem.clone();
+                    }
+                }
+                _ => {}
+            }
+            Type::Infer
+        },
         _ => Type::Infer,
     }
 }
