@@ -49,19 +49,19 @@ bench-aot-test:
 
 # Run benchmarks with crash protection (safe mode)
 bench-safe:
-	cd benchmarks && ./safe_runner.sh all
+	cd benchmarks && ./benchmark_runner.sh all
 
 # Run single benchmark with safe mode (1 iteration, quick test)
 bench-safe-one:
-	cd benchmarks && ./safe_runner.sh -i 1 01_fibonacci
+	cd benchmarks && ./benchmark_runner.sh -i 1 01_fibonacci
 
 # Run Fibonacci with safe mode
 bench-safe-fibonacci:
-	cd benchmarks && ./safe_runner.sh 01_fibonacci
+	cd benchmarks && ./benchmark_runner.sh 01_fibonacci
 
 # Run QuickSort with safe mode
 bench-safe-quicksort:
-	cd benchmarks && ./safe_runner.sh 04_quicksort
+	cd benchmarks && ./benchmark_runner.sh 04_quicksort
 
 # Helper for AOT compilation
 aot: build runtime

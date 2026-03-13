@@ -1,6 +1,6 @@
 # Viper Language Benchmarks
 
-Cross-language performance benchmarks for Viper, with the expanded suite integrated through `safe_runner.sh`.
+Cross-language performance benchmarks for Viper, with the expanded suite integrated through `benchmark_runner.sh`.
 
 ## Benchmark Suite
 
@@ -22,7 +22,7 @@ Cross-language performance benchmarks for Viper, with the expanded suite integra
 ## Directory Structure
 
 - `viper/`, `c/`, `rust/`, `go/`, `python/`: per-language implementations
-- `safe_runner.sh`: crash-protected runner and source of truth for the expanded suite
+- `benchmark_runner.sh`: crash-protected runner and source of truth for the expanded suite
 
 ## Running Benchmarks
 
@@ -30,8 +30,8 @@ Prerequisites: built Viper compiler, GCC/Clang, Rust, Go, and optionally `python
 
 ```bash
 cd benchmarks
-./safe_runner.sh all
-./safe_runner.sh 08_int_hotloop
+./benchmark_runner.sh all
+./benchmark_runner.sh 08_int_hotloop
 ```
 
 From the repo root:
@@ -49,7 +49,7 @@ make bench-safe
 | C | `gcc` | `-O3 -march=native -flto` |
 | Rust | `rustc` | `-C opt-level=3 -C lto=fat -C target-cpu=native` |
 | Go | `go build` | `-ldflags="-s -w"` |
-| Python | `python3` | direct interpreter execution via `safe_runner.sh` only |
+| Python | `python3` | direct interpreter execution via `benchmark_runner.sh` |
 
 ## Results
 
@@ -59,7 +59,7 @@ Use `results/benchmark_report.md` as the source of truth for current numbers. Th
 
 1. Create matching implementations in `viper/`, `c/`, `rust/`, `go/`, and `python/`.
 2. Keep algorithms, input sizes, and printed checksums identical.
-3. Add the benchmark ID to `safe_runner.sh`.
+3. Add the benchmark ID to `benchmark_runner.sh`.
 4. Update this README.
 
 ## Notes
