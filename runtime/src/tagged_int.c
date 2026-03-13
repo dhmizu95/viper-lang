@@ -639,7 +639,6 @@ TaggedInt tagged_int_lshift(TaggedInt a, TaggedInt b) {
             return tagged_int_from_i64(result);
         }
     }
-    
 bigint_case:
     /* Case 2: At least one BigInt */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
@@ -680,7 +679,6 @@ TaggedInt tagged_int_rshift(TaggedInt a, TaggedInt b) {
         int64_t result = a_val >> b_val;
         return tagged_int_from_i64(result);
     }
-    
 bigint_case:
     /* Case 2: At least one BigInt */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
@@ -715,8 +713,6 @@ TaggedInt tagged_int_bitand(TaggedInt a, TaggedInt b) {
         int64_t result = a_val & b_val;
         return tagged_int_from_i64(result);
     }
-    
-bigint_case:
     /* Case 2: At least one BigInt */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
     ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
@@ -750,8 +746,6 @@ TaggedInt tagged_int_bitor(TaggedInt a, TaggedInt b) {
         int64_t result = a_val | b_val;
         return tagged_int_from_i64(result);
     }
-    
-bigint_case:
     /* Case 2: At least one BigInt */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
     ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
@@ -785,8 +779,6 @@ TaggedInt tagged_int_bitxor(TaggedInt a, TaggedInt b) {
         int64_t result = a_val ^ b_val;
         return tagged_int_from_i64(result);
     }
-    
-bigint_case:
     /* Case 2: At least one BigInt */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
     ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);

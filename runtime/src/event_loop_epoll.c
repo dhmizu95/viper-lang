@@ -5,7 +5,6 @@
  * Integrates with fiber scheduler for async I/O operations.
  */
 
-#define _GNU_SOURCE
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -279,7 +278,7 @@ typedef struct {
     int result;
 } AsyncIoContext;
 
-static void io_callback_wrapper(int fd, ViperEventType events, void* user_data) {
+static void __attribute__((unused)) io_callback_wrapper(int fd, ViperEventType events, void* user_data) {
     AsyncIoContext* ctx = (AsyncIoContext*)user_data;
     
     if (events & VIPER_EVENT_READ) {

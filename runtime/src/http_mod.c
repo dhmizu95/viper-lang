@@ -101,12 +101,14 @@ ViperHttpResponse* vp_http_get(const char* url) {
         strncpy(host, host_start, host_len);
         host[host_len] = '\0';
     }
+    (void)port;
+    (void)path;
     
     /* For now, return a placeholder response */
     /* Full implementation would use socket_mod.c */
     resp->status_code = 200;
-    resp->status_text = json_strdup("OK", 2);
-    resp->body = json_strdup("{}", 2);
+    resp->status_text = vp_strdup_slice("OK", 2);
+    resp->body = vp_strdup_slice("{}", 2);
     resp->body_len = 2;
     
     return resp;
@@ -114,14 +116,15 @@ ViperHttpResponse* vp_http_get(const char* url) {
 
 ViperHttpResponse* vp_http_post(const char* url, const char* body) {
     if (!url) return NULL;
+    (void)body;
     
     ViperHttpResponse* resp = vp_http_response_create();
     if (!resp) return NULL;
     
     /* Placeholder implementation */
     resp->status_code = 200;
-    resp->status_text = json_strdup("OK", 2);
-    resp->body = json_strdup("{}", 2);
+    resp->status_text = vp_strdup_slice("OK", 2);
+    resp->body = vp_strdup_slice("{}", 2);
     resp->body_len = 2;
     
     return resp;
@@ -130,14 +133,16 @@ ViperHttpResponse* vp_http_post(const char* url, const char* body) {
 ViperHttpResponse* vp_http_request(const char* method, const char* url, 
                                    const char* body, ViperDict* headers) {
     if (!method || !url) return NULL;
+    (void)body;
+    (void)headers;
     
     ViperHttpResponse* resp = vp_http_response_create();
     if (!resp) return NULL;
     
     /* Placeholder implementation */
     resp->status_code = 200;
-    resp->status_text = json_strdup("OK", 2);
-    resp->body = json_strdup("{}", 2);
+    resp->status_text = vp_strdup_slice("OK", 2);
+    resp->body = vp_strdup_slice("{}", 2);
     resp->body_len = 2;
     
     return resp;
@@ -236,6 +241,8 @@ typedef struct ViperHttpRequest {
     int64_t body_len;
 } ViperHttpRequest;
 
+void vp_http_request_free(ViperHttpRequest* req);
+
 ViperHttpRequest* vp_http_parse_request(const char* raw) {
     if (!raw) return NULL;
     
@@ -260,21 +267,21 @@ ViperHttpRequest* vp_http_parse_request(const char* raw) {
     const char* p = raw;
     while (*p && !isspace(*p) && p < line_end) p++;
     size_t method_len = p - raw;
-    req->method = json_strdup(raw, method_len);
+    req->method = vp_strdup_slice(raw, method_len);
     
     /* Extract path */
     while (isspace(*p) && p < line_end) p++;
     const char* path_start = p;
     while (!isspace(*p) && p < line_end) p++;
     size_t path_len = p - path_start;
-    req->path = json_strdup(path_start, path_len);
+    req->path = vp_strdup_slice(path_start, path_len);
     
     /* Extract version */
     while (isspace(*p) && p < line_end) p++;
     const char* version_start = p;
     while (!isspace(*p) && p < line_end) p++;
     size_t version_len = p - version_start;
-    req->version = json_strdup(version_start, version_len);
+    req->version = vp_strdup_slice(version_start, version_len);
     
     /* Parse headers */
     p = line_end + 1;
@@ -292,11 +299,12 @@ ViperHttpRequest* vp_http_parse_request(const char* raw) {
         const char* colon = strchr(p, ':');
         if (colon && colon < line_end) {
             size_t key_len = colon - p;
-            char* key = json_strdup(p, key_len);
+            char* key = vp_strdup_slice(p, key_len);
             
             const char* val_start = colon + 1;
             while (val_start < line_end && isspace(*val_start)) val_start++;
             size_t val_len = line_end - val_start;
+            (void)val_len;
             
             /* Would add to headers dict */
             vp_arc_release(key);
@@ -310,7 +318,7 @@ ViperHttpRequest* vp_http_parse_request(const char* raw) {
     const char* body_end = raw + strlen(raw);
     req->body_len = body_end - body_start;
     if (req->body_len > 0) {
-        req->body = json_strdup(body_start, req->body_len);
+        req->body = vp_strdup_slice(body_start, req->body_len);
     }
     
     return req;
@@ -355,7 +363,7 @@ char* vp_http_build_response(int64_t status_code, const char* status_text,
     offset += snprintf(buffer + offset, sizeof(buffer) - offset, "\r\n");
     offset += snprintf(buffer + offset, sizeof(buffer) - offset, "%s", body);
     
-    return json_strdup(buffer, offset);
+    return vp_strdup_slice(buffer, offset);
 }
 
 /* ============================================ */

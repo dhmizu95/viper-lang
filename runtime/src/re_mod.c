@@ -62,7 +62,7 @@ static int regex_cache_add(const char* pattern, int flags, regex_t* compiled) {
     }
     
     /* Add new entry */
-    regex_cache[lru_idx].pattern = json_strdup(pattern, strlen(pattern));
+    regex_cache[lru_idx].pattern = vp_strdup_slice(pattern, strlen(pattern));
     regex_cache[lru_idx].flags = flags;
     regex_cache[lru_idx].compiled = *compiled;
     regex_cache[lru_idx].used = 1;
@@ -108,7 +108,7 @@ ViperPattern* vp_re_compile(const char* pattern, int64_t flags) {
     if (cache_idx >= 0) {
         ViperPattern* p = (ViperPattern*)vp_arc_alloc(sizeof(ViperPattern));
         if (p) {
-            p->pattern = json_strdup(pattern, strlen(pattern));
+            p->pattern = vp_strdup_slice(pattern, strlen(pattern));
             p->flags = (int)flags;
             p->cache_idx = cache_idx;
             p->compiled = *regex_cache_get(cache_idx);
@@ -138,7 +138,7 @@ ViperPattern* vp_re_compile(const char* pattern, int64_t flags) {
     
     ViperPattern* p = (ViperPattern*)vp_arc_alloc(sizeof(ViperPattern));
     if (p) {
-        p->pattern = json_strdup(pattern, strlen(pattern));
+        p->pattern = vp_strdup_slice(pattern, strlen(pattern));
         p->flags = (int)flags;
         p->cache_idx = cache_idx;
         p->compiled = compiled;
@@ -183,7 +183,7 @@ ViperMatch* vp_re_match(ViperPattern* pattern, const char* string, int64_t pos) 
         m->end = pos + matches[0].rm_eo;
         
         size_t len = matches[0].rm_eo - matches[0].rm_so;
-        m->group = json_strdup(string + pos + matches[0].rm_so, len);
+        m->group = vp_strdup_slice(string + pos + matches[0].rm_so, len);
     }
     
     return m;
@@ -208,7 +208,7 @@ ViperMatch* vp_re_search(ViperPattern* pattern, const char* string, int64_t pos,
                 m->end = i + matches[0].rm_eo;
                 
                 size_t len = matches[0].rm_eo - matches[0].rm_so;
-                m->group = json_strdup(string + i + matches[0].rm_so, len);
+                m->group = vp_strdup_slice(string + i + matches[0].rm_so, len);
             }
             return m;
         }
@@ -305,13 +305,14 @@ ViperList* vp_re_split(ViperPattern* pattern, const char* string) {
 /* ============================================ */
 
 char* vp_re_sub(ViperPattern* pattern, const char* repl, const char* string, int64_t count) {
+    (void)count;
     if (!pattern || !repl || !string) {
         return NULL;
     }
     
     /* Simplified implementation - just return original string */
     size_t len = strlen(string);
-    char* result = json_strdup(string, len);
+    char* result = vp_strdup_slice(string, len);
     return result;
 }
 

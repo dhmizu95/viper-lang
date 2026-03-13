@@ -26,6 +26,14 @@ void vp_retain(void* ptr);
 void vp_release(void* ptr);
 int64_t vp_ref_count(void* ptr);
 
+static inline char* vp_strdup_slice(const char* s, size_t len) {
+    char* result = (char*)vp_arc_alloc(len + 1);
+    if (!result) return NULL;
+    memcpy(result, s, len);
+    result[len] = '\0';
+    return result;
+}
+
 /* ============================================ */
 /* List Functions                               */
 /* ============================================ */
@@ -135,8 +143,10 @@ void vp_dict_clear(ViperDict* dict);
 int64_t vp_dict_len(ViperDict* dict);
 ViperDict* vp_dict_copy(ViperDict* dict);
 void vp_dict_print(ViperDict* dict);
+ViperDict* vp_json_loads(const char* json_str);
 
 /* Dict set with ViperString key (for compiler codegen) */
+void vp_dict_set_i64(ViperDict* dict, const char* key, int64_t value);
 void vp_dict_set_str_i64(ViperDict* dict, void* viper_str, int64_t value);
 void vp_dict_set_str_str(ViperDict* dict, void* viper_str, void* value_str);
 

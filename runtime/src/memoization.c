@@ -20,7 +20,6 @@
 
 // Forward declarations
 static int hashmap_resize(HashMap* map);
-static void hashmap_remove_no_free(HashMap* map, uint64_t hash, const ARCCacheKey* key);
 static LRUCacheNode* lru_hashmap_get(HashMap* map, uint64_t hash, const ARCCacheKey* key);
 static void lru_hashmap_remove_no_free(HashMap* map, uint64_t hash, const ARCCacheKey* key);
 static int lru_hashmap_resize(HashMap* map);
@@ -212,30 +211,6 @@ static void hashmap_set(HashMap* map, uint64_t hash, ARCCacheKey* key,
 
     map->buckets[index] = node;
     map->size++;
-}
-
-// Remove from hash map without freeing (for LRU eviction)
-static void hashmap_remove_no_free(HashMap* map, uint64_t hash, const ARCCacheKey* key) {
-    size_t index = hash & map->capacity_mask;
-    CacheNode* node = map->buckets[index];
-    CacheNode* prev = NULL;
-
-    while (node) {
-        if (node->key->hash == hash && 
-            node->key->key_size == key->key_size &&
-            memcmp(node->key->data, key->data, key->key_size) == 0) {
-            if (prev) {
-                prev->next = node->next;
-            } else {
-                map->buckets[index] = node->next;
-            }
-            // Don't free key or node - caller will handle
-            map->size--;
-            return;
-        }
-        prev = node;
-        node = node->next;
-    }
 }
 
 static int hashmap_resize(HashMap* map) {

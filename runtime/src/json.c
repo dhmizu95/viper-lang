@@ -233,7 +233,8 @@ static ViperValue json_parse_value(JsonParser* p) {
         char* str = json_parse_string(p);
         if (str) {
             value.type = VIPER_TYPE_STR;
-            value.data.as_str = str;
+            value.data.as_str = vp_str_create(str);
+            vp_arc_release(str);
         }
     } else if (c == '{') {
         /* Object - simplified: return NULL dict */

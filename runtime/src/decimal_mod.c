@@ -58,10 +58,6 @@ static void decimal_set_scale(ViperDecimal* d, int scale) {
     d->hi = (d->hi & ~DECIMAL_EXP_MASK) | ((uint64_t)scale << 48);
 }
 
-static uint64_t decimal_get_coeff_hi(const ViperDecimal* d) {
-    return d->hi & DECIMAL_COEFF_HI_MASK;
-}
-
 static void decimal_set_coeff_hi(ViperDecimal* d, uint64_t coeff) {
     d->hi = (d->hi & ~DECIMAL_COEFF_HI_MASK) | (coeff & DECIMAL_COEFF_HI_MASK);
 }
@@ -173,7 +169,7 @@ void vp_decimal_free(ViperDecimal* d) {
 /* ============================================ */
 
 char* vp_decimal_to_str(ViperDecimal* d) {
-    if (!d) return json_strdup("0", 1);
+    if (!d) return vp_strdup_slice("0", 1);
     
     char buffer[64];
     char* p = buffer;
@@ -213,7 +209,7 @@ char* vp_decimal_to_str(ViperDecimal* d) {
         strcpy(p, coeff_str);
     } else if (scale > 0) {
         int int_len = coeff_len - scale;
-        strncpy(p, coeff_str, int_len);
+        memcpy(p, coeff_str, (size_t)int_len);
         p += int_len;
         *p++ = '.';
         strcpy(p, coeff_str + int_len);
@@ -221,7 +217,7 @@ char* vp_decimal_to_str(ViperDecimal* d) {
         strcpy(p, coeff_str);
     }
     
-    return json_strdup(buffer, strlen(buffer));
+    return vp_strdup_slice(buffer, strlen(buffer));
 }
 
 int64_t vp_decimal_to_i64(ViperDecimal* d) {
@@ -399,11 +395,13 @@ int64_t vp_decimal_is_zero(ViperDecimal* d) {
 
 int64_t vp_decimal_is_nan(ViperDecimal* d) {
     /* Simplified: no NaN support yet */
+    (void)d;
     return 0;
 }
 
 int64_t vp_decimal_is_infinite(ViperDecimal* d) {
     /* Simplified: no infinity support yet */
+    (void)d;
     return 0;
 }
 

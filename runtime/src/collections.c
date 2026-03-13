@@ -278,13 +278,16 @@ void vp_ordered_dict_free(ViperOrderedDict* od) {
 
 void vp_ordered_dict_set(ViperOrderedDict* od, const char* key, int64_t value) {
     if (!od || !key) return;
-    
+
+    ViperString* key_str = vp_str_create(key);
+    if (!key_str) return;
+
     /* Check if key exists */
-    if (!vp_dict_contains(od->dict, key)) {
+    if (!vp_dict_contains(od->dict, key_str)) {
         /* Add to order list */
         OrderNode* node = (OrderNode*)vp_arc_alloc(sizeof(OrderNode));
         if (node) {
-            node->key = json_strdup(key, strlen(key));
+            node->key = vp_strdup_slice(key, strlen(key));
             node->next = NULL;
             node->prev = od->tail;
             
@@ -298,9 +301,10 @@ void vp_ordered_dict_set(ViperOrderedDict* od, const char* key, int64_t value) {
             od->size++;
         }
     }
-    
+
     /* Set in dict */
-    vp_dict_set_str_i64(od->dict, (void*)key, value);
+    vp_dict_set_i64(od->dict, key, value);
+    vp_str_free(key_str);
 }
 
 int64_t vp_ordered_dict_get(ViperOrderedDict* od, const char* key) {
@@ -1210,5 +1214,4 @@ ViperString* vp_input(ViperString* prompt) {
 ViperDict* vp_dict_create_empty(void) {
     return vp_dict_create();
 }
-
 

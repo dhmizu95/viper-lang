@@ -412,8 +412,10 @@ double vp_math_nextafter(double x, double y) {
 
 int64_t vp_math_modf(double x, double* intpart) {
     double frac = modf(x, intpart);
-    /* Return fractional part encoded as bits for precision */
-    return *(int64_t*)&frac;
+    int64_t bits;
+    /* Return fractional part encoded as bits for precision without violating aliasing rules. */
+    memcpy(&bits, &frac, sizeof(bits));
+    return bits;
 }
 
 /* ============================================ */

@@ -116,6 +116,7 @@ ViperList* vp_asyncio_gather(ViperList* coroutines) {
 /* ============================================ */
 
 ViperTask* vp_asyncio_wait(ViperList* tasks, double timeout) {
+    (void)timeout;
     if (!tasks || vp_list_len(tasks) == 0) {
         return NULL;
     }
@@ -129,6 +130,7 @@ ViperTask* vp_asyncio_wait(ViperList* tasks, double timeout) {
 /* ============================================ */
 
 int64_t vp_asyncio_run(void* main_coro) {
+    (void)main_coro;
     vp_asyncio_init();
     
     if (!global_loop) {
@@ -157,6 +159,7 @@ typedef struct ViperAsyncContext {
 } ViperAsyncContext;
 
 ViperAsyncContext* vp_asyncio_enter_context(void* context) {
+    (void)context;
     ViperAsyncContext* ctx = (ViperAsyncContext*)vp_arc_alloc(sizeof(ViperAsyncContext));
     if (!ctx) return NULL;
     
@@ -300,6 +303,7 @@ void vp_asyncio_event_clear(ViperAsyncEvent* event) {
 }
 
 int64_t vp_asyncio_event_wait(ViperAsyncEvent* event, double timeout) {
+    (void)timeout;
     if (!event) return 0;
     
     if (event->set) {
@@ -489,6 +493,9 @@ int64_t vp_async_context_enter(void* context) {
 /* Exit an async context - calls __aexit__ with exception info */
 int64_t vp_async_context_exit(void* context, int64_t exc_type, int64_t exc_val, int64_t exc_tb) {
     if (!context) return -1;
+    (void)exc_type;
+    (void)exc_val;
+    (void)exc_tb;
     
     /* For now, just release the context
      * In a full implementation, this would:
@@ -520,4 +527,3 @@ void vp_async_context_free(ViperAsyncContext* ctx) {
     }
     vp_arc_release(ctx);
 }
-

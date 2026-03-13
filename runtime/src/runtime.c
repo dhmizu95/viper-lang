@@ -415,11 +415,18 @@ double vp_math_floor(double x) {
 void vp_dict_set_i64(ViperDict* dict, const char* key, int64_t value) {
     if (!dict || !key) return;
 
+    ViperString* key_str = vp_str_create(key);
+    if (!key_str) return;
+
     ViperValue val;
     val.type = VIPER_TYPE_I64;
     val.data.as_i64 = value;
 
-    vp_dict_set(dict, key, val);
+    bool existed = vp_dict_contains(dict, key_str);
+    vp_dict_set(dict, key_str, val);
+    if (existed) {
+        vp_str_free(key_str);
+    }
 }
 
 /* Wrapper for dict set with string key (from vp_str_create) and i64 value */
@@ -428,8 +435,7 @@ void vp_dict_set_str_i64(ViperDict* dict, void* str_ptr, int64_t value) {
         return;
     }
 
-    /* vp_str_create returns a plain char*, not ViperString struct */
-    const char* key = (const char*)str_ptr;
+    ViperString* key = (ViperString*)str_ptr;
 
     ViperValue val;
     val.type = VIPER_TYPE_I64;
@@ -444,9 +450,8 @@ void vp_dict_set_str_str(ViperDict* dict, void* key_str, void* value_str) {
         return;
     }
 
-    /* vp_str_create returns plain char* */
-    const char* key = (const char*)key_str;
-    char* val_str = (char*)value_str;
+    ViperString* key = (ViperString*)key_str;
+    ViperString* val_str = (ViperString*)value_str;
 
     /* Create ViperValue with string type */
     ViperValue val;
@@ -459,8 +464,12 @@ void vp_dict_set_str_str(ViperDict* dict, void* key_str, void* value_str) {
 /* Wrapper for dict get returning i64 value */
 int64_t vp_dict_get_i64(ViperDict* dict, const char* key) {
     if (!dict || !key) return 0;
-    
-    ViperValue val = vp_dict_get(dict, key);
+
+    ViperString* key_str = vp_str_create(key);
+    if (!key_str) return 0;
+
+    ViperValue val = vp_dict_get(dict, key_str);
+    vp_str_free(key_str);
     
     if (val.type == VIPER_TYPE_I64) {
         return val.data.as_i64;
