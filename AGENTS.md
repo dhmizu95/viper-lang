@@ -21,6 +21,22 @@ For direct CLI work, use `cargo run --bin viper -- run <file.vp>` or `cargo run 
 
 Use `rustfmt` defaults for Rust and keep C runtime formatting consistent with surrounding files, typically 4-space indentation. Prefer `snake_case` for functions, variables, files, and modules; use `CamelCase` for Rust enums/types and runtime structs. Keep changes localized, avoid duplicate codegen paths, and prefer explicit error propagation through the repo’s `Result`/`ViperError` patterns.
 
+## Project Goal
+
+The project goal is to build a language with near-100% Python compatibility while pushing performance as close to C as practical. Performance improvements should come from better compilation, runtime design, and specialization of explicit low-level paths, not from weakening Python-visible semantics by default.
+
+## Numeric Semantics Policy
+
+Preserve Python compatibility for the language-level `int` type as a priority. Treat plain `int` as arbitrary-precision and do not change its semantics by silently lowering it to fixed-width arithmetic for performance reasons.
+
+When optimizing integer-heavy code:
+
+- keep Python-style behavior for `int`, including overflow promotion and BigInt fallback
+- only keep values on native LLVM `i64` operations when the program is already explicitly using `i64` or another fixed-width path by design
+- do not widen optimization heuristics in a way that causes inferred or unannotated `int` code to lose Python-compatible behavior
+
+Performance work should first optimize the implementation of `int` without changing its semantics. Treat `i64` as an explicit opt-in escape hatch for fixed-width performance, not as a substitute for default integer behavior.
+
 ## Testing Guidelines
 
 Add unit tests near the subsystem you change and integration tests when behavior crosses parsing, typing, codegen, or runtime boundaries. Test files follow descriptive `test_*` naming in Rust `#[test]` functions. Run `make test` before submitting; for performance-sensitive changes, also run targeted benchmark commands such as `bench-safe-one` or `bench-aot-compare`.
