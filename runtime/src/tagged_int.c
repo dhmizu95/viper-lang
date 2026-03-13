@@ -377,23 +377,22 @@ TaggedInt tagged_int_mul(TaggedInt a, TaggedInt b) {
 }
 
 TaggedInt tagged_int_div(TaggedInt a, TaggedInt b) {
-    /* Case 1: Both small integers */
-    if (tagged_int_is_small(a) && tagged_int_is_small(b)) {
+    /* Case 1: Both small integers - HOT path */
+    if (VIPER_LIKELY(tagged_int_is_small(a) && tagged_int_is_small(b))) {
         int64_t a_val = tagged_int_get_small(a);
         int64_t b_val = tagged_int_get_small(b);
 
-        if (b_val != 0) {
-            int64_t res = a_val / b_val;
-            if (fits_in_i63(res)) {
-                return tagged_int_from_i64(res);
-            }
-        } else {
+        if (VIPER_UNLIKELY(b_val == 0)) {
             fprintf(stderr, "Error: Division by zero\n");
             return tagged_int_from_i64(0);
         }
+
+        /* Native i64 division - very fast */
+        int64_t res = a_val / b_val;
+        return tagged_int_from_i64(res);
     }
 
-    /* Case 2: At least one BigInt */
+    /* Case 2: At least one BigInt - slow path */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
     ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
     ViperBigInt* result = alloc_bigint_for_tagged();
@@ -426,7 +425,22 @@ TaggedInt tagged_int_div(TaggedInt a, TaggedInt b) {
 }
 
 TaggedInt tagged_int_mod(TaggedInt a, TaggedInt b) {
-    /* Handle both SmallInt and BigInt for operand a */
+    /* Case 1: Both small integers - HOT path */
+    if (VIPER_LIKELY(tagged_int_is_small(a) && tagged_int_is_small(b))) {
+        int64_t a_val = tagged_int_get_small(a);
+        int64_t b_val = tagged_int_get_small(b);
+
+        if (VIPER_UNLIKELY(b_val == 0)) {
+            fprintf(stderr, "Error: Modulo by zero\n");
+            return tagged_int_from_i64(0);
+        }
+
+        /* Native i64 modulo - very fast */
+        int64_t res = a_val % b_val;
+        return tagged_int_from_i64(res);
+    }
+
+    /* Case 2: At least one BigInt - slow path */
     ViperBigInt* a_big = tagged_int_is_small(a) ? tagged_int_to_bigint(a) : tagged_int_get_bigint(a);
     ViperBigInt* b_big = tagged_int_is_small(b) ? tagged_int_to_bigint(b) : tagged_int_get_bigint(b);
     ViperBigInt* result = alloc_bigint_for_tagged();
