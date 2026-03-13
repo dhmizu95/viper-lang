@@ -68,7 +68,7 @@ impl TypeChecker {
                         self.symbol_table.current_scope_id(),
                     );
                     if let Err(e) = self.symbol_table.insert(symbol) {
-                        self.errors.push(TypeError::new(e, *span));
+                        self.errors.push(TypeError::new(e.to_string(), *span));
                     }
                 } else {
                     // Non-identifier target, use regular check
@@ -115,7 +115,7 @@ impl TypeChecker {
                                 self.symbol_table.current_scope_id(),
                             );
                             if let Err(e) = self.symbol_table.insert(symbol) {
-                                self.errors.push(TypeError::new(e, *span));
+                                self.errors.push(TypeError::new(e.to_string(), *span));
                             }
                         }
                     } else {
@@ -128,7 +128,7 @@ impl TypeChecker {
                             self.symbol_table.current_scope_id(),
                         );
                         if let Err(e) = self.symbol_table.insert(symbol) {
-                            self.errors.push(TypeError::new(e, *span));
+                            self.errors.push(TypeError::new(e.to_string(), *span));
                         }
                     }
                 }
@@ -197,7 +197,7 @@ impl TypeChecker {
                 let symbol =
                     Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
                 if let Err(e) = self.symbol_table.insert(symbol) {
-                    self.errors.push(TypeError::new(e, *span));
+                    self.errors.push(TypeError::new(e.to_string(), *span));
                 }
             }
             Stmt::Global { names, span } => {
@@ -224,7 +224,7 @@ impl TypeChecker {
                 let symbol =
                     Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
                 if let Err(e) = self.symbol_table.insert(symbol) {
-                    self.errors.push(TypeError::new(e, *span));
+                    self.errors.push(TypeError::new(e.to_string(), *span));
                 }
             }
             Stmt::If { condition, body, elif_blocks, else_body, span } => {
@@ -299,7 +299,7 @@ impl TypeChecker {
                         self.symbol_table.current_scope_id(),
                     );
                     if let Err(e) = self.symbol_table.insert(symbol) {
-                        self.errors.push(TypeError::new(e, *span));
+                        self.errors.push(TypeError::new(e.to_string(), *span));
                     }
                 }
 
@@ -354,7 +354,7 @@ impl TypeChecker {
                         self.symbol_table.current_scope_id(),
                     );
                     if let Err(e) = self.symbol_table.insert(symbol) {
-                        self.errors.push(TypeError::new(e, param.span));
+                        self.errors.push(TypeError::new(e.to_string(), param.span));
                     }
                 }
 
@@ -392,7 +392,7 @@ impl TypeChecker {
                             nested_type_params.clone(),
                         );
                         if let Err(e) = self.symbol_table.insert(symbol) {
-                            self.errors.push(TypeError::new(e, *nested_span));
+                            self.errors.push(TypeError::new(e.to_string(), *nested_span));
                         }
                     }
                 }
@@ -504,7 +504,7 @@ impl TypeChecker {
                 let symbol =
                     Symbol::new(name.clone(), kind, *span, self.symbol_table.current_scope_id());
                 if let Err(e) = self.symbol_table.insert(symbol) {
-                    self.errors.push(TypeError::new(e, *span));
+                    self.errors.push(TypeError::new(e.to_string(), *span));
                 }
             }
             Stmt::Match { subject, cases, span } => {
@@ -669,7 +669,7 @@ impl TypeChecker {
                     self.symbol_table.current_scope_id(),
                 );
                 if let Err(e) = self.symbol_table.insert(class_symbol) {
-                    self.errors.push(TypeError::new(e, *span));
+                    self.errors.push(TypeError::new(e.to_string(), *span));
                 }
 
                 // Now enter class scope for methods and fields

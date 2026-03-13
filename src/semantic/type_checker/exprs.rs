@@ -146,7 +146,7 @@ impl TypeChecker {
                                 // Type is inferred from the resolved function
                             }
                             Err(msg) => {
-                                self.errors.push(TypeError::new(msg, *span));
+                                self.errors.push(TypeError::new(msg.to_string(), *span));
                             }
                         }
                     } else if let Some(symbol) = self.symbol_table.lookup(name) {

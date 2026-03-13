@@ -17,11 +17,11 @@ impl TypeChecker {
         &self,
         name: &str,
         args: &[Expr],
-    ) -> Result<String, String> {
+    ) -> crate::semantic::Result<String> {
         let overloads = self.symbol_table.get_function_overloads(name);
         
         if overloads.is_empty() {
-            return Err(format!("Function '{}' is not defined", name));
+            return crate::semantic::semantic_error(format!("Function '{}' is not defined", name));
         }
         
         if overloads.len() == 1 {
@@ -29,7 +29,7 @@ impl TypeChecker {
             if let SymbolKind::Function { mangled_name, params, .. } = &overloads[0].kind {
                 // Check argument count matches
                 if params.len() != args.len() {
-                    return Err(format!(
+                    return crate::semantic::semantic_error(format!(
                         "Expected {} arguments, got {}",
                         params.len(),
                         args.len()
@@ -86,7 +86,7 @@ impl TypeChecker {
                 if let SymbolKind::Function { mangled_name, .. } = &symbol.kind {
                     Ok(mangled_name.clone())
                 } else {
-                    Err(format!("'{}' is not a function", name))
+                    crate::semantic::semantic_error(format!("'{}' is not a function", name))
                 }
             }
             None => {
@@ -102,7 +102,7 @@ impl TypeChecker {
                     })
                     .collect();
                 
-                Err(format!(
+                crate::semantic::semantic_error(format!(
                     "No matching overload for '{}({})'. Available overloads: {}",
                     name,
                     arg_types.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(", "),

@@ -4,6 +4,7 @@
 //! Usage: vpm <command> [options]
 
 use clap::Parser;
+use viper_lang::error::Result;
 
 mod cli;
 
@@ -28,7 +29,7 @@ fn main() {
     }
 }
 
-fn execute(args: Args) -> Result<(), String> {
+fn execute(args: Args) -> Result<()> {
     match args.command {
         Commands::Init { name } => init_package(name),
         Commands::Add { package, git, branch, path } => {

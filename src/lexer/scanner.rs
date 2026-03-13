@@ -35,10 +35,9 @@ impl<'a> Lexer<'a> {
     /// Tokenize the entire source, returning all tokens
     pub fn tokenize(&mut self) -> Result<Vec<Token>> {
         self.tokenize_raw()
-            .map_err(|e| ViperError::lexical(e, self.line, self.column))
     }
 
-    fn tokenize_raw(&mut self) -> std::result::Result<Vec<Token>, String> {
+    fn tokenize_raw(&mut self) -> Result<Vec<Token>> {
         let mut tokens = Vec::new();
 
         loop {
@@ -60,10 +59,9 @@ impl<'a> Lexer<'a> {
     /// Get the next token from the source
     pub fn next_token(&mut self) -> Result<Token> {
         self.next_token_raw()
-            .map_err(|e| ViperError::lexical(e, self.line, self.column))
     }
 
-    fn next_token_raw(&mut self) -> std::result::Result<Token, String> {
+    fn next_token_raw(&mut self) -> Result<Token> {
         'retry: loop {
             // Emit pending dedents first
             if self.pending_dedents > 0 {
@@ -147,7 +145,7 @@ impl<'a> Lexer<'a> {
                         );
                         return Ok(Token::new(TokenKind::Dedent, span));
                     }
-                    IndentChange::Error(msg) => return Err(msg),
+                    IndentChange::Error(msg) => return self.lexical_error(msg),
                     IndentChange::None => {}
                 }
             }
@@ -434,7 +432,7 @@ impl<'a> Lexer<'a> {
                                 }
                             }
                             if !found_end {
-                                return Err("Unterminated triple-quoted string".to_string());
+                                return self.lexical_error("Unterminated triple-quoted string");
                             }
                             // Triple-quoted strings are treated as comments (ignored)
                             continue;
@@ -518,13 +516,17 @@ impl<'a> Lexer<'a> {
         self.chars.clone().nth(n)
     }
 
-    fn read_string_raw(&mut self, quote: char) -> std::result::Result<String, String> {
+    fn lexical_error<T>(&self, message: impl Into<String>) -> Result<T> {
+        Err(ViperError::lexical(message, self.line, self.column))
+    }
+
+    fn read_string_raw(&mut self, quote: char) -> Result<String> {
         let mut s = String::new();
         let mut escaped = false;
 
         loop {
             match self.chars.peek() {
-                None => return Err("Unterminated string".to_string()),
+                None => return self.lexical_error("Unterminated string"),
                 Some(&c) => {
                     let ch = c;
                     if escaped {
@@ -574,7 +576,7 @@ impl<'a> Lexer<'a> {
                                         .map_err(|_| format!("Invalid hex escape: \\x{}", hex))?;
                                     s.push(code as char);
                                 } else {
-                                    return Err(format!(
+                                    return self.lexical_error(format!(
                                         "Invalid hex escape: \\x{} (expected 2 hex digits, got {})",
                                         hex,
                                         hex.len()
@@ -603,12 +605,12 @@ impl<'a> Lexer<'a> {
         Ok(s)
     }
 
-    fn read_raw_string_raw(&mut self, quote: char) -> std::result::Result<String, String> {
+    fn read_raw_string_raw(&mut self, quote: char) -> Result<String> {
         let mut s = String::new();
 
         loop {
             match self.chars.peek() {
-                None => return Err("Unterminated string".to_string()),
+                None => return self.lexical_error("Unterminated string"),
                 Some(&c) => {
                     let ch = c;
                     if ch == quote {
@@ -624,13 +626,13 @@ impl<'a> Lexer<'a> {
         Ok(s)
     }
 
-    fn read_byte_string_raw(&mut self, quote: char) -> std::result::Result<Vec<u8>, String> {
+    fn read_byte_string_raw(&mut self, quote: char) -> Result<Vec<u8>> {
         let mut bytes = Vec::new();
         let mut escaped = false;
 
         loop {
             match self.chars.peek() {
-                None => return Err("Unterminated byte string".to_string()),
+                None => return self.lexical_error("Unterminated byte string"),
                 Some(&c) => {
                     let ch = c;
                     if escaped {
@@ -680,7 +682,7 @@ impl<'a> Lexer<'a> {
                                         .map_err(|_| format!("Invalid hex escape: \\x{}", hex))?;
                                     bytes.push(code);
                                 } else {
-                                    return Err(format!(
+                                    return self.lexical_error(format!(
                                         "Invalid hex escape: \\x{} (expected 2 hex digits, got {})",
                                         hex,
                                         hex.len()
@@ -700,7 +702,7 @@ impl<'a> Lexer<'a> {
                         self.advance();
                         break;
                     } else if !ch.is_ascii() {
-                        return Err("Byte strings must contain only ASCII characters".to_string());
+                        return self.lexical_error("Byte strings must contain only ASCII characters");
                     } else {
                         bytes.push(self.advance() as u8);
                     }
@@ -711,7 +713,7 @@ impl<'a> Lexer<'a> {
         Ok(bytes)
     }
 
-    fn read_number_raw(&mut self, first: char) -> std::result::Result<TokenKind, String> {
+    fn read_number_raw(&mut self, first: char) -> Result<TokenKind> {
         let mut s = first.to_string();
         let mut is_float = false;
 
@@ -752,7 +754,7 @@ impl<'a> Lexer<'a> {
                         }
                     }
                     if s.len() < 3 {
-                        return Err(format!("Invalid binary literal: {}", s));
+                        return self.lexical_error(format!("Invalid binary literal: {}", s));
                     }
                     // Parse as binary integer
                     match i64::from_str_radix(&s[2..], 2) {
@@ -774,7 +776,7 @@ impl<'a> Lexer<'a> {
                         }
                     }
                     if s.len() < 3 {
-                        return Err(format!("Invalid octal literal: {}", s));
+                        return self.lexical_error(format!("Invalid octal literal: {}", s));
                     }
                     // Parse as octal integer
                     match i64::from_str_radix(&s[2..], 8) {
@@ -827,7 +829,7 @@ impl<'a> Lexer<'a> {
                 }
 
                 if !has_exp_digits {
-                    return Err("Scientific notation requires exponent digits".to_string());
+                    return self.lexical_error("Scientific notation requires exponent digits");
                 }
 
                 is_float = true;

@@ -111,7 +111,7 @@ impl TypeChecker {
                     type_params.clone(),
                 );
                 if let Err(e) = self.symbol_table.insert(symbol) {
-                    self.errors.push(TypeError::new(e, *span));
+                    self.errors.push(TypeError::new(e.to_string(), *span));
                 }
             } else if let crate::ast::Stmt::Extern { name, params, return_type, span, .. } = stmt {
                 // Normalize parameter types
@@ -136,7 +136,7 @@ impl TypeChecker {
                     vec![],
                 );
                 if let Err(e) = self.symbol_table.insert(symbol) {
-                    self.errors.push(TypeError::new(e, *span));
+                    self.errors.push(TypeError::new(e.to_string(), *span));
                 }
             }
         }
@@ -245,7 +245,7 @@ impl TypeChecker {
                                 self.symbol_table.current_scope_id(),
                             );
                             if let Err(e) = self.symbol_table.insert(module_symbol) {
-                                self.errors.push(TypeError::new(e, *span));
+                                self.errors.push(TypeError::new(e.to_string(), *span));
                             }
                         }
                         Err(e) => {
@@ -302,7 +302,7 @@ impl TypeChecker {
                                         self.symbol_table.current_scope_id(),
                                     );
                                     if let Err(e) = self.symbol_table.insert(symbol) {
-                                        self.errors.push(TypeError::new(e, *span));
+                                        self.errors.push(TypeError::new(e.to_string(), *span));
                                     }
                                 } else {
                                     self.errors.push(TypeError::new(

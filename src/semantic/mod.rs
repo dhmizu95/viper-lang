@@ -6,6 +6,16 @@ pub mod recursion_analysis;
 pub mod symbol_table;
 pub mod type_checker;
 
+pub(crate) type Result<T> = crate::error::Result<T>;
+
+pub(crate) fn semantic_err(message: impl Into<String>) -> crate::error::ViperError {
+    crate::error::ViperError::type_error(message, crate::utils::Span::default())
+}
+
+pub(crate) fn semantic_error<T>(message: impl Into<String>) -> Result<T> {
+    Err(semantic_err(message))
+}
+
 // Re-export commonly used items
 pub use closure_analysis::{CapturedVarInfo, ClosureAnalyzer, ClosureInfo};
 pub use constant_folding::ConstantFolder;

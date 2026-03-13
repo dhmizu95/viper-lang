@@ -2,18 +2,19 @@
 //!
 //! Implementation of all vpm commands.
 
+use crate::cli::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Initialize a new Viper package
-pub fn init_package(name: Option<String>) -> Result<(), String> {
+pub fn init_package(name: Option<String>) -> Result<()> {
     let package_name = name.unwrap_or_else(|| "my_package".to_string());
     
     // Create project directory
     let project_dir = PathBuf::from(&package_name);
     if project_dir.exists() {
-        return Err(format!("Directory '{}' already exists", package_name));
+        return Err(format!("Directory '{}' already exists", package_name).into());
     }
     
     fs::create_dir_all(&project_dir)
@@ -91,11 +92,16 @@ def main():
 }
 
 /// Add a dependency to vpm.toml
-pub fn add_dependency(package: &str, git: Option<&str>, branch: Option<&str>, path: Option<&str>) -> Result<(), String> {
+pub fn add_dependency(
+    package: &str,
+    git: Option<&str>,
+    branch: Option<&str>,
+    path: Option<&str>,
+) -> Result<()> {
     let manifest_path = Path::new("vpm.toml");
     
     if !manifest_path.exists() {
-        return Err("No vpm.toml found. Run 'vpm init' first.".to_string());
+        return Err("No vpm.toml found. Run 'vpm init' first.".into());
     }
     
     // Read existing manifest
@@ -155,11 +161,11 @@ pub fn add_dependency(package: &str, git: Option<&str>, branch: Option<&str>, pa
 }
 
 /// Remove a dependency from vpm.toml
-pub fn remove_dependency(package: &str) -> Result<(), String> {
+pub fn remove_dependency(package: &str) -> Result<()> {
     let manifest_path = Path::new("vpm.toml");
     
     if !manifest_path.exists() {
-        return Err("No vpm.toml found.".to_string());
+        return Err("No vpm.toml found.".into());
     }
     
     let content = fs::read_to_string(manifest_path)
@@ -184,15 +190,15 @@ pub fn remove_dependency(package: &str) -> Result<(), String> {
         }
     }
     
-    Err(format!("Package '{}' not found in dependencies", package))
+    Err(format!("Package '{}' not found in dependencies", package).into())
 }
 
 /// Install dependencies
-pub fn install_dependencies(package: Option<&str>) -> Result<(), String> {
+pub fn install_dependencies(package: Option<&str>) -> Result<()> {
     let manifest_path = Path::new("vpm.toml");
     
     if !manifest_path.exists() {
-        return Err("No vpm.toml found. Run 'vpm init' first.".to_string());
+        return Err("No vpm.toml found. Run 'vpm init' first.".into());
     }
     
     println!("Installing dependencies...");
@@ -266,11 +272,11 @@ pub fn install_dependencies(package: Option<&str>) -> Result<(), String> {
 }
 
 /// List installed packages
-pub fn list_packages(top_level: bool) -> Result<(), String> {
+pub fn list_packages(top_level: bool) -> Result<()> {
     let manifest_path = Path::new("vpm.toml");
     
     if !manifest_path.exists() {
-        return Err("No vpm.toml found.".to_string());
+        return Err("No vpm.toml found.".into());
     }
     
     let content = fs::read_to_string(manifest_path)
@@ -317,7 +323,7 @@ pub fn list_packages(top_level: bool) -> Result<(), String> {
 }
 
 /// Clean package cache
-pub fn clean_cache() -> Result<(), String> {
+pub fn clean_cache() -> Result<()> {
     let vendor_dir = PathBuf::from("vendor");
     let build_dir = PathBuf::from("build");
     
@@ -339,11 +345,11 @@ pub fn clean_cache() -> Result<(), String> {
 }
 
 /// Show package tree
-pub fn show_tree(depth: usize) -> Result<(), String> {
+pub fn show_tree(depth: usize) -> Result<()> {
     let manifest_path = Path::new("vpm.toml");
     
     if !manifest_path.exists() {
-        return Err("No vpm.toml found.".to_string());
+        return Err("No vpm.toml found.".into());
     }
     
     let content = fs::read_to_string(manifest_path)
@@ -397,7 +403,7 @@ pub fn show_tree(depth: usize) -> Result<(), String> {
 }
 
 /// Search for packages (stub - needs registry implementation)
-pub fn search_packages(query: &str) -> Result<(), String> {
+pub fn search_packages(query: &str) -> Result<()> {
     println!("Searching for packages matching '{}'...", query);
     println!();
     println!("Note: Package registry is not yet implemented.");
@@ -410,12 +416,12 @@ pub fn search_packages(query: &str) -> Result<(), String> {
 }
 
 /// Show package information
-pub fn show_package(package: &str) -> Result<(), String> {
+pub fn show_package(package: &str) -> Result<()> {
     // Check local manifest first
     let manifest_path = Path::new("vpm.toml");
     
     if !manifest_path.exists() {
-        return Err(format!("Package '{}' not found", package));
+        return Err(format!("Package '{}' not found", package).into());
     }
     
     let content = fs::read_to_string(manifest_path)
@@ -455,11 +461,11 @@ pub fn show_package(package: &str) -> Result<(), String> {
         }
     }
     
-    Err(format!("Package '{}' not found in dependencies", package))
+    Err(format!("Package '{}' not found in dependencies", package).into())
 }
 
 /// Update dependencies
-pub fn update_dependencies(package: Option<&str>, _pre: bool) -> Result<(), String> {
+pub fn update_dependencies(package: Option<&str>, _pre: bool) -> Result<()> {
     println!("Updating dependencies...");
     
     if package.is_some() {
@@ -472,11 +478,11 @@ pub fn update_dependencies(package: Option<&str>, _pre: bool) -> Result<(), Stri
 }
 
 /// Publish a package
-pub fn publish_package(bump: Option<&str>, dry_run: bool) -> Result<(), String> {
+pub fn publish_package(bump: Option<&str>, dry_run: bool) -> Result<()> {
     let manifest_path = Path::new("vpm.toml");
     
     if !manifest_path.exists() {
-        return Err("No vpm.toml found.".to_string());
+        return Err("No vpm.toml found.".into());
     }
     
     let content = fs::read_to_string(manifest_path)
@@ -500,7 +506,7 @@ pub fn publish_package(bump: Option<&str>, dry_run: bool) -> Result<(), String> 
             .collect();
         
         if parts.len() != 3 {
-            return Err(format!("Invalid version format: {}", current_version));
+            return Err(format!("Invalid version format: {}", current_version).into());
         }
         
         let mut new_parts = parts.clone();
@@ -519,7 +525,7 @@ pub fn publish_package(bump: Option<&str>, dry_run: bool) -> Result<(), String> 
                 new_parts[2] += 1;
             }
             _ => {
-                return Err("Bump level must be 'major', 'minor', or 'patch'".to_string());
+                return Err("Bump level must be 'major', 'minor', or 'patch'".into());
             }
         }
         

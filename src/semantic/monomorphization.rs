@@ -133,7 +133,7 @@ impl Monomorphizer {
         type_args: &[Type],
         original_symbol: &Symbol,
         original_body: &[Stmt],
-    ) -> Result<String, String> {
+    ) -> crate::semantic::Result<String> {
         // Generate mangled name first to check if we already have this specialization
         let mangled_name = self.generate_mangled_name(func_name, type_args);
         
@@ -145,15 +145,15 @@ impl Monomorphizer {
         // Get type parameters from the original function
         let type_params = match &original_symbol.kind {
             SymbolKind::Function { type_params, .. } => type_params,
-            _ => return Err(format!("{} is not a generic function", func_name)),
+            _ => return crate::semantic::semantic_error(format!("{} is not a generic function", func_name)),
         };
         
         if type_params.is_empty() {
-            return Err(format!("{} is not a generic function", func_name));
+            return crate::semantic::semantic_error(format!("{} is not a generic function", func_name));
         }
         
         if type_params.len() != type_args.len() {
-            return Err(format!(
+            return crate::semantic::semantic_error(format!(
                 "Type argument count mismatch: expected {}, got {}",
                 type_params.len(),
                 type_args.len()
@@ -166,7 +166,7 @@ impl Monomorphizer {
         // Get original function info
         let (param_types, return_type) = match &original_symbol.kind {
             SymbolKind::Function { params, return_type, .. } => (params.clone(), return_type.clone()),
-            _ => return Err(format!("{} is not a function", func_name)),
+            _ => return crate::semantic::semantic_error(format!("{} is not a function", func_name)),
         };
         
         // Specialize parameter types

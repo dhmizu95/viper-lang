@@ -411,7 +411,7 @@ impl SymbolTable {
 
     /// Insert a symbol into current scope
     /// For functions, allows overloading by using mangled name
-    pub fn insert(&mut self, symbol: Symbol) -> Result<(), String> {
+    pub fn insert(&mut self, symbol: Symbol) -> crate::semantic::Result<()> {
         let scope = &mut self.scopes[self.current_scope];
 
         if let SymbolKind::Function { mangled_name, .. } = &symbol.kind {
@@ -420,7 +420,10 @@ impl SymbolTable {
             scope.insert(key, symbol);
         } else {
             if scope.contains_key(&symbol.name) {
-                return Err(format!("'{}' is already defined", symbol.name));
+                return crate::semantic::semantic_error(format!(
+                    "'{}' is already defined",
+                    symbol.name
+                ));
             }
             scope.insert(symbol.name.clone(), symbol);
         }
@@ -552,4 +555,3 @@ impl Default for SymbolTable {
         Self::new()
     }
 }
-
