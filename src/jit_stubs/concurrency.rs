@@ -188,7 +188,12 @@ pub extern "C" fn vp_future_create() -> *mut std::ffi::c_void {
 pub extern "C" fn vp_async_range_create(start: i64, end: i64, step: i64) -> *mut std::ffi::c_void {
     // Allocate a simple range struct
     let range =
-        Box::new(JitAsyncRange { current: start, end, step: if step == 0 { 1 } else { step } });
+        Box::new(JitAsyncRange { 
+            magic: JIT_ASYNC_RANGE_MAGIC,
+            current: start, 
+            end, 
+            step: if step == 0 { 1 } else { step } 
+        });
     Box::into_raw(range) as *mut std::ffi::c_void
 }
 
@@ -197,6 +202,10 @@ pub extern "C" fn vp_async_range_next(range_ptr: *mut std::ffi::c_void) -> i64 {
         return -1;
     }
     let range = unsafe { &mut *(range_ptr as *mut JitAsyncRange) };
+
+    if range.magic != JIT_ASYNC_RANGE_MAGIC {
+        return -1;
+    }
 
     if range.current >= range.end {
         return -1; // StopAsyncIteration
@@ -216,8 +225,16 @@ pub extern "C" fn vp_async_range_free(range_ptr: *mut std::ffi::c_void) {
 }
 
 pub extern "C" fn vp_async_iter(obj: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
-    // For now, just return the object as-is
-    obj
+    if obj.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let range = unsafe { &mut *(obj as *mut JitAsyncRange) };
+    if range.magic == JIT_ASYNC_RANGE_MAGIC {
+        return obj;
+    }
+
+    std::ptr::null_mut()
 }
 
 pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
@@ -227,6 +244,10 @@ pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
     }
     
     let range = unsafe { &mut *(iterator as *mut JitAsyncRange) };
+
+    if range.magic != JIT_ASYNC_RANGE_MAGIC {
+        return -1;
+    }
     
     if range.current >= range.end {
         return -1;  // StopAsyncIteration
@@ -303,21 +324,22 @@ pub extern "C" fn vp_future_gather(futures_ptr: i64, count: i64) -> i64 {
     }
 }
 
-pub extern "C" fn vp_future_gather_free(results_ptr: i64, _count: i64) {
-    if results_ptr != 0 {
+pub extern "C" fn vp_future_gather_free(results_ptr: i64, count: i64) {
+    if results_ptr != 0 && count > 0 {
         unsafe {
-            // Cast through thin pointer first
             let raw = results_ptr as *mut i64;
-            // We don't know the length, so just free the memory
-            // This is safe because we allocated with Vec which uses the global allocator
-            let _ = Box::from_raw(raw);
+            // Reconstruct Vec to free correctly
+            let _ = Vec::from_raw_parts(raw, count as usize, count as usize);
         }
     }
 }
 
 // Internal struct for async range
 struct JitAsyncRange {
+    magic: u64,
     current: i64,
     end: i64,
     step: i64,
 }
+
+const JIT_ASYNC_RANGE_MAGIC: u64 = 0x5650525F41524E47u64; // "VPR_ARNG"

@@ -15,10 +15,13 @@
 /* ============================================ */
 
 typedef struct ViperAsyncRange {
+    uint64_t magic;
     int64_t current;
     int64_t end;
     int64_t step;
 } ViperAsyncRange;
+
+#define VIPER_ASYNC_RANGE_MAGIC 0x5650525F41524E47ULL  /* "VPR_ARNG" */
 
 ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step) {
     if (step == 0) step = 1;
@@ -26,6 +29,7 @@ ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step)
     ViperAsyncRange* range = (ViperAsyncRange*)malloc(sizeof(ViperAsyncRange));
     if (!range) return NULL;
     
+    range->magic = VIPER_ASYNC_RANGE_MAGIC;
     range->current = start;
     range->end = end;
     range->step = step;
@@ -34,7 +38,7 @@ ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step)
 }
 
 int64_t vp_async_range_next(ViperAsyncRange* range) {
-    if (!range) return -1;
+    if (!range || range->magic != VIPER_ASYNC_RANGE_MAGIC) return -1;
     
     if (range->current >= range->end) {
         return -1;  /* StopAsyncIteration */
@@ -55,9 +59,14 @@ void vp_async_range_free(ViperAsyncRange* range) {
 /* ============================================ */
 
 void* vp_async_iter(void* obj) {
-    /* For now, just return the object as-is */
-    /* The caller will use vp_async_range_next on it */
-    return obj;
+    if (!obj) return NULL;
+
+    ViperAsyncRange* range = (ViperAsyncRange*)obj;
+    if (range->magic == VIPER_ASYNC_RANGE_MAGIC) {
+        return obj;
+    }
+
+    return NULL;
 }
 
 /* For async range, this calls vp_async_range_next */

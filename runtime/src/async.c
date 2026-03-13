@@ -290,8 +290,13 @@ int64_t vp_async_sleep(int64_t milliseconds) {
 }
 
 /* Schedule a task to run asynchronously */
+/* Spawn async work on the fiber scheduler */
+extern void vp_scheduler_submit_task(void (*func)(void*), void* arg);
+
 int64_t vp_async_spawn(void (*func)(void*), void* arg) {
-    return vp_event_loop_spawn(func, arg);
+    if (!func) return -1;
+    vp_scheduler_submit_task(func, arg);
+    return 0;
 }
 
 /* Await a future result */
@@ -348,15 +353,20 @@ void vp_future_gather_free(int64_t results_ptr, int64_t count) {
 
 /* Async generator for range-like iteration */
 typedef struct ViperAsyncRange {
+    uint64_t magic;
     int64_t current;      /* Current index */
     int64_t end;          /* End value */
     int64_t step;         /* Step value */
 } ViperAsyncRange;
 
+/* Magic tag to validate async range pointers */
+#define VIPER_ASYNC_RANGE_MAGIC 0x5650525F41524E47ULL  /* "VPR_ARNG" */
+
 /* Create an async range iterator */
 ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step) {
     ViperAsyncRange* range = (ViperAsyncRange*)malloc(sizeof(ViperAsyncRange));
     if (!range) return NULL;
+    range->magic = VIPER_ASYNC_RANGE_MAGIC;
     range->current = start;
     range->end = end;
     range->step = step;
@@ -366,7 +376,7 @@ ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step)
 /* Get next value from async range */
 /* Returns next value, or -1 to signal StopAsyncIteration */
 int64_t vp_async_range_next(ViperAsyncRange* range) {
-    if (!range) return -1;
+    if (!range || range->magic != VIPER_ASYNC_RANGE_MAGIC) return -1;
     
     /* Check if we've already reached the end before this call */
     if (range->step > 0) {
@@ -394,11 +404,14 @@ void vp_async_range_free(ViperAsyncRange* range) {
 void* vp_async_iter(void* obj) {
     if (!obj) return NULL;
 
-    /* If obj is already a ViperAsyncRange*, just return it */
-    /* The caller will use vp_async_range_next on it */
-    /* Sanity check: if the "step" field looks like a valid step value, treat as async range */
-    /* This is a simple heuristic - in real implementation we'd have type tags */
-    return obj;
+    /* Only accept known async range objects for now */
+    ViperAsyncRange* range = (ViperAsyncRange*)obj;
+    if (range->magic == VIPER_ASYNC_RANGE_MAGIC) {
+        return obj;
+    }
+
+    /* Unknown async iterator type - return NULL to avoid segfaults */
+    return NULL;
 }
 
 /* Get next item from async iterator */
