@@ -1,6 +1,6 @@
 # Viper Benchmark Report
 
-**Date:** 2026-03-13 09:48:07  
+**Date:** 2026-03-13 10:00:37  
 **Iterations:** 3  
 **Max Memory Limit:** 4096MB  
 **Max Time Limit:** 300s  
@@ -18,13 +18,13 @@
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |
 |-----------|-----|--------|--------|--------|---|------|-----|--------|
-| 08_int_hotloop | 158 | 120 | 78 | 92 | 74 | 125 | 93 | 460 |
+| 08_int_hotloop | 143 | 96 | 91 | 71 | 70 | 76 | 72 | 390 |
 
 ## Memory (Peak RSS in KB)
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |
 |-----------|-----|--------|--------|--------|---|------|-----|--------|
-| 08_int_hotloop | 67294 | 3200 | 3200 | 3200 | 3200 | 3200 | 3200 | 9941 |
+| 08_int_hotloop | 67304 | 1749 | 1749 | 1792 | 1408 | 1920 | 1664 | 9984 |
 
 ## Status
 
@@ -40,34 +40,34 @@
 
 | Benchmark | JIT vs C | AOT-O1 vs C | AOT-O2 vs C | AOT-O3 vs C |
 |-----------|----------|-------------|-------------|-------------|
-| 08_int_hotloop | 2.1× | 1.6× | 1.1× | 1.2× |
+| 08_int_hotloop | 2.0× | 1.4× | 1.3× | 1.0× |
 
 ### Performance Ratio vs Rust
 
 | Benchmark | JIT vs Rust | AOT-O1 vs Rust | AOT-O2 vs Rust | AOT-O3 vs Rust |
 |-----------|-------------|----------------|----------------|----------------|
-| 08_int_hotloop | 1.3× | 1.0× | 0.6× | 0.7× |
+| 08_int_hotloop | 1.9× | 1.3× | 1.2× | 0.9× |
 
 ### Performance Ratio vs Go
 
 | Benchmark | JIT vs Go | AOT-O1 vs Go | AOT-O2 vs Go | AOT-O3 vs Go |
 |-----------|-----------|--------------|--------------|--------------|
-| 08_int_hotloop | 1.7× | 1.3× | 0.8× | 1.0× |
+| 08_int_hotloop | 2.0× | 1.3× | 1.3× | 1.0× |
 
 ### Memory Efficiency
 
 | Mode | Avg Memory (KB) | vs C |
 |------|-----------------|------|
-| Viper JIT | 67294 | 21.0× |
-| Viper AOT-O1 | 3200 | 1.0× |
-| Viper AOT-O2 | 3200 | 1.0× |
-| Viper AOT-O3 | 3200 | 1.0× |
+| Viper JIT | 67304 | 47.8× |
+| Viper AOT-O1 | 1749 | 1.2× |
+| Viper AOT-O2 | 1749 | 1.2× |
+| Viper AOT-O3 | 1792 | 1.3× |
 
 ### Key Findings
 
 1. **AOT-O1** typically offers the best performance/memory balance
-2. **JIT mode** has ~21.0× memory overhead (67294KB vs C's ~3200KB)
-3. **AOT memory** is ~1.0× C baseline (3200KB vs ~3200KB)
+2. **JIT mode** has ~47.8× memory overhead (67304KB vs C's ~1408KB)
+3. **AOT memory** is ~1.3× C baseline (1763KB vs ~1408KB)
 4. Performance varies by workload - see individual benchmark ratios above
 
 ---

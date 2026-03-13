@@ -80,18 +80,21 @@ run_isolated() {
 
     # Always apply timing inside the isolated process group so measurement never
     # bypasses the memory/time limits that protect the host system.
-    local runner_cmd
-    if [ -n "$time_file" ] && [ $HAS_GNU_TIME -eq 1 ]; then
-        runner_cmd="/usr/bin/time -f '%M' -o '$time_file' bash -c \"$cmd\""
-    else
-        runner_cmd="bash -c \"$cmd\""
-    fi
-
+    # Note: We apply ulimits in the subshell, then run the command directly
+    # (or via /usr/bin/time for memory measurement) without extra bash wrappers
+    # to avoid measuring bash's memory overhead instead of the benchmark's.
+    
     (
         ulimit -v $mem_limit_kb 2>/dev/null || true
         ulimit -f $file_limit 2>/dev/null || true
         ulimit -t $MAX_TIME_SECONDS 2>/dev/null || true
-        exec nice -n 19 setsid bash -lc "$runner_cmd" > "$output_file" 2>&1
+        
+        if [ -n "$time_file" ] && [ $HAS_GNU_TIME -eq 1 ]; then
+            # Run time directly on the command - no bash wrapper to skew memory
+            exec nice -n 19 /usr/bin/time -f '%M' -o "$time_file" $cmd > "$output_file" 2>&1
+        else
+            exec nice -n 19 $cmd > "$output_file" 2>&1
+        fi
     ) &
     local pid=$!
 
