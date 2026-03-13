@@ -154,9 +154,10 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
             }
 
             // Check if parameter is only returned (identity function pattern like copy(x))
-            // In this case, use Infer to allow any type
+            // For identity functions, use Type::Int as the ABI type
+            // The pointer↔i64 conversion happens at call sites
             if param_is_only_returned(&param.name, body) {
-                return Type::Infer;
+                return infer_param_type_for_identity(&param.name, body);
             }
 
             // Default to Int (tagged integer) for unannotated parameters
@@ -177,6 +178,14 @@ fn param_is_only_returned(param_name: &str, body: &[Stmt]) -> bool {
         }
     }
     false
+}
+
+/// For identity functions, use Int type as ABI
+/// All values (including pointers) are 64-bit and can pass through i64 ABI
+/// Note: This means identity functions work correctly for int types, but
+/// reference types require explicit type annotations for proper preservation
+fn infer_param_type_for_identity(_param_name: &str, _body: &[Stmt]) -> Type {
+    Type::Int
 }
 
 /// Check if a parameter is used as a list (indexed with [])

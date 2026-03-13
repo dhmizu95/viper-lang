@@ -416,11 +416,11 @@ pub fn generate_call<'ctx>(
             let mut arg_values: Vec<inkwell::values::BasicMetadataValueEnum<'ctx>> = Vec::new();
             for (i, a) in args.iter().enumerate() {
                 let arg_val = generate_expr(state, a)?;
-                // Convert pointer to i64 if function expects i64
+                // Convert pointer to i64 if function expects i64 (for Type::Infer identity functions)
                 let converted_val = if arg_val.is_pointer_value() {
                     if let Some(&expected_ty) = param_types.get(i) {
                         if expected_ty.is_int_type() && expected_ty.into_int_type().get_bit_width() == 64 {
-                            // Function expects i64, cast pointer to i64
+                            // Function expects i64, cast pointer to i64 (bits pass through)
                             state
                                 .builder
                                 .build_ptr_to_int(
