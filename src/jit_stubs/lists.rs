@@ -666,7 +666,29 @@ pub extern "C" fn vp_list_copy_stub(list: *mut std::ffi::c_void) -> *mut std::ff
 }
 
 pub extern "C" fn vp_list_grow_stub(_list: *mut std::ffi::c_void) {
-    // No-op for JIT - handled in append/insert
+    if _list.is_null() {
+        return;
+    }
+    unsafe {
+        let list_ref = &mut *(_list as *mut ViperListStub);
+        let new_capacity = if list_ref.capacity > 0 {
+            list_ref.capacity * 2
+        } else {
+            8
+        };
+
+        let new_data = libc::realloc(
+            list_ref.data as *mut std::ffi::c_void,
+            (new_capacity as usize) * std::mem::size_of::<i64>(),
+        ) as *mut i64;
+
+        if new_data.is_null() {
+            panic!("Failed to grow list");
+        }
+
+        list_ref.data = new_data;
+        list_ref.capacity = new_capacity;
+    }
 }
 
 pub extern "C" fn vp_list_reserve_stub(list: *mut std::ffi::c_void, capacity: i64) {

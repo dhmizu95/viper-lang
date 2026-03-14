@@ -126,7 +126,7 @@ main()
 "#;
     
     let output = run_code(code).unwrap();
-    assert!(output.contains("results: 0 2 4 6 8"));
+    assert!(output.contains("results: [0, 2, 4, 6, 8]"));
 }
 
 #[test]

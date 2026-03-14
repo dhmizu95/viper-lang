@@ -184,6 +184,20 @@ pub fn generate_await<'ctx>(
     // For now, generate a simple call to vp_future_await
     // A full implementation would transform the async function into a state machine
     let future_val = generate_expr(state, future)?;
+    let future_ptr = if future_val.is_pointer_value() {
+        future_val.into_pointer_value()
+    } else if future_val.is_int_value() {
+        state
+            .builder
+            .build_int_to_ptr(
+                future_val.into_int_value(),
+                state.context.ptr_type(inkwell::AddressSpace::default()),
+                "future_ptr",
+            )
+            .map_err(|e| format!("Failed to cast future to pointer: {:?}", e))?
+    } else {
+        return crate::codegen::codegen_error("await target must be a Future".to_string());
+    };
 
     let await_func = state
         .module
@@ -193,7 +207,7 @@ pub fn generate_await<'ctx>(
     let result = state.ir_builder.build_call(
         state.builder,
         await_func,
-        &[future_val.into()],
+        &[future_ptr.into()],
         "await_result",
     );
 

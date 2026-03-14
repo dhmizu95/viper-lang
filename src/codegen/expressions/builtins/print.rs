@@ -204,16 +204,64 @@ pub fn generate_print_call<'ctx>(
                     .build_call(print_func, &[val.into()], "print_list")
                     .expect("vp_list_print");
             } else {
-                // All pointer values that aren't list/dict/bytes are ViperString*
-                // Use vp_print_viper_str for ViperString* objects
-                let print_func = state
-                    .module
-                    .get_function("vp_print_viper_str")
-                    .ok_or_else(|| "vp_print_viper_str not declared".to_string())?;
-                state
-                    .builder
-                    .build_call(print_func, &[val.into()], "print_str")
-                    .expect("print_str");
+                // Decide whether this pointer is a string, a future, or an unknown object.
+                let mut is_string = matches!(arg, Expr::Str(..) | Expr::FString(..));
+                if let Expr::Ident(name, _) = arg {
+                    if let Some(t) = state.var_types.get(name) {
+                        is_string |= matches!(t, Type::Str)
+                            || matches!(t, Type::Var(s) if s == "str" || s == "string");
+                    }
+                } else {
+                    let inferred = infer_expr_type(arg);
+                    is_string |= matches!(inferred, Type::Str)
+                        || matches!(inferred, Type::Var(s) if s == "str" || s == "string");
+                }
+
+                let mut is_future = false;
+                if let Expr::Ident(name, _) = arg {
+                    if let Some(t) = state.var_types.get(name) {
+                        is_future = matches!(t, Type::Future(_));
+                    }
+                }
+
+                if is_string {
+                    // Use vp_print_viper_str for ViperString* objects
+                    let print_func = state
+                        .module
+                        .get_function("vp_print_viper_str")
+                        .ok_or_else(|| "vp_print_viper_str not declared".to_string())?;
+                    state
+                        .builder
+                        .build_call(print_func, &[val.into()], "print_str")
+                        .expect("print_str");
+                } else if is_future {
+                    let print_func = state
+                        .module
+                        .get_function("vp_print_cstr")
+                        .ok_or_else(|| "vp_print_cstr not declared".to_string())?;
+                    let msg = state
+                        .builder
+                        .build_global_string_ptr("<Future>", "future_str")
+                        .expect("global string");
+                    state
+                        .builder
+                        .build_call(print_func, &[msg.as_pointer_value().into()], "print_future")
+                        .expect("print_future");
+                } else {
+                    // Fallback for unknown pointer types (avoid segfaulting on non-strings)
+                    let print_func = state
+                        .module
+                        .get_function("vp_print_cstr")
+                        .ok_or_else(|| "vp_print_cstr not declared".to_string())?;
+                    let msg = state
+                        .builder
+                        .build_global_string_ptr("<object>", "obj_str")
+                        .expect("global string");
+                    state
+                        .builder
+                        .build_call(print_func, &[msg.as_pointer_value().into()], "print_obj")
+                        .expect("print_obj");
+                }
             }
         } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {
             // Boolean value (1-bit integer)

@@ -411,7 +411,11 @@ pub extern "C" fn tagged_int_to_viper_str(val: i64) -> *mut c_void {
         let c_str = std::ffi::CStr::from_ptr(s_ptr);
         let rust_str = c_str.to_str().unwrap();
         let viper_str = crate::jit_stubs::strings::create_viper_string(rust_str) as *mut c_void;
-        libc::free(s_ptr as *mut libc::c_void);
+        if is_bigint(val) {
+            libc::free(s_ptr as *mut libc::c_void);
+        } else {
+            let _ = CString::from_raw(s_ptr);
+        }
         viper_str
     }
 }
@@ -422,9 +426,13 @@ pub extern "C" fn tagged_int_print(val: i64) {
     unsafe {
         let c_str = std::ffi::CStr::from_ptr(s_ptr);
         print!("{}", c_str.to_str().unwrap());
-        // Since we created the string, we might need to free it.
-        // vp_bigint_to_str_stub returns a malloc'd string, so does CString::into_raw.
-        libc::free(s_ptr as *mut libc::c_void);
+        if is_bigint(val) {
+            // vp_bigint_to_str_stub returns a malloc'd string
+            libc::free(s_ptr as *mut libc::c_void);
+        } else {
+            // CString::into_raw uses Rust allocator
+            let _ = CString::from_raw(s_ptr);
+        }
     }
 }
 

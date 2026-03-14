@@ -124,6 +124,52 @@ pub fn generate_call<'ctx>(
         if name == "gather" {
             return generate_gather_call(state, args);
         }
+        if name == "sleep" {
+            if args.len() != 1 {
+                return crate::codegen::codegen_error(format!(
+                    "sleep() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
+            }
+            let val = crate::codegen::expressions::generate_expr(state, &args[0])?;
+            let ms_val = if val.is_float_value() {
+                // Treat float seconds as milliseconds
+                let ms = state
+                    .builder
+                    .build_float_mul(
+                    val.into_float_value(),
+                    state.context.f64_type().const_float(1000.0),
+                    "sleep_ms",
+                )
+                    .map_err(|e| format!("Failed to multiply sleep seconds: {:?}", e))?;
+                state
+                    .builder
+                    .build_float_to_signed_int(
+                        ms,
+                        state.context.i64_type(),
+                        "sleep_ms_i64",
+                    )
+                    .map_err(|e| format!("Failed to convert sleep seconds: {:?}", e))?
+            } else if val.is_int_value() {
+                val.into_int_value()
+            } else {
+                return crate::codegen::codegen_error(
+                    "sleep() argument must be int or float".to_string(),
+                );
+            };
+
+            let sleep_func = state
+                .module
+                .get_function("vp_async_sleep")
+                .ok_or_else(|| "vp_async_sleep not declared".to_string())?;
+            let result = state.ir_builder.build_call(
+                state.builder,
+                sleep_func,
+                &[ms_val.into()],
+                "sleep_future",
+            );
+            return Ok(result.unwrap());
+        }
 
         // BigInt functions - removed, use int type instead
         // BigInt() constructor removed - use int type annotation or auto-promotion

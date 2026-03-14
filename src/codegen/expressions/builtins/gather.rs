@@ -113,7 +113,7 @@ pub fn generate_gather_call<'ctx>(
     ).unwrap().into_pointer_value();
     
     // Unpack results and append to list
-    let i64_ptr_type = i64_type.ptr_type(inkwell::AddressSpace::default());
+    let i64_ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
     let results_array_ptr = state.builder.build_int_to_ptr(
         results_ptr,
         i64_ptr_type,

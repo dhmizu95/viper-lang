@@ -662,7 +662,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.var_types,
                 &mut dummy_closure,
             );
-            let _ = crate::codegen::statements::generate_stmt_internal(&mut state, stmt);
+            crate::codegen::statements::generate_stmt_internal(&mut state, stmt)?;
         }
 
         // Default return (no explicit return in all paths)

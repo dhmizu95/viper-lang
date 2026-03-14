@@ -46,7 +46,7 @@ fn tagged_to_i64(val: i64) -> i64 {
     } else {
         // BigInt pointer with tag bit set
         let ptr = (val & !1) as *mut std::ffi::c_void;
-        unsafe { vp_bigint_to_i64_stub(ptr as *mut _) }
+        vp_bigint_to_i64_stub(ptr as *mut _)
     }
 }
 

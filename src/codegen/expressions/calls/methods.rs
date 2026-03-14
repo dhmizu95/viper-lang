@@ -155,9 +155,19 @@ pub fn generate_method_call<'ctx>(
                             "f64_to_i64",
                         )
                         .map_err(|e| format!("Failed to convert float to int: {:?}", e))?
+                } else if val.is_pointer_value() {
+                    // Allow appending pointer values (e.g., futures) by storing pointer bits as i64
+                    state
+                        .builder
+                        .build_ptr_to_int(
+                            val.into_pointer_value(),
+                            state.context.i64_type(),
+                            "ptr_to_i64",
+                        )
+                        .map_err(|e| format!("Failed to convert pointer to int: {:?}", e))?
                 } else {
                     return crate::codegen::codegen_error(
-                        "append() value must be numeric".to_string(),
+                        "append() value must be numeric or pointer".to_string(),
                     );
                 };
 
