@@ -204,7 +204,9 @@ pub extern "C" fn vp_str_format_stub(
                                 if placeholder.contains(".9f") {
                                     if let Ok(val) = arg_str.parse::<f64>() {
                                         formatted = format!("{:.9}", val);
-                                    } else {
+                                    }
+                                }
+                            }
                             result.replace_range(start..=end, &formatted);
                         }
                     }

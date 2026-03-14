@@ -484,6 +484,20 @@ int64_t vp_tuple_get(ViperTuple* tuple, int64_t index) {
     return tuple->elements[index];
 }
 
+void vp_tuple_print(ViperTuple* tuple) {
+    if (!tuple) {
+        printf("()");
+        return;
+    }
+    printf("(");
+    for (int64_t i = 0; i < tuple->size; i++) {
+        if (i > 0) printf(", ");
+        tagged_int_print((TaggedInt)tuple->elements[i]);
+    }
+    if (tuple->size == 1) printf(",");
+    printf(")");
+}
+
 /**
  * vp_tuple_set - Set element at index in tuple
  * @tuple: Tuple to modify
@@ -726,8 +740,8 @@ ViperTuple* vp_tuple_from_iterable(void* iterable) {
     if (!iterable) {
         return vp_tuple_create(0);
     }
-    /* Simplified: just return empty tuple for now */
-    /* Full implementation would handle various iterable types */
+    /* For now, only handles ViperList and ViperTuple basics if we can distinguish them */
+    /* This is simplified without a unified type header */
     return vp_tuple_create(0);
 }
 
@@ -743,7 +757,9 @@ ViperTuple* vp_tuple_from_list(ViperList* src) {
     if (!tuple) return NULL;
     
     for (int64_t i = 0; i < src->length; i++) {
-        tuple->elements[i] = vp_list_get(src, i);
+        int64_t val = vp_list_get(src, i);
+        tagged_int_retain(val);
+        tuple->elements[i] = val;
     }
     return tuple;
 }
@@ -890,32 +906,53 @@ void vp_set_print(ViperList* set) {
 
 /**
  * enumerate(iterable, start=0) - returns list of (index, value) tuples
- * Simplified: returns list of indices for now
  */
-ViperList* vp_enumerate(ViperList* iterable, int64_t start) {
+ViperList* vp_enumerate(ViperList* iterable, int64_t start_tagged) {
     if (!iterable) {
         return vp_list_create();
     }
     
-    /* For now, just return a list of indices - proper tuple support needed */
+    int64_t start = tagged_int_is_small(start_tagged) ? tagged_int_get_small(start_tagged) : 0;
+    
     ViperList* result = vp_list_create_with_capacity(iterable->length);
+    result->elem_type = VIPER_LIST_GENERIC;
+    
     for (int64_t i = 0; i < iterable->length; i++) {
-        vp_list_append(result, start + i);
+        ViperTuple* t = vp_tuple_create(2);
+        t->elements[0] = tagged_int_from_i64(start + i);
+        t->elements[1] = vp_list_get(iterable, i);
+        tagged_int_retain(t->elements[1]);
+        
+        vp_list_append(result, (int64_t)t); // List will retain t
+        // Result list now owns t, we as creator don't keep another reference
+        vp_arc_release(t); 
     }
     return result;
 }
 
 /**
  * zip(iter1, iter2) - returns list of paired elements
- * Simplified: returns first list for now
  */
 ViperList* vp_zip(ViperList* iter1, ViperList* iter2) {
     if (!iter1 || !iter2) {
         return vp_list_create();
     }
     
-    /* For now, return iter1 copy - proper tuple support needed */
-    return vp_list_copy_from_list(iter1);
+    int64_t len = iter1->length < iter2->length ? iter1->length : iter2->length;
+    ViperList* result = vp_list_create_with_capacity(len);
+    result->elem_type = VIPER_LIST_GENERIC;
+    
+    for (int64_t i = 0; i < len; i++) {
+        ViperTuple* t = vp_tuple_create(2);
+        t->elements[0] = vp_list_get(iter1, i);
+        tagged_int_retain(t->elements[0]);
+        t->elements[1] = vp_list_get(iter2, i);
+        tagged_int_retain(t->elements[1]);
+        
+        vp_list_append(result, (int64_t)t);
+        vp_arc_release(t);
+    }
+    return result;
 }
 
 /* ============================================ */
@@ -923,45 +960,54 @@ ViperList* vp_zip(ViperList* iter1, ViperList* iter2) {
 /* ============================================ */
 
 /**
- * sum(iterable) - sum of all elements
+ * sum(iterable) - sum of all elements (BigInt-aware)
  */
 int64_t vp_list_sum(ViperList* list) {
-    if (!list) return 0;
+    if (!list) return tagged_int_from_i64(0);
     
-    int64_t total = 0;
+    int64_t total = tagged_int_from_i64(0);
     for (int64_t i = 0; i < list->length; i++) {
-        total += vp_list_get(list, i);
+        int64_t val = vp_list_get(list, i);
+        int64_t new_total = tagged_int_add(total, val);
+        tagged_int_release(total);
+        total = new_total;
     }
     return total;
 }
 
 /**
- * min(iterable) - minimum element
+ * min(iterable) - minimum element (BigInt-aware)
  */
 int64_t vp_list_min(ViperList* list) {
-    if (!list || list->length == 0) return 0;
+    if (!list || list->length == 0) return tagged_int_from_i64(0);
     
     int64_t min_val = vp_list_get(list, 0);
+    tagged_int_retain(min_val);
     for (int64_t i = 1; i < list->length; i++) {
         int64_t val = vp_list_get(list, i);
-        if (val < min_val) {
+        if (tagged_int_cmp(val, min_val) < 0) {
+            tagged_int_release(min_val);
             min_val = val;
+            tagged_int_retain(min_val);
         }
     }
     return min_val;
 }
 
 /**
- * max(iterable) - maximum element
+ * max(iterable) - maximum element (BigInt-aware)
  */
 int64_t vp_list_max(ViperList* list) {
-    if (!list || list->length == 0) return 0;
+    if (!list || list->length == 0) return tagged_int_from_i64(0);
     
     int64_t max_val = vp_list_get(list, 0);
+    tagged_int_retain(max_val);
     for (int64_t i = 1; i < list->length; i++) {
         int64_t val = vp_list_get(list, i);
-        if (val > max_val) {
+        if (tagged_int_cmp(val, max_val) > 0) {
+            tagged_int_release(max_val);
             max_val = val;
+            tagged_int_retain(max_val);
         }
     }
     return max_val;
@@ -974,7 +1020,8 @@ int vp_list_any(ViperList* list) {
     if (!list) return 0;
     
     for (int64_t i = 0; i < list->length; i++) {
-        if (vp_list_get(list, i) != 0) {
+        int64_t val = vp_list_get(list, i);
+        if (val != 0) { // Tagged 0 is 0, others are truthy (simplified)
             return 1;
         }
     }
@@ -988,7 +1035,8 @@ int vp_list_all(ViperList* list) {
     if (!list) return 1;
     
     for (int64_t i = 0; i < list->length; i++) {
-        if (vp_list_get(list, i) == 0) {
+        int64_t val = vp_list_get(list, i);
+        if (val == 0) {
             return 0;
         }
     }
@@ -1004,7 +1052,13 @@ int vp_list_all(ViperList* list) {
  * Simplified: returns "object" for all types
  */
 ViperString* vp_type_of(void* obj) {
-    (void)obj;  /* Unused for now */
+    if (!obj) return vp_str_create("NoneType");
+    
+    /* Tagged int check */
+    if (tagged_int_is_bigint((TaggedInt)obj)) return vp_str_create("int");
+    if (tagged_int_is_small((TaggedInt)obj)) return vp_str_create("int");
+    
+    /* For pointers, it's harder without a header, but we can return "object" */
     return vp_str_create("object");
 }
 

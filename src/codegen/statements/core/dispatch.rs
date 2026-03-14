@@ -333,19 +333,86 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         }
         // New Python keyword statements - stub implementations for now
         Stmt::Assert { condition, message, span: _ } => {
-            // For now, just evaluate the condition and message (no actual assertion)
-            let _cond_val = crate::codegen::expressions::generate_expr(state, condition)?;
-            if let Some(msg) = message {
-                let _ = crate::codegen::expressions::generate_expr(state, msg);
-            }
-            // TODO: Implement actual assertion with runtime panic
+            let cond_val = crate::codegen::expressions::generate_expr(state, condition)?;
+            // In Viper, 0 is False, non-zero is True (for ints)
+            let is_true = state.builder.build_int_compare(
+                inkwell::IntPredicate::NE,
+                cond_val.into_int_value(),
+                state.context.i64_type().const_int(0, false),
+                "assert_cond"
+            ).unwrap();
+            
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+            let fail_bb = state.context.append_basic_block(func, "assert_fail");
+            let pass_bb = state.context.append_basic_block(func, "assert_pass");
+            
+            state.builder.build_conditional_branch(is_true, pass_bb, fail_bb).unwrap();
+            
+            // Failure path
+            state.builder.position_at_end(fail_bb);
+            let panic_func = state.module.get_function("vp_panic")
+                .ok_or_else(|| "vp_panic not declared".to_string())?;
+            
+            let msg_ptr = if let Some(msg_expr) = message {
+                // If message is a string literal, use it directly
+                if let Expr::Str(s, _) = &**msg_expr {
+                    state.builder.build_global_string_ptr(s, "assert_msg").unwrap().as_pointer_value()
+                } else {
+                    // Otherwise just use default
+                    state.builder.build_global_string_ptr("Assertion failed", "assert_msg").unwrap().as_pointer_value()
+                }
+            } else {
+                state.builder.build_global_string_ptr("Assertion failed", "assert_msg").unwrap().as_pointer_value()
+            };
+            
+            state.builder.build_call(panic_func, &[msg_ptr.into()], "panic_call").unwrap();
+            state.builder.build_unreachable().unwrap();
+            
+            // Success path
+            state.builder.position_at_end(pass_bb);
         }
         Stmt::Delete { targets, span: _ } => {
-            // For now, just evaluate the targets (no actual deletion)
             for target in targets {
-                let _ = crate::codegen::expressions::generate_expr(state, target)?;
+                match target {
+                    Expr::Ident(name, _) => {
+                        let var = state.variables.get(name).cloned();
+                        if let Some(var) = var {
+                            if let Some(ptr) = var.get_alloca() {
+                                let i64_type = state.context.i64_type();
+                                let val = state.builder.build_load(i64_type, ptr, "del_val").unwrap();
+                                
+                                // Release the value (handles BigInts/Objects)
+                                let release_func = state.module.get_function("tagged_int_release")
+                                    .ok_or_else(|| "tagged_int_release not declared".to_string())?;
+                                state.builder.build_call(release_func, &[val.into()], "release_call").unwrap();
+                                
+                                // Clear to None (0)
+                                state.builder.build_store(ptr, state.context.i64_type().const_int(0, false)).unwrap();
+                            }
+                            state.variables.remove(name);
+                        }
+                    }
+                    Expr::Index { obj, index, .. } => {
+                        let obj_val = crate::codegen::expressions::generate_expr(state, obj)?;
+                        let index_val = crate::codegen::expressions::generate_expr(state, index)?;
+                        
+                        // For now, assume it's a list
+                        let remove_func = state.module.get_function("vp_list_remove")
+                            .ok_or_else(|| "vp_list_remove not declared".to_string())?;
+                        let removed_call = state.builder.build_call(remove_func, &[obj_val.into(), index_val.into()], "del_item").unwrap();
+                        let removed_val = match removed_call.try_as_basic_value() {
+                            inkwell::values::ValueKind::Basic(v) => v,
+                            _ => panic!("Expected basic value from vp_list_remove"),
+                        };
+                        
+                        // Release the removed element
+                        let release_func = state.module.get_function("tagged_int_release")
+                            .ok_or_else(|| "tagged_int_release not declared".to_string())?;
+                        state.builder.build_call(release_func, &[removed_val.into()], "release_removed").unwrap();
+                    }
+                    _ => {}
+                }
             }
-            // TODO: Implement actual deletion (decrement ref counts, etc.)
         }
         Stmt::Raise { exception, cause, span: _ } => {
             generate_raise(state, exception.as_deref(), cause.as_deref())?;

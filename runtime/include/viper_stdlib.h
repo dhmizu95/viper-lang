@@ -60,6 +60,16 @@ ViperList* vp_list_ones(int64_t count);        /* Optimized [1] * n */
 ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step);
 void vp_list_print(ViperList* list);
 
+/* Tuple Functions */
+ViperTuple* vp_tuple_create(int64_t size);
+void vp_tuple_free(ViperTuple* tuple);
+int64_t vp_tuple_get(ViperTuple* tuple, int64_t index);
+void vp_tuple_print(ViperTuple* tuple);
+ViperTuple* vp_tuple_from_list(ViperList* list);
+ViperTuple* vp_tuple_from_iterable(void* iterable);
+ViperTuple* vp_tuple_from_str(ViperString* str);
+ViperString* vp_tuple_to_str(ViperTuple* tuple);
+
 /* Float list functions */
 ViperList* vp_list_create_f64(void);
 void vp_list_append_f64(ViperList* list, double value);
@@ -74,6 +84,16 @@ void vp_list_reverse(ViperList* list);
 ViperList* vp_list_reversed(ViperList* list);
 ViperList* vp_list_sorted(ViperList* list);
 ViperList* vp_list_concat(ViperList* list1, ViperList* list2);
+
+/* Built-in iteration/functional functions */
+ViperList* vp_enumerate(ViperList* iterable, int64_t start);
+ViperList* vp_zip(ViperList* iter1, ViperList* iter2);
+int64_t vp_list_sum(ViperList* list);
+int64_t vp_list_min(ViperList* list);
+int64_t vp_list_max(ViperList* list);
+int vp_list_any(ViperList* list);
+int vp_list_all(ViperList* list);
+ViperString* vp_type_of(void* obj);
 
 /* Bool list functions (type-specific, memory efficient) */
 ViperList* vp_list_bool_create(void);

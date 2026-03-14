@@ -1,12 +1,10 @@
-//! List creation and list comprehension for Viper
-
 use inkwell::values::BasicValueEnum;
 
-use crate::ast::Expr;
+use crate::ast::{Expr, Stmt, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::VarInfo;
 
-use crate::codegen::expressions::generate_expr;
+use crate::codegen::expressions::{generate_expr, infer_expr_type};
 
 /// Generate list creation
 pub fn generate_list<'ctx>(
@@ -259,7 +257,7 @@ pub fn generate_list_comprehension<'ctx>(
         crate::codegen::variables::VarType::Int
     };
     
-    let storage_type = if matches!(var_type, crate::codegen::variables::VarType::Float) {
+    let storage_type: inkwell::types::BasicTypeEnum = if matches!(var_type, crate::codegen::variables::VarType::Float) {
         state.context.f64_type().into()
     } else {
         state.context.i64_type().into()

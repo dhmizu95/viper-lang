@@ -6,7 +6,7 @@
 //! 3. Generate unique mangled names for each specialization
 //! 4. Replace generic type parameters with concrete types in the specialized body
 
-use crate::ast::{Stmt, Type};
+use crate::ast::{Expr, Stmt, Type};
 use crate::semantic::symbol_table::{Symbol, SymbolKind};
 use crate::semantic::type_checker::TypeChecker;
 use std::collections::HashMap;
@@ -212,10 +212,13 @@ impl Monomorphizer {
     }
 
     /// Substitute types in a single statement
-    fn specialize_stmt(&self, stmt: &Stmt, _subst: &HashMap<String, Type>) -> Stmt {
-        // For now, we do a shallow substitution
-        // A full implementation would recursively substitute in all nested expressions
-        stmt.clone() // TODO: Implement full substitution
+    fn specialize_stmt(&self, stmt: &Stmt, subst: &HashMap<String, Type>) -> Stmt {
+        stmt.substitute(subst)
+    }
+
+    /// Substitute types in a single expression
+    fn specialize_expr(&self, expr: &Expr, subst: &HashMap<String, Type>) -> Expr {
+        expr.substitute(subst)
     }
 
     /// Get all monomorphized functions that need to be codegen'd

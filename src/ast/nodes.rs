@@ -100,6 +100,74 @@ impl Expr {
             _ => None,
         }
     }
+
+    /// Substitute type variables in expression
+    pub fn substitute(&self, substitution: &std::collections::HashMap<String, Type>) -> Expr {
+        match self {
+            Expr::BinOp { left, op, right, span } => Expr::BinOp {
+                left: Box::new(left.substitute(substitution)),
+                op: *op,
+                right: Box::new(right.substitute(substitution)),
+                span: *span,
+            },
+            Expr::UnaryOp { op, operand, span } => Expr::UnaryOp {
+                op: *op,
+                operand: Box::new(operand.substitute(substitution)),
+                span: *span,
+            },
+            Expr::Call { func, args, span } => Expr::Call {
+                func: Box::new(func.substitute(substitution)),
+                args: args.iter().map(|a| a.substitute(substitution)).collect(),
+                span: *span,
+            },
+            Expr::Index { obj, index, span } => Expr::Index {
+                obj: Box::new(obj.substitute(substitution)),
+                index: Box::new(index.substitute(substitution)),
+                span: *span,
+            },
+            Expr::Attribute { obj, attr, span } => Expr::Attribute {
+                obj: Box::new(obj.substitute(substitution)),
+                attr: attr.clone(),
+                span: *span,
+            },
+            Expr::List { elements, span } => Expr::List {
+                elements: elements.iter().map(|e| e.substitute(substitution)).collect(),
+                span: *span,
+            },
+            Expr::Tuple { elements, span } => Expr::Tuple {
+                elements: elements.iter().map(|e| e.substitute(substitution)).collect(),
+                span: *span,
+            },
+            Expr::Dict { pairs, span } => Expr::Dict {
+                pairs: pairs
+                    .iter()
+                    .map(|(k, v)| (k.substitute(substitution), v.substitute(substitution)))
+                    .collect(),
+                span: *span,
+            },
+            Expr::ListComprehension { element, var, iter, span } => Expr::ListComprehension {
+                element: Box::new(element.substitute(substitution)),
+                var: var.clone(),
+                iter: Box::new(iter.substitute(substitution)),
+                span: *span,
+            },
+            Expr::Conditional { condition, then_expr, else_expr, span } => Expr::Conditional {
+                condition: Box::new(condition.substitute(substitution)),
+                then_expr: Box::new(then_expr.substitute(substitution)),
+                else_expr: Box::new(else_expr.substitute(substitution)),
+                span: *span,
+            },
+            Expr::Await { future, span } => {
+                Expr::Await { future: Box::new(future.substitute(substitution)), span: *span }
+            }
+            Expr::AssignmentExpr { target, value, span } => Expr::AssignmentExpr {
+                target: Box::new(target.substitute(substitution)),
+                value: Box::new(value.substitute(substitution)),
+                span: *span,
+            },
+            _ => self.clone(),
+        }
+    }
 }
 
 /// Binary operators
@@ -394,6 +462,123 @@ impl Stmt {
             Stmt::Raise { span, .. } => *span,
             Stmt::With { span, .. } => *span,
             Stmt::Yield { span, .. } => *span,
+        }
+    }
+
+    /// Substitute type variables in statement
+    pub fn substitute(&self, substitution: &std::collections::HashMap<String, Type>) -> Stmt {
+        match self {
+            Stmt::Expr(expr) => Stmt::Expr(expr.substitute(substitution)),
+            Stmt::Assign { target, value, span } => Stmt::Assign {
+                target: Box::new(target.substitute(substitution)),
+                value: Box::new(value.substitute(substitution)),
+                span: *span,
+            },
+            Stmt::Declare { name, type_ann, value, mutable, span } => Stmt::Declare {
+                name: name.clone(),
+                type_ann: type_ann.as_ref().map(|t| t.substitute(substitution)),
+                value: value.as_ref().map(|v| v.substitute(substitution)),
+                mutable: *mutable,
+                span: *span,
+            },
+            Stmt::If { condition, body, elif_blocks, else_body, span } => Stmt::If {
+                condition: condition.substitute(substitution),
+                body: body.iter().map(|s| s.substitute(substitution)).collect(),
+                elif_blocks: elif_blocks
+                    .iter()
+                    .map(|(c, b)| {
+                        (c.substitute(substitution), b.iter().map(|s| s.substitute(substitution)).collect())
+                    })
+                    .collect(),
+                else_body: else_body
+                    .as_ref()
+                    .map(|b| b.iter().map(|s| s.substitute(substitution)).collect()),
+                span: *span,
+            },
+            Stmt::While { condition, body, else_body, span } => Stmt::While {
+                condition: condition.substitute(substitution),
+                body: body.iter().map(|s| s.substitute(substitution)).collect(),
+                else_body: else_body
+                    .as_ref()
+                    .map(|b| b.iter().map(|s| s.substitute(substitution)).collect()),
+                span: *span,
+            },
+            Stmt::For { target, iter, body, else_body, is_async, span } => Stmt::For {
+                target: Box::new(target.substitute(substitution)),
+                iter: Box::new(iter.substitute(substitution)),
+                body: body.iter().map(|s| s.substitute(substitution)).collect(),
+                else_body: else_body
+                    .as_ref()
+                    .map(|b| b.iter().map(|s| s.substitute(substitution)).collect()),
+                is_async: *is_async,
+                span: *span,
+            },
+            Stmt::Return { value, span } => Stmt::Return {
+                value: value.as_ref().map(|v| v.substitute(substitution)),
+                span: *span,
+            },
+            Stmt::Try { body, handlers, else_body, finally_body, span } => Stmt::Try {
+                body: body.iter().map(|s| s.substitute(substitution)).collect(),
+                handlers: handlers
+                    .iter()
+                    .map(|h| ExceptHandler {
+                        type_ann: h.type_ann.as_ref().map(|t| t.substitute(substitution)),
+                        name: h.name.clone(),
+                        body: h.body.iter().map(|s| s.substitute(substitution)).collect(),
+                        span: h.span,
+                    })
+                    .collect(),
+                else_body: else_body
+                    .as_ref()
+                    .map(|b| b.iter().map(|s| s.substitute(substitution)).collect()),
+                finally_body: finally_body
+                    .as_ref()
+                    .map(|b| b.iter().map(|s| s.substitute(substitution)).collect()),
+                span: *span,
+            },
+            Stmt::With { items, body, is_async, span } => Stmt::With {
+                items: items
+                    .iter()
+                    .map(|i| WithItem {
+                        context_expr: i.context_expr.substitute(substitution),
+                        optional_vars: i.optional_vars.clone(),
+                        span: i.span,
+                    })
+                    .collect(),
+                body: body.iter().map(|s| s.substitute(substitution)).collect(),
+                is_async: *is_async,
+                span: *span,
+            },
+            Stmt::Function {
+                name,
+                type_params,
+                params,
+                return_type,
+                body,
+                span,
+                is_async,
+                decorators,
+            } => Stmt::Function {
+                name: name.clone(),
+                type_params: type_params.clone(),
+                params: params
+                    .iter()
+                    .map(|p| Param {
+                        name: p.name.clone(),
+                        type_ann: p.type_ann.as_ref().map(|t| t.substitute(substitution)),
+                        default: p.default.as_ref().map(|d| d.substitute(substitution)),
+                        span: p.span,
+                        is_variadic: p.is_variadic,
+                        is_kw_variadic: p.is_kw_variadic,
+                    })
+                    .collect(),
+                return_type: return_type.as_ref().map(|t| t.substitute(substitution)),
+                body: body.iter().map(|s| s.substitute(substitution)).collect(),
+                span: *span,
+                is_async: *is_async,
+                decorators: decorators.clone(), // Substituted if needed
+            },
+            _ => self.clone(),
         }
     }
 }
