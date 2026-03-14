@@ -10,17 +10,31 @@
 //! Lazy JIT: ~20-30MB (functions compiled on-demand)
 //!
 //! # Usage
-//! ```rust,ignore
+//! ```rust
 //! use viper_lang::driver::LazyJitEngine;
 //! use inkwell::context::Context;
 //!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let context = Context::create();
 //! let module = context.create_module("test");
-//! let lazy_engine = LazyJitEngine::new(&context, 3);
+//!
+//! // Add a dummy function with a body so it can be compiled
+//! let i64_type = context.i64_type();
+//! let fn_type = i64_type.fn_type(&[], false);
+//! let func = module.add_function("my_func", fn_type, None);
+//! let block = context.append_basic_block(func, "entry");
+//! let builder = context.create_builder();
+//! builder.position_at_end(block);
+//! builder.build_return(Some(&i64_type.const_int(0, false)))?;
+//!
+//! let mut lazy_engine = LazyJitEngine::new(&context, 3);
 //! lazy_engine.add_module(module);
 //!
 //! // Functions are compiled on first call
 //! let addr = lazy_engine.get_function("my_func")?;
+//! assert!(addr > 0);
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::error::{Result, ViperError};
