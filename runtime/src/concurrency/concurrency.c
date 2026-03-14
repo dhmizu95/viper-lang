@@ -47,7 +47,7 @@ static void vp_concurrency_ensure_init(void) {
     vp_init_threadpool(0);
 
     /* Initialize event loop for async I/O */
-    atomic_store(&g_event_loop, vp_event_loop_get_global());
+    atomic_store(&g_event_loop, vp_event_loop_get());
 
     atomic_store(&g_initialized, 1);
 }

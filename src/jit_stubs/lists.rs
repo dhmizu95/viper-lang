@@ -12,7 +12,6 @@ const VIPER_LIST_F64: i64 = 1;
 
 #[repr(C)]
 pub struct ViperListStub {
-    pub ref_count: i64,
     pub length: i64,
     pub capacity: i64,
     pub elem_type: i64,
@@ -21,7 +20,6 @@ pub struct ViperListStub {
 
 #[repr(C)]
 pub struct ViperListF64Stub {
-    pub ref_count: i64,
     pub length: i64,
     pub capacity: i64,
     pub elem_type: i64,
@@ -45,7 +43,6 @@ fn create_viper_list_stub(capacity: i64) -> *mut ViperListStub {
     }
 
     let list = Box::new(ViperListStub {
-        ref_count: 1,
         length: 0,
         capacity,
         elem_type: VIPER_LIST_I64,
@@ -72,7 +69,6 @@ fn create_viper_list_f64_stub(capacity: i64) -> *mut ViperListF64Stub {
     }
 
     let list = Box::new(ViperListF64Stub {
-        ref_count: 1,
         length: 0,
         capacity,
         elem_type: VIPER_LIST_F64,

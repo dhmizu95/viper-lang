@@ -44,7 +44,6 @@ static void vp_list_bool_destroy(void* ptr) {
 ViperList* vp_list_bool_create_with_capacity(int64_t cap) {
     ViperList* list = (ViperList*)vp_arc_alloc(sizeof(ViperList));
     
-    list->ref_count = 1;
     list->length = 0;
     list->capacity = cap > 0 ? cap : LIST_INITIAL_CAPACITY;
     list->elem_type = VIPER_LIST_BOOL;
@@ -199,7 +198,6 @@ ViperList* vp_list_bool_repeat(bool elem, int64_t count) {
 
 void vp_list_bool_init_stack(ViperList* list, int8_t* buffer, int64_t count, bool elem) {
     if (!list || !buffer) return;
-    list->ref_count = 1; // It won't be freed anyway, but good to set
     list->length = count;
     list->capacity = count;
     list->elem_type = VIPER_LIST_BOOL;

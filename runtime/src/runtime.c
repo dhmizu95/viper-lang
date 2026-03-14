@@ -84,20 +84,7 @@ void vp_print_bytes(ViperBytes* bytes) {
 }
 
 /* ============================================ */
-/* String Functions - Now defined as static inline in viper_types.h */
-/* ============================================ */
-/* The following functions are now in viper_types.h as static inline:
- * - vp_str_create()
- * - vp_str_free()
- * - vp_str_concat()
- * - vp_str_len()
- * - vp_str_slice()
- * - vp_str_equals()
- * - vp_str_compare()
- */
-
-/* ============================================ */
-/* String Methods                               */
+/* String functions (implemented in runtime.c) */
 /* ============================================ */
 
 /* Exported versions of inline string functions for AOT code generation */
@@ -107,6 +94,29 @@ int64_t vp_str_len(ViperString* s) {
 
 int64_t vp_str_get_first(ViperString* s) {
     return vp_str_get_first_inline(s);
+}
+
+const char* vp_str_data(ViperString* s) {
+    return vp_str_data_inline(s);
+}
+
+ViperString* vp_str_create(const char* s) {
+    return vp_str_create_inline(s);
+}
+
+ViperString* vp_str_create_with_len(const char* s, int64_t len) {
+    if (len <= VIPER_SSO_CAPACITY) {
+        return vp_str_create_sso_small(s, len);
+    }
+    return vp_str_create_heap_large(s, len);
+}
+
+void vp_str_free(ViperString* s) {
+    vp_str_free_inline(s);
+}
+
+ViperString* vp_str_concat(ViperString* a, ViperString* b) {
+    return vp_str_concat_inline(a, b);
 }
 
 ViperString* vp_str_upper(ViperString* str) {

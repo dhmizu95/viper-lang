@@ -36,25 +36,24 @@ pub union ViperStringData {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ViperStringHeap {
-    pub ref_count: i64,
-    pub length: i64,
-    pub heap_data: *const u8,
+    pub heap_data: *const u8,   /* 0:  Pointer to heap data */
+    pub length: i64,            /* 8:  String length (positive, bit 63 is 0) */
 }
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ViperStringSSO {
-    pub _unused: i64,
-    pub sso_length: i8,
-    pub sso_data: [u8; 15],
+    pub sso_data: [u8; 15],     /* 0-14: Inline storage */
+    pub sso_len_flags: i8,      /* 15:   Length and SSO flag (bit 7) */
 }
 
 impl ViperString {
     /// Get the string length (handles SSO flag)
     pub fn length(&self) -> i64 {
         let length = unsafe { self.data.heap.length };
-        if length & 0x80 != 0 {
-            length & 0x7F
+        if length < 0 {
+            // SSO mode - flag is bit 63, length is in sso_len_flags (bits 0-6)
+            unsafe { (self.data.sso.sso_len_flags & 0x7F) as i64 }
         } else {
             length
         }
@@ -68,7 +67,7 @@ impl ViperString {
         }
 
         unsafe {
-            if self.data.heap.length & 0x80 != 0 {
+            if self.data.heap.length < 0 {
                 // SSO - data is inline
                 let sso_len = length.min(15);
                 &self.data.sso.sso_data[..sso_len]
@@ -94,10 +93,10 @@ pub extern "C" fn vp_print_str(s: *mut ViperString) {
         let viper_str = &*s;
         let length = viper_str.data.heap.length;
 
-        // Check SSO flag (high bit)
-        if length & 0x80 != 0 {
+        // Check SSO flag (bit 63)
+        if length < 0 {
             // SSO - data is inline
-            let sso_len = (length & 0x7F) as usize;
+            let sso_len = (unsafe { viper_str.data.sso.sso_len_flags } & 0x7F) as usize;
             let sso_data = &viper_str.data.sso.sso_data[..sso_len.min(15)];
             if let Ok(rust_str) = std::str::from_utf8(sso_data) {
                 print!("{}", rust_str);

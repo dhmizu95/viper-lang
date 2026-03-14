@@ -343,12 +343,10 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
 
         if self.is_thread_shared(name) {
             if let Some(release_func) = self.module.get_function("vp_release") {
-                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                let null_ptr = ptr_type.const_null();
                 self.builder
                     .build_call(
                         release_func,
-                        &[value.into(), null_ptr.into()],
+                        &[value.into()],
                         &format!("release_{}", name),
                     )
                     .expect("build release call");

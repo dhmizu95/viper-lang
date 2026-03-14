@@ -6,7 +6,6 @@ use std::ffi::c_void;
 // Match the ViperList struct layout from viper_types.h
 #[repr(C)]
 pub struct ViperList {
-    pub ref_count: i64,
     pub length: i64,
     pub capacity: i64,
     pub elem_type: i64,    // ViperListType (i32 but aligned to 8 bytes)
@@ -39,7 +38,6 @@ pub extern "C" fn vp_bitvec_create_stub() -> *mut ViperList {
     let data_ptr = Box::into_raw(Box::new(vec)) as *mut c_void;
 
     let list = Box::new(ViperList {
-        ref_count: 1,
         length: 0,
         capacity,
         elem_type: VIPER_LIST_BITVEC,
@@ -58,7 +56,6 @@ pub extern "C" fn vp_bitvec_create_with_capacity_stub(cap: i64) -> *mut ViperLis
     let data_ptr = Box::into_raw(Box::new(vec)) as *mut c_void;
 
     let list = Box::new(ViperList {
-        ref_count: 1,
         length: 0,
         capacity,
         elem_type: VIPER_LIST_BITVEC,
@@ -94,7 +91,6 @@ pub extern "C" fn vp_bitvec_repeat_stub(elem: bool, count: i64) -> *mut ViperLis
     let data_ptr = Box::into_raw(Box::new(vec)) as *mut c_void;
 
     let list = Box::new(ViperList {
-        ref_count: 1,
         length: count,
         capacity: count,
         elem_type: VIPER_LIST_BITVEC,
@@ -370,7 +366,6 @@ pub extern "C" fn vp_bitvec_copy_stub(list: *mut ViperList) -> *mut ViperList {
         let data_ptr = Box::into_raw(new_vec) as *mut c_void;
 
         let new_list = Box::new(ViperList {
-            ref_count: 1,
             length: list_ref.length,
             capacity: list_ref.capacity,
             elem_type: VIPER_LIST_BITVEC,
@@ -459,7 +454,6 @@ pub extern "C" fn vp_bitvec_slice_stub(
         let data_ptr = Box::into_raw(Box::new(result_vec)) as *mut c_void;
 
         let result_list = Box::new(ViperList {
-            ref_count: 1,
             length: result_len,
             capacity: result_len,
             elem_type: VIPER_LIST_BITVEC,

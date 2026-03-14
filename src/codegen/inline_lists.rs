@@ -14,11 +14,10 @@ use crate::codegen::state::CodeGenState;
 
 /// ViperList struct field offsets (in bytes)
 /// struct ViperList {
-///     int64_t ref_count;    // offset 0 (0-7)
-///     int64_t length;       // offset 8 (8-15)
-///     int64_t capacity;     // offset 16 (16-23)
-///     int64_t elem_type;    // offset 24 (24-31)
-///     void* data;           // offset 32 (32-39)
+///     int64_t length;       // offset 0 (0-7)
+///     int64_t capacity;     // offset 8 (8-15)
+///     int64_t elem_type;    // offset 16 (16-23)
+///     void* data;           // offset 24 (24-31)
 /// };
 
 /// Get the data pointer from a ViperList struct
@@ -30,11 +29,10 @@ pub fn get_list_data_ptr<'ctx>(
     // The ViperList struct layout (as opaque struct):
     // We access fields by byte offset using GEP with i8 element type
     // struct ViperList {
-    //     int64_t ref_count;    // offset 0 (0-7)
-    //     int64_t length;       // offset 8 (8-15)
-    //     int64_t capacity;     // offset 16 (16-23)
-    //     int64_t elem_type;    // offset 24 (24-31)
-    //     void* data;           // offset 32 (32-39)
+    //     int64_t length;       // offset 0 (0-7)
+    //     int64_t capacity;     // offset 8 (8-15)
+    //     int64_t elem_type;    // offset 16 (16-23)
+    //     void* data;           // offset 24 (24-31)
     // };
 
     // Cast to i8* for byte-addressable GEP
@@ -53,7 +51,7 @@ pub fn get_list_data_ptr<'ctx>(
         state.builder.build_in_bounds_gep(
             i8_type,
             i8_ptr,
-            &[state.context.i32_type().const_int(32u64, false)],
+            &[state.context.i32_type().const_int(24u64, false)],
             "data_field_ptr",
         )
     }
@@ -81,7 +79,7 @@ pub fn get_list_length<'ctx>(
             list_val,
             &[
                 state.context.i32_type().const_zero(),
-                state.context.i32_type().const_int(1u64, false), // length is field 1
+                state.context.i32_type().const_int(0u64, false), // length is field 0
             ],
             "list_length_ptr",
         )
@@ -449,11 +447,10 @@ pub fn inline_bool_list_append<'ctx>(
 
 /// ViperList struct field offsets (in bytes)
 /// struct ViperList {
-///     int64_t ref_count;    // offset 0 (0-7)
-///     int64_t length;       // offset 8 (8-15)
-///     int64_t capacity;     // offset 16 (16-23)
-///     int64_t elem_type;    // offset 24 (24-31)
-///     void* data;           // offset 32 (32-39)
+///     int64_t length;       // offset 0 (0-7)
+///     int64_t capacity;     // offset 8 (8-15)
+///     int64_t elem_type;    // offset 16 (16-23)
+///     void* data;           // offset 24 (24-31)
 /// };
 
 /// Get pointer to length field
@@ -477,7 +474,7 @@ fn get_length_ptr<'ctx>(
         state.builder.build_in_bounds_gep(
             i8_type,
             i8_ptr,
-            &[state.context.i32_type().const_int(8u64, false)],
+            &[state.context.i32_type().const_int(0u64, false)],
             "length_field_ptr",
         )
     }
@@ -517,7 +514,7 @@ fn get_capacity_ptr<'ctx>(
         state.builder.build_in_bounds_gep(
             i8_type,
             i8_ptr,
-            &[state.context.i32_type().const_int(16u64, false)],
+            &[state.context.i32_type().const_int(8u64, false)],
             "capacity_field_ptr",
         )
     }

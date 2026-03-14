@@ -15,20 +15,29 @@
 /* Bytes Functions                              */
 /* ============================================ */
 
+static void vp_bytes_destroy(void* ptr) {
+    ViperBytes* bytes = (ViperBytes*)ptr;
+    if (bytes->data) {
+        free(bytes->data);
+        bytes->data = NULL;
+    }
+}
+
 ViperBytes* vp_bytes_create(const uint8_t* data, int64_t len) {
     if (len < 0) {
         vp_panic("Bytes length cannot be negative");
     }
     
-    ViperBytes* bytes = (ViperBytes*)vp_alloc(sizeof(ViperBytes));
+    ViperBytes* bytes = (ViperBytes*)vp_arc_alloc(sizeof(ViperBytes));
     if (!bytes) {
         vp_panic("Failed to allocate ViperBytes");
     }
     
     if (len > 0 && data) {
-        bytes->data = (uint8_t*)vp_alloc(len * sizeof(uint8_t));
+        /* Allocate data using malloc (managed by destructor) */
+        bytes->data = (uint8_t*)malloc(len * sizeof(uint8_t));
         if (!bytes->data) {
-            vp_free(bytes);
+            vp_arc_release(bytes);
             vp_panic("Failed to allocate bytes data");
         }
         memcpy(bytes->data, data, len);
@@ -37,18 +46,14 @@ ViperBytes* vp_bytes_create(const uint8_t* data, int64_t len) {
     }
     
     bytes->len = len;
-    bytes->ref_count = 1;
+    vp_arc_set_destructor(bytes, vp_bytes_destroy);
     
     return bytes;
 }
 
 void vp_bytes_free(ViperBytes* bytes) {
     if (!bytes) return;
-    
-    if (bytes->data) {
-        vp_free(bytes->data);
-    }
-    vp_free(bytes);
+    vp_arc_release(bytes);
 }
 
 ViperBytes* vp_bytes_concat(ViperBytes* a, ViperBytes* b) {

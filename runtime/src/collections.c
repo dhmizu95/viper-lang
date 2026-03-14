@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "viper_stdlib.h"
+#include "tagged_int.h"
 
 /* ============================================ */
 /* Deque (Double-ended Queue)                   */
@@ -414,6 +415,19 @@ void vp_default_dict_set(ViperDefaultDict* dd, const char* key, int64_t value) {
  *   - ViperTuple header (32 bytes): ref_count, size, elements pointer
  *   - elements array (size * 8 bytes): tagged i64 values
  */
+static void vp_tuple_destructor(void* ptr) {
+    ViperTuple* tuple = (ViperTuple*)ptr;
+    if (tuple->elements) {
+        /* Release each tagged element */
+        for (int64_t i = 0; i < tuple->size; i++) {
+            tagged_int_release(tuple->elements[i]);
+        }
+        /* Release the elements array itself */
+        vp_arc_release(tuple->elements);
+        tuple->elements = NULL;
+    }
+}
+
 ViperTuple* vp_tuple_create(int64_t size) {
     if (size < 0) return NULL;
     
@@ -421,7 +435,6 @@ ViperTuple* vp_tuple_create(int64_t size) {
     ViperTuple* tuple = (ViperTuple*)vp_arc_alloc(sizeof(ViperTuple));
     if (!tuple) return NULL;
     
-    tuple->ref_count = 1;
     tuple->size = size;
     
     // Allocate elements array if size > 0
@@ -438,25 +451,16 @@ ViperTuple* vp_tuple_create(int64_t size) {
     } else {
         tuple->elements = NULL;
     }
+
+    vp_arc_set_destructor(tuple, vp_tuple_destructor);
     
     return tuple;
 }
 
-/**
- * vp_tuple_free - Free a tuple and its elements
- * @tuple: Tuple to free
- */
 void vp_tuple_free(ViperTuple* tuple) {
-    if (!tuple) return;
-    
-    // Free elements array if present
-    if (tuple->elements) {
-        vp_arc_release(tuple->elements);
-        tuple->elements = NULL;
+    if (tuple) {
+        vp_arc_release(tuple);
     }
-    
-    // Free the tuple header
-    vp_arc_release(tuple);
 }
 
 /**
@@ -487,9 +491,11 @@ int64_t vp_tuple_get(ViperTuple* tuple, int64_t index) {
  * @value: Value to set (tagged i64)
  */
 void vp_tuple_set(ViperTuple* tuple, int64_t index, int64_t value) {
-    if (!tuple || index < 0 || index >= tuple->size) {
+    if (VIPER_UNLIKELY(!tuple || index < 0 || index >= tuple->size)) {
         return;
     }
+    tagged_int_release(tuple->elements[index]); // Release old
+    tagged_int_retain(value);                   // Retain new
     tuple->elements[index] = value;
 }
 
@@ -583,9 +589,11 @@ ViperTuple* vp_tuple_slice(ViperTuple* tuple, int64_t start, int64_t end) {
     ViperTuple* result = vp_tuple_create(new_size);
     if (!result) return NULL;
     
-    // Copy elements
+    // Copy elements and retain them
     for (int64_t i = 0; i < new_size; i++) {
-        result->elements[i] = tuple->elements[start + i];
+        int64_t val = tuple->elements[start + i];
+        tagged_int_retain(val);
+        result->elements[i] = val;
     }
     
     return result;
@@ -600,21 +608,25 @@ ViperTuple* vp_tuple_slice(ViperTuple* tuple, int64_t start, int64_t end) {
  */
 ViperTuple* vp_tuple_concat(ViperTuple* a, ViperTuple* b) {
     if (!a && !b) return vp_tuple_create(0);
-    if (!a) return a;  // Return b, but caller needs to handle ref counting
-    if (!b) return b;
+    if (!a) { vp_arc_retain(b); return b; }
+    if (!b) { vp_arc_retain(a); return a; }
     
     int64_t new_size = a->size + b->size;
     ViperTuple* result = vp_tuple_create(new_size);
     if (!result) return NULL;
     
-    // Copy elements from first tuple
+    // Copy elements from first tuple and retain them
     for (int64_t i = 0; i < a->size; i++) {
-        result->elements[i] = a->elements[i];
+        int64_t val = a->elements[i];
+        tagged_int_retain(val);
+        result->elements[i] = val;
     }
     
-    // Copy elements from second tuple
+    // Copy elements from second tuple and retain them
     for (int64_t i = 0; i < b->size; i++) {
-        result->elements[a->size + i] = b->elements[i];
+        int64_t val = b->elements[i];
+        tagged_int_retain(val);
+        result->elements[a->size + i] = val;
     }
     
     return result;

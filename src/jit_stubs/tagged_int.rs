@@ -116,7 +116,6 @@ fn would_overflow_i63_mul(a: i64, b: i64) -> bool {
     }
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_from_i64(val: i64) -> i64 {
     if fits_in_i63(val) {
         make_small_int(val)
@@ -126,7 +125,6 @@ pub extern "C" fn tagged_int_from_i64(val: i64) -> i64 {
     }
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_from_str(s: *const i8) -> i64 {
     let ptr = unsafe { crate::jit_stubs::bigint::vp_bigint_from_str_stub(s) };
     make_tagged_ptr(ptr as *mut c_void)
@@ -142,7 +140,6 @@ pub fn convert_to_bigint_ptr(val: i64) -> *mut c_void {
 
 macro_rules! binary_op {
     ($name:ident, $small_op:expr, $big_stub:ident, $overflow_check:expr) => {
-        #[no_mangle]
         pub extern "C" fn $name(lhs: i64, rhs: i64) -> i64 {
             if !is_bigint(lhs) && !is_bigint(rhs) {
                 let l = get_small_int(lhs);
@@ -193,7 +190,6 @@ binary_op!(tagged_int_add, i64::overflowing_add, vp_bigint_add_stub, would_overf
 binary_op!(tagged_int_sub, i64::overflowing_sub, vp_bigint_sub_stub, would_overflow_i63_add);
 binary_op!(tagged_int_mul, i64::overflowing_mul, vp_bigint_mul_stub, would_overflow_i63_mul);
 
-#[no_mangle]
 pub extern "C" fn tagged_int_div(lhs: i64, rhs: i64) -> i64 {
     if !is_bigint(lhs) && !is_bigint(rhs) {
         let l = get_small_int(lhs);
@@ -243,7 +239,6 @@ pub extern "C" fn tagged_int_div(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_mod(lhs: i64, rhs: i64) -> i64 {
     if !is_bigint(lhs) && !is_bigint(rhs) {
         let l = get_small_int(lhs);
@@ -288,7 +283,6 @@ pub extern "C" fn tagged_int_mod(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_neg(operand: i64) -> i64 {
     if !is_bigint(operand) {
         let val = get_small_int(operand);
@@ -318,7 +312,6 @@ pub extern "C" fn tagged_int_neg(operand: i64) -> i64 {
 
 macro_rules! cmp_op {
     ($name:ident, $small_op:expr, $big_stub:ident) => {
-        #[no_mangle]
         pub extern "C" fn $name(lhs: i64, rhs: i64) -> bool {
             if !is_bigint(lhs) && !is_bigint(rhs) {
                 let l = get_small_int(lhs);
@@ -347,7 +340,6 @@ cmp_op!(tagged_int_eq, |l, r| l == r, vp_bigint_eq_stub);
 cmp_op!(tagged_int_lt, |l, r| l < r, vp_bigint_lt_stub);
 cmp_op!(tagged_int_gt, |l, r| l > r, vp_bigint_gt_stub);
 
-#[no_mangle]
 pub extern "C" fn tagged_int_cmp(lhs: i64, rhs: i64) -> i64 {
     if !is_bigint(lhs) && !is_bigint(rhs) {
         let l = get_small_int(lhs);
@@ -375,7 +367,6 @@ pub extern "C" fn tagged_int_cmp(lhs: i64, rhs: i64) -> i64 {
     res
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_pow(lhs: i64, rhs: i64) -> i64 {
     let l_ptr = convert_to_bigint_ptr(lhs);
     let r_ptr = convert_to_bigint_ptr(rhs);
@@ -393,7 +384,6 @@ pub extern "C" fn tagged_int_pow(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_to_str(val: i64) -> *mut c_char {
     if !is_bigint(val) {
         let v = get_small_int(val);
@@ -404,7 +394,6 @@ pub extern "C" fn tagged_int_to_str(val: i64) -> *mut c_char {
     }
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_to_viper_str(val: i64) -> *mut c_void {
     let s_ptr = tagged_int_to_str(val);
     unsafe {
@@ -420,7 +409,6 @@ pub extern "C" fn tagged_int_to_viper_str(val: i64) -> *mut c_void {
     }
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_print(val: i64) {
     let s_ptr = tagged_int_to_str(val);
     unsafe {
@@ -436,14 +424,12 @@ pub extern "C" fn tagged_int_print(val: i64) {
     }
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_free(val: i64) {
     if is_bigint(val) {
         unsafe { vp_bigint_free_stub(extract_ptr(val) as *mut _) };
     }
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_bitand(lhs: i64, rhs: i64) -> i64 {
     // Both small integers - direct bitwise AND
     if !is_bigint(lhs) && !is_bigint(rhs) {
@@ -481,7 +467,6 @@ pub extern "C" fn tagged_int_bitand(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_bitor(lhs: i64, rhs: i64) -> i64 {
     // Both small integers - direct bitwise OR
     if !is_bigint(lhs) && !is_bigint(rhs) {
@@ -519,7 +504,6 @@ pub extern "C" fn tagged_int_bitor(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_bitxor(lhs: i64, rhs: i64) -> i64 {
     // Both small integers - direct bitwise XOR
     if !is_bigint(lhs) && !is_bigint(rhs) {
@@ -557,7 +541,6 @@ pub extern "C" fn tagged_int_bitxor(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_lshift(lhs: i64, rhs: i64) -> i64 {
     // Both small integers - direct left shift
     if !is_bigint(lhs) && !is_bigint(rhs) {
@@ -615,7 +598,6 @@ pub extern "C" fn tagged_int_lshift(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_rshift(lhs: i64, rhs: i64) -> i64 {
     // Both small integers - direct right shift
     if !is_bigint(lhs) && !is_bigint(rhs) {
@@ -658,7 +640,6 @@ pub extern "C" fn tagged_int_rshift(lhs: i64, rhs: i64) -> i64 {
     make_tagged_ptr(res_ptr as *mut c_void)
 }
 
-#[no_mangle]
 pub extern "C" fn tagged_int_invert(val: i64) -> i64 {
     // Small integer - direct bitwise NOT
     if !is_bigint(val) {

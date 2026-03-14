@@ -33,8 +33,8 @@ pub fn declare_memory_functions<'ctx>(
         context.create_string_attribute("memory", "argmem"),
     );
 
-    // vp_release(ptr, destructor) - decrement reference count, call destructor if zero
-    let release_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+    // vp_release(ptr) - decrement reference count
+    let release_type = void_type.fn_type(&[ptr_type.into()], false);
     let release_func = module.add_function("vp_release", release_type, None);
     // Mark as having side effects - this is critical for correctness!
     release_func.add_attribute(
@@ -58,8 +58,14 @@ pub fn declare_memory_functions<'ctx>(
         context.create_string_attribute("memory", "argmem"),
     );
 
-    // malloc and free for heap allocations (used for task closures)
     let i64_type = context.i64_type();
+
+    // vp_release_batch(ptrs, count)
+    let release_batch_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_release_batch", release_batch_type, None);
+
+    // vp_release_batch_local(ptrs, count)
+    module.add_function("vp_release_batch_local", release_batch_type, None);
 
     let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
     module.add_function("malloc", malloc_type, None);

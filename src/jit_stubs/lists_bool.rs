@@ -6,7 +6,6 @@ use std::ffi::c_void;
 // Match the ViperList struct layout from viper_types.h
 #[repr(C)]
 pub struct ViperList {
-    pub ref_count: i64,
     pub length: i64,
     pub capacity: i64,
     pub elem_type: i64,    // ViperListType (i32 but aligned to 8 bytes)
@@ -22,7 +21,6 @@ pub extern "C" fn vp_list_bool_create_stub() -> *mut ViperList {
     let data_ptr = Box::into_raw(vec) as *mut c_void;
 
     let list = Box::new(ViperList {
-        ref_count: 1,
         length: 0,
         capacity: 0,
         elem_type: VIPER_LIST_BOOL,
@@ -81,7 +79,6 @@ pub extern "C" fn vp_list_bool_repeat_stub(elem: bool, count: i64) -> *mut Viper
     let data_ptr = Box::into_raw(Box::new(vec)) as *mut c_void;
 
     let list = Box::new(ViperList {
-        ref_count: 1,
         length: count,
         capacity: count,
         elem_type: VIPER_LIST_BOOL,
@@ -111,7 +108,6 @@ pub extern "C" fn vp_list_bool_init_stack_stub(
     unsafe {
         // Write the ViperList struct directly to list_ptr
         *list_ptr = ViperList {
-            ref_count: 1,
             length: count,
             capacity: count,
             elem_type: VIPER_LIST_BOOL,

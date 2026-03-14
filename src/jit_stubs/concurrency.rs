@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::cell::Cell;
 use crate::jit_stubs::bigint::vp_bigint_to_i64_stub;
 use crate::jit_stubs::tagged_int::tagged_int_from_i64;
@@ -217,12 +217,11 @@ pub extern "C" fn vp_wait_all_tasks() {
 // Minimal Future struct for JIT mode (must match runtime/src/async.c)
 #[repr(C)]
 struct JitFuture {
-    ref_count: AtomicI64,
-    state: AtomicI32,        // 0=PENDING, 1=READY, 2=RUNNING, 3=COMPLETED, 4=ERROR
-    _pad: i32,
+    id: i64,
+    state: AtomicI64,        // 0=PENDING, 1=READY, 2=RUNNING, 3=COMPLETED, 4=ERROR
     result: AtomicI64,
     callback: *mut std::ffi::c_void,
-    user_data: *mut std::ffi::c_void,
+    callback_arg: *mut std::ffi::c_void,
     waiting_fiber: *mut std::ffi::c_void,
 }
 
@@ -268,38 +267,24 @@ pub extern "C" fn vp_future_set_result(future: *mut std::ffi::c_void, result: i6
 }
 
 pub extern "C" fn vp_future_create() -> *mut std::ffi::c_void {
-    let future = Box::new(JitFuture {
-        ref_count: AtomicI64::new(1),
-        state: AtomicI32::new(0),  // PENDING
-        _pad: 0,
-        result: AtomicI64::new(0),
-        callback: std::ptr::null_mut(),
-        user_data: std::ptr::null_mut(),
-        waiting_fiber: std::ptr::null_mut(),
-    });
-    Box::into_raw(future) as *mut std::ffi::c_void
+    extern "C" {
+        fn vp_future_create() -> *mut std::ffi::c_void;
+    }
+    unsafe { vp_future_create() }
 }
 
 pub extern "C" fn vp_future_retain(future: *mut std::ffi::c_void) {
-    if future.is_null() {
-        return;
+    extern "C" {
+        fn vp_future_retain(f: *mut std::ffi::c_void);
     }
-    unsafe {
-        let fut = &*(future as *mut JitFuture);
-        fut.ref_count.fetch_add(1, Ordering::AcqRel);
-    }
+    unsafe { vp_future_retain(future) }
 }
 
 pub extern "C" fn vp_future_release(future: *mut std::ffi::c_void) {
-    if future.is_null() {
-        return;
+    extern "C" {
+        fn vp_future_release(f: *mut std::ffi::c_void);
     }
-    unsafe {
-        let fut = &*(future as *mut JitFuture);
-        if fut.ref_count.fetch_sub(1, Ordering::AcqRel) == 1 {
-            let _ = Box::from_raw(future as *mut JitFuture);
-        }
-    }
+    unsafe { vp_future_release(future) }
 }
 
 pub extern "C" fn vp_future_await_and_release(future: *mut std::ffi::c_void) -> i64 {
@@ -310,21 +295,10 @@ pub extern "C" fn vp_future_await_and_release(future: *mut std::ffi::c_void) -> 
 
 // Async range for "async for i in async_range(n)"
 pub extern "C" fn vp_async_range_create(start: i64, end: i64, step: i64) -> *mut std::ffi::c_void {
-    // Allocate a simple range struct
-    let raw_start = tagged_to_i64(start);
-    let raw_end = tagged_to_i64(end);
-    let raw_step = {
-        let s = tagged_to_i64(step);
-        if s == 0 { 1 } else { s }
-    };
-    let range =
-        Box::new(JitAsyncRange { 
-            magic: JIT_ASYNC_RANGE_MAGIC,
-            current: raw_start, 
-            end: raw_end, 
-            step: raw_step, 
-        });
-    Box::into_raw(range) as *mut std::ffi::c_void
+    extern "C" {
+        fn vp_async_range_create(start: i64, end: i64, step: i64) -> *mut std::ffi::c_void;
+    }
+    unsafe { vp_async_range_create(start, end, step) }
 }
 
 pub extern "C" fn vp_async_range_next(range_ptr: *mut std::ffi::c_void) -> i64 {
@@ -347,11 +321,10 @@ pub extern "C" fn vp_async_range_next(range_ptr: *mut std::ffi::c_void) -> i64 {
 }
 
 pub extern "C" fn vp_async_range_free(range_ptr: *mut std::ffi::c_void) {
-    if !range_ptr.is_null() {
-        unsafe {
-            let _ = Box::from_raw(range_ptr as *mut JitAsyncRange);
-        }
+    extern "C" {
+        fn vp_async_range_free(ptr: *mut std::ffi::c_void);
     }
+    unsafe { vp_async_range_free(range_ptr) }
 }
 
 pub extern "C" fn vp_async_iter(obj: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
@@ -473,12 +446,14 @@ pub extern "C" fn vp_future_gather_free(results_ptr: i64, count: i64) {
     }
 }
 
-// Internal struct for async range
+// Internal struct for async range (must match runtime/src/async.c)
+#[repr(C)]
 struct JitAsyncRange {
     magic: u64,
-    current: i64,
+    start: i64,
     end: i64,
     step: i64,
+    current: i64,
 }
 
 const JIT_ASYNC_RANGE_MAGIC: u64 = 0x5650525F41524E47u64; // "VPR_ARNG"

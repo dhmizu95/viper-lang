@@ -20,11 +20,11 @@ static uint64_t g_fiber_id_counter = 0;
 
 /* Current executing fiber (TLS) */
 #ifdef __linux__
-static __thread ViperFiber* g_current_fiber = NULL;
+__thread ViperFiber* g_current_fiber = NULL;
 #elif defined(__APPLE__)
-static __thread ViperFiber* g_current_fiber = NULL;
+__thread ViperFiber* g_current_fiber = NULL;
 #else
-static ViperFiber* g_current_fiber = NULL;
+ViperFiber* g_current_fiber = NULL;
 #endif
 
 /* Scheduler jump buffer for yield return */

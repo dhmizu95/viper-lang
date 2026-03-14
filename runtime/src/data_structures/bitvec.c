@@ -296,7 +296,6 @@ static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, 
 ViperList* vp_bitvec_create_with_capacity(int64_t cap) {
     ViperList* vec = (ViperList*)vp_arc_alloc(sizeof(ViperList));
 
-    vec->ref_count = 1;
     vec->length = 0;
     vec->capacity = cap > 0 ? cap : BITVEC_INITIAL_CAPACITY;
     vec->elem_type = VIPER_LIST_BITVEC;

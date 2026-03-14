@@ -1125,19 +1125,19 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
     let value_ptr = crate::codegen::expressions::generate_expr(state, value)?;
 
     // The tuple is stored as a pointer to a ViperTuple struct
-    // Layout: ref_count(0), size(8), elements_ptr(16), _reserved(24)
+    // Layout: size(0), elements_ptr(8), _reserved(16)
     let tuple_ptr = if value_ptr.is_pointer_value() {
         value_ptr.into_pointer_value()
     } else {
         return crate::codegen::codegen_error("Tuple unpacking requires a tuple value".to_string());
     };
 
-    // Load the elements pointer from the tuple struct (offset 16 = 2 * i64)
+    // Load the elements pointer from the tuple struct (offset 8 = 1 * i64)
     let elements_ptr_ptr = unsafe {
         state.builder.build_in_bounds_gep(
             state.context.i64_type(),
             tuple_ptr,
-            &[state.context.i64_type().const_int(2, false)], // offset to elements field
+            &[state.context.i64_type().const_int(1, false)], // offset to elements field
             "elements_ptr_ptr",
         )
     }

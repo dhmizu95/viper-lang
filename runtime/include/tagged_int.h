@@ -233,7 +233,17 @@ void* tagged_int_to_str(TaggedInt value);
 void tagged_int_print(TaggedInt value);
 
 /**
- * Free a TaggedInt if it's a BigInt
+ * Increment reference count of a TaggedInt (if it's a BigInt)
+ */
+void tagged_int_retain(TaggedInt value);
+
+/**
+ * Decrement reference count of a TaggedInt (if it's a BigInt)
+ */
+void tagged_int_release(TaggedInt value);
+
+/**
+ * Free a TaggedInt if it's a BigInt (alias for tagged_int_release)
  */
 void tagged_int_free(TaggedInt value);
 

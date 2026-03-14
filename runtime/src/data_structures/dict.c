@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "viper_stdlib.h"
+#include "tagged_int.h"
 
 #define DICT_INITIAL_BUCKETS 16
 #define DICT_LOAD_FACTOR 0.75
@@ -57,11 +58,16 @@ static void vp_dict_entry_free(DictEntry* entry) {
 
     /* Free value if it's a reference type */
     if (entry->value.type == VIPER_TYPE_STR) {
-        vp_str_free(entry->value.data.as_str);
+        vp_arc_release(entry->value.data.as_str);
     } else if (entry->value.type == VIPER_TYPE_LIST) {
-        vp_list_free(entry->value.data.as_list);
+        vp_arc_release(entry->value.data.as_list);
     } else if (entry->value.type == VIPER_TYPE_DICT) {
-        vp_dict_free(entry->value.data.as_dict);
+        vp_arc_release(entry->value.data.as_dict);
+    } else if (entry->value.type == VIPER_TYPE_OBJECT) {
+        vp_arc_release(entry->value.data.as_object);
+    } else if (entry->value.type == VIPER_TYPE_I64) {
+        /* If it's a BigInt-aware i64, we need to release it as a tagged int */
+        tagged_int_release((TaggedInt)entry->value.data.as_i64);
     }
 
     free(entry);
@@ -131,7 +137,6 @@ static void vp_dict_destroy(void* ptr) {
 ViperDict* vp_dict_create(void) {
     ViperDict* dict = (ViperDict*)vp_arc_alloc(sizeof(ViperDict));
 
-    dict->ref_count = 1;
     dict->size = DICT_INITIAL_BUCKETS;
     dict->count = 0;
     dict->buckets = (DictEntry**)calloc(dict->size, sizeof(DictEntry*));
@@ -148,7 +153,6 @@ ViperDict* vp_dict_create(void) {
 ViperDict* vp_dict_create_with_capacity(int64_t initial_cap) {
     ViperDict* dict = (ViperDict*)vp_arc_alloc(sizeof(ViperDict));
 
-    dict->ref_count = 1;
     
     /* Calculate appropriate bucket size (power of 2 >= initial_cap) */
     int64_t bucket_size = DICT_INITIAL_BUCKETS;
@@ -196,11 +200,15 @@ void vp_dict_set(ViperDict* dict, ViperString* key, ViperValue value) {
             /* Update existing value */
             /* Free old value if reference type */
             if (entry->value.type == VIPER_TYPE_STR) {
-                vp_str_free(entry->value.data.as_str);
+                vp_arc_release(entry->value.data.as_str);
             } else if (entry->value.type == VIPER_TYPE_LIST) {
-                vp_list_free(entry->value.data.as_list);
+                vp_arc_release(entry->value.data.as_list);
             } else if (entry->value.type == VIPER_TYPE_DICT) {
-                vp_dict_free(entry->value.data.as_dict);
+                vp_arc_release(entry->value.data.as_dict);
+            } else if (entry->value.type == VIPER_TYPE_OBJECT) {
+                vp_arc_release(entry->value.data.as_object);
+            } else if (entry->value.type == VIPER_TYPE_I64) {
+                tagged_int_release((TaggedInt)entry->value.data.as_i64);
             }
 
             entry->value = value;
@@ -210,6 +218,20 @@ void vp_dict_set(ViperDict* dict, ViperString* key, ViperValue value) {
     }
 
     /* Insert new entry */
+    /* Retain key and value if they are reference types */
+    vp_arc_retain(key);
+    if (value.type == VIPER_TYPE_STR) {
+        vp_arc_retain(value.data.as_str);
+    } else if (value.type == VIPER_TYPE_LIST) {
+        vp_arc_retain(value.data.as_list);
+    } else if (value.type == VIPER_TYPE_DICT) {
+        vp_arc_retain(value.data.as_dict);
+    } else if (value.type == VIPER_TYPE_OBJECT) {
+        vp_arc_retain(value.data.as_object);
+    } else if (value.type == VIPER_TYPE_I64) {
+        tagged_int_retain((TaggedInt)value.data.as_i64);
+    }
+
     DictEntry* new_entry = vp_dict_entry_create(key, value);
     new_entry->next = dict->buckets[index];
     dict->buckets[index] = new_entry;

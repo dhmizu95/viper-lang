@@ -108,7 +108,7 @@ void vp_event_loop_stop(ViperEventLoop* loop);
  * Get the global event loop (singleton)
  * @return Global event loop
  */
-ViperEventLoop* vp_event_loop_get_global(void);
+ViperEventLoop* vp_event_loop_get(void);
 
 /* ============================================ */
 /* Timer Support                              */

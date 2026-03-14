@@ -168,16 +168,14 @@ void vp_dict_iter_free(ViperDictIter* iter);
 bool vp_dict_iter_next(ViperDictIter* iter, ViperString** key, ViperValue* value);
 
 /* ============================================ */
-/* String Functions - Use ViperString* from viper_types.h */
-/* ============================================ */
-
-/* These functions are defined in viper_types.h as static inline:
- * - ViperString* vp_str_create(const char* str)
- * - void vp_str_free(ViperString* s)
- * - bool vp_str_equals(ViperString* a, ViperString* b)
- * - int64_t vp_str_len(ViperString* s)
- * - const char* vp_str_data(ViperString* s)
- */
+/* String functions (implemented in runtime.c) */
+ViperString* vp_str_create(const char* str);
+ViperString* vp_str_create_with_len(const char* str, int64_t len);
+void vp_str_free(ViperString* s);
+ViperString* vp_str_concat(ViperString* a, ViperString* b);
+int64_t vp_str_len(ViperString* s);
+bool vp_str_equals(ViperString* a, ViperString* b);
+const char* vp_str_data(ViperString* s);
 
 /* Additional string functions (implemented in runtime.c) */
 ViperString* vp_str_upper(ViperString* str);
@@ -193,11 +191,7 @@ ViperString* vp_str_from_f64(double val);
 /* Bytes Functions                              */
 /* ============================================ */
 
-typedef struct {
-    uint8_t* data;
-    int64_t len;
-    int64_t ref_count;
-} ViperBytes;
+/* ViperBytes is now defined in viper_types.h */
 
 ViperBytes* vp_bytes_create(const uint8_t* data, int64_t len);
 void vp_bytes_free(ViperBytes* bytes);

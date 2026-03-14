@@ -182,7 +182,7 @@ void vp_event_loop_destroy(ViperEventLoop* loop) {
     free(loop);
 }
 
-ViperEventLoop* vp_event_loop_get_global(void) {
+ViperEventLoop* vp_event_loop_get(void) {
     if (!g_event_loop) {
         g_event_loop = vp_event_loop_create();
     }
@@ -298,7 +298,7 @@ static void __attribute__((unused)) io_callback_wrapper(int fd, ViperEventType e
 }
 
 int64_t vp_async_read(int fd, void* buf, size_t count) {
-    ViperEventLoop* loop = vp_event_loop_get_global();
+    ViperEventLoop* loop = vp_event_loop_get();
     if (!loop) return -1;
     
     FdEntry* entry = find_fd_entry(loop, fd);
@@ -344,7 +344,7 @@ int64_t vp_async_read(int fd, void* buf, size_t count) {
 }
 
 int64_t vp_async_write(int fd, const void* buf, size_t count) {
-    ViperEventLoop* loop = vp_event_loop_get_global();
+    ViperEventLoop* loop = vp_event_loop_get();
     if (!loop) return -1;
     
     FdEntry* entry = find_fd_entry(loop, fd);

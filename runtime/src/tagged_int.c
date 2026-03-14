@@ -9,32 +9,15 @@
 #include <string.h>
 #include <stdio.h>
 
-/* Forward declare ViperString functions we need */
-typedef struct ViperString ViperString;
+#include "viper_types.h"
+#include <gmp.h>
 
-/* Simple ViperString structure - matches viper_types.h */
-typedef struct {
-    union {
-        struct {
-            int64_t ref_count;
-            int64_t length;
-            char* heap_data;
-        } heap;
-        struct {
-            int64_t _unused;
-            int8_t sso_length;
-            char sso_data[15];
-        } sso;
-    } data;
-} MinimalViperString;
-
-/* Forward declarations for string functions */
-MinimalViperString* vp_str_create(const char* str);
-void vp_str_free(MinimalViperString* s);
-const char* vp_str_data_inline(MinimalViperString* s);
-void vp_print_viper_str(MinimalViperString* val);
-MinimalViperString* vp_str_concat(MinimalViperString* a, MinimalViperString* b);
-MinimalViperString* vp_str_repeat(MinimalViperString* s, int64_t count);
+/* Forward declare ViperString functions from runtime.c if needed, or better, include their headers */
+extern ViperString* vp_str_create(const char* str);
+extern void vp_str_free(ViperString* s);
+extern void vp_print_viper_str(ViperString* val);
+extern ViperString* vp_str_concat(ViperString* a, ViperString* b);
+extern ViperString* vp_str_repeat(ViperString* s, int64_t count);
 
 /* ============================================ */
 /* Internal Helper Functions                    */
@@ -52,13 +35,14 @@ static inline bool fits_in_i63(int64_t value) {
  */
 static ViperBigInt* alloc_bigint_for_tagged(void) {
     /* Use ARC allocation for proper memory management */
-    ViperBigInt* bigint = (ViperBigInt*)malloc(sizeof(ViperBigInt));
+    ViperBigInt* bigint = (ViperBigInt*)vp_arc_alloc(sizeof(ViperBigInt));
     if (!bigint) return NULL;
 
     /* Initialize GMP value */
     mpz_init(bigint->value);
     
     /* Set destructor for ARC cleanup */
+    vp_arc_set_destructor(bigint, (void (*)(void*))vp_bigint_destroy);
     
     return bigint;
 }
@@ -69,8 +53,7 @@ static ViperBigInt* alloc_bigint_for_tagged(void) {
  */
 static void free_bigint_for_tagged(ViperBigInt* bigint) {
     if (bigint) {
-        mpz_clear(bigint->value);
-        free(bigint);
+        vp_arc_release(bigint);
     }
 }
 
@@ -185,8 +168,7 @@ ViperBigInt* tagged_int_to_bigint(TaggedInt value) {
  */
 static void free_temp_bigint(ViperBigInt* bigint) {
     if (bigint) {
-        mpz_clear(bigint->value);
-        free(bigint);
+        vp_arc_release(bigint);
     }
 }
 
@@ -837,35 +819,31 @@ void* tagged_int_to_str(TaggedInt value) {
 
     if (!bigint) return NULL;
 
-    /* Get string from GMP - mpz_get_str returns malloc'd string */
-    char* c_str = mpz_get_str(NULL, 10, bigint->value);
+    /* Get string representation from BigInt */
+    char* c_str = vp_bigint_to_str(bigint, 10);
     if (!c_str) {
         if (is_temp) {
-            mpz_clear(bigint->value);
-            free(bigint);
+            vp_arc_release(bigint);
         }
         return NULL;
     }
 
     /* Create ViperString from C string */
-    MinimalViperString* result = vp_str_create(c_str);
+    ViperString* result = vp_str_create(c_str);
     free(c_str);
 
     /* Free the temporary bigint we created (if any) */
     if (is_temp) {
-        mpz_clear(bigint->value);
-        free(bigint);
+        vp_arc_release(bigint);
     }
 
     return (void*)result;
 }
 
 void tagged_int_print(TaggedInt value) {
-    MinimalViperString* str = (MinimalViperString*)tagged_int_to_str(value);
+    ViperString* str = (ViperString*)tagged_int_to_str(value);
     if (str) {
-        const char* c_str = vp_str_data_inline(str);
-        printf("%s", c_str);
-        fflush(stdout);
+        vp_print_str(str);
         vp_str_free(str);
     }
 }
@@ -874,154 +852,29 @@ void* tagged_int_to_viper_str(TaggedInt value) {
     return tagged_int_to_str(value);
 }
 
-void tagged_int_free(TaggedInt value) {
+void tagged_int_retain(TaggedInt value) {
     if (tagged_int_is_bigint(value)) {
         ViperBigInt* bigint = tagged_int_get_bigint(value);
-        /* Free non-ARC allocated BigInt */
         if (bigint != NULL) {
-            mpz_clear(bigint->value);
-            free(bigint);
+            vp_arc_retain(bigint);
         }
     }
-    /* Small integers don't need freeing */
 }
 
-/* ============================================ */
-/* Minimal String Functions (for str() builtin) */
-/* ============================================ */
-
-/* Create a ViperString from C string */
-MinimalViperString* vp_str_create(const char* str) {
-    if (!str) return NULL;
-    
-    int64_t len = (int64_t)strlen(str);
-    MinimalViperString* s = (MinimalViperString*)malloc(sizeof(MinimalViperString));
-    if (!s) return NULL;
-    
-    s->data.heap.ref_count = 1;
-    s->data.heap.length = len;
-    s->data.heap.heap_data = (char*)malloc(len + 1);
-    if (!s->data.heap.heap_data) {
-        free(s);
-        return NULL;
-    }
-    memcpy(s->data.heap.heap_data, str, len + 1);
-    return s;
-}
-
-/* Free a ViperString */
-void vp_str_free(MinimalViperString* s) {
-    if (!s) return;
-    /* Check SSO flag (high bit of length) */
-    if (!(s->data.heap.length & 0x80)) {
-        /* Heap string - free the data */
-        free(s->data.heap.heap_data);
-    }
-    free(s);
-}
-
-/* Get string data from ViperString */
-const char* vp_str_data_inline(MinimalViperString* s) {
-    if (!s) return "";
-    /* Check SSO flag (high bit of length) */
-    if (s->data.heap.length & 0x80) {
-        /* SSO string - length is stored with high bit set */
-        return s->data.sso.sso_data;
-    } else {
-        /* Heap string */
-        return s->data.heap.heap_data;
+void tagged_int_release(TaggedInt value) {
+    if (tagged_int_is_bigint(value)) {
+        ViperBigInt* bigint = tagged_int_get_bigint(value);
+        if (bigint != NULL) {
+            vp_arc_release(bigint);
+        }
     }
 }
 
-/* Print a C string (for use by print() builtin with str() result) */
-void vp_print_cstr(const char* val) {
-    if (!val) {
-        printf("(null)");
-        fflush(stdout);
-        return;
-    }
-    printf("%s", val);
-    fflush(stdout);
+void tagged_int_free(TaggedInt value) {
+    tagged_int_release(value);
 }
 
-/* Print a ViperString (for use by print() builtin with str() result) */
-void vp_print_viper_str(MinimalViperString* val) {
-    if (!val) {
-        printf("(null)");
-        fflush(stdout);
-        return;
-    }
-    const char* c_str = vp_str_data_inline(val);
-    printf("%s", c_str);
-    fflush(stdout);
-}
-
-/* Concatenate two ViperStrings */
-MinimalViperString* vp_str_concat(MinimalViperString* a, MinimalViperString* b) {
-    if (!a && !b) return NULL;
-    if (!a) return b;
-    if (!b) return a;
-
-    const char* data_a = vp_str_data_inline(a);
-    const char* data_b = vp_str_data_inline(b);
-    int64_t len_a = (int64_t)strlen(data_a);
-    int64_t len_b = (int64_t)strlen(data_b);
-    int64_t total_len = len_a + len_b;
-
-    /* Allocate result string */
-    MinimalViperString* result = (MinimalViperString*)malloc(sizeof(MinimalViperString));
-    if (!result) return NULL;
-
-    result->data.heap.ref_count = 1;
-    result->data.heap.length = total_len;
-    result->data.heap.heap_data = (char*)malloc((size_t)total_len + 1);
-    if (!result->data.heap.heap_data) {
-        free(result);
-        return NULL;
-    }
-
-    /* Copy data from both strings */
-    if (len_a > 0) {
-        memcpy(result->data.heap.heap_data, data_a, (size_t)len_a);
-    }
-    if (len_b > 0) {
-        memcpy(result->data.heap.heap_data + len_a, data_b, (size_t)len_b);
-    }
-    result->data.heap.heap_data[total_len] = '\0';
-
-    return result;
-}
-
-/* Repeat a string n times */
-MinimalViperString* vp_str_repeat(MinimalViperString* s, int64_t count) {
-    if (!s || count <= 0) {
-        return vp_str_create("");
-    }
-
-    const char* data = vp_str_data_inline(s);
-    int64_t len = (int64_t)strlen(data);
-    int64_t total_len = len * count;
-
-    /* Allocate result string */
-    MinimalViperString* result = (MinimalViperString*)malloc(sizeof(MinimalViperString));
-    if (!result) return NULL;
-
-    result->data.heap.ref_count = 1;
-    result->data.heap.length = total_len;
-    result->data.heap.heap_data = (char*)malloc((size_t)total_len + 1);
-    if (!result->data.heap.heap_data) {
-        free(result);
-        return NULL;
-    }
-
-    /* Copy the string count times */
-    for (int64_t i = 0; i < count; i++) {
-        memcpy(result->data.heap.heap_data + (i * len), data, (size_t)len);
-    }
-    result->data.heap.heap_data[total_len] = '\0';
-
-    return result;
-}
+/* Minimal implementations removed as they are now provided by real headers or runtime.c */
 
 /* ============================================ */
 /* Unified Runtime Dispatcher Aliases           */

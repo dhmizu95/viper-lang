@@ -1603,12 +1603,11 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
-        // Shared variables need individual releases (different destructor signature)
-        let null_ptr = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+        // Shared variables need individual releases
         for ptr_val in shared_vars {
             if let Some(release_func) = self.module.get_function("vp_release") {
                 self.builder
-                    .build_call(release_func, &[ptr_val.into(), null_ptr.into()], "release_var")
+                    .build_call(release_func, &[ptr_val.into()], "release_var")
                     .unwrap();
             }
         }

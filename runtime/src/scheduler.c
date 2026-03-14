@@ -230,7 +230,7 @@ void vp_scheduler_put_to_sleep(ViperFiber* fiber) {
 
 static void* scheduler_worker(void* arg) {
     SchedulerThread* st = (SchedulerThread*)arg;
-    ViperEventLoop* event_loop = vp_event_loop_get_global();
+    ViperEventLoop* event_loop = vp_event_loop_get();
 
     while (1) {
         /* Check for shutdown */

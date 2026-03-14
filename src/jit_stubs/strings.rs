@@ -233,37 +233,14 @@ unsafe fn get_string_data(s: *mut ViperString) -> String {
 
 // Helper function to create a new ViperString
 pub fn create_viper_string(s: &str) -> *mut ViperString {
-    use std::alloc::{alloc, Layout};
-
-    let len = s.len();
-    let bytes = s.as_bytes();
-
-    unsafe {
-        // Allocate ViperString structure
-        let layout = Layout::new::<ViperString>();
-        let ptr = alloc(layout) as *mut ViperString;
-
-        if len <= 15 {
-            // Use SSO (small string optimization)
-            (*ptr).data.sso._unused = 0;
-            (*ptr).data.sso.sso_length = (len as i8) | (0x80u8 as i8); // Set SSO flag
-            (*ptr).data.sso.sso_data = [0u8; 15];
-            (&mut (*ptr).data.sso.sso_data)[..len].copy_from_slice(bytes);
-        } else {
-            // Use heap allocation
-            let data_layout = Layout::from_size_align(len + 1, 1).unwrap();
-            let data_ptr = alloc(data_layout);
-
-            (*ptr).data.heap.ref_count = 1;
-            (*ptr).data.heap.length = len as i64;
-            (*ptr).data.heap.heap_data = data_ptr;
-
-            std::ptr::copy_nonoverlapping(bytes.as_ptr(), data_ptr, len);
-            *data_ptr.add(len) = 0; // Null terminator
-        }
-
-        ptr
+    extern "C" {
+        fn vp_str_create_with_len(s: *const std::ffi::c_char, len: i64) -> *mut ViperString;
     }
+    
+    let len = s.len() as i64;
+    let c_str = std::ffi::CString::new(s).unwrap_or_else(|_| std::ffi::CString::new("").unwrap());
+    
+    unsafe { vp_str_create_with_len(c_str.as_ptr(), len) }
 }
 
 /// Get first character of a string as i64 (byte value)
@@ -296,27 +273,14 @@ pub extern "C" fn vp_exit_stub(code: i64) {
 pub struct ViperBytes {
     data: *mut u8,
     len: i64,
-    ref_count: i64,
 }
 
 /// Create bytes from raw data
 pub extern "C" fn vp_bytes_create_stub(data: *const u8, len: i64) -> *mut ViperBytes {
-    if len < 0 {
-        return std::ptr::null_mut();
+    extern "C" {
+        fn vp_bytes_create(data: *const u8, len: i64) -> *mut ViperBytes;
     }
-
-    unsafe {
-        let mut bytes = Box::new(ViperBytes { data: std::ptr::null_mut(), len, ref_count: 1 });
-
-        if len > 0 && !data.is_null() {
-            let data_ptr =
-                alloc::alloc(std::alloc::Layout::from_size_align(len as usize, 1).unwrap());
-            std::ptr::copy_nonoverlapping(data, data_ptr, len as usize);
-            bytes.data = data_ptr;
-        }
-
-        Box::into_raw(bytes)
-    }
+    unsafe { vp_bytes_create(data, len) }
 }
 
 /// Free bytes
@@ -326,10 +290,10 @@ pub extern "C" fn vp_bytes_free_stub(bytes: *mut ViperBytes) {
     }
 
     unsafe {
-        let b = Box::from_raw(bytes);
-        if !b.data.is_null() && b.len > 0 {
-            alloc::dealloc(b.data, std::alloc::Layout::from_size_align(b.len as usize, 1).unwrap());
+        extern "C" {
+             fn vp_arc_release(ptr: *mut std::ffi::c_void);
         }
+        vp_arc_release(bytes as *mut std::ffi::c_void);
     }
 }
 

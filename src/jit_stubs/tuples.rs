@@ -5,7 +5,6 @@ use std::alloc::{self, Layout};
 /// ViperTuple structure (must match runtime/include/viper_types.h)
 #[repr(C)]
 pub struct ViperTuple {
-    ref_count: i64,
     size: i64,
     elements: *mut i64,
     _reserved: u64,
@@ -19,7 +18,6 @@ pub extern "C" fn vp_tuple_create_stub(size: i64) -> *mut ViperTuple {
 
     unsafe {
         let mut tuple = Box::new(ViperTuple {
-            ref_count: 1,
             size,
             elements: std::ptr::null_mut(),
             _reserved: 0,

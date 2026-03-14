@@ -35,6 +35,15 @@ VIPER_NEVER_INLINE void vp_list_grow(ViperList* list) {
 
 static void vp_list_destroy(void* ptr) {
     ViperList* list = (ViperList*)ptr;
+    if (list->elem_type == VIPER_LIST_I64) {
+        for (int64_t i = 0; i < list->length; i++) {
+            tagged_int_release(list->data.data_i64[i]);
+        }
+    } else if (list->elem_type == VIPER_LIST_GENERIC) {
+        for (int64_t i = 0; i < list->length; i++) {
+            vp_arc_release(list->data.data_generic[i]);
+        }
+    }
     if (list->data.data_i64) {
         free(list->data.data_i64);
         list->data.data_i64 = NULL;
@@ -48,7 +57,6 @@ static void vp_list_destroy(void* ptr) {
 ViperList* vp_list_create_with_capacity(int64_t cap) {
     ViperList* list = (ViperList*)vp_arc_alloc(sizeof(ViperList));
 
-    list->ref_count = 1;
     list->length = 0;
     list->capacity = cap > 0 ? cap : LIST_INITIAL_CAPACITY;
     list->elem_type = VIPER_LIST_I64;
@@ -66,7 +74,6 @@ ViperList* vp_list_create_with_capacity(int64_t cap) {
 ViperList* vp_list_create(void) {
     ViperList* list = (ViperList*)vp_arc_alloc(sizeof(ViperList));
 
-    list->ref_count = 1;
     list->length = 0;
     list->capacity = LIST_INITIAL_CAPACITY;
     list->elem_type = VIPER_LIST_I64;
@@ -113,6 +120,11 @@ void vp_list_append(ViperList* list, int64_t value) {
     if (list->length >= list->capacity) {
         vp_list_grow(list);
     }
+    if (list->elem_type == VIPER_LIST_I64) {
+        tagged_int_retain(value);
+    } else if (list->elem_type == VIPER_LIST_GENERIC) {
+        vp_arc_retain((void*)value);
+    }
     list->data.data_i64[list->length++] = value;
 }
 
@@ -134,6 +146,12 @@ void vp_list_insert(ViperList* list, int64_t index, int64_t value) {
     /* Shift elements to the right */
     for (int64_t i = list->length; i > index; i--) {
         list->data.data_i64[i] = list->data.data_i64[i - 1];
+    }
+
+    if (list->elem_type == VIPER_LIST_I64) {
+        tagged_int_retain(value);
+    } else if (list->elem_type == VIPER_LIST_GENERIC) {
+        vp_arc_retain((void*)value);
     }
 
     list->data.data_i64[index] = value;
@@ -159,6 +177,9 @@ int64_t vp_list_remove(ViperList* list, int64_t index) {
     }
 
     list->length--;
+    
+    /* We don't release here because we return the value to the caller,
+       who now owns this reference. */
     return value;
 }
 
@@ -179,6 +200,15 @@ int64_t vp_list_pop(ViperList* list) {
 
 void vp_list_clear(ViperList* list) {
     if (!list) return;
+    if (list->elem_type == VIPER_LIST_I64) {
+        for (int64_t i = 0; i < list->length; i++) {
+            tagged_int_release(list->data.data_i64[i]);
+        }
+    } else if (list->elem_type == VIPER_LIST_GENERIC) {
+        for (int64_t i = 0; i < list->length; i++) {
+            vp_arc_release(list->data.data_generic[i]);
+        }
+    }
     list->length = 0;
 }
 
@@ -204,6 +234,14 @@ void vp_list_set(ViperList* list, int64_t index, int64_t value) {
     }
     if (list->elem_type == VIPER_LIST_BOOL) {
         list->data.data_bool[index] = value ? 1 : 0;
+    } else if (list->elem_type == VIPER_LIST_I64) {
+        tagged_int_release(list->data.data_i64[index]); // Release old
+        tagged_int_retain(value);                      // Retain new
+        list->data.data_i64[index] = value;
+    } else if (list->elem_type == VIPER_LIST_GENERIC) {
+        vp_arc_release((void*)list->data.data_generic[index]);
+        vp_arc_retain((void*)value);
+        list->data.data_generic[index] = (void*)value;
     } else {
         list->data.data_i64[index] = value;
     }
@@ -239,6 +277,17 @@ ViperList* vp_list_copy(ViperList* list) {
 
         memcpy(copy->data.data_i64, list->data.data_i64, list->length * sizeof(int64_t));
         copy->length = list->length;
+
+        /* Retain each copied element */
+        if (list->elem_type == VIPER_LIST_I64) {
+            for (int64_t i = 0; i < list->length; i++) {
+                tagged_int_retain(copy->data.data_i64[i]);
+            }
+        } else if (list->elem_type == VIPER_LIST_GENERIC) {
+            for (int64_t i = 0; i < list->length; i++) {
+                vp_arc_retain(copy->data.data_generic[i]);
+            }
+        }
     }
 
     return copy;

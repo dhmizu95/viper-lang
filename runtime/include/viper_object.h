@@ -57,13 +57,12 @@ struct ViperClass {
 /* ============================================ */
 
 typedef struct ViperInstance {
-    int64_t ref_count;          /* 0:  Reference count for ARC */
-    ViperClass* class;          /* 8:  Class metadata pointer */
-    void* vtable;               /* 16: Virtual method table (for fast dispatch) */
+    ViperClass* class;          /* 0:  Class metadata pointer */
+    void* vtable;               /* 8: Virtual method table (for fast dispatch) */
     /* Instance fields follow in memory */
 } ViperInstance;
 
-#define VIPER_INSTANCE_HEADER_SIZE offsetof(ViperInstance, class)
+#define VIPER_INSTANCE_HEADER_SIZE 0
 
 /* ============================================ */
 /* Object Creation and Destruction              */
@@ -74,18 +73,26 @@ typedef struct ViperInstance {
  * @param cls The class to instantiate
  * @return Pointer to new ViperInstance
  */
+static void vp_instance_arc_destructor(void* ptr) {
+    ViperInstance* obj = (ViperInstance*)ptr;
+    if (obj->class && obj->class->dealloc) {
+        obj->class->dealloc(obj);
+    }
+}
+
 static inline ViperInstance* vp_object_new(ViperClass* cls) {
     if (!cls) return NULL;
     
     size_t size = sizeof(ViperInstance) + cls->instance_size;
-    ViperInstance* obj = (ViperInstance*)malloc(size);
+    ViperInstance* obj = (ViperInstance*)vp_arc_alloc(size);
     if (!obj) return NULL;
     
     memset(obj, 0, size);
-    obj->ref_count = 1;
     obj->class = cls;
     obj->vtable = NULL;  /* Will be set up by class init if needed */
     
+    vp_arc_set_destructor(obj, vp_instance_arc_destructor);
+
     /* Call instance initializer if present */
     if (cls->init) {
         cls->init(obj);
@@ -100,13 +107,7 @@ static inline ViperInstance* vp_object_new(ViperClass* cls) {
  */
 static inline void vp_object_del(ViperInstance* obj) {
     if (!obj) return;
-    
-    /* Call destructor if present */
-    if (obj->class && obj->class->dealloc) {
-        obj->class->dealloc(obj);
-    }
-    
-    free(obj);
+    vp_arc_release(obj);
 }
 
 /**

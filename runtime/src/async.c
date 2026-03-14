@@ -31,12 +31,12 @@ typedef enum {
 } AsyncState;
 
 typedef struct ViperFuture {
-    int64_t ref_count;
-    AsyncState state;
-    int64_t result;
+    int64_t id;
+    _Atomic int64_t state;
+    _Atomic int64_t result;
     void (*callback)(struct ViperFuture*);
-    void* user_data;
-    ViperFiber* waiting_fiber;    /* NEW: Fiber awaiting this future */
+    void* callback_arg;
+    ViperFiber* waiting_fiber;    /* Fiber awaiting this future */
 } ViperFuture;
 
 /* ============================================ */
@@ -71,34 +71,33 @@ static ViperEventLoop* global_event_loop = NULL;
 /* Future Functions                              */
 /* ============================================ */
 
+static int64_t global_future_id = 0;
+
 ViperFuture* vp_future_create(void) {
-    ViperFuture* future = (ViperFuture*)malloc(sizeof(ViperFuture));
+    ViperFuture* future = (ViperFuture*)vp_arc_alloc(sizeof(ViperFuture));
     if (!future) return NULL;
-    future->ref_count = 1;
+    future->id = __sync_fetch_and_add(&global_future_id, 1);
     future->state = ASYNC_PENDING;
     future->result = 0;
     future->callback = NULL;
-    future->user_data = NULL;
+    future->callback_arg = NULL;
     future->waiting_fiber = NULL;
     return future;
 }
 
 void vp_future_free(ViperFuture* future) {
     if (!future) return;
-    free(future);
+    vp_arc_release(future);
 }
 
 void vp_future_retain(ViperFuture* future) {
     if (!future) return;
-    future->ref_count += 1;
+    vp_arc_retain(future);
 }
 
 void vp_future_release(ViperFuture* future) {
     if (!future) return;
-    future->ref_count -= 1;
-    if (future->ref_count <= 0) {
-        vp_future_free(future);
-    }
+    vp_arc_release(future);
 }
 
 void vp_future_set_result(ViperFuture* future, int64_t result) {
@@ -164,6 +163,7 @@ bool vp_future_is_ready(ViperFuture* future) {
 /* Event Loop Functions                         */
 /* ============================================ */
 
+#if !defined(PLATFORM_LINUX)
 ViperEventLoop* vp_event_loop_create(void) {
     ViperEventLoop* loop = (ViperEventLoop*)malloc(sizeof(ViperEventLoop));
     if (!loop) return NULL;
@@ -253,9 +253,11 @@ void vp_event_loop_run(ViperEventLoop* loop) {
             }
             
             task->state = ASYNC_COMPLETED;
+            vp_future_set_result(task->future, 0);
         }
     }
 }
+#endif
 
 void vp_event_loop_run_until_complete(ViperEventLoop* loop) {
     if (!loop) return;
@@ -393,7 +395,7 @@ static int64_t tagged_to_i64(TaggedInt value) {
 
 /* Create an async range iterator */
 ViperAsyncRange* vp_async_range_create(int64_t start, int64_t end, int64_t step) {
-    ViperAsyncRange* range = (ViperAsyncRange*)malloc(sizeof(ViperAsyncRange));
+    ViperAsyncRange* range = (ViperAsyncRange*)vp_arc_alloc(sizeof(ViperAsyncRange));
     if (!range) return NULL;
     range->magic = VIPER_ASYNC_RANGE_MAGIC;
     range->current = tagged_to_i64((TaggedInt)start);
@@ -427,7 +429,7 @@ int64_t vp_async_range_next(ViperAsyncRange* range) {
 
 /* Free async range */
 void vp_async_range_free(ViperAsyncRange* range) {
-    if (range) free(range);
+    if (range) vp_arc_release(range);
 }
 
 /* Get async iterator from async iterable */
