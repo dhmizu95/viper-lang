@@ -176,7 +176,7 @@ pub extern "C" fn vp_str_compare_stub(a: *mut ViperString, b: *mut ViperString) 
 /// String format stub for JIT
 pub extern "C" fn vp_str_format_stub(
     format_str: *mut ViperString,
-    args_array: *const *const std::ffi::c_char,
+    args_array: *const *mut ViperString,
     arg_count: i64,
 ) -> *mut ViperString {
     if format_str.is_null() {
@@ -191,9 +191,26 @@ pub extern "C" fn vp_str_format_stub(
             for i in 0..arg_count {
                 let arg_ptr = *args_array.offset(i as isize);
                 if !arg_ptr.is_null() {
-                    if let Ok(arg_str) = std::ffi::CStr::from_ptr(arg_ptr).to_str() {
-                        if let Some(pos) = result.find("{}") {
-                            result.replace_range(pos..pos + 2, arg_str);
+                    let arg_str = get_string_data(arg_ptr);
+                    
+                    // Simple replacement of the first {...} we find
+                    if let Some(start) = result.find('{') {
+                        if let Some(end_offset) = result[start..].find('}') {
+                            let end = start + end_offset;
+                            let placeholder = &result[start..=end];
+                            
+                            let mut formatted = arg_str.clone();
+                            if placeholder.contains(':') {
+                                if placeholder.contains(".9f") {
+                                    if let Ok(val) = arg_str.parse::<f64>() {
+                                        formatted = format!("{:.9}", val);
+                                    } else {
+                                        eprintln!("DEBUG JIT format: failed to parse '{}' as f64", arg_str);
+                                    }
+                                }
+                            }
+                            eprintln!("DEBUG JIT format: replacement '{}' -> '{}'", placeholder, formatted);
+                            result.replace_range(start..=end, &formatted);
                         }
                     }
                 }

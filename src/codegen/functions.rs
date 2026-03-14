@@ -10,32 +10,37 @@ use std::collections::HashMap;
 use crate::codegen::types::TypeMapper;
 
 fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) -> Option<Type> {
+    // Build a map of local variable name → inferred type from assignments in the body.
+    // This lets us resolve `return e` where `e` is a local float variable.
+    let mut local_types: Vec<(String, Type)> = param_types.to_vec();
+    collect_local_var_types(body, param_types, &mut local_types);
+
     for stmt in body {
         match stmt {
             Stmt::Return { value: Some(expr), .. } => {
-                return Some(infer_type_from_expr(expr, param_types));
+                return Some(infer_type_from_expr(expr, &local_types));
             }
             Stmt::If { body, elif_blocks, else_body, .. } => {
-                if let Some(rt) = infer_return_type_from_body(body, param_types) {
+                if let Some(rt) = infer_return_type_from_body(body, &local_types) {
                     return Some(rt);
                 }
                 for (_, elif_body) in elif_blocks {
-                    if let Some(rt) = infer_return_type_from_body(elif_body, param_types) {
+                    if let Some(rt) = infer_return_type_from_body(elif_body, &local_types) {
                         return Some(rt);
                     }
                 }
                 if let Some(else_stmts) = else_body {
-                    if let Some(rt) = infer_return_type_from_body(else_stmts, param_types) {
+                    if let Some(rt) = infer_return_type_from_body(else_stmts, &local_types) {
                         return Some(rt);
                     }
                 }
             }
             Stmt::While { body, else_body, .. } | Stmt::For { body, else_body, .. } => {
-                if let Some(rt) = infer_return_type_from_body(body, param_types) {
+                if let Some(rt) = infer_return_type_from_body(body, &local_types) {
                     return Some(rt);
                 }
                 if let Some(else_stmts) = else_body {
-                    if let Some(rt) = infer_return_type_from_body(else_stmts, param_types) {
+                    if let Some(rt) = infer_return_type_from_body(else_stmts, &local_types) {
                         return Some(rt);
                     }
                 }
@@ -44,6 +49,49 @@ fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) ->
         }
     }
     None
+}
+
+/// Collect local variable types from assignment statements.
+/// Scans assignments like `e = 0.0` and infers that `e` is F64.
+fn collect_local_var_types(body: &[Stmt], param_types: &[(String, Type)], out: &mut Vec<(String, Type)>) {
+    for stmt in body {
+        match stmt {
+            Stmt::Assign { target, value, .. } => {
+                if let Expr::Ident(var_name, _) = target.as_ref() {
+                    let ty = infer_type_from_expr(value, out);
+                    if ty != Type::Infer {
+                        // Update or add
+                        if let Some(entry) = out.iter_mut().find(|(n, _)| n == var_name) {
+                            entry.1 = ty;
+                        } else {
+                            out.push((var_name.clone(), ty));
+                        }
+                    }
+                }
+            }
+            Stmt::Declare { name, value, .. } => {
+                if let Some(val_expr) = value {
+                    let ty = infer_type_from_expr(val_expr, out);
+                    if ty != Type::Infer {
+                        if let Some(entry) = out.iter_mut().find(|(n, _)| n == name) {
+                            entry.1 = ty;
+                        } else {
+                            out.push((name.clone(), ty));
+                        }
+                    }
+                }
+            }
+            Stmt::If { body, elif_blocks, else_body, .. } => {
+                collect_local_var_types(body, param_types, out);
+                for (_, b) in elif_blocks { collect_local_var_types(b, param_types, out); }
+                if let Some(b) = else_body { collect_local_var_types(b, param_types, out); }
+            }
+            Stmt::While { body, .. } | Stmt::For { body, .. } => {
+                collect_local_var_types(body, param_types, out);
+            }
+            _ => {}
+        }
+    }
 }
 
 fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
@@ -145,6 +193,9 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
 
             // Arithmetic/comparison usage indicates the language-level int type.
             if param_is_used_as_scalar(&param.name, body) {
+                if param_is_used_as_float_scalar(&param.name, body) {
+                    return Type::F64;
+                }
                 return Type::Int;
             }
 
@@ -363,7 +414,6 @@ fn expr_contains_ident(param_name: &str, expr: &Expr) -> bool {
     }
 }
 
-/// Check if a parameter is used as a scalar (in arithmetic/comparison operations)
 fn param_is_used_as_scalar(param_name: &str, body: &[Stmt]) -> bool {
     for stmt in body {
         if stmt_contains_scalar_usage(param_name, stmt) {
@@ -371,6 +421,88 @@ fn param_is_used_as_scalar(param_name: &str, body: &[Stmt]) -> bool {
         }
     }
     false
+}
+
+/// Check if a scalar parameter is used in a float-context expression.
+/// Returns true if the parameter appears in arithmetic together with a float literal,
+/// float-returning function call, or float variable.
+fn param_is_used_as_float_scalar(param_name: &str, body: &[Stmt]) -> bool {
+    for stmt in body {
+        if stmt_contains_float_scalar_usage(param_name, stmt) {
+            return true;
+        }
+    }
+    false
+}
+
+fn stmt_contains_float_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::Assign { value, .. } => expr_contains_float_scalar_usage(param_name, value),
+        Stmt::Declare { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_float_scalar_usage(param_name, v))
+        }
+        Stmt::Return { value, .. } => {
+            value.as_ref().map_or(false, |v| expr_contains_float_scalar_usage(param_name, v))
+        }
+        Stmt::AugAssign { value, .. } => expr_contains_float_scalar_usage(param_name, value),
+        Stmt::If { body, elif_blocks, else_body, .. } => {
+            body.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s))
+                || elif_blocks.iter().any(|(_, b)| b.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s)))
+                || else_body.as_ref().map_or(false, |b| b.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s)))
+        }
+        Stmt::For { body, .. } | Stmt::While { body, .. } => {
+            body.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s))
+        }
+        _ => false,
+    }
+}
+
+/// Returns true if the expression is clearly a float-producing expression.
+fn expr_is_float(expr: &Expr) -> bool {
+    match expr {
+        Expr::Float(..) => true,
+        Expr::Call { func, .. } => {
+            // math.sqrt, math.sin, etc. return floats
+            if let Expr::Attribute { obj, attr, .. } = func.as_ref() {
+                if let Expr::Ident(module, _) = obj.as_ref() {
+                    if module == "math" {
+                        return matches!(attr.as_str(),
+                            "sqrt" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "atan2"
+                            | "exp" | "log" | "log2" | "log10" | "cbrt" | "hypot"
+                            | "floor" | "ceil" | "trunc" | "pi" | "e" | "tau"
+                        );
+                    }
+                }
+            }
+            false
+        }
+        Expr::BinOp { left, right, .. } => expr_is_float(left) || expr_is_float(right),
+        Expr::UnaryOp { operand, .. } => expr_is_float(operand),
+        Expr::Index { .. } => false, // List indexing could be float, but we can't know here
+        _ => false,
+    }
+}
+
+fn expr_contains_float_scalar_usage(param_name: &str, expr: &Expr) -> bool {
+    match expr {
+        Expr::BinOp { left, right, .. } => {
+            let left_is_param = matches!(left.as_ref(), Expr::Ident(n, _) if n == param_name);
+            let right_is_param = matches!(right.as_ref(), Expr::Ident(n, _) if n == param_name);
+            // If this param is directly involved and the other operand is a float, it's float context
+            if left_is_param && expr_is_float(right) {
+                return true;
+            }
+            if right_is_param && expr_is_float(left) {
+                return true;
+            }
+            // Recurse
+            expr_contains_float_scalar_usage(param_name, left)
+                || expr_contains_float_scalar_usage(param_name, right)
+        }
+        Expr::UnaryOp { operand, .. } => expr_contains_float_scalar_usage(param_name, operand),
+        Expr::Call { args, .. } => args.iter().any(|a| expr_contains_float_scalar_usage(param_name, a)),
+        _ => false,
+    }
 }
 
 /// Check if a parameter is used with BigInt (assigned BigInt or used in BigInt operations)
@@ -387,8 +519,20 @@ fn param_is_used_as_bigint(param_name: &str, body: &[Stmt]) -> bool {
 fn stmt_contains_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
     match stmt {
         Stmt::Expr(expr) => expr_contains_scalar_usage(param_name, expr),
-        Stmt::If { condition, .. } => expr_contains_scalar_usage(param_name, condition),
-        Stmt::While { condition, .. } => expr_contains_scalar_usage(param_name, condition),
+        Stmt::If { condition, body, elif_blocks, else_body, .. } => {
+            expr_contains_scalar_usage(param_name, condition)
+                || body.iter().any(|s| stmt_contains_scalar_usage(param_name, s))
+                || elif_blocks.iter().any(|(_, b)| b.iter().any(|s| stmt_contains_scalar_usage(param_name, s)))
+                || else_body.as_ref().map_or(false, |eb| eb.iter().any(|s| stmt_contains_scalar_usage(param_name, s)))
+        }
+        Stmt::While { condition, body, .. } => {
+            expr_contains_scalar_usage(param_name, condition)
+                || body.iter().any(|s| stmt_contains_scalar_usage(param_name, s))
+        }
+        Stmt::For { iter, body, .. } => {
+            expr_contains_scalar_usage(param_name, iter)
+                || body.iter().any(|s| stmt_contains_scalar_usage(param_name, s))
+        }
         Stmt::Return { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_scalar_usage(param_name, v))
         }

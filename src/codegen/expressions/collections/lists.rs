@@ -13,11 +13,29 @@ pub fn generate_list<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     elements: &[Expr],
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
-    // Determine element type
-    let is_float_list = elements.first().map(|e| matches!(e, Expr::Float(..))).unwrap_or(false);
-    let is_bool_list = elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false);
-    
-    eprintln!("DEBUG generate_list: is_float_list={}, is_bool_list={}, first_elem={:?}", is_float_list, is_bool_list, elements.first());
+    // Determine element type by checking all elements or using type inference
+    let is_float_list = elements.iter().any(|e| {
+        if matches!(e, Expr::Float(..)) {
+            return true;
+        }
+        if let Expr::Ident(name, _) = e {
+            if let Some(ty) = state.var_types.get(name) {
+                return matches!(ty, crate::ast::Type::F64);
+            }
+        }
+        crate::codegen::expressions::infer_expr_type(e) == crate::ast::Type::F64
+    });
+    let is_bool_list = !is_float_list && elements.iter().any(|e| {
+        if matches!(e, Expr::Bool(..)) {
+            return true;
+        }
+        if let Expr::Ident(name, _) = e {
+            if let Some(ty) = state.var_types.get(name) {
+                return matches!(ty, crate::ast::Type::Bool);
+            }
+        }
+        crate::codegen::expressions::infer_expr_type(e) == crate::ast::Type::Bool
+    });
 
     // For empty lists or mixed types, check all elements
     let (list_func_name, append_func_name) = if is_float_list {

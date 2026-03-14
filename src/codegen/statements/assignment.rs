@@ -616,15 +616,16 @@ pub(crate) fn generate_assign<'ctx>(
                 .build_store(elem_ptr, value_val)
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
         } else {
+            let is_float_list = if let Expr::Ident(name, _) = obj.as_ref() {
+                matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
+            } else {
+                false
+            };
+
             // List index assignment using runtime function call
             // NOTE: Inline list access disabled for JIT mode due to struct layout issues
             // Lists store tagged integers, so pass value directly
             // But the index needs to be untagged (runtime expects untagged indices)
-            let list_set = state
-                .module
-                .get_function("vp_list_set")
-                .ok_or_else(|| "vp_list_set not declared".to_string())?;
-
             // Untag the index (tagged ints are shifted left by 1)
             let index_untagged = state
                 .builder
@@ -636,12 +637,44 @@ pub(crate) fn generate_assign<'ctx>(
                 )
                 .map_err(|e| format!("Failed to untag index: {:?}", e))?;
 
-            let _result = state.ir_builder.build_call(
-                state.builder,
-                list_set,
-                &[obj_val.into(), index_untagged.into(), value_val.into()],
-                "list_set",
-            );
+            if is_float_list || value_val.is_float_value() {
+                let list_set_f64 = state
+                    .module
+                    .get_function("vp_list_set_f64")
+                    .ok_or_else(|| "vp_list_set_f64 not declared".to_string())?;
+
+                let f64_val = if value_val.is_float_value() {
+                    value_val.into_float_value()
+                } else {
+                    state
+                        .builder
+                        .build_signed_int_to_float(
+                            value_val.into_int_value(),
+                            state.context.f64_type(),
+                            "i64_to_f64",
+                        )
+                        .expect("i64 to f64")
+                };
+
+                let _result = state.ir_builder.build_call(
+                    state.builder,
+                    list_set_f64,
+                    &[obj_val.into(), index_untagged.into(), f64_val.into()],
+                    "list_set_f64",
+                );
+            } else {
+                let list_set = state
+                    .module
+                    .get_function("vp_list_set")
+                    .ok_or_else(|| "vp_list_set not declared".to_string())?;
+
+                let _result = state.ir_builder.build_call(
+                    state.builder,
+                    list_set,
+                    &[obj_val.into(), index_untagged.into(), value_val.into()],
+                    "list_set",
+                );
+            }
         }
     } else if let Expr::Attribute { obj, attr, .. } = target {
         // Handle attribute assignment: obj.attr = value
@@ -674,10 +707,17 @@ fn generate_aug_assign_index<'ctx>(
             obj_type
         };
 
+        let is_likely_float_list = if let Expr::Ident(name, _) = obj {
+            matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
+        } else {
+            false
+        };
+
         match &obj_type {
             Type::List(inner) => match &**inner {
                 Type::F64 => true,
                 Type::Var(n) if n == "float" || n == "f64" => true,
+                Type::Infer => is_likely_float_list,
                 _ => false,
             },
             Type::GenericApp { name, type_args }
@@ -686,10 +726,11 @@ fn generate_aug_assign_index<'ctx>(
                 match &type_args[0] {
                     Type::F64 => true,
                     Type::Var(n) if n == "float" || n == "f64" => true,
+                    Type::Infer => is_likely_float_list,
                     _ => false,
                 }
             }
-            _ => false,
+            _ => is_likely_float_list,
         }
     };
     
@@ -741,6 +782,8 @@ fn generate_aug_assign_index<'ctx>(
         inline_f64_list_set(state, list_ptr, index_val, result_val)?;
         return Ok(());
     }
+
+    eprintln!("DEBUG aug_assign: NOT float list, using runtime fallback");
     
     // For non-float lists, fall back to runtime functions
     // Load current tagged int value

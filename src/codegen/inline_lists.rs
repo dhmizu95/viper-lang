@@ -277,9 +277,20 @@ pub fn inline_f64_list_get<'ctx>(
         )
         .map_err(|e| format!("Failed to cast data pointer to f64*: {:?}", e))?;
 
+    // Untag index (tagged ints are shifted left by 1)
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        )
+        .expect("index untag");
+
     // Calculate element pointer: data_ptr + index
     let elem_ptr = unsafe {
-        state.builder.build_in_bounds_gep(f64_type, data_ptr_f64, &[index_val], "f64_elem_ptr")
+        state.builder.build_in_bounds_gep(f64_type, data_ptr_f64, &[index_untagged], "f64_elem_ptr")
     }
     .map_err(|e| format!("Failed to build GEP for f64 element: {:?}", e))?;
 
@@ -313,9 +324,20 @@ pub fn inline_f64_list_set<'ctx>(
         )
         .map_err(|e| format!("Failed to cast data pointer to f64*: {:?}", e))?;
 
+    // Untag index (tagged ints are shifted left by 1)
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        )
+        .expect("index untag");
+
     // Calculate element pointer: data_ptr + index
     let elem_ptr = unsafe {
-        state.builder.build_in_bounds_gep(f64_type, data_ptr_f64, &[index_val], "f64_elem_ptr")
+        state.builder.build_in_bounds_gep(f64_type, data_ptr_f64, &[index_untagged], "f64_elem_ptr")
     }
     .map_err(|e| format!("Failed to build GEP for f64 element: {:?}", e))?;
 

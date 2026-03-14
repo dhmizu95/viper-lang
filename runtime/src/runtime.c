@@ -203,54 +203,79 @@ ViperString* vp_str_replace(ViperString* str, ViperString* old_sub, ViperString*
 }
 
 // String format: replaces {} placeholders with arguments
-// Args: format_str, args (ViperList of ViperString*)
-ViperString* vp_str_format(ViperString* format_str, ViperList* args) {
+ViperString* vp_str_format(ViperString* format_str, ViperString** args_array, int64_t arg_count) {
     if (!format_str) return NULL;
 
     const char* format_data = vp_str_data_inline(format_str);
-    
+    if (!format_data) return NULL;
+
     // Make a copy of the format string to work with
     char* result_data = strdup(format_data);
-    if (!result_data || !args || vp_list_len(args) == 0) {
+    if (!result_data || !args_array || arg_count == 0) {
         ViperString* result = vp_str_create(result_data);
         free(result_data);
         return result;
     }
 
-    // Replace each {} placeholder with corresponding argument
-    int64_t arg_count = vp_list_len(args);
+    // Replace each {...} placeholder with corresponding argument
     for (int64_t i = 0; i < arg_count; i++) {
-        const char* arg_data = vp_str_data_inline((ViperString*)(intptr_t)vp_list_get(args, i));
+        if (!args_array[i]) continue;
+        const char* arg_data = vp_str_data_inline(args_array[i]);
         if (!arg_data) continue;
 
-        // Find first {} placeholder
-        char* placeholder = strstr(result_data, "{}");
-        if (!placeholder) break;
+        // Find first {
+        char* start_placeholder = strchr(result_data, '{');
+        if (!start_placeholder) break;
         
+        // Find matching }
+        char* end_placeholder = strchr(start_placeholder, '}');
+        if (!end_placeholder) break;
+
+        // Extract specifier if present (e.g., {:.9f} -> .9f)
+        char spec[32] = {0};
+        bool has_spec = false;
+        if (end_placeholder - start_placeholder > 2 && start_placeholder[1] == ':') {
+            has_spec = true;
+            size_t spec_len = end_placeholder - start_placeholder - 2;
+            if (spec_len > 31) spec_len = 31;
+            strncpy(spec, start_placeholder + 2, spec_len);
+            spec[spec_len] = '\0';
+        }
+
+        // Apply specifier if it's a known one (e.g., .9f)
+        char formatted_arg[128];
+        const char* final_arg_data = arg_data;
+        if (has_spec && strcmp(spec, ".9f") == 0) {
+            double val = atof(arg_data);
+            snprintf(formatted_arg, sizeof(formatted_arg), "%.9f", val);
+            final_arg_data = formatted_arg;
+        }
+
         // Build new string: before_placeholder + arg + after_placeholder
-        size_t before_len = placeholder - result_data;
-        size_t arg_len = strlen(arg_data);
-        size_t after_len = strlen(placeholder + 2);
+        size_t before_len = start_placeholder - result_data;
+        size_t arg_len = strlen(final_arg_data);
+        size_t after_len = strlen(end_placeholder + 1);
 
         char* new_result_data = (char*)malloc(before_len + arg_len + after_len + 1);
+        if (!new_result_data) break;
 
         // Copy before part
         strncpy(new_result_data, result_data, before_len);
         new_result_data[before_len] = '\0';
 
         // Append argument
-        strcat(new_result_data, arg_data);
+        strcat(new_result_data, final_arg_data);
 
         // Append after part
-        strcat(new_result_data, placeholder + 2);
+        strcat(new_result_data, end_placeholder + 1);
 
         free(result_data);
         result_data = new_result_data;
     }
 
-    ViperString* result = vp_str_create(result_data);
+    ViperString* final_result = vp_str_create(result_data);
     free(result_data);
-    return result;
+    return final_result;
 }
 
 // Convert bool to string
@@ -268,7 +293,8 @@ ViperString* vp_str_from_i64(int64_t val) {
 // Convert f64 to string
 ViperString* vp_str_from_f64(double val) {
     char buffer[64];
-    snprintf(buffer, sizeof(buffer), "%g", val);
+    // Use higher precision to match Rust/Python behavior
+    snprintf(buffer, sizeof(buffer), "%.16g", val);
     return vp_str_create(buffer);
 }
 
@@ -521,6 +547,21 @@ static int get_format_size(char c) {
 }
 
 /* Calculate total size needed for pack */
+bool vp_str_equals(ViperString* a, ViperString* b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+
+    int64_t len_a = vp_str_len_inline(a);
+    int64_t len_b = vp_str_len_inline(b);
+
+    if (len_a != len_b) return false;
+
+    const char* data_a = vp_str_data_inline(a);
+    const char* data_b = vp_str_data_inline(b);
+
+    return memcmp(data_a, data_b, (size_t)len_a) == 0;
+}
+
 char* vp_struct_pack(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -666,4 +707,22 @@ char* vp_struct_unpack(const char* format, const char* data, int data_len) {
     memcpy(buffer, data, (size_t)data_len);
     buffer[data_len] = '\0';
     return buffer;
+}
+
+// Float list specific functions
+ViperList* vp_list_create_f64(void) {
+    return vp_list_create();
+}
+
+void vp_list_append_f64(ViperList* list, double value) {
+    if (!list) return;
+    if (list->length >= list->capacity) vp_list_grow(list);
+    list->data.data_f64[list->length++] = value;
+}
+
+void vp_list_set_f64(ViperList* list, int64_t index, double value) {
+    if (!list || index < 0 || index >= list->length) {
+        vp_panic("List index out of bounds (f64)");
+    }
+    list->data.data_f64[index] = value;
 }

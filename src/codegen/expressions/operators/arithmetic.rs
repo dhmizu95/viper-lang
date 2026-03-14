@@ -587,8 +587,33 @@ pub fn generate_float_binop<'ctx>(
     op: &BinOp,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let builder = state.builder;
-    let lhs = lhs.into_float_value();
-    let rhs = rhs.into_float_value();
+    
+    // Coerce lhs to float if it's an integer
+    let lhs = if lhs.is_int_value() {
+        let int_val = lhs.into_int_value();
+        // Untag if it's a 64-bit integer (tagged int)
+        let untagged = if int_val.get_type().get_bit_width() == 64 {
+            builder.build_right_shift(int_val, state.context.i64_type().const_int(1, false), true, "lhs_untag").expect("lhs untag")
+        } else {
+            builder.build_int_s_extend(int_val, state.context.i64_type(), "lhs_sext").expect("lhs sext")
+        };
+        builder.build_signed_int_to_float(untagged, state.context.f64_type(), "lhs_f64").expect("lhs to float").into()
+    } else {
+        lhs.into_float_value()
+    };
+
+    // Coerce rhs to float if it's an integer
+    let rhs = if rhs.is_int_value() {
+        let int_val = rhs.into_int_value();
+        let untagged = if int_val.get_type().get_bit_width() == 64 {
+            builder.build_right_shift(int_val, state.context.i64_type().const_int(1, false), true, "rhs_untag").expect("rhs untag")
+        } else {
+            builder.build_int_s_extend(int_val, state.context.i64_type(), "rhs_sext").expect("rhs sext")
+        };
+        builder.build_signed_int_to_float(untagged, state.context.f64_type(), "rhs_f64").expect("rhs to float").into()
+    } else {
+        rhs.into_float_value()
+    };
 
     match op {
         BinOp::Add => Ok(builder.build_float_add(lhs, rhs, "fadd").expect("fadd").into()),

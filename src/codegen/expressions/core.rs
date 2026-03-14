@@ -141,6 +141,14 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
 
                 let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
                 Type::Fn(arg_types, Box::new(Type::Infer))
+            } else if let Expr::Attribute { attr, .. } = func.as_ref() {
+                if attr == "format" || attr == "upper" || attr == "lower" || attr == "replace" {
+                    Type::Str
+                } else if attr == "split" {
+                    Type::List(Box::new(Type::Str))
+                } else {
+                    Type::Infer
+                }
             } else {
                 Type::Infer
             }
@@ -254,6 +262,14 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 let arg_types: Vec<Type> =
                     args.iter().map(|a| infer_type_with_state(state, a)).collect();
                 Type::Fn(arg_types, Box::new(Type::Infer))
+            } else if let Expr::Attribute { attr, .. } = func.as_ref() {
+                if attr == "format" || attr == "upper" || attr == "lower" || attr == "replace" {
+                    Type::Str
+                } else if attr == "split" {
+                    Type::List(Box::new(Type::Str))
+                } else {
+                    Type::Infer
+                }
             } else {
                 Type::Infer
             }

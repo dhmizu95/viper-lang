@@ -279,20 +279,7 @@ static inline void vp_str_free(ViperString* s) {
 }
 
 /* Check if two strings are equal */
-static inline bool vp_str_equals(ViperString* a, ViperString* b) {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-
-    int64_t len_a = vp_str_len_inline(a);
-    int64_t len_b = vp_str_len_inline(b);
-
-    if (len_a != len_b) return false;
-
-    const char* data_a = vp_str_data_inline(a);
-    const char* data_b = vp_str_data_inline(b);
-
-    return memcmp(data_a, data_b, (size_t)len_a) == 0;
-}
+bool vp_str_equals(ViperString* a, ViperString* b);
 
 /* Concatenate two strings */
 static inline ViperString* vp_str_concat(ViperString* a, ViperString* b) {

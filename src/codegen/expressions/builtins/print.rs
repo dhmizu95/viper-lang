@@ -248,19 +248,16 @@ pub fn generate_print_call<'ctx>(
                         .build_call(print_func, &[msg.as_pointer_value().into()], "print_future")
                         .expect("print_future");
                 } else {
-                    // Fallback for unknown pointer types (avoid segfaulting on non-strings)
+                    // Fallback for unknown pointer types (likely a string from a method/function)
+                    // Use vp_print_viper_str but safely - it handles NULL internally
                     let print_func = state
                         .module
-                        .get_function("vp_print_cstr")
-                        .ok_or_else(|| "vp_print_cstr not declared".to_string())?;
-                    let msg = state
-                        .builder
-                        .build_global_string_ptr("<object>", "obj_str")
-                        .expect("global string");
+                        .get_function("vp_print_viper_str")
+                        .ok_or_else(|| "vp_print_viper_str not declared".to_string())?;
                     state
                         .builder
-                        .build_call(print_func, &[msg.as_pointer_value().into()], "print_obj")
-                        .expect("print_obj");
+                        .build_call(print_func, &[val.into()], "print_unknown_ptr")
+                        .expect("print_unknown_ptr");
                 }
             }
         } else if val.is_int_value() && val.get_type().into_int_type().get_bit_width() == 1 {

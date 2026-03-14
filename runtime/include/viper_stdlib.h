@@ -60,6 +60,11 @@ ViperList* vp_list_ones(int64_t count);        /* Optimized [1] * n */
 ViperList* vp_list_slice(ViperList* list, int64_t start, int64_t end, int64_t step);
 void vp_list_print(ViperList* list);
 
+/* Float list functions */
+ViperList* vp_list_create_f64(void);
+void vp_list_append_f64(ViperList* list, double value);
+void vp_list_set_f64(ViperList* list, int64_t index, double value);
+
 /* Extended list operations (i64) */
 void vp_list_extend(ViperList* list, ViperList* other);
 int64_t vp_list_index(ViperList* list, int64_t value);
@@ -179,7 +184,7 @@ ViperString* vp_str_upper(ViperString* str);
 ViperString* vp_str_lower(ViperString* str);
 ViperList* vp_str_split(ViperString* str, ViperString* delim);
 ViperString* vp_str_replace(ViperString* str, ViperString* old_sub, ViperString* new_sub);
-ViperString* vp_str_format(ViperString* format_str, ViperList* args);
+ViperString* vp_str_format(ViperString* format_str, ViperString** args_array, int64_t arg_count);
 ViperString* vp_str_from_bool(bool val);
 ViperString* vp_str_from_i64(int64_t val);
 ViperString* vp_str_from_f64(double val);
@@ -254,13 +259,14 @@ void* vp_async_iter(void* obj);
 int64_t vp_async_next(void* iterator);
 
 /* Async future functions */
-void* vp_future_create(void);
-int64_t vp_future_await(void* future);
-int64_t vp_future_await_and_release(void* future);
-void vp_future_set_result(void* future, int64_t result);
-bool vp_future_is_ready(void* future);
-void vp_future_retain(void* future);
-void vp_future_release(void* future);
+struct ViperFuture;
+struct ViperFuture* vp_future_create(void);
+int64_t vp_future_await(struct ViperFuture* future);
+int64_t vp_future_await_and_release(struct ViperFuture* future);
+void vp_future_set_result(struct ViperFuture* future, int64_t result);
+bool vp_future_is_ready(struct ViperFuture* future);
+void vp_future_retain(struct ViperFuture* future);
+void vp_future_release(struct ViperFuture* future);
 int64_t vp_future_gather(int64_t* futures_ptr, int64_t count);
 void vp_future_gather_free(int64_t results_ptr, int64_t count);
 

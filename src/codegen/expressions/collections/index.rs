@@ -242,6 +242,8 @@ pub fn generate_index<'ctx>(
         return Ok(f64_val);
     }
     
+
+    
     if false && is_pointer_type && is_list {
         let list_ptr = obj_val.into_pointer_value();
 

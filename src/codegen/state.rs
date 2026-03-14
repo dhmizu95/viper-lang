@@ -382,3 +382,35 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         self.var_types.insert(var_name, ty);
     }
 }
+
+impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
+    /// Check if an expression is a bool list
+    pub fn is_bool_list_expr(&self, expr: &crate::ast::Expr) -> bool {
+        match expr {
+            crate::ast::Expr::Ident(name, _) => self.is_bool_list(name),
+            crate::ast::Expr::List { elements, .. } => {
+                elements.first().map(|e| matches!(e, crate::ast::Expr::Bool(..))).unwrap_or(false)
+            }
+            crate::ast::Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                if let crate::ast::Expr::List { elements, .. } = left.as_ref() {
+                    elements.first().map(|e| matches!(e, crate::ast::Expr::Bool(..))).unwrap_or(false)
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// Check if an expression is a list
+    pub fn is_list_expr(&self, expr: &crate::ast::Expr) -> bool {
+        match expr {
+            crate::ast::Expr::Ident(name, _) => self.is_list(name),
+            crate::ast::Expr::List { .. } | crate::ast::Expr::ListComprehension { .. } => true,
+            crate::ast::Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                matches!(left.as_ref(), crate::ast::Expr::List { .. })
+            }
+            _ => false,
+        }
+    }
+}

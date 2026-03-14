@@ -115,6 +115,14 @@ pub fn generate_method_call<'ctx>(
                 );
             };
 
+            // Determine if this is a bool list or float list
+            let is_bool_list = state.is_bool_list_expr(obj);
+            let is_float_list = if let Expr::Ident(name, _) = obj {
+                matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
+            } else {
+                false
+            };
+
             // Use inline append for optimized performance
             if is_bool_list {
                 // Convert value to bool (i1) if needed
@@ -141,38 +149,64 @@ pub fn generate_method_call<'ctx>(
 
                 crate::codegen::inline_lists::inline_bool_list_append(state, list_ptr, bool_val)
                     .map_err(|e| format!("Failed to inline bool list append: {}", e))?;
-            } else {
-                // Convert value to i64 if needed
-                let int_val = if val.is_int_value() {
-                    val.into_int_value()
-                } else if val.is_float_value() {
-                    // Truncate f64 to i64
-                    state
-                        .builder
-                        .build_float_to_signed_int(
-                            val.into_float_value(),
-                            state.context.i64_type(),
-                            "f64_to_i64",
-                        )
-                        .map_err(|e| format!("Failed to convert float to int: {:?}", e))?
-                } else if val.is_pointer_value() {
-                    // Allow appending pointer values (e.g., futures) by storing pointer bits as i64
-                    state
-                        .builder
-                        .build_ptr_to_int(
-                            val.into_pointer_value(),
-                            state.context.i64_type(),
-                            "ptr_to_i64",
-                        )
-                        .map_err(|e| format!("Failed to convert pointer to int: {:?}", e))?
+            } else if is_float_list {
+                // For float lists, call vp_list_append_f64
+                let append_func = state
+                    .module
+                    .get_function("vp_list_append_f64")
+                    .ok_or_else(|| "vp_list_append_f64 not declared".to_string())?;
+                
+                // Coerce value to f64 if needed
+                let f64_val = if val.is_float_value() {
+                    val.into_float_value()
+                } else if val.is_int_value() {
+                    state.builder.build_signed_int_to_float(val.into_int_value(), state.context.f64_type(), "i64_to_f64").expect("i64 to f64")
                 } else {
-                    return crate::codegen::codegen_error(
-                        "append() value must be numeric or pointer".to_string(),
-                    );
+                    return crate::codegen::codegen_error("append() to float list requires numeric value".to_string());
                 };
 
-                crate::codegen::inline_lists::inline_i64_list_append(state, list_ptr, int_val)
-                    .map_err(|e| format!("Failed to inline i64 list append: {}", e))?;
+                state.ir_builder.build_call(
+                    state.builder,
+                    append_func,
+                    &[list_ptr.into(), f64_val.into()],
+                    "append_f64",
+                ).expect("append f64 call");
+            } else {
+                // Fallback for generic lists
+                if val.is_float_value() {
+                    // Try to guess if this should be a float list if we are appending a float
+                    let append_func = state
+                        .module
+                        .get_function("vp_list_append_f64")
+                        .ok_or_else(|| "vp_list_append_f64 not declared".to_string())?;
+                    
+                    state.ir_builder.build_call(
+                        state.builder,
+                        append_func,
+                        &[list_ptr.into(), val.into()],
+                        "append_f64",
+                    ).expect("append f64 call");
+                } else {
+                    let int_val = if val.is_int_value() {
+                        val.into_int_value()
+                    } else if val.is_pointer_value() {
+                        state
+                            .builder
+                            .build_ptr_to_int(
+                                val.into_pointer_value(),
+                                state.context.i64_type(),
+                                "ptr_to_i64",
+                            )
+                            .map_err(|e| format!("Failed to convert pointer to int: {:?}", e))?
+                    } else {
+                        return crate::codegen::codegen_error(
+                            "append() value must be numeric or pointer".to_string(),
+                        );
+                    };
+
+                    crate::codegen::inline_lists::inline_i64_list_append(state, list_ptr, int_val)
+                        .map_err(|e| format!("Failed to inline i64 list append: {}", e))?;
+                }
             }
 
             Ok(obj_val)
@@ -600,7 +634,10 @@ pub fn generate_method_call<'ctx>(
                         .build_gep(
                             array_type,
                             args_array,
-                            &[state.context.i32_type().const_int(i as u64, false)],
+                            &[
+                                state.context.i32_type().const_zero(),
+                                state.context.i32_type().const_int(i as u64, false)
+                            ],
                             "arg_ptr",
                         )
                         .expect("gep")
