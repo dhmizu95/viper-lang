@@ -26,3 +26,5 @@ mod scenarios;
 mod semantic;
 #[path = "integration/statements.rs"]
 mod statements;
+#[path = "integration/async_await.rs"]
+mod async_await;

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "viper_stdlib.h"
+#include "tagged_int.h"
 
 #define LIST_INITIAL_CAPACITY 8
 #define LIST_GROWTH_FACTOR 2
@@ -257,7 +258,7 @@ void vp_list_print(ViperList* list) {
         if (i > 0) {
             printf(", ");
         }
-        printf("%ld", (long)list->data.data_i64[i]);
+        tagged_int_print((TaggedInt)list->data.data_i64[i]);
     }
     printf("]");
 }

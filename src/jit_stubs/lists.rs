@@ -357,7 +357,7 @@ pub extern "C" fn vp_list_print_stub(list: *mut std::ffi::c_void) {
             if i > 0 {
                 print!(", ");
             }
-            print!("{}", *list_ref.data.add(i));
+            crate::jit_stubs::tagged_int::tagged_int_print(*list_ref.data.add(i));
         }
         print!("]");
     }
