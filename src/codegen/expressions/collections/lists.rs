@@ -16,6 +16,8 @@ pub fn generate_list<'ctx>(
     // Determine element type
     let is_float_list = elements.first().map(|e| matches!(e, Expr::Float(..))).unwrap_or(false);
     let is_bool_list = elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false);
+    
+    eprintln!("DEBUG generate_list: is_float_list={}, is_bool_list={}, first_elem={:?}", is_float_list, is_bool_list, elements.first());
 
     // For empty lists or mixed types, check all elements
     let (list_func_name, append_func_name) = if is_float_list {
