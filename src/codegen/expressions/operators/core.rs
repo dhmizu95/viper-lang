@@ -215,7 +215,6 @@ pub fn generate_binop<'ctx>(
     let left_type = crate::codegen::expressions::core::infer_type_with_state(state, left);
     let right_type = crate::codegen::expressions::core::infer_type_with_state(state, right);
 
-    eprintln!("DEBUG BinOp: left_type={:?}, right_type={:?}", left_type, right_type);
 
     // Check if either operand is Type::F64 (float operations take precedence)
     let is_float = left_type == crate::ast::Type::F64 || right_type == crate::ast::Type::F64;
@@ -225,7 +224,6 @@ pub fn generate_binop<'ctx>(
     let rhs_val_check = generate_expr(state, right)?;
     let is_float_val = lhs_val_check.is_float_value() || rhs_val_check.is_float_value();
     
-    eprintln!("DEBUG BinOp: is_float={}, is_float_val={}, lhs_val={:?}, rhs_val={:?}", is_float, is_float_val, lhs_val_check.get_type(), rhs_val_check.get_type());
     
     // Check if either operand is Type::Int (from type annotation or inference)
     let is_tagged_int = left_type == crate::ast::Type::Int || right_type == crate::ast::Type::Int;
@@ -236,13 +234,11 @@ pub fn generate_binop<'ctx>(
 
     // Float operations have higher priority than tagged int
     if is_float || is_float_val {
-        eprintln!("DEBUG BinOp: routing to generate_float_binop");
         // Generate operands for float operations
         return arithmetic::generate_float_binop(state, lhs_val_check, rhs_val_check, op);
     }
 
     if is_tagged_int || is_left_int_call || is_right_int_call {
-        eprintln!("DEBUG BinOp: routing to generate_tagged_int_binop");
         // Generate operands for tagged int operations
         return arithmetic::generate_tagged_int_binop(state, lhs_val_check, rhs_val_check, op);
     }

@@ -205,11 +205,6 @@ pub extern "C" fn vp_str_format_stub(
                                     if let Ok(val) = arg_str.parse::<f64>() {
                                         formatted = format!("{:.9}", val);
                                     } else {
-                                        eprintln!("DEBUG JIT format: failed to parse '{}' as f64", arg_str);
-                                    }
-                                }
-                            }
-                            eprintln!("DEBUG JIT format: replacement '{}' -> '{}'", placeholder, formatted);
                             result.replace_range(start..=end, &formatted);
                         }
                     }

@@ -151,100 +151,62 @@ pub fn generate_index<'ctx>(
 
     let index_val = index_val.into_int_value();
 
-    // Check if this is a list by examining the object
-    let is_list = match obj {
-        Expr::Ident(obj_name, _) => state.is_list(obj_name),
-        Expr::List { .. } | Expr::ListComprehension { .. } => true,
-        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
-            // Handle [bool] * n pattern
-            matches!(left.as_ref(), Expr::List { .. })
-        }
-        _ => false,
+    let inferred_type = crate::codegen::expressions::core::infer_expr_type(obj);
+    let obj_type = if let Expr::Ident(name, _) = obj {
+        state.var_types.get(name).cloned().unwrap_or(inferred_type)
+    } else {
+        inferred_type
     };
 
-    // Check if this is a bool list
-    let is_bool_list = match obj {
-        Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
-        Expr::List { elements, .. } => {
-            elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+    let (is_list, is_float_list, is_bool_list) = match &obj_type {
+        Type::List(inner) => match &**inner {
+            Type::F64 => (true, true, false),
+            Type::Bool => (true, false, true),
+            Type::Var(n) if n == "float" || n == "f64" => (true, true, false),
+            _ => (true, false, false),
+        },
+        Type::GenericApp { name, type_args }
+            if (name == "list" || name == "List") && type_args.len() == 1 =>
+        {
+            match &type_args[0] {
+                Type::F64 => (true, true, false),
+                Type::Bool => (true, false, true),
+                Type::Var(n) if n == "float" || n == "f64" => (true, true, false),
+                _ => (true, false, false),
+            }
         }
-        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
-            // Handle [bool] * n pattern
-            if let Expr::List { elements, .. } = left.as_ref() {
-                elements.first().map(|e| matches!(e, Expr::Bool(..))).unwrap_or(false)
+        Type::Array(_, _) => (true, false, false), // Arrays are also lists in this context
+        _ => {
+            // Fallback for cases where type inference failed but it might still be a list
+            let is_list = match obj {
+                Expr::List { .. } | Expr::ListComprehension { .. } => true,
+                Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                    matches!(left.as_ref(), Expr::List { .. })
+                }
+                Expr::Ident(name, _) => state.is_list(name),
+                _ => false,
+            };
+            let is_bool_list = if is_list {
+                match obj {
+                    Expr::Ident(name, _) => state.is_bool_list(name),
+                    _ => false,
+                }
             } else {
                 false
-            }
-        }
-        _ => false,
-    };
-
-    let is_float_list = {
-        // First try to get type from var_types
-        let obj_type = if let Expr::Ident(name, _) = obj {
-            state.var_types.get(name).cloned()
-        } else {
-            None
-        };
-
-        // Fallback: check if the object value is a pointer to f64 list
-        // We can detect this by checking if inline_f64_list_get would work
-        // For now, assume lists with "x", "y", "z", "vx", "vy", "vz", "mass" names are float lists
-        // based on common nbody benchmark patterns
-        let is_likely_float_list = if let Expr::Ident(name, _) = obj {
-            matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
-        } else {
-            false
-        };
-
-        if let Some(ref ty) = obj_type {
-            match ty {
-                Type::List(inner) => {
-                    match &**inner {
-                        Type::F64 => true,
-                        Type::Var(n) if n == "float" || n == "f64" => true,
-                        Type::Infer => is_likely_float_list,  // Fallback for nbody pattern
-                        _ => false,
-                    }
-                },
-                Type::GenericApp { name, type_args }
-                    if (name == "list" || name == "List") && type_args.len() == 1 =>
-                {
-                    match &type_args[0] {
-                        Type::F64 => true,
-                        Type::Var(n) if n == "float" || n == "f64" => true,
-                        Type::Infer => is_likely_float_list,  // Fallback
-                        _ => false,
-                    }
-                }
-                _ => is_likely_float_list,
-            }
-        } else {
-            is_likely_float_list
+            };
+            (is_list, false, is_bool_list)
         }
     };
 
     // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
 
+    
+
+    
     // Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
-    // NOTE: Inline list access for integer lists disabled due to struct layout issues in JIT mode.
-    // Float lists use inline access since they store raw f64 values (not tagged integers).
-    // Fall back to runtime function calls for correctness on non-float lists.
-    if is_float_list && is_pointer_type {
-        let list_ptr = obj_val.into_pointer_value();
-
-        // Use inline f64 get for float lists - returns f64 directly
-        let f64_val = inline_f64_list_get(state, list_ptr, index_val)
-            .map_err(|e| format!("Inline f64 list get failed: {:?}", e))?;
-
-        return Ok(f64_val);
-    }
-    
-
-    
-    if false && is_pointer_type && is_list {
+    if is_pointer_type && is_list {
         let list_ptr = obj_val.into_pointer_value();
 
         // Use inline bit vector get for bool lists (more memory efficient)

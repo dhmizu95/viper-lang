@@ -93,8 +93,10 @@ pub fn register_collection_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_dict_create" => super::super::dicts::vp_dict_create,
         "vp_dict_set_str_i64" => super::super::dicts::vp_dict_set_str_i64,
         "vp_dict_set_str_str" => super::super::dicts::vp_dict_set_str_str,
+        "vp_dict_get_i64" => super::super::dicts::vp_dict_get_i64,
         "vp_dict_free" => super::super::dicts::vp_dict_free,
         "vp_dict_print" => super::super::dicts::vp_dict_print,
+        "vp_print_dict" => super::super::dicts::vp_dict_print,
     ]);
 
     // Deque functions

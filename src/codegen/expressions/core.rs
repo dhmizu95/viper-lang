@@ -183,6 +183,25 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
             }
             let lt = infer_expr_type(left);
             let rt = infer_expr_type(right);
+
+            // Special case for list multiplication and addition
+            match op {
+                crate::ast::BinOp::Mul => {
+                    if matches!(lt, Type::List(_)) {
+                        return lt;
+                    }
+                    if matches!(rt, Type::List(_)) {
+                        return rt;
+                    }
+                }
+                crate::ast::BinOp::Add => {
+                    if matches!(lt, Type::List(_)) {
+                        return lt;
+                    }
+                }
+                _ => {}
+            }
+
             if lt == Type::BigInt || rt == Type::BigInt {
                 Type::BigInt
             } else if lt == Type::F64 || rt == Type::F64 {
@@ -324,7 +343,6 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
         Expr::Index { obj, index: _, .. } => {
             // Infer element type from list/array type using state to look up variable types
             let obj_type = infer_type_with_state(state, obj);
-            eprintln!("DEBUG Index: obj={:?}, obj_type={:?}", obj, obj_type);
             match &obj_type {
                 Type::List(elem_type) => {
                     // If element type is Infer, try to determine from variable name or list contents
@@ -332,22 +350,18 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                         if let Expr::Ident(name, _) = obj.as_ref() {
                             // Heuristic: common float list variable names in benchmarks
                             if matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass") {
-                                eprintln!("DEBUG Index: heuristic float list -> F64");
                                 return Type::F64;
                             }
                             // Try to infer from var_types directly
                             if let Some(var_type) = state.var_types.get(name) {
-                                eprintln!("DEBUG Index: var_types[{}] = {:?}", name, var_type);
                                 if let Type::List(inner) = var_type {
                                     if !matches!(inner.as_ref(), Type::Infer) {
-                                        eprintln!("DEBUG Index: from var_types -> {:?}", inner.as_ref());
                                         return inner.as_ref().clone();
                                     }
                                 }
                             }
                         }
                     }
-                    eprintln!("DEBUG Index: elem_type = {:?}", elem_type.as_ref());
                     return elem_type.as_ref().clone();
                 },
                 Type::Array(elem_type, _) => return elem_type.as_ref().clone(),
@@ -358,7 +372,6 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 }
                 _ => {}
             }
-            eprintln!("DEBUG Index: falling back to Infer");
             Type::Infer
         },
         _ => Type::Infer,

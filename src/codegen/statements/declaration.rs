@@ -314,10 +314,6 @@ pub(crate) fn generate_nonlocal<'ctx>(
             // No closure cell found - this could be an error or the variable
             // might be in an outer scope that we haven't properly analyzed.
             // For now, create a placeholder but emit a warning.
-            eprintln!(
-                "Warning: nonlocal '{}' not found in closure cells - may not work correctly",
-                name
-            );
 
             // Create a fallback alloca (this won't work correctly but avoids crash)
             let i64_type = state.context.i64_type();

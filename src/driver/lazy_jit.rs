@@ -316,6 +316,8 @@ pub struct TieredJitEngine<'ctx> {
     promotion_threshold: usize,
     /// Functions already promoted to optimizing tier
     promoted_functions: HashMap<String, u64>,
+    /// Stored bitcode of modules for re-compilation in optimizing tier
+    module_bitcode: Vec<Vec<u8>>,
 }
 
 impl<'ctx> TieredJitEngine<'ctx> {
@@ -327,6 +329,7 @@ impl<'ctx> TieredJitEngine<'ctx> {
             call_counts: HashMap::new(),
             promotion_threshold: 100, // Promote after 100 calls
             promoted_functions: HashMap::new(),
+            module_bitcode: Vec::new(),
         }
     }
 
@@ -338,11 +341,17 @@ impl<'ctx> TieredJitEngine<'ctx> {
             call_counts: HashMap::new(),
             promotion_threshold,
             promoted_functions: HashMap::new(),
+            module_bitcode: Vec::new(),
         }
     }
 
-    /// Add a module to both engines
+    /// Add a module to the baseline engine and store bitcode for future promotion
     pub fn add_module(&mut self, module: Module<'ctx>) {
+        // Store bitcode for the optimizing engine
+        let bitcode = module.write_bitcode_to_memory();
+        self.module_bitcode.push(bitcode.as_slice().to_vec());
+        
+        // Add to baseline engine
         self.baseline_engine.add_module(module);
     }
 
@@ -362,7 +371,20 @@ impl<'ctx> TieredJitEngine<'ctx> {
             // Initialize optimizing engine if not done
             if self.optimizing_engine.is_none() {
                 let context = self.baseline_engine.context;
-                self.optimizing_engine = Some(LazyJitEngine::new(context, 3)); // O3 for optimizing
+                let mut opt_engine = LazyJitEngine::new(context, 3); // O3 for optimizing
+                
+                // Add all modules from bitcode
+                for (i, bitcode_data) in self.module_bitcode.iter().enumerate() {
+                    let buffer = inkwell::memory_buffer::MemoryBuffer::create_from_memory_range(
+                        bitcode_data,
+                        &format!("module_{}", i),
+                    );
+                    let module = Module::parse_bitcode_from_buffer(&buffer, context)
+                        .map_err(|e| ViperError::driver(format!("Failed to parse bitcode: {}", e)))?;
+                    opt_engine.add_module(module);
+                }
+                
+                self.optimizing_engine = Some(opt_engine);
             }
 
             // Try to get from optimizing engine

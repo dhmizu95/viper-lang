@@ -783,7 +783,6 @@ fn generate_aug_assign_index<'ctx>(
         return Ok(());
     }
 
-    eprintln!("DEBUG aug_assign: NOT float list, using runtime fallback");
     
     // For non-float lists, fall back to runtime functions
     // Load current tagged int value

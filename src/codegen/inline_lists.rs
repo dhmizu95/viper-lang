@@ -110,10 +110,21 @@ pub fn inline_bool_list_get<'ctx>(
     // Get the data pointer (i8* for bool lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
 
+    // Untag index (tagged ints are shifted left by 1)
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        )
+        .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
     // Calculate element pointer: data_ptr + index
     let i8_type = state.context.i8_type();
     let elem_ptr = unsafe {
-        state.builder.build_in_bounds_gep(i8_type, data_ptr, &[index_val], "bool_elem_ptr")
+        state.builder.build_in_bounds_gep(i8_type, data_ptr, &[index_untagged], "bool_elem_ptr")
     }
     .map_err(|e| format!("Failed to build GEP for bool element: {:?}", e))?;
 
@@ -149,10 +160,21 @@ pub fn inline_bool_list_set<'ctx>(
     // Get the data pointer (i8* for bool lists)
     let data_ptr = get_list_data_ptr(state, list_val)?;
 
+    // Untag index (tagged ints are shifted left by 1)
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        )
+        .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
     // Calculate element pointer: data_ptr + index
     let i8_type = state.context.i8_type();
     let elem_ptr = unsafe {
-        state.builder.build_in_bounds_gep(i8_type, data_ptr, &[index_val], "bool_elem_ptr")
+        state.builder.build_in_bounds_gep(i8_type, data_ptr, &[index_untagged], "bool_elem_ptr")
     }
     .map_err(|e| format!("Failed to build GEP for bool element: {:?}", e))?;
 
@@ -204,9 +226,20 @@ pub fn inline_i64_list_get<'ctx>(
         )
         .map_err(|e| format!("Failed to cast data pointer to i64*: {:?}", e))?;
 
+    // Untag index (tagged ints are shifted left by 1)
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        )
+        .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
     // Calculate element pointer: data_ptr + index
     let elem_ptr = unsafe {
-        state.builder.build_in_bounds_gep(i64_type, data_ptr_i64, &[index_val], "i64_elem_ptr")
+        state.builder.build_in_bounds_gep(i64_type, data_ptr_i64, &[index_untagged], "i64_elem_ptr")
     }
     .map_err(|e| format!("Failed to build GEP for i64 element: {:?}", e))?;
 
@@ -240,9 +273,20 @@ pub fn inline_i64_list_set<'ctx>(
         )
         .map_err(|e| format!("Failed to cast data pointer to i64*: {:?}", e))?;
 
+    // Untag index (tagged ints are shifted left by 1)
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "index_untagged",
+        )
+        .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
     // Calculate element pointer: data_ptr + index
     let elem_ptr = unsafe {
-        state.builder.build_in_bounds_gep(i64_type, data_ptr_i64, &[index_val], "i64_elem_ptr")
+        state.builder.build_in_bounds_gep(i64_type, data_ptr_i64, &[index_untagged], "i64_elem_ptr")
     }
     .map_err(|e| format!("Failed to build GEP for i64 element: {:?}", e))?;
 

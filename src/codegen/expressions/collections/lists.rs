@@ -135,10 +135,15 @@ pub fn generate_list_comprehension<'ctx>(
         .get_function(append_func_name)
         .ok_or_else(|| format!("{} not declared", append_func_name))?;
 
-    // Handle range() specially (like generate_for does)
+    // Check if iterator is range() or a list/iterable
+    let mut is_range = false;
+    let mut iter_val = None;
+    let mut iter_is_float_list = false;
+
     let (start_val, end_val) = if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
+                is_range = true;
                 match args.len() {
                     0 => {
                         return crate::codegen::codegen_error(
@@ -155,19 +160,31 @@ pub fn generate_list_comprehension<'ctx>(
                     ),
                 }
             } else {
-                return crate::codegen::codegen_error(
-                    "List comprehension only supports range() iterator".to_string(),
-                );
+                // Not range(), evaluate as regular expression
+                let v = generate_expr(state, iter)?;
+                iter_val = Some(v);
+                let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
+                let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
+                (state.ir_builder.i64_const(0), len)
             }
         } else {
-            return crate::codegen::codegen_error(
-                "List comprehension only supports range() iterator".to_string(),
-            );
+            let v = generate_expr(state, iter)?;
+            iter_val = Some(v);
+            let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
+            let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
+            (state.ir_builder.i64_const(0), len)
         }
     } else {
-        return crate::codegen::codegen_error(
-            "List comprehension only supports range() iterator".to_string(),
-        );
+        let v = generate_expr(state, iter)?;
+        iter_val = Some(v);
+        
+        // Determine if iter is a float list for optimized get
+        let iter_type = infer_expr_type(iter);
+        iter_is_float_list = matches!(iter_type, Type::List(inner) if matches!(*inner, Type::F64));
+
+        let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
+        let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
+        (state.ir_builder.i64_const(0), len)
     };
 
     // Create loop blocks
@@ -215,19 +232,46 @@ pub fn generate_list_comprehension<'ctx>(
     // Body block
     state.builder.position_at_end(body_block);
 
-    // Create a separate variable for the loop variable (copy counter value)
-    let var_ptr = state.builder.build_alloca(state.context.i64_type(), var).expect("alloca");
+    // Load counter as the current value (if range) or index (if list)
     let counter_val = state
         .builder
-        .build_load(state.context.i64_type(), counter, "counter_for_var")
+        .build_load(state.context.i64_type(), counter, "counter_val")
         .expect("load counter")
         .into_int_value();
-    state.builder.build_store(var_ptr, counter_val).expect("store var");
+
+    let loop_var_val = if is_range {
+        counter_val.into()
+    } else {
+        // Fetch element from list: list[counter]
+        let list_val = iter_val.expect("iter_val should be present if not range");
+        let get_func_name = if iter_is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
+        let get_func = state.module.get_function(get_func_name).ok_or_else(|| format!("{} not declared", get_func_name))?;
+
+        state.ir_builder.build_call(state.builder, get_func, &[list_val.into(), counter_val.into()], "extracted_elem").unwrap()
+    };
+
+    // Create a separate variable for the loop variable
+    let var_type = if is_range { 
+        crate::codegen::variables::VarType::Int 
+    } else if iter_is_float_list {
+        crate::codegen::variables::VarType::Float
+    } else {
+        crate::codegen::variables::VarType::Int
+    };
+    
+    let storage_type = if matches!(var_type, crate::codegen::variables::VarType::Float) {
+        state.context.f64_type().into()
+    } else {
+        state.context.i64_type().into()
+    };
+
+    let var_ptr = state.builder.build_alloca(storage_type, var).expect("alloca");
+    state.builder.build_store(var_ptr, loop_var_val).expect("store var");
 
     // Set up the loop variable in the symbol table
     let old_var = state.variables.insert(
         var.to_string(),
-        VarInfo::new_stack(var_ptr, crate::codegen::variables::VarType::Int),
+        VarInfo::new_stack(var_ptr, var_type),
     );
 
     // Generate the element expression

@@ -67,7 +67,40 @@ void vp_print_dict(ViperDict* dict) {
         printf("{}");
         return;
     }
-    printf("{...}");  // Simplified dict print
+
+    printf("{");
+    bool first = true;
+    for (int64_t i = 0; i < dict->size; i++) {
+        DictEntry* entry = dict->buckets[i];
+        while (entry) {
+            if (!first) printf(", ");
+            first = false;
+
+            if (entry->key) {
+                printf("'%.*s': ", (int)vp_str_len_inline(entry->key), vp_str_data_inline(entry->key));
+            } else {
+                printf("None: ");
+            }
+
+            switch (entry->value.type) {
+                case VIPER_TYPE_I64: printf("%ld", (long)entry->value.data.as_i64); break;
+                case VIPER_TYPE_F64: printf("%f", entry->value.data.as_f64); break;
+                case VIPER_TYPE_BOOL: printf("%s", entry->value.data.as_bool ? "True" : "False"); break;
+                case VIPER_TYPE_STR: 
+                    if (entry->value.data.as_str)
+                        printf("'%.*s'", (int)vp_str_len_inline(entry->value.data.as_str), vp_str_data_inline(entry->value.data.as_str));
+                    else
+                        printf("None");
+                    break;
+                case VIPER_TYPE_LIST: printf("[...]"); break;
+                case VIPER_TYPE_DICT: printf("{...}"); break;
+                case VIPER_TYPE_NONE: printf("None"); break;
+                default: printf("<?>"); break;
+            }
+            entry = entry->next;
+        }
+    }
+    printf("}");
 }
 
 void vp_print_bytes(ViperBytes* bytes) {
@@ -506,23 +539,38 @@ void vp_dict_set_str_str(ViperDict* dict, void* key_str, void* value_str) {
     vp_dict_set(dict, key, val);
 }
 
-/* Wrapper for dict get returning i64 value */
+/* Helper for optimized dict lookup */
+static uint64_t vp_runtime_hash_cstr(const char* data) {
+    if (!data) return 0;
+    uint64_t hash = 14695981039346656037ULL;
+    for (int i = 0; data[i]; i++) {
+        hash ^= (uint64_t)data[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+/* Optimized wrapper for dict get returning i64 value - avoids ViperString allocation */
 int64_t vp_dict_get_i64(ViperDict* dict, const char* key) {
     if (!dict || !key) return 0;
 
-    ViperString* key_str = vp_str_create(key);
-    if (!key_str) return 0;
+    uint64_t hash = vp_runtime_hash_cstr(key);
+    int64_t index = hash % dict->size;
 
-    ViperValue val = vp_dict_get(dict, key_str);
-    vp_str_free(key_str);
-    
-    if (val.type == VIPER_TYPE_I64) {
-        return val.data.as_i64;
-    } else if (val.type == VIPER_TYPE_NONE) {
-        return 0;
+    DictEntry* entry = dict->buckets[index];
+    while (entry) {
+        if (entry->key) {
+            const char* entry_data = vp_str_data_inline(entry->key);
+            if (strcmp(entry_data, key) == 0) {
+                if (entry->value.type == VIPER_TYPE_I64) {
+                    return entry->value.data.as_i64;
+                }
+                return 0;
+            }
+        }
+        entry = entry->next;
     }
     
-    /* Type mismatch - return 0 for now */
     return 0;
 }
 
@@ -703,20 +751,124 @@ char* vp_struct_pack(const char* format, ...) {
     return buffer;
 }
 
-/* Unpack values from binary buffer - returns allocated buffer with unpacked data */
-/* Note: format parameter reserved for future use */
-char* vp_struct_unpack(const char* format, const char* data, int data_len) {
-    (void)format; /* Reserved for future use */
-    /* Simplified implementation: return a copy of the data */
-    /* A full implementation would parse the format and unpack values */
-    if (!data || data_len <= 0) return NULL;
-
-    char* buffer = (char*)malloc((size_t)data_len + 1);
-    if (!buffer) return NULL;
+ViperList* vp_struct_unpack(const char* format, const char* buffer) {
+    if (!format || !buffer) return NULL;
     
-    memcpy(buffer, data, (size_t)data_len);
-    buffer[data_len] = '\0';
-    return buffer;
+    ViperList* result = vp_list_create();
+    int offset = 0;
+    int count = 1;
+    bool has_count = false;
+    
+    for (int i = 0; format[i]; i++) {
+        char c = format[i];
+        
+        if (c >= '0' && c <= '9') {
+            if (!has_count) {
+                count = 0;
+                has_count = true;
+            }
+            count = count * 10 + (c - '0');
+            continue;
+        }
+        
+        has_count = false;
+        
+        for (int j = 0; j < count; j++) {
+            switch (c) {
+                case 'b': {
+                    int8_t val = (int8_t)buffer[offset++];
+                    vp_list_append(result, (int64_t)val);
+                    break;
+                }
+                case 'B': {
+                    uint8_t val = (uint8_t)buffer[offset++];
+                    vp_list_append(result, (int64_t)val);
+                    break;
+                }
+                case 'h': {
+                    int16_t val;
+                    memcpy(&val, &buffer[offset], 2);
+                    offset += 2;
+                    vp_list_append(result, (int64_t)val);
+                    break;
+                }
+                case 'H': {
+                    uint16_t val;
+                    memcpy(&val, &buffer[offset], 2);
+                    offset += 2;
+                    vp_list_append(result, (int64_t)val);
+                    break;
+                }
+                case 'i': case 'l': {
+                    int32_t val;
+                    memcpy(&val, &buffer[offset], 4);
+                    offset += 4;
+                    vp_list_append(result, (int64_t)val);
+                    break;
+                }
+                case 'I': case 'L': {
+                    uint32_t val;
+                    memcpy(&val, &buffer[offset], 4);
+                    offset += 4;
+                    vp_list_append(result, (int64_t)val);
+                    break;
+                }
+                case 'q': {
+                    int64_t val;
+                    memcpy(&val, &buffer[offset], 8);
+                    offset += 8;
+                    vp_list_append(result, val);
+                    break;
+                }
+                case 'Q': {
+                    uint64_t val;
+                    memcpy(&val, &buffer[offset], 8);
+                    offset += 8;
+                    vp_list_append(result, (int64_t)val);
+                    break;
+                }
+                case 'f': {
+                    float val;
+                    memcpy(&val, &buffer[offset], 4);
+                    offset += 4;
+                    ViperValue v;
+                    v.type = VIPER_TYPE_F64;
+                    v.data.as_f64 = (double)val;
+                    vp_list_append(result, v.data.as_i64);
+                    break;
+                }
+                case 'd': {
+                    double val;
+                    memcpy(&val, &buffer[offset], 8);
+                    offset += 8;
+                    ViperValue v;
+                    v.type = VIPER_TYPE_F64;
+                    v.data.as_f64 = val;
+                    vp_list_append(result, v.data.as_i64);
+                    break;
+                }
+                case 's': {
+                    int len;
+                    memcpy(&len, &buffer[offset], 4);
+                    offset += 4;
+                    char* str_data = (char*)malloc(len + 1);
+                    memcpy(str_data, &buffer[offset], len);
+                    str_data[len] = '\0';
+                    offset += len;
+                    ViperString* vs = vp_str_create(str_data);
+                    free(str_data);
+                    ViperValue v;
+                    v.type = VIPER_TYPE_STR;
+                    v.data.as_str = vs;
+                    vp_list_append(result, v.data.as_i64);
+                    j = count; 
+                    break;
+                }
+            }
+        }
+        count = 1;
+    }
+    return result;
 }
 
 // Float list specific functions
