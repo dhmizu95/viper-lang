@@ -137,8 +137,7 @@ pub extern "C" fn vp_list_get_stub(list: *mut std::ffi::c_void, index: i64) -> i
             return 0;
         }
 
-        // Untag the index (tagged ints are shifted left by 1)
-        let mut idx = index >> 1;
+        let mut idx = index;
 
         // Handle negative indexing
         if idx < 0 {
@@ -217,8 +216,7 @@ pub extern "C" fn vp_list_set_stub(list: *mut std::ffi::c_void, index: i64, val:
     }
     unsafe {
         let list_ref = &mut *(list as *mut ViperListStub);
-        // Untag the index (tagged ints are shifted left by 1)
-        let mut idx = index >> 1;
+        let mut idx = index;
 
         // Handle negative indexing
         if idx < 0 {
@@ -237,8 +235,7 @@ pub extern "C" fn vp_list_insert_stub(list: *mut std::ffi::c_void, index: i64, v
     }
     unsafe {
         let list_ref = &mut *(list as *mut ViperListStub);
-        // Untag the index (tagged ints are shifted left by 1)
-        let mut idx = index >> 1;
+        let mut idx = index;
 
         // Handle negative indexing
         if idx < 0 {
@@ -280,8 +277,7 @@ pub extern "C" fn vp_list_remove_stub(list: *mut std::ffi::c_void, index: i64) -
     }
     unsafe {
         let list_ref = &mut *(list as *mut ViperListStub);
-        // Untag the index (tagged ints are shifted left by 1)
-        let mut idx = index >> 1;
+        let mut idx = index;
 
         // Handle negative indexing
         if idx < 0 {
@@ -403,8 +399,7 @@ pub extern "C" fn vp_list_get_f64_stub(list: *mut std::ffi::c_void, index: i64) 
     }
     unsafe {
         let list_ref = &*(list as *mut ViperListF64Stub);
-        // Untag the index (tagged ints are shifted left by 1)
-        let mut idx = index >> 1;
+        let mut idx = index;
 
         // Handle negative indexing
         if idx < 0 {
@@ -425,8 +420,7 @@ pub extern "C" fn vp_list_set_f64_stub(list: *mut std::ffi::c_void, index: i64, 
     }
     unsafe {
         let list_ref = &mut *(list as *mut ViperListF64Stub);
-        // Untag the index (tagged ints are shifted left by 1)
-        let mut idx = index >> 1;
+        let mut idx = index;
 
         // Handle negative indexing
         if idx < 0 {

@@ -79,12 +79,26 @@ ViperFuture* vp_future_create(void) {
     future->result = 0;
     future->callback = NULL;
     future->user_data = NULL;
+    future->waiting_fiber = NULL;
     return future;
 }
 
 void vp_future_free(ViperFuture* future) {
     if (!future) return;
     free(future);
+}
+
+void vp_future_retain(ViperFuture* future) {
+    if (!future) return;
+    future->ref_count += 1;
+}
+
+void vp_future_release(ViperFuture* future) {
+    if (!future) return;
+    future->ref_count -= 1;
+    if (future->ref_count <= 0) {
+        vp_future_free(future);
+    }
 }
 
 void vp_future_set_result(ViperFuture* future, int64_t result) {
@@ -133,6 +147,12 @@ int64_t vp_future_await(ViperFuture* future) {
     future->waiting_fiber = NULL;
 
     return future->result;
+}
+
+int64_t vp_future_await_and_release(ViperFuture* future) {
+    int64_t result = vp_future_await(future);
+    vp_future_release(future);
+    return result;
 }
 
 bool vp_future_is_ready(ViperFuture* future) {
@@ -336,7 +356,7 @@ int64_t vp_future_gather(int64_t* futures_ptr, int64_t count) {
     // Wait for all futures and collect results
     for (int64_t i = 0; i < count; i++) {
         ViperFuture* future = (ViperFuture*)(uintptr_t)futures_ptr[i];
-        results[i] = vp_future_await(future);
+        results[i] = vp_future_await_and_release(future);
     }
     
     // Return pointer to results as i64

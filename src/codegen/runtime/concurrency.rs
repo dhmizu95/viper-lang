@@ -74,6 +74,7 @@ pub fn declare_concurrency_functions<'ctx>(
     // Takes Future* pointer and returns i64 result
     let future_await_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_future_await", future_await_type, None);
+    module.add_function("vp_future_await_and_release", future_await_type, None);
 
     // Async runtime functions
     let future_create_type = ptr_type.fn_type(&[], false);

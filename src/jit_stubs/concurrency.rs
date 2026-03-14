@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
+use std::cell::Cell;
 use crate::jit_stubs::bigint::vp_bigint_to_i64_stub;
 use crate::jit_stubs::tagged_int::tagged_int_from_i64;
 
@@ -24,19 +26,90 @@ impl JitChannel {
     }
 }
 
+struct JitTask {
+    func: extern "C" fn(*mut std::ffi::c_void),
+    arg: usize,
+}
+
+struct SleepTask {
+    future: *mut std::ffi::c_void,
+    ms: u64,
+}
+
+extern "C" fn run_sleep_task(arg: *mut std::ffi::c_void) {
+    if arg.is_null() {
+        return;
+    }
+    let task = unsafe { Box::from_raw(arg as *mut SleepTask) };
+    std::thread::sleep(std::time::Duration::from_millis(task.ms));
+    vp_future_set_result(task.future, 0);
+}
+
 struct JitConcurrency {
     channels: Vec<JitChannel>,
     wg_count: i64,
+    tasks: VecDeque<JitTask>,
+    worker_running: bool,
 }
 
 impl JitConcurrency {
     fn new() -> Self {
-        JitConcurrency { channels: Vec::new(), wg_count: 0 }
+        JitConcurrency {
+            channels: Vec::new(),
+            wg_count: 0,
+            tasks: VecDeque::new(),
+            worker_running: false,
+        }
     }
 }
 
 lazy_static::lazy_static! {
     static ref JIT_CONCURRENCY: Mutex<JitConcurrency> = Mutex::new(JitConcurrency::new());
+}
+
+thread_local! {
+    static IN_ASYNC_EXEC: Cell<bool> = Cell::new(false);
+}
+
+fn run_task(func: extern "C" fn(*mut std::ffi::c_void), arg: *mut std::ffi::c_void) {
+    IN_ASYNC_EXEC.with(|flag| {
+        let prev = flag.get();
+        flag.set(true);
+        func(arg);
+        flag.set(prev);
+    });
+}
+
+fn ensure_worker_running() {
+    let should_spawn = {
+        let mut state = JIT_CONCURRENCY.lock().unwrap();
+        if state.worker_running {
+            false
+        } else {
+            state.worker_running = true;
+            true
+        }
+    };
+
+    if should_spawn {
+        std::thread::spawn(|| {
+            loop {
+                let task = {
+                    let mut state = JIT_CONCURRENCY.lock().unwrap();
+                    state.tasks.pop_front()
+                };
+
+                match task {
+                    Some(task) => run_task(task.func, task.arg as *mut std::ffi::c_void),
+                    None => {
+                        let mut state = JIT_CONCURRENCY.lock().unwrap();
+                        state.worker_running = false;
+                        break;
+                    }
+                }
+            }
+        });
+    }
 }
 
 #[inline(always)]
@@ -144,17 +217,17 @@ pub extern "C" fn vp_wait_all_tasks() {
 // Minimal Future struct for JIT mode (must match runtime/src/async.c)
 #[repr(C)]
 struct JitFuture {
-    ref_count: i64,
-    state: i32,        // 0=PENDING, 1=READY, 2=RUNNING, 3=COMPLETED, 4=ERROR
+    ref_count: AtomicI64,
+    state: AtomicI32,        // 0=PENDING, 1=READY, 2=RUNNING, 3=COMPLETED, 4=ERROR
     _pad: i32,
-    result: i64,
+    result: AtomicI64,
     callback: *mut std::ffi::c_void,
     user_data: *mut std::ffi::c_void,
     waiting_fiber: *mut std::ffi::c_void,
 }
 
 pub extern "C" fn vp_future_await(future: *mut std::ffi::c_void) -> i64 {
-    // In JIT mode, use a simplified spin-wait implementation
+    // In JIT mode, cooperatively run queued tasks while waiting.
     if future.is_null() {
         return 0;
     }
@@ -162,13 +235,23 @@ pub extern "C" fn vp_future_await(future: *mut std::ffi::c_void) -> i64 {
     unsafe {
         let fut = &*(future as *mut JitFuture);
         
-        // Spin-wait until future is completed (state == 3) or error (state == 4)
-        // In a real implementation, this would yield the fiber
-        while fut.state != 3 && fut.state != 4 {
-            std::hint::spin_loop();
+        // Wait until future is completed (state == 3) or error (state == 4)
+        while {
+            let state = fut.state.load(Ordering::Acquire);
+            state != 3 && state != 4
+        } {
+            let task = {
+                let mut state = JIT_CONCURRENCY.lock().unwrap();
+                state.tasks.pop_front()
+            };
+            if let Some(task) = task {
+                run_task(task.func, task.arg as *mut std::ffi::c_void);
+            } else {
+                std::thread::yield_now();
+            }
         }
         
-        fut.result
+        fut.result.load(Ordering::Acquire)
     }
 }
 
@@ -179,22 +262,50 @@ pub extern "C" fn vp_future_set_result(future: *mut std::ffi::c_void, result: i6
     
     unsafe {
         let fut = &mut *(future as *mut JitFuture);
-        fut.result = result;
-        fut.state = 3; // COMPLETED
+        fut.result.store(result, Ordering::Release);
+        fut.state.store(3, Ordering::Release); // COMPLETED
     }
 }
 
 pub extern "C" fn vp_future_create() -> *mut std::ffi::c_void {
     let future = Box::new(JitFuture {
-        ref_count: 1,
-        state: 0,  // PENDING
+        ref_count: AtomicI64::new(1),
+        state: AtomicI32::new(0),  // PENDING
         _pad: 0,
-        result: 0,
+        result: AtomicI64::new(0),
         callback: std::ptr::null_mut(),
         user_data: std::ptr::null_mut(),
         waiting_fiber: std::ptr::null_mut(),
     });
     Box::into_raw(future) as *mut std::ffi::c_void
+}
+
+pub extern "C" fn vp_future_retain(future: *mut std::ffi::c_void) {
+    if future.is_null() {
+        return;
+    }
+    unsafe {
+        let fut = &*(future as *mut JitFuture);
+        fut.ref_count.fetch_add(1, Ordering::AcqRel);
+    }
+}
+
+pub extern "C" fn vp_future_release(future: *mut std::ffi::c_void) {
+    if future.is_null() {
+        return;
+    }
+    unsafe {
+        let fut = &*(future as *mut JitFuture);
+        if fut.ref_count.fetch_sub(1, Ordering::AcqRel) == 1 {
+            let _ = Box::from_raw(future as *mut JitFuture);
+        }
+    }
+}
+
+pub extern "C" fn vp_future_await_and_release(future: *mut std::ffi::c_void) -> i64 {
+    let result = vp_future_await(future);
+    vp_future_release(future);
+    result
 }
 
 // Async range for "async for i in async_range(n)"
@@ -281,36 +392,49 @@ pub extern "C" fn vp_async_spawn(
     func: extern "C" fn(*mut std::ffi::c_void),
     arg: *mut std::ffi::c_void,
 ) -> i64 {
-    // For JIT mode, run the function synchronously
-    // This allows the future result to be set before await
-    if !arg.is_null() {
-        func(arg);
+    // If we're already executing an async task, enqueue for concurrent execution.
+    // Otherwise, run immediately to preserve top-level semantics.
+    let in_async = IN_ASYNC_EXEC.with(|flag| flag.get());
+    if in_async {
+        {
+            let mut state = JIT_CONCURRENCY.lock().unwrap();
+            state.tasks.push_back(JitTask { func, arg: arg as usize });
+        }
+        ensure_worker_running();
+    } else {
+        run_task(func, arg);
     }
     0
 }
 
 pub extern "C" fn vp_async_run_loop() {
-    // No-op for JIT
+    loop {
+        let task = {
+            let mut state = JIT_CONCURRENCY.lock().unwrap();
+            state.tasks.pop_front()
+        };
+        match task {
+            Some(task) => run_task(task.func, task.arg as *mut std::ffi::c_void),
+            None => break,
+        }
+    }
 }
 
 pub extern "C" fn vp_async_sleep(milliseconds: i64) -> i64 {
-    // For JIT mode, do a simple blocking sleep and return a completed future
-    use std::thread;
-    use std::time::Duration;
-    
-    thread::sleep(Duration::from_millis(milliseconds as u64));
-    
-    // Return a completed future pointer
-    let future = Box::new(JitFuture {
-        ref_count: 1,
-        state: 3,  // COMPLETED
-        _pad: 0,
-        result: 0,
-        callback: std::ptr::null_mut(),
-        user_data: std::ptr::null_mut(),
-        waiting_fiber: std::ptr::null_mut(),
-    });
-    Box::into_raw(future) as i64
+    // For JIT mode, create a future and enqueue a sleep task.
+    let future_ptr = vp_future_create();
+    let ms = if milliseconds < 0 { 0 } else { milliseconds } as u64;
+    let sleep_task = Box::new(SleepTask { future: future_ptr, ms });
+    let task = JitTask {
+        func: run_sleep_task,
+        arg: Box::into_raw(sleep_task) as usize,
+    };
+    {
+        let mut state = JIT_CONCURRENCY.lock().unwrap();
+        state.tasks.push_back(task);
+    }
+    ensure_worker_running();
+    future_ptr as i64
 }
 
 pub extern "C" fn vp_future_gather(futures_ptr: i64, count: i64) -> i64 {
@@ -324,13 +448,9 @@ pub extern "C" fn vp_future_gather(futures_ptr: i64, count: i64) -> i64 {
         let mut results = Vec::with_capacity(count as usize);
 
         for &f in futures {
-            let future = f as *mut JitFuture;
+            let future = f as *mut std::ffi::c_void;
             if !future.is_null() {
-                // Wait for future to complete
-                while (*future).state != 3 && (*future).state != 4 {
-                    std::hint::spin_loop();
-                }
-                results.push((*future).result);
+                results.push(vp_future_await_and_release(future));
             } else {
                 results.push(0);
             }

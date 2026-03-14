@@ -201,8 +201,8 @@ pub fn generate_await<'ctx>(
 
     let await_func = state
         .module
-        .get_function("vp_future_await")
-        .ok_or_else(|| "vp_future_await not declared".to_string())?;
+        .get_function("vp_future_await_and_release")
+        .ok_or_else(|| "vp_future_await_and_release not declared".to_string())?;
 
     let result = state.ir_builder.build_call(
         state.builder,
