@@ -513,3 +513,72 @@ test()
     let stdout = run_viper_code(code).expect("program should run");
     assert!(stdout.contains("\n1\n") || stdout.contains("\r\n1\r\n"), "stdout was: {}", stdout);
 }
+
+// Null Coalescing Operator
+#[test]
+fn test_null_coalesce() {
+    let code = r#"
+def test():
+    print(None ?? 42)
+    print(10 ?? 42)
+test()
+"#;
+    let output = run_viper_code(code).expect("null coalesce should work");
+    assert!(output.contains("42"), "got: {}", output);
+    assert!(output.contains("10"), "got: {}", output);
+}
+
+// Increment / Decrement Operators
+#[test]
+fn test_pre_increment() {
+    let code = r#"
+def test():
+    x = 10
+    print(++x)
+    print(x)
+test()
+"#;
+    let output = run_viper_code(code).expect("pre-increment should work");
+    assert!(output.contains("11"), "got: {}", output);
+}
+
+#[test]
+fn test_post_increment() {
+    let code = r#"
+def test():
+    x = 10
+    print(x++)
+    print(x)
+test()
+"#;
+    let output = run_viper_code(code).expect("post-increment should work");
+    assert!(output.contains("10"), "got: {}", output);
+    assert!(output.contains("11"), "got: {}", output);
+}
+
+#[test]
+fn test_pre_decrement() {
+    let code = r#"
+def test():
+    x = 10
+    print(--x)
+    print(x)
+test()
+"#;
+    let output = run_viper_code(code).expect("pre-decrement should work");
+    assert!(output.contains("9"), "got: {}", output);
+}
+
+#[test]
+fn test_post_decrement() {
+    let code = r#"
+def test():
+    x = 10
+    print(x--)
+    print(x)
+test()
+"#;
+    let output = run_viper_code(code).expect("post-decrement should work");
+    assert!(output.contains("10"), "got: {}", output);
+    assert!(output.contains("9"), "got: {}", output);
+}

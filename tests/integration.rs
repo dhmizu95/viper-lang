@@ -28,3 +28,23 @@ mod semantic;
 mod statements;
 #[path = "integration/async_await.rs"]
 mod async_await;
+#[path = "integration/collections.rs"]
+mod collections;
+#[path = "integration/classes.rs"]
+mod classes;
+#[path = "integration/exceptions.rs"]
+mod exceptions;
+#[path = "integration/closures.rs"]
+mod closures;
+#[path = "integration/with_stmt.rs"]
+mod with_stmt;
+#[path = "integration/match_stmt.rs"]
+mod match_stmt;
+#[path = "integration/generators.rs"]
+mod generators;
+#[path = "integration/imports.rs"]
+mod imports;
+#[path = "integration/concurrency.rs"]
+mod concurrency;
+#[path = "integration/struct_types.rs"]
+mod struct_types;
