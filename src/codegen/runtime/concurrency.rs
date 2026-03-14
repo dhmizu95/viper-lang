@@ -86,6 +86,12 @@ pub fn declare_concurrency_functions<'ctx>(
     let future_is_ready_type = bool_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_future_is_ready", future_is_ready_type, None);
 
+    let future_retain_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_future_retain", future_retain_type, None);
+
+    let future_release_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_future_release", future_release_type, None);
+
     let async_spawn_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_async_spawn", async_spawn_type, None);
 

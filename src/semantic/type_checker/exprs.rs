@@ -213,6 +213,9 @@ impl TypeChecker {
                                 crate::semantic::symbol_table::BuiltinSignature::Bool => {
                                     Some(Type::Bool)
                                 }
+                                crate::semantic::symbol_table::BuiltinSignature::AsyncFutureRetain => {
+                                    Some(Type::Future(Box::new(Type::Infer)))
+                                }
                                 // Program control
                                 crate::semantic::symbol_table::BuiltinSignature::Exit => {
                                     Some(Type::None)

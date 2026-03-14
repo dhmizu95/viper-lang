@@ -27,6 +27,8 @@ pub fn register_concurrency_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_future_await" => super::super::concurrency::vp_future_await,
         "vp_future_await_and_release" => super::super::concurrency::vp_future_await_and_release,
         "vp_future_set_result" => super::super::concurrency::vp_future_set_result,
+        "vp_future_retain" => super::super::concurrency::vp_future_retain,
+        "vp_future_release" => super::super::concurrency::vp_future_release,
         "vp_future_gather" => super::super::concurrency::vp_future_gather,
         "vp_future_gather_free" => super::super::concurrency::vp_future_gather_free,
     ]);

@@ -170,6 +170,41 @@ pub fn generate_call<'ctx>(
             );
             return Ok(result.unwrap());
         }
+        if name == "future_retain" {
+            if args.len() != 1 {
+                return crate::codegen::codegen_error(format!(
+                    "future_retain() takes exactly 1 argument, got {}",
+                    args.len()
+                ));
+            }
+            let val = crate::codegen::expressions::generate_expr(state, &args[0])?;
+            let future_ptr = if val.is_pointer_value() {
+                val.into_pointer_value()
+            } else if val.is_int_value() {
+                state
+                    .builder
+                    .build_int_to_ptr(
+                        val.into_int_value(),
+                        state.context.ptr_type(inkwell::AddressSpace::default()),
+                        "future_ptr",
+                    )
+                    .map_err(|e| format!("Failed to cast future to pointer: {:?}", e))?
+            } else {
+                return crate::codegen::codegen_error(
+                    "future_retain() argument must be a Future".to_string(),
+                );
+            };
+
+            let retain_func = state
+                .module
+                .get_function("vp_future_retain")
+                .ok_or_else(|| "vp_future_retain not declared".to_string())?;
+            state
+                .ir_builder
+                .build_call(state.builder, retain_func, &[future_ptr.into()], "future_retain");
+
+            return Ok(val);
+        }
 
         // BigInt functions - removed, use int type instead
         // BigInt() constructor removed - use int type annotation or auto-promotion

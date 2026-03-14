@@ -97,6 +97,7 @@ pub enum BuiltinSignature {
     AsyncRange,      // async_range(n) -> async iterator
     AsyncGather,     // gather(futures...) -> [results]
     AsyncSleep,      // sleep(ms/seconds) -> Future[None]
+    AsyncFutureRetain, // future_retain(future) -> Future[T]
     // BigInt functions - removed, use int type instead
     // BigInt constructor removed - BigInt(str) -> BigInt
     StrBigint,  // str_bigint(BigInt) -> Str
@@ -229,6 +230,7 @@ impl Symbol {
                 BuiltinSignature::AsyncRange => Some(Type::Infer), // Async iterator
                 BuiltinSignature::AsyncGather => Some(Type::List(Box::new(Type::Int))),
                 BuiltinSignature::AsyncSleep => Some(Type::Future(Box::new(Type::None))),
+                BuiltinSignature::AsyncFutureRetain => Some(Type::Future(Box::new(Type::Infer))),
                 // BigInt functions - removed, use int type instead
                 // int() builtin returns i64 for compatibility; use int type annotation for arbitrary precision
                 // BigInt constructor removed
@@ -358,6 +360,7 @@ impl SymbolTable {
             ("async_range", SymbolKind::Builtin { signature: BuiltinSignature::AsyncRange }),
             ("gather", SymbolKind::Builtin { signature: BuiltinSignature::AsyncGather }),
             ("sleep", SymbolKind::Builtin { signature: BuiltinSignature::AsyncSleep }),
+            ("future_retain", SymbolKind::Builtin { signature: BuiltinSignature::AsyncFutureRetain }),
             // BigInt functions - removed, use int type instead
             ("str_bigint", SymbolKind::Builtin { signature: BuiltinSignature::StrBigint }),
             ("int_bigint", SymbolKind::Builtin { signature: BuiltinSignature::IntBigint }),
