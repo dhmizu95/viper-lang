@@ -378,6 +378,12 @@ impl EscapeAnalyzer {
                     if !ctx.variables.contains_key(name) {
                         ctx.variables.insert(name.clone(), VariableEscapeInfo::new(None, true, 0));
                     }
+                    
+                    // Mark variable as non-movable (mutated) - it cannot be in an SSA register
+                    // This is critical for correctness: SSA registers don't update in loops
+                    if let Some(var_info) = ctx.variables.get_mut(name) {
+                        var_info.mark_non_movable();
+                    }
                 }
             }
             Expr::Index { obj, index, .. } => {
@@ -575,10 +581,12 @@ impl EscapeAnalyzer {
         self.function_contexts.get(function_name).and_then(|ctx| ctx.variables.get(var_name))
     }
 
-    /// Check if a variable can be stack-allocated
+    /// Check if a variable can be stack-allocated (SSA register)
+    /// Returns false if the variable is mutated (non-movable) since SSA registers
+    /// don't update in loops, causing stale values to be read
     pub fn can_stack_allocate(&self, function_name: &str, var_name: &str) -> bool {
         self.get_variable_escape_info(function_name, var_name)
-            .map(|info| info.escape_state.can_stack_allocate())
+            .map(|info| info.escape_state.can_stack_allocate() && info.is_movable)
             .unwrap_or(true) // Unknown variables default to stack allocation
     }
 
