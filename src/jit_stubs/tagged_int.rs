@@ -430,6 +430,12 @@ pub extern "C" fn tagged_int_free(val: i64) {
     }
 }
 
+pub extern "C" fn tagged_int_release(val: i64) {
+    if is_bigint(val) {
+        unsafe { vp_bigint_free_stub(extract_ptr(val) as *mut _) };
+    }
+}
+
 pub extern "C" fn tagged_int_bitand(lhs: i64, rhs: i64) -> i64 {
     // Both small integers - direct bitwise AND
     if !is_bigint(lhs) && !is_bigint(rhs) {

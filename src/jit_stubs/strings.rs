@@ -1,7 +1,7 @@
 //! String JIT stubs - work with ViperString* to match runtime
 
 use crate::jit_stubs::io::ViperString;
-use std::alloc;
+
 
 /// String concatenation stub for JIT
 /// Takes two ViperString* and returns a new ViperString*

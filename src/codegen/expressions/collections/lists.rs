@@ -1,6 +1,6 @@
 use inkwell::values::BasicValueEnum;
 
-use crate::ast::{Expr, Stmt, Type};
+use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::VarInfo;
 

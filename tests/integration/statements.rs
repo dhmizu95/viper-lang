@@ -240,3 +240,28 @@ test()
 "#;
     assert!(run_viper_code(code).is_ok());
 }
+
+#[test]
+fn test_delete_simple() {
+    let code = r#"
+def test():
+    x = 42
+    del x
+    print("ok")
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
+fn test_delete_list_item() {
+    let code = r#"
+def test():
+    l = [1, 2, 3]
+    del l[1]
+    print(len(l))
+test()
+"#;
+    let output = run_viper_code(code).unwrap();
+    assert!(output.contains("2"));
+}

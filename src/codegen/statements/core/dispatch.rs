@@ -333,14 +333,19 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         }
         // New Python keyword statements - stub implementations for now
         Stmt::Assert { condition, message, span: _ } => {
-            let cond_val = crate::codegen::expressions::generate_expr(state, condition)?;
-            // In Viper, 0 is False, non-zero is True (for ints)
-            let is_true = state.builder.build_int_compare(
-                inkwell::IntPredicate::NE,
-                cond_val.into_int_value(),
-                state.context.i64_type().const_int(0, false),
-                "assert_cond"
-            ).unwrap();
+            let cond_val = crate::codegen::expressions::generate_expr(state, condition)?.into_int_value();
+            
+            // Convert condition to i1 (boolean) for branch
+            let is_true = if cond_val.get_type().get_bit_width() == 1 {
+                cond_val
+            } else {
+                state.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond_val,
+                    state.context.i64_type().const_int(0, false),
+                    "assert_cond"
+                ).unwrap()
+            };
             
             let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
             let fail_bb = state.context.append_basic_block(func, "assert_fail");
@@ -350,8 +355,8 @@ pub(crate) fn generate_stmt_internal<'ctx>(
             
             // Failure path
             state.builder.position_at_end(fail_bb);
-            let panic_func = state.module.get_function("vp_panic")
-                .ok_or_else(|| "vp_panic not declared".to_string())?;
+            let panic_func = state.module.get_function("viper_panic")
+                .ok_or_else(|| "viper_panic not declared".to_string())?;
             
             let msg_ptr = if let Some(msg_expr) = message {
                 // If message is a string literal, use it directly
@@ -396,19 +401,32 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                         let obj_val = crate::codegen::expressions::generate_expr(state, obj)?;
                         let index_val = crate::codegen::expressions::generate_expr(state, index)?;
                         
-                        // For now, assume it's a list
-                        let remove_func = state.module.get_function("vp_list_remove")
-                            .ok_or_else(|| "vp_list_remove not declared".to_string())?;
-                        let removed_call = state.builder.build_call(remove_func, &[obj_val.into(), index_val.into()], "del_item").unwrap();
-                        let removed_val = match removed_call.try_as_basic_value() {
-                            inkwell::values::ValueKind::Basic(v) => v,
-                            _ => panic!("Expected basic value from vp_list_remove"),
-                        };
+                        let obj_type = crate::codegen::expressions::core::infer_type_with_state(state, obj);
                         
-                        // Release the removed element
-                        let release_func = state.module.get_function("tagged_int_release")
-                            .ok_or_else(|| "tagged_int_release not declared".to_string())?;
-                        state.builder.build_call(release_func, &[removed_val.into()], "release_removed").unwrap();
+                        // Decide which removal function to use based on inferred type
+                        if matches!(obj_type, Type::Dict(..)) {
+                            let remove_func = state.module.get_function("vp_dict_remove")
+                                .ok_or_else(|| "vp_dict_remove not declared".to_string())?;
+                            
+                            // vp_dict_remove(dict, key) - key must be un-tagged if it's a string
+                            // Dictionaries currently only support strings as keys
+                            state.builder.build_call(remove_func, &[obj_val.into(), index_val.into()], "del_dict_item").unwrap();
+                        } else {
+                            // Assume it's a list
+                            let remove_func = state.module.get_function("vp_list_remove")
+                                .ok_or_else(|| "vp_list_remove not declared".to_string())?;
+                            
+                            let result_call = state.builder.build_call(remove_func, &[obj_val.into(), index_val.into()], "del_list_item").unwrap();
+                            let removed_val = match result_call.try_as_basic_value() {
+                                inkwell::values::ValueKind::Basic(v) => v,
+                                _ => panic!("Expected basic value from vp_list_remove"),
+                            };
+                            
+                            // vp_list_remove returns the item, we must release it
+                            let release_func = state.module.get_function("tagged_int_release")
+                                .ok_or_else(|| "tagged_int_release not declared".to_string())?;
+                            state.builder.build_call(release_func, &[removed_val.into()], "release_removed").unwrap();
+                        }
                     }
                     _ => {}
                 }

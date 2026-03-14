@@ -96,7 +96,7 @@ pub extern "C" fn vp_print_str(s: *mut ViperString) {
         // Check SSO flag (bit 63)
         if length < 0 {
             // SSO - data is inline
-            let sso_len = (unsafe { viper_str.data.sso.sso_len_flags } & 0x7F) as usize;
+            let sso_len = (viper_str.data.sso.sso_len_flags & 0x7F) as usize;
             let sso_data = &viper_str.data.sso.sso_data[..sso_len.min(15)];
             if let Ok(rust_str) = std::str::from_utf8(sso_data) {
                 print!("{}", rust_str);

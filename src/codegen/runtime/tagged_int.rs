@@ -169,6 +169,13 @@ pub fn declare_tagged_int_functions<'ctx>(
         context.create_string_attribute("alwaysinline", ""),
     );
 
+    // tagged_int_release (has side effects - releases reference)
+    let func = module.add_function("tagged_int_release", print_type, None); // Use void(i64) type
+    func.add_attribute(
+        inkwell::attributes::AttributeLoc::Function,
+        context.create_string_attribute("alwaysinline", ""),
+    );
+
     Ok(())
 }
 
