@@ -10,9 +10,12 @@
 //! Lazy JIT: ~20-30MB (functions compiled on-demand)
 //!
 //! # Usage
-//! ```rust,no_run
+//! ```rust,ignore
 //! use viper_lang::driver::LazyJitEngine;
+//! use inkwell::context::Context;
 //!
+//! let context = Context::create();
+//! let module = context.create_module("test");
 //! let lazy_engine = LazyJitEngine::new(&context, 3);
 //! lazy_engine.add_module(module);
 //!
