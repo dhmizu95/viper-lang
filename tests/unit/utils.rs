@@ -303,9 +303,9 @@ def slow_fact(n):
     let mut lexer = Lexer::new(source);
     let tokens = lexer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
-    let ast = parser.parse().unwrap();
+    let mut ast = parser.parse().unwrap();
 
-    let (warnings, recursive_count) = analyze_recursive_functions(&ast);
+    let (warnings, recursive_count) = analyze_recursive_functions(&mut ast);
 
     assert_eq!(recursive_count, 2);
     assert_eq!(warnings.len(), 1);

@@ -56,6 +56,8 @@ Examples:
   ./build.sh --clean --test     # Clean, build, and test
   ./build.sh --benchmark        # Build and run benchmarks
   ./build.sh --install          # Build and install globally
+  ./build.sh --install --test   # Build, test, then install
+  ./build.sh --clean --test --benchmark  # Full CI: clean, build, test, benchmark
 
 EOF
 }
@@ -117,25 +119,34 @@ if [ "$DO_CLEAN" = true ]; then
 fi
 
 # ============================================
-# Build Runtime
+# Build (Runtime + Compiler)
 # ============================================
 
+# Build is required for test, benchmark, and install
+DO_ACTUAL_BUILD=false
 if [ "$DO_BUILD" = true ] || [ "$DO_TEST" = true ] || [ "$DO_BENCHMARK" = true ] || [ "$DO_INSTALL" = true ]; then
+    DO_ACTUAL_BUILD=true
+fi
+
+if [ "$DO_ACTUAL_BUILD" = true ]; then
+    # Build runtime library
     print_info "Building runtime library..."
-    if make runtime; then
+    if [ ! -f "runtime/obj/libviper.a" ]; then
+        print_info "Runtime library missing, forcing rebuild..."
+        cd runtime && make clean && make
+        cd ..
+    else
+        make runtime
+    fi
+    if [ -f "runtime/obj/libviper.a" ]; then
         print_success "Runtime build complete"
     else
-        print_error "Runtime build failed"
+        print_error "Runtime build failed - libviper.a not created"
         exit 1
     fi
     echo ""
-fi
 
-# ============================================
-# Build Compiler
-# ============================================
-
-if [ "$DO_BUILD" = true ] || [ "$DO_TEST" = true ] || [ "$DO_BENCHMARK" = true ] || [ "$DO_INSTALL" = true ]; then
+    # Build compiler
     print_info "Building Viper compiler..."
     if make build; then
         print_success "Build complete"
