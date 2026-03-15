@@ -21,6 +21,24 @@ std_dir = "std"
 binary_name = "viper"
 build_backend = "rust"
 
+# Compiler configuration
+[compiler]
+# Automatically memoize pure recursive functions with exponential complexity
+# Equivalent to passing --auto-memoize on the command line
+auto_memoize = false
+
+# Default optimization level (0-3)
+# Can be overridden with -O flag on command line
+opt_level = 2
+
+# Enable Link-Time Optimization for better cross-crate optimization
+# Can be overridden with --lto flag on command line
+lto = true
+
+# Enable Profile-Guided Optimization
+# Requires PGO instrumentation and profiling runs first
+pgo = false
+
 # Dependencies on external Viper packages
 [dependencies]
 # Example external packages (future)
