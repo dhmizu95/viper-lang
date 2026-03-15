@@ -568,6 +568,19 @@ pub fn generate_call<'ctx>(
                 func_val.add_attribute(inkwell::attributes::AttributeLoc::Function, inline_attr);
             }
 
+            // TAIL CALL OPTIMIZATION: Add tail attribute for recursive calls
+            // This allows LLVM to convert tail-recursive calls into jumps (TCO)
+            // We check if this is a recursive call by comparing function names
+            let is_current_function = state.current_function
+                .as_ref()
+                .map_or(false, |cf| cf == name);
+            
+            if is_current_function {
+                // Add tail attribute to enable TCO for recursive calls
+                let tail_attr = state.context.create_string_attribute("tail", "");
+                func_val.add_attribute(inkwell::attributes::AttributeLoc::Function, tail_attr);
+            }
+
             let result = state.ir_builder.build_call(state.builder, func_val, &arg_values, "call");
             return Ok(result.unwrap_or(state.ir_builder.i64_const(0).into()));
         }
