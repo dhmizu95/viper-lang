@@ -1,0 +1,16 @@
+# Fibonacci Benchmark - Viper Implementation
+# Now with automatic memoization
+
+def fib(n):
+    """Calculate nth Fibonacci number recursively."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    n = 40
+    
+    result = fib(n)
+    print(result)
+
+main()

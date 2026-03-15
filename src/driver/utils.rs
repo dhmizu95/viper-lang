@@ -100,7 +100,7 @@ pub fn show_info() {
     println!("  viper info                Show this information");
 }
 
-pub fn analyze_recursive_functions(module: &Module) -> (Vec<String>, usize) {
+pub fn analyze_recursive_functions(module: &mut Module) -> (Vec<String>, usize) {
     let mut recursion_analyzer = RecursionAnalyzer::new();
 
     for stmt in &module.statements {
@@ -120,13 +120,30 @@ pub fn analyze_recursive_functions(module: &Module) -> (Vec<String>, usize) {
     let recursive_funcs = recursion_analyzer.get_recursive_functions();
     let mut warnings = Vec::new();
 
-    for (name, _info) in recursive_funcs {
+    for (name, info) in recursive_funcs {
+        // Check if already has memoization decorator
         if function_has_memoization_decorator(module, name) {
             continue;
         }
 
-        if let Some(warning) = recursion_analyzer.generate_warning(name) {
-            warnings.push(warning);
+        // AUTOMATIC MEMOIZATION: Only add @lru_cache to functions with exponential recursion
+        // Exponential: fib(n) calls fib(n-1) + fib(n-2) - each call makes 2+ recursive calls
+        // Linear: sum_list(lst, idx) calls sum_list(lst, idx+1) - each call makes 1 recursive call
+        // Memoizing linear recursion can cause issues with list parameters
+        if info.recursive_call_count >= 2 {
+            // Exponential recursion - add memoization
+            add_lru_cache_decorator(module, name);
+            
+            if let Some(warning) = recursion_analyzer.generate_warning(name) {
+                // Update the warning to reflect auto-memoization
+                let updated_warning = warning.replace("but not memoized", "automatically memoized with @lru_cache");
+                warnings.push(updated_warning);
+            }
+        } else {
+            // Linear recursion - don't memoize, just warn
+            if let Some(warning) = recursion_analyzer.generate_warning(name) {
+                warnings.push(warning);
+            }
         }
     }
 
@@ -147,7 +164,7 @@ pub fn type_check_module(input_path: &Path, ast: &Module) -> Result<TypeChecker>
     Ok(type_checker)
 }
 
-fn function_has_memoization_decorator(module: &Module, function_name: &str) -> bool {
+fn function_has_memoization_decorator(module: &mut Module, function_name: &str) -> bool {
     module.statements.iter().any(|stmt| {
         matches!(
             stmt,
@@ -161,6 +178,27 @@ fn function_has_memoization_decorator(module: &Module, function_name: &str) -> b
                     .any(|d| d.name == "lru_cache" || d.name == "cache")
         )
     })
+}
+
+/// Automatically add @lru_cache decorator to a recursive function
+fn add_lru_cache_decorator(module: &mut Module, function_name: &str) {
+    // Find the function and add the decorator
+    for stmt in &mut module.statements {
+        if let Stmt::Function { name, decorators, .. } = stmt {
+            if name == function_name {
+                // Add @lru_cache decorator if not already present
+                if !decorators.iter().any(|d| d.name == "lru_cache") {
+                    decorators.push(crate::ast::Decorator {
+                        name: "lru_cache".to_string(),
+                        args: vec![],
+                        keywords: vec![],
+                        span: crate::utils::Span::default(),
+                    });
+                }
+                break;
+            }
+        }
+    }
 }
 
 #[allow(dead_code)]

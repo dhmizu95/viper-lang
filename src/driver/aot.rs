@@ -90,7 +90,7 @@ pub fn compile_file_aot(
 
     // Run Recursion Analysis to detect recursive functions
     println!("   [2.4/4] Running recursion analysis...");
-    let (warnings, recursive_func_count) = crate::driver::analyze_recursive_functions(&ast);
+    let (warnings, recursive_func_count) = crate::driver::analyze_recursive_functions(&mut ast);
     for warning in &warnings {
         eprintln!("   {}", warning);
     }

@@ -78,12 +78,12 @@ pub fn compile_and_run_jit_with_memo(
     let tokens = lexer.tokenize()?;
 
     let mut parser = parser::Parser::new(tokens);
-    let ast = parser.parse()?;
+    let mut ast = parser.parse()?;
 
     let _type_checker = crate::driver::type_check_module(Path::new(input_path), &ast)?;
 
     // Run Recursion Analysis to detect recursive functions
-    let (warnings, recursive_func_count) = crate::driver::analyze_recursive_functions(&ast);
+    let (warnings, recursive_func_count) = crate::driver::analyze_recursive_functions(&mut ast);
     for warning in &warnings {
         eprintln!("   {}", warning);
     }
