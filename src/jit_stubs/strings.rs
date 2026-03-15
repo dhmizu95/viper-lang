@@ -198,12 +198,18 @@ pub extern "C" fn vp_str_format_stub(
                         if let Some(end_offset) = result[start..].find('}') {
                             let end = start + end_offset;
                             let placeholder = &result[start..=end];
-                            
+
                             let mut formatted = arg_str.clone();
                             if placeholder.contains(':') {
-                                if placeholder.contains(".9f") {
-                                    if let Ok(val) = arg_str.parse::<f64>() {
-                                        formatted = format!("{:.9}", val);
+                                // Handle float formatting like {:.3f}, {:.9f}, etc.
+                                if let Some(precision_start) = placeholder.find('.') {
+                                    if let Some(precision_end) = placeholder[precision_start..].find('f') {
+                                        let precision_str = &placeholder[precision_start + 1..precision_start + precision_end];
+                                        if let Ok(precision) = precision_str.parse::<usize>() {
+                                            if let Ok(val) = arg_str.parse::<f64>() {
+                                                formatted = format!("{:.*}", precision, val);
+                                            }
+                                        }
                                     }
                                 }
                             }

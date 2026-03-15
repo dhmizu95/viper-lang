@@ -47,6 +47,13 @@ void vp_print_newline(void) {
     fflush(stdout);
 }
 
+void vp_print_cstr(const char* str) {
+    if (str) {
+        printf("%s", str);
+    }
+    fflush(stdout);
+}
+
 void vp_print_list(ViperList* list) {
     if (!list) {
         printf("[]");

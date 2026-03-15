@@ -217,11 +217,11 @@ pub fn generate_print_call<'ctx>(
                         || matches!(inferred, Type::Var(s) if s == "str" || s == "string");
                 }
 
-                let mut is_future = false;
-                if let Expr::Ident(name, _) = arg {
-                    if let Some(t) = state.var_types.get(name) {
-                        is_future = matches!(t, Type::Future(_));
-                    }
+                // Check for method call result (e.g., "str".format() or obj.method())
+                // Method calls return pointer values that are typically strings
+                let is_method_call = matches!(arg, Expr::Attribute { .. });
+                if is_method_call {
+                    is_string = true; // Assume method calls return strings for now
                 }
 
                 if is_string {
@@ -234,22 +234,9 @@ pub fn generate_print_call<'ctx>(
                         .builder
                         .build_call(print_func, &[val.into()], "print_str")
                         .expect("print_str");
-                } else if is_future {
-                    let print_func = state
-                        .module
-                        .get_function("vp_print_cstr")
-                        .ok_or_else(|| "vp_print_cstr not declared".to_string())?;
-                    let msg = state
-                        .builder
-                        .build_global_string_ptr("<Future>", "future_str")
-                        .expect("global string");
-                    state
-                        .builder
-                        .build_call(print_func, &[msg.as_pointer_value().into()], "print_future")
-                        .expect("print_future");
                 } else {
-                    // Fallback for unknown pointer types (likely a string from a method/function)
-                    // Use vp_print_viper_str but safely - it handles NULL internally
+                    // Fallback for unknown pointer types (futures, method results, etc.)
+                    // Use vp_print_viper_str which handles ViperString* objects
                     let print_func = state
                         .module
                         .get_function("vp_print_viper_str")
