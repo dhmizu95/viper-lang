@@ -18,6 +18,8 @@ mod hashlib;
 mod literals;
 #[path = "integration/operators.rs"]
 mod operators;
+#[path = "integration/print.rs"]
+mod print;
 #[path = "integration/repl.rs"]
 mod repl;
 #[path = "integration/scenarios.rs"]
