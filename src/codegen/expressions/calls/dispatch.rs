@@ -310,27 +310,94 @@ pub fn generate_call<'ctx>(
 
         // range() - returns a list of integers
         if name == "range" {
-            let (start_val, end_val, _step_val) = match args.len() {
+            let (start_val, end_val) = match args.len() {
                 0 => {
                     return crate::codegen::codegen_error(
                         "range expected at least 1 argument, got 0".to_string(),
                     )
                 }
-                1 => (
-                    state.ir_builder.i64_const(0),
-                    generate_expr(state, &args[0])?.into_int_value(),
-                    state.ir_builder.i64_const(1),
-                ),
-                2 => (
-                    generate_expr(state, &args[0])?.into_int_value(),
-                    generate_expr(state, &args[1])?.into_int_value(),
-                    state.ir_builder.i64_const(1),
-                ),
-                _ => (
-                    generate_expr(state, &args[0])?.into_int_value(),
-                    generate_expr(state, &args[1])?.into_int_value(),
-                    generate_expr(state, &args[2])?.into_int_value(),
-                ),
+                1 => {
+                    let end_expr = generate_expr(state, &args[0])?;
+                    // Untag the end value (runtime expects untagged integers)
+                    let end_untagged = if end_expr.is_int_value() {
+                        state
+                            .builder
+                            .build_right_shift(
+                                end_expr.into_int_value(),
+                                state.context.i64_type().const_int(1, false),
+                                false,
+                                "range_end_untagged",
+                            )
+                            .expect("untag range end")
+                    } else {
+                        end_expr.into_int_value()
+                    };
+                    (state.context.i64_type().const_zero(), end_untagged)
+                }
+                2 => {
+                    let start_expr = generate_expr(state, &args[0])?;
+                    let end_expr = generate_expr(state, &args[1])?;
+                    // Untag both values (runtime expects untagged integers)
+                    let start_untagged = if start_expr.is_int_value() {
+                        state
+                            .builder
+                            .build_right_shift(
+                                start_expr.into_int_value(),
+                                state.context.i64_type().const_int(1, false),
+                                false,
+                                "range_start_untagged",
+                            )
+                            .expect("untag range start")
+                    } else {
+                        start_expr.into_int_value()
+                    };
+                    let end_untagged = if end_expr.is_int_value() {
+                        state
+                            .builder
+                            .build_right_shift(
+                                end_expr.into_int_value(),
+                                state.context.i64_type().const_int(1, false),
+                                false,
+                                "range_end_untagged",
+                            )
+                            .expect("untag range end")
+                    } else {
+                        end_expr.into_int_value()
+                    };
+                    (start_untagged, end_untagged)
+                }
+                _ => {
+                    let start_expr = generate_expr(state, &args[0])?;
+                    let end_expr = generate_expr(state, &args[1])?;
+                    // Step is ignored for now, just untag start and end
+                    let start_untagged = if start_expr.is_int_value() {
+                        state
+                            .builder
+                            .build_right_shift(
+                                start_expr.into_int_value(),
+                                state.context.i64_type().const_int(1, false),
+                                false,
+                                "range_start_untagged",
+                            )
+                            .expect("untag range start")
+                    } else {
+                        start_expr.into_int_value()
+                    };
+                    let end_untagged = if end_expr.is_int_value() {
+                        state
+                            .builder
+                            .build_right_shift(
+                                end_expr.into_int_value(),
+                                state.context.i64_type().const_int(1, false),
+                                false,
+                                "range_end_untagged",
+                            )
+                            .expect("untag range end")
+                    } else {
+                        end_expr.into_int_value()
+                    };
+                    (start_untagged, end_untagged)
+                }
             };
 
             let range_func = state
@@ -441,11 +508,16 @@ pub fn generate_call<'ctx>(
         }
 
         // Check for user-defined functions with overload resolution
-        // Infer argument types from the expressions themselves, not from var_types
-        // This ensures we use the correct types regardless of the caller's scope
+        // Infer argument types from expressions, using var_types for identifiers
         let arg_types: Vec<Type> = args
             .iter()
-            .map(|a| infer_expr_type(a))
+            .map(|a| match a {
+                Expr::Ident(name, _) => {
+                    // Use var_types for identifier type lookup
+                    state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a))
+                }
+                _ => infer_expr_type(a),
+            })
             .collect();
 
         // Check for identity function pattern (def f(x): return x) and inline it
@@ -673,11 +745,12 @@ pub(crate) fn infer_named_call_return_type<'ctx>(
     name: &str,
     args: &[Expr],
 ) -> Option<Type> {
+    // Infer argument types using var_types for identifiers
     let arg_types: Vec<Type> = args
         .iter()
         .map(|a| match a {
-            Expr::Ident(name, _) => {
-                state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a))
+            Expr::Ident(ident_name, _) => {
+                state.var_types.get(ident_name).cloned().unwrap_or_else(|| infer_expr_type(a))
             }
             _ => infer_expr_type(a),
         })

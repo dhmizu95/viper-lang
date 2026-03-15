@@ -238,6 +238,8 @@ pub fn generate_binop<'ctx>(
         return arithmetic::generate_float_binop(state, lhs_val_check, rhs_val_check, op);
     }
 
+    // Check if both operands are definitely tagged integers (not BigInts)
+    // Use tagged int operations for proper overflow handling
     if is_tagged_int || is_left_int_call || is_right_int_call {
         // Generate operands for tagged int operations
         return arithmetic::generate_tagged_int_binop(state, lhs_val_check, rhs_val_check, op);

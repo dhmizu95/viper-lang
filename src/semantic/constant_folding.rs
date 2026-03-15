@@ -40,6 +40,24 @@ impl ConstantFolder {
 
     fn fold_statement(&mut self, stmt: &mut Stmt) {
         match stmt {
+            Stmt::Function { params, body, .. } => {
+                // Save current constants and clear them for function scope
+                // Function parameters should not inherit constants from outer scope
+                let saved_constants = self.constants.clone();
+                
+                // Mark parameters as non-constant (they receive new values on each call)
+                for param in params {
+                    self.constants.remove(&param.name);
+                }
+                
+                // Fold body statements
+                for stmt in body {
+                    self.fold_statement(stmt);
+                }
+                
+                // Restore constants after function
+                self.constants = saved_constants;
+            }
             Stmt::Assign { target, value, .. } => {
                 // Fold the value expression
                 self.fold_expr(value);
@@ -76,6 +94,20 @@ impl ConstantFolder {
                     self.fold_statement(stmt);
                 }
             }
+            Stmt::For { iter, body, .. } => {
+                self.fold_expr(iter);
+
+                // Loop variables should not be treated as constants
+                // Save and clear constants for loop body
+                let saved_constants = self.constants.clone();
+                
+                for stmt in body {
+                    self.fold_statement(stmt);
+                }
+                
+                // Restore constants after loop (loop variables may have changed)
+                self.constants = saved_constants;
+            }
             Stmt::Return { value, .. } => {
                 if let Some(ref mut expr) = value {
                     self.fold_expr(expr);
@@ -83,6 +115,13 @@ impl ConstantFolder {
             }
             Stmt::Expr(expr) => {
                 self.fold_expr(expr);
+            }
+            Stmt::Const { name, value, .. } => {
+                // Const declarations are always constant
+                self.fold_expr(value);
+                if let Some(const_val) = self.extract_constant(value) {
+                    self.constants.insert(name.clone(), const_val);
+                }
             }
             _ => {
                 // Other statement types - fold any expressions they contain

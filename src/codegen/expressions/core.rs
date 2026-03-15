@@ -113,7 +113,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
         Expr::BigInt(_, _) => Type::Int, // BigInt literals are also tagged int
         Expr::None(_) => Type::None,
         Expr::Ident(_, _) => Type::Infer, // Will be resolved during codegen
-        Expr::Call { func, args, .. } => {
+        Expr::Call { func, args: _, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 // Built-in BigInt functions (case insensitive for constructor)
                 if name == "bigint"
