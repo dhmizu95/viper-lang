@@ -322,10 +322,14 @@ pub fn parse_block(parser: &mut StatementParser) -> crate::error::Result<Vec<Stm
 
     let mut stmts = Vec::new();
     loop {
-        // Check for dedent without consuming it
+        // Check for dedent or elif/else keywords that end this block
         if matches!(parser.current().kind, TokenKind::Dedent) {
             // Consume the dedent
             parser.advance();
+            break;
+        }
+        // Elif and Else are handled by the parent if statement, not as part of the block
+        if matches!(parser.current().kind, TokenKind::Elif | TokenKind::Else) {
             break;
         }
         if parser.is_at_end() {

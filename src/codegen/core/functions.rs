@@ -83,8 +83,10 @@ impl<'ctx> CodeGen<'ctx> {
                     // Determine if we should memoize this function
                     // Auto-memoize ONLY for exponential recursion (fibonacci-style)
                     // Linear recursion (factorial-style) should NOT be auto-memoized
+                    // Void functions (no return value) should NOT be memoized
+                    let is_void_function = return_type.is_none() || matches!(return_type, Some(Type::None));
                     let should_memoize =
-                        is_lru_cache || is_cache || (self.auto_memoize && is_exponential_recursion);
+                        !is_void_function && (is_lru_cache || is_cache || (self.auto_memoize && is_exponential_recursion));
 
                     if should_memoize {
                         let mut use_lru_cache = is_lru_cache;

@@ -47,11 +47,11 @@ fn find_function_with_defaults<'ctx>(
     // Look for a function with more parameters (has defaults)
     // Search through all functions with matching prefix
     let mut best_match: Option<(inkwell::values::FunctionValue<'ctx>, usize)> = None;
-    
+
     for (mangled_name, func) in state.functions.iter() {
         if mangled_name.starts_with(&format!("{}_", name)) || mangled_name == name {
-            // Count parameters by counting underscores in mangled name
-            let param_count = mangled_name.chars().filter(|c| *c == '_').count();
+            // Get actual parameter count from LLVM function type
+            let param_count = func.get_type().count_param_types() as usize;
             if param_count > arg_types.len() {
                 // This function has more params than args - potential default param match
                 // Prefer the one with the smallest number of extra params
@@ -532,7 +532,15 @@ pub fn generate_call<'ctx>(
 
         // If still no match, try to find a function with default parameters (more params than args)
         let (func_val, expected_param_count) = if let Some(func_val) = func_val {
-            (Some(func_val), arg_types.len())
+            // Check if the found function has more parameters than args passed (default params)
+            let fn_type = func_val.get_type();
+            let actual_param_count = fn_type.count_param_types() as usize;
+            if actual_param_count > arg_types.len() {
+                // Function has default parameters
+                (Some(func_val), actual_param_count)
+            } else {
+                (Some(func_val), arg_types.len())
+            }
         } else {
             // Try finding a function with more parameters (has defaults)
             if let Some((func, param_count)) = find_function_with_defaults(state, name, &arg_types) {
