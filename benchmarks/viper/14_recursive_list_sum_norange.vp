@@ -1,0 +1,18 @@
+# Recursive List Sum Benchmark - Viper Implementation
+# Using for loop instead of range() to avoid JIT crash
+
+def sum_list(lst, idx):
+    if idx >= len(lst):
+        return 0
+    return lst[idx] + sum_list(lst, idx + 1)
+
+def main():
+    # Create list using for loop instead of range()
+    lst = []
+    for i in range(1, 1001):
+        lst.append(i)
+    
+    result = sum_list(lst, 0)
+    print(result)
+
+main()

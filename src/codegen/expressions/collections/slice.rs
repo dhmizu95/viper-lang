@@ -264,14 +264,9 @@ pub fn generate_list_call<'ctx>(
         Expr::Call { func, .. } => {
             if let Expr::Ident(name, _) = func.as_ref() {
                 if name == "range" {
-                    let copy_func = state
-                        .module
-                        .get_function("vp_list_copy_from_list")
-                        .ok_or_else(|| "vp_list_copy_from_list not declared".to_string())?;
-                    state
-                        .ir_builder
-                        .build_call(state.builder, copy_func, &[arg_val.into()], "list_from_range")
-                        .unwrap()
+                    // range() already returns a new list, no need to copy
+                    // Just return the result directly
+                    return Ok(arg_val);
                 } else {
                     // Generic iterable
                     let from_iter_func = state

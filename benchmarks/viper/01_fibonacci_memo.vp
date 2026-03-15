@@ -1,0 +1,19 @@
+# Fibonacci Benchmark - Viper Implementation
+# With Memoization using @lru_cache
+
+from functools import lru_cache
+
+@lru_cache(maxsize=None)
+def fib(n):
+    """Calculate nth Fibonacci number recursively with memoization."""
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+def main():
+    n = 35
+    
+    result = fib(n)
+    print(result)
+
+main()

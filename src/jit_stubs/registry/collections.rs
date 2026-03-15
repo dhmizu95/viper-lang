@@ -83,10 +83,10 @@ pub fn register_collection_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_bitvec_concat" => super::super::bitvec::vp_bitvec_concat_stub,
     ]);
 
-    // Range function
-    register_stubs!(ee, module, [
-        "vp_range" => super::super::lists::vp_range_stub,
-    ]);
+    // Range function - use runtime version instead of stub
+    // register_stubs!(ee, module, [
+    //     "vp_range" => super::super::lists::vp_range_stub,
+    // ]);
 
     // Dict functions
     register_stubs!(ee, module, [
