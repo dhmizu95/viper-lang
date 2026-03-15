@@ -135,20 +135,21 @@ def cbrt(x: float) -> float:
 # Trigonometric Functions
 # ============================================
 
+extern "C" def vp_math_sin(x: float) -> float
+extern "C" def vp_math_cos(x: float) -> float
+extern "C" def vp_math_tan(x: float) -> float
+
 def sin(x: float) -> float:
     """Return the sine of x (measured in radians)."""
-    # Implemented in runtime
-    return 0.0
+    return vp_math_sin(x)
 
 def cos(x: float) -> float:
     """Return the cosine of x (measured in radians)."""
-    # Implemented in runtime
-    return 0.0
+    return vp_math_cos(x)
 
 def tan(x: float) -> float:
     """Return the tangent of x (measured in radians)."""
-    # Implemented in runtime
-    return 0.0
+    return vp_math_tan(x)
 
 def asin(x: float) -> float:
     """Return the arc sine of x (measured in radians)."""

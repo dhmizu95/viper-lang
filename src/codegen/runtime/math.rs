@@ -29,6 +29,18 @@ pub fn declare_math_functions<'ctx>(
     let floor_type = f64_type.fn_type(&[f64_type.into()], false);
     module.add_function("vp_math_floor", floor_type, None);
 
+    // sin(x) - sine function
+    let sin_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_sin", sin_type, None);
+
+    // cos(x) - cosine function
+    let cos_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_cos", cos_type, None);
+
+    // tan(x) - tangent function
+    let tan_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_tan", tan_type, None);
+
     // pow(base, exponent) - power function for floats
     let pow_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
     module.add_function("vp_pow", pow_type, None);

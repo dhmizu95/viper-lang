@@ -20,6 +20,7 @@ Cross-language performance benchmarks for Viper, with the expanded suite integra
 | 12 | BigInt Overflow | Large-integer arithmetic on values beyond Viper small-int range | CPU + Memory |
 | 13 | Factorial | Recursive Factorial (n=15) | CPU-bound |
 | 14 | Recursive List Sum | Recursive sum of 1000-element list | CPU-bound |
+| 15 | FFT | Fast Fourier Transform, Cooley-Tukey (N=256) | CPU + Memory + FP |
 
 ## Directory Structure
 

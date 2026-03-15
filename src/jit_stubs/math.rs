@@ -15,6 +15,18 @@ pub extern "C" fn vp_math_floor(x: f64) -> f64 {
     x.floor()
 }
 
+pub extern "C" fn vp_math_sin(x: f64) -> f64 {
+    x.sin()
+}
+
+pub extern "C" fn vp_math_cos(x: f64) -> f64 {
+    x.cos()
+}
+
+pub extern "C" fn vp_math_tan(x: f64) -> f64 {
+    x.tan()
+}
+
 pub extern "C" fn vp_math_sqrt_stub(x: f64) -> f64 {
     x.sqrt()
 }
