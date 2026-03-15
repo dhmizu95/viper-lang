@@ -18,6 +18,8 @@ Cross-language performance benchmarks for Viper, with the expanded suite integra
 | 10 | Function Calls | Tiny helper call inside a hot loop | CPU-bound |
 | 11 | String Concat Scan | `str(i)` concatenation and text scan | CPU + Memory |
 | 12 | BigInt Overflow | Large-integer arithmetic on values beyond Viper small-int range | CPU + Memory |
+| 13 | Factorial | Recursive Factorial (n=15) | CPU-bound |
+| 14 | Recursive List Sum | Recursive sum of 1000-element list | CPU-bound |
 
 ## Directory Structure
 

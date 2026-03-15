@@ -44,6 +44,8 @@ BENCHMARKS=(
     "10_function_calls"
     "11_string_concat_scan"
     "12_bigint_overflow"
+    "13_factorial"
+    "14_recursive_list_sum"
 )
 
 if command -v python3 &> /dev/null; then
