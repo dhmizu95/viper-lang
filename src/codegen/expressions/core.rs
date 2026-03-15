@@ -138,9 +138,19 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
                 if name == "print" || name == "len" || name == "range" {
                     return if name == "len" { Type::I64 } else { Type::None };
                 }
-
-                let arg_types: Vec<Type> = args.iter().map(infer_expr_type).collect();
-                Type::Fn(arg_types, Box::new(Type::Infer))
+                // list() returns a list
+                if name == "list" {
+                    return Type::List(Box::new(Type::Infer));
+                }
+                // tuple() returns a tuple
+                if name == "tuple" {
+                    return Type::Tuple(vec![Type::Infer]);
+                }
+                // For other user-defined functions, return Infer since we can't
+                // determine the return type without analyzing the function body
+                // Note: We don't return Type::Fn here - that's the function TYPE,
+                // not the return type of calling the function
+                Type::Infer
             } else if let Expr::Attribute { attr, .. } = func.as_ref() {
                 if attr == "format" || attr == "upper" || attr == "lower" || attr == "replace" {
                     Type::Str
@@ -271,6 +281,14 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 if name == "print" || name == "len" || name == "range" {
                     return if name == "len" { Type::I64 } else { Type::None };
                 }
+                // list() returns a list
+                if name == "list" {
+                    return Type::List(Box::new(Type::Infer));
+                }
+                // tuple() returns a tuple
+                if name == "tuple" {
+                    return Type::Tuple(vec![Type::Infer]);
+                }
                 if let Some(return_type) =
                     crate::codegen::expressions::calls::infer_named_call_return_type(
                         state, name, args,
@@ -278,9 +296,11 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 {
                     return return_type;
                 }
-                let arg_types: Vec<Type> =
-                    args.iter().map(|a| infer_type_with_state(state, a)).collect();
-                Type::Fn(arg_types, Box::new(Type::Infer))
+                // For other user-defined functions, return Infer since we can't
+                // determine the return type without analyzing the function body
+                // Note: We don't return Type::Fn here - that's the function TYPE,
+                // not the return type of calling the function
+                Type::Infer
             } else if let Expr::Attribute { attr, .. } = func.as_ref() {
                 if attr == "format" || attr == "upper" || attr == "lower" || attr == "replace" {
                     Type::Str

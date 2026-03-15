@@ -441,18 +441,11 @@ pub fn generate_call<'ctx>(
         }
 
         // Check for user-defined functions with overload resolution
-        // Infer argument types, using var_types for identifiers when available
+        // Infer argument types from the expressions themselves, not from var_types
+        // This ensures we use the correct types regardless of the caller's scope
         let arg_types: Vec<Type> = args
             .iter()
-            .map(|a| {
-                match a {
-                    Expr::Ident(name, _) => {
-                        // Try to get type from var_types first
-                        state.var_types.get(name).cloned().unwrap_or_else(|| infer_expr_type(a))
-                    }
-                    _ => infer_expr_type(a),
-                }
-            })
+            .map(|a| infer_expr_type(a))
             .collect();
 
         // Check for identity function pattern (def f(x): return x) and inline it
