@@ -1,23 +1,19 @@
 // Recursive List Sum Benchmark - Go Implementation
-// Recursive sum of a slice
+// Recursive sum of a range
 
 package main
 
 import "fmt"
 
-func sumSlice(slice []int, idx int) int {
-	if idx >= len(slice) {
+func sumRange(n int) int {
+	if n <= 0 {
 		return 0
 	}
-	return slice[idx] + sumSlice(slice, idx+1)
+	return n + sumRange(n-1)
 }
 
 func main() {
-	slice := make([]int, 1000)
-	for i := 0; i < 1000; i++ {
-		slice[i] = i + 1
-	}
-	
-	result := sumSlice(slice, 0)
+	n := 200
+	result := sumRange(n)
 	fmt.Println(result)
 }

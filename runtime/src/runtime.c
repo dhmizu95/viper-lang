@@ -37,6 +37,10 @@ void vp_print_str(ViperString* val) {
     fflush(stdout);
 }
 
+void vp_print_viper_str(ViperString* val) {
+    vp_print_str(val);
+}
+
 void vp_print_bool(bool val) {
     printf("%s", val ? "True" : "False");
     fflush(stdout);

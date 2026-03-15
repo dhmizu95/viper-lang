@@ -162,12 +162,57 @@ fi
 # ============================================
 
 if [ "$DO_TEST" = true ]; then
-    print_info "Running tests..."
-    if make test; then
-        print_success "All tests passed"
+    print_info "Running unit tests..."
+    echo ""
+    
+    UNIT_RESULT=0
+    cargo test --test unit 2>&1 | tee /tmp/unit_test.log
+    if grep -q "test result: ok" /tmp/unit_test.log; then
+        UNIT_RESULT=0
     else
+        UNIT_RESULT=1
+    fi
+    
+    # Extract unit test result
+    UNIT_SUMMARY=$(grep "test result:" /tmp/unit_test.log | tail -1)
+    
+    echo ""
+    print_info "Running integration tests..."
+    echo ""
+    
+    INTEGRATION_RESULT=0
+    cargo test --test integration 2>&1 | tee /tmp/integration_test.log
+    if grep -q "test result: ok" /tmp/integration_test.log; then
+        INTEGRATION_RESULT=0
+    else
+        INTEGRATION_RESULT=1
+    fi
+    
+    # Extract integration test result
+    INTEGRATION_SUMMARY=$(grep "test result:" /tmp/integration_test.log | tail -1)
+    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Test Results Summary"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Unit Tests:"
+    echo "  $UNIT_SUMMARY"
+    echo ""
+    echo "Integration Tests:"
+    echo "  $INTEGRATION_SUMMARY"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Clean up
+    rm -f /tmp/unit_test.log /tmp/integration_test.log
+    
+    # Exit with failure if any tests failed
+    if [ $UNIT_RESULT -ne 0 ] || [ $INTEGRATION_RESULT -ne 0 ]; then
         print_error "Some tests failed"
         exit 1
+    else
+        print_success "All tests passed"
     fi
     echo ""
 fi

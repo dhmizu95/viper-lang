@@ -1,9 +1,10 @@
-def sum_list(lst, idx):
-    if idx >= len(lst):
+def sum_range(n):
+    if n <= 0:
         return 0
-    return lst[idx] + sum_list(lst, idx + 1)
+    return n + sum_range(n - 1)
 
 
 if __name__ == "__main__":
-    lst = list(range(1, 1001))
-    print(sum_list(lst, 0))
+    # Keep recursion depth comfortably below typical stack limits
+    n = 200
+    print(sum_range(n))

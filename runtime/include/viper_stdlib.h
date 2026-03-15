@@ -244,6 +244,7 @@ int64_t vp_hash_none(void);
 void vp_print_i64(int64_t val);
 void vp_print_f64(double val);
 void vp_print_str(ViperString* str);
+void vp_print_viper_str(ViperString* str);
 void vp_print_bool(bool val);
 void vp_print_newline(void);
 void vp_print_list(ViperList* list);
