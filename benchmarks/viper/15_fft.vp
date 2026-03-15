@@ -117,10 +117,6 @@ def total_magnitude(real, imag):
     return total
 
 def main():
-    # Allocate memory for signal (SoA layout)
-    real = [0.0] * N
-    imag = [0.0] * N
-    
     # Generate test signal
     real, imag = generate_signal(N)
     
