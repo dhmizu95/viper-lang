@@ -108,13 +108,11 @@ def log1p(x: float) -> float:
 
 def log2(x: float) -> float:
     """Return the base 2 logarithm of x."""
-    # Implemented in runtime
-    return 0.0
+    return vp_math_log2(x)
 
 def log10(x: float) -> float:
     """Return the base 10 logarithm of x."""
-    # Implemented in runtime
-    return 0.0
+    return vp_math_log10(x)
 
 def pow(x: float, y: float) -> float:
     """Return x raised to the power y."""
@@ -138,6 +136,8 @@ def cbrt(x: float) -> float:
 extern "C" def vp_math_sin(x: float) -> float
 extern "C" def vp_math_cos(x: float) -> float
 extern "C" def vp_math_tan(x: float) -> float
+extern "C" def vp_math_log2(x: float) -> float
+extern "C" def vp_math_log10(x: float) -> float
 
 def sin(x: float) -> float:
     """Return the sine of x (measured in radians)."""

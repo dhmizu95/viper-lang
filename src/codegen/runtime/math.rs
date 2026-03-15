@@ -41,6 +41,14 @@ pub fn declare_math_functions<'ctx>(
     let tan_type = f64_type.fn_type(&[f64_type.into()], false);
     module.add_function("vp_math_tan", tan_type, None);
 
+    // log2(x) - base-2 logarithm
+    let log2_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_log2", log2_type, None);
+
+    // log10(x) - base-10 logarithm
+    let log10_type = f64_type.fn_type(&[f64_type.into()], false);
+    module.add_function("vp_math_log10", log10_type, None);
+
     // pow(base, exponent) - power function for floats
     let pow_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
     module.add_function("vp_pow", pow_type, None);

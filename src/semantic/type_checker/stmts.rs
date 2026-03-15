@@ -273,16 +273,10 @@ impl TypeChecker {
                     self.errors.push(TypeError::new(e.to_string(), *span));
                 }
             }
-            Stmt::If { condition, body, elif_blocks, else_body, span } => {
-                let cond_type = self.check_expr(condition);
-                if let Some(t) = cond_type {
-                    if t != Type::Bool {
-                        self.errors.push(TypeError::new(
-                            format!("Condition must be bool, got {}", t),
-                            *span,
-                        ));
-                    }
-                }
+            Stmt::If { condition, body, elif_blocks, else_body, span: _ } => {
+                let _cond_type = self.check_expr(condition);
+                // Python allows any type in conditionals (truthy/falsy semantics)
+                // Codegen will handle conversion to bool if needed
 
                 self.symbol_table.enter_scope();
                 for stmt in body {
@@ -291,15 +285,8 @@ impl TypeChecker {
                 self.symbol_table.exit_scope();
 
                 for (elif_cond, elif_body) in elif_blocks {
-                    let elif_type = self.check_expr(elif_cond);
-                    if let Some(t) = elif_type {
-                        if t != Type::Bool {
-                            self.errors.push(TypeError::new(
-                                format!("Condition must be bool, got {}", t),
-                                elif_cond.span(),
-                            ));
-                        }
-                    }
+                    let _elif_type = self.check_expr(elif_cond);
+                    // Python allows any type in conditionals
                     self.symbol_table.enter_scope();
                     for s in elif_body {
                         self.check_stmt(s);
@@ -315,16 +302,10 @@ impl TypeChecker {
                     self.symbol_table.exit_scope();
                 }
             }
-            Stmt::While { condition, body, span, .. } => {
-                let cond_type = self.check_expr(condition);
-                if let Some(t) = cond_type {
-                    if t != Type::Bool {
-                        self.errors.push(TypeError::new(
-                            format!("Condition must be bool, got {}", t),
-                            *span,
-                        ));
-                    }
-                }
+            Stmt::While { condition, body, span: _, .. } => {
+                let _cond_type = self.check_expr(condition);
+                // Python allows any type in conditionals (truthy/falsy semantics)
+                // Codegen will handle conversion to bool if needed
 
                 self.symbol_table.enter_scope();
                 for s in body {

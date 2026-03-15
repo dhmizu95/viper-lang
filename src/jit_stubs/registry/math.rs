@@ -81,6 +81,8 @@ pub fn register_math_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_math_sin" => super::super::math::vp_math_sin,
         "vp_math_cos" => super::super::math::vp_math_cos,
         "vp_math_tan" => super::super::math::vp_math_tan,
+        "vp_math_log2" => super::super::math::vp_math_log2,
+        "vp_math_log10" => super::super::math::vp_math_log10,
         "vp_pow" => super::super::math::vp_pow_stub,
         "vp_pow_i64" => super::super::math::vp_pow_i64_stub,
     ]);

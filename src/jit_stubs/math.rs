@@ -27,6 +27,14 @@ pub extern "C" fn vp_math_tan(x: f64) -> f64 {
     x.tan()
 }
 
+pub extern "C" fn vp_math_log2(x: f64) -> f64 {
+    x.log2()
+}
+
+pub extern "C" fn vp_math_log10(x: f64) -> f64 {
+    x.log10()
+}
+
 pub extern "C" fn vp_math_sqrt_stub(x: f64) -> f64 {
     x.sqrt()
 }

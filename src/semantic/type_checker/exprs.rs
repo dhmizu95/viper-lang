@@ -27,7 +27,7 @@ impl TypeChecker {
                             else if let (Type::List(_), Type::List(_)) = (&lt, &rt) {
                                 // List concatenation is valid
                             }
-                            // For other types, require numeric
+                            // For other types, require numeric (allows mixed int/float)
                             else if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
                                 self.errors.push(TypeError::new(
                                     format!(
@@ -37,6 +37,7 @@ impl TypeChecker {
                                     *span,
                                 ));
                             }
+                            // Note: mixed int/float is allowed - codegen handles coercion
                         }
                         BinOp::Mul => {
                             // List repetition: List * int or int * List is allowed
@@ -46,10 +47,13 @@ impl TypeChecker {
                                 (Type::I64, Type::List(_)) | (Type::Int, Type::List(_)) => true,
                                 (Type::Str, Type::I64) | (Type::Str, Type::Int) => true,
                                 (Type::I64, Type::Str) | (Type::Int, Type::Str) => true,
+                                // Also allow float for list/string repetition
+                                (Type::List(_), Type::F64) | (Type::F64, Type::List(_)) => true,
+                                (Type::Str, Type::F64) | (Type::F64, Type::Str) => true,
                                 _ => false,
                             };
                             if !is_list_repeat {
-                                // For other types, require numeric
+                                // For other types, require numeric (allows mixed int/float)
                                 if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
                                     self.errors.push(TypeError::new(
                                         format!(
@@ -60,6 +64,7 @@ impl TypeChecker {
                                     ));
                                 }
                             }
+                            // Note: mixed int/float is allowed - codegen handles coercion
                         }
                         BinOp::Sub | BinOp::Div | BinOp::Mod | BinOp::FloorDiv | BinOp::Pow => {
                             if !self.is_numeric(&lt) || !self.is_numeric(&rt) {
@@ -71,6 +76,8 @@ impl TypeChecker {
                                     *span,
                                 ));
                             }
+                            // Allow mixed int/float - codegen will coerce int to float
+                            // Python semantics: int + float = float
                         }
                         BinOp::Eq | BinOp::NotEq => {
                             // Allow comparison between compatible types (e.g. BigInt == i64)
@@ -94,6 +101,7 @@ impl TypeChecker {
                                     *span,
                                 ));
                             }
+                            // Note: mixed int/float comparison is allowed - codegen handles coercion
                         }
                         BinOp::And | BinOp::Or => {
                             if lt != Type::Bool || rt != Type::Bool {

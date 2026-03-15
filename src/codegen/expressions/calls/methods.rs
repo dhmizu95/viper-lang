@@ -118,7 +118,7 @@ pub fn generate_method_call<'ctx>(
             // Determine if this is a bool list or float list
             let is_bool_list = state.is_bool_list_expr(obj);
             let is_float_list = if let Expr::Ident(name, _) = obj {
-                matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
+                matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass" | "real" | "imag")
             } else {
                 false
             };
@@ -155,7 +155,7 @@ pub fn generate_method_call<'ctx>(
                     .module
                     .get_function("vp_list_append_f64")
                     .ok_or_else(|| "vp_list_append_f64 not declared".to_string())?;
-                
+
                 // Coerce value to f64 if needed
                 let f64_val = if val.is_float_value() {
                     val.into_float_value()
@@ -165,10 +165,13 @@ pub fn generate_method_call<'ctx>(
                     return crate::codegen::codegen_error("append() to float list requires numeric value".to_string());
                 };
 
+                // Convert list_ptr to pointer value for the call
+                let list_arg = list_ptr.into();
+
                 state.ir_builder.build_call(
                     state.builder,
                     append_func,
-                    &[list_ptr.into(), f64_val.into()],
+                    &[list_arg, f64_val.into()],
                     "append_f64",
                 ).expect("append f64 call");
             } else {
@@ -179,11 +182,12 @@ pub fn generate_method_call<'ctx>(
                         .module
                         .get_function("vp_list_append_f64")
                         .ok_or_else(|| "vp_list_append_f64 not declared".to_string())?;
-                    
+
+                    let f64_val = val.into_float_value();
                     state.ir_builder.build_call(
                         state.builder,
                         append_func,
-                        &[list_ptr.into(), val.into()],
+                        &[list_ptr.into(), f64_val.into()],
                         "append_f64",
                     ).expect("append f64 call");
                 } else {
