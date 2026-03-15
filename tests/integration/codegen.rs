@@ -1,7 +1,7 @@
 //! Code Generation Integration Tests
 
-use inkwell::context::Context;
 use crate::utils::run_viper_code;
+use inkwell::context::Context;
 use viper_lang::codegen::CodeGen;
 use viper_lang::lexer::Lexer;
 use viper_lang::parser::Parser;

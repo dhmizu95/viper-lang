@@ -62,9 +62,9 @@ fn is_pure_aug_assign_rhs(expr: &Expr) -> bool {
         Expr::List { elements, .. }
         | Expr::Tuple { elements, .. }
         | Expr::Array { elements, .. } => elements.iter().all(is_pure_aug_assign_rhs),
-        Expr::Dict { pairs, .. } => pairs
-            .iter()
-            .all(|(k, v)| is_pure_aug_assign_rhs(k) && is_pure_aug_assign_rhs(v)),
+        Expr::Dict { pairs, .. } => {
+            pairs.iter().all(|(k, v)| is_pure_aug_assign_rhs(k) && is_pure_aug_assign_rhs(v))
+        }
         Expr::Conditional { condition, then_expr, else_expr, .. } => {
             is_pure_aug_assign_rhs(condition)
                 && is_pure_aug_assign_rhs(then_expr)
@@ -97,12 +97,7 @@ fn try_atomic_int_aug_assign<'ctx>(
 
     state
         .builder
-        .build_atomicrmw(
-            atomic_op,
-            ptr,
-            rhs,
-            AtomicOrdering::SequentiallyConsistent,
-        )
+        .build_atomicrmw(atomic_op, ptr, rhs, AtomicOrdering::SequentiallyConsistent)
         .map_err(|e| crate::codegen::codegen_err(format!("Failed to emit atomicrmw: {e}")))?;
 
     Ok(true)
@@ -248,11 +243,13 @@ pub(crate) fn generate_assign<'ctx>(
                     // Identity functions (copy, identity) - check the argument type
                     } else if func_name == "copy" || func_name == "identity" || func_name == "id" {
                         // Propagate list type from argument
-                        args.first().map(|arg| match arg {
-                            Expr::Ident(arg_name, _) => state.is_list(arg_name),
-                            Expr::List { .. } | Expr::ListComprehension { .. } => true,
-                            _ => false,
-                        }).unwrap_or(false)
+                        args.first()
+                            .map(|arg| match arg {
+                                Expr::Ident(arg_name, _) => state.is_list(arg_name),
+                                Expr::List { .. } | Expr::ListComprehension { .. } => true,
+                                _ => false,
+                            })
+                            .unwrap_or(false)
                     // Built-in string functions - not lists
                     } else if func_name.starts_with("vp_str_") || func_name == "str" {
                         false
@@ -276,7 +273,9 @@ pub(crate) fn generate_assign<'ctx>(
             if let Expr::Ident(func_name, _) = func.as_ref() {
                 if func_name == "copy" || func_name == "identity" || func_name == "id" {
                     // Use the argument's type instead of the function's return type
-                    args.first().map(|arg| get_expr_type_for_assignment(state, arg)).unwrap_or(Type::Infer)
+                    args.first()
+                        .map(|arg| get_expr_type_for_assignment(state, arg))
+                        .unwrap_or(Type::Infer)
                 } else {
                     get_expr_type_for_assignment(state, value)
                 }
@@ -348,15 +347,18 @@ pub(crate) fn generate_assign<'ctx>(
             Expr::Ident(other, _) => state.is_dict(other),
             Expr::Call { func, args, .. } => {
                 if let Expr::Ident(func_name, _) = func.as_ref() {
-                    if func_name == "vp_dict_create" || func_name == "vp_dict_create_with_capacity" {
+                    if func_name == "vp_dict_create" || func_name == "vp_dict_create_with_capacity"
+                    {
                         true
                     // Identity functions - propagate dict type from argument
                     } else if func_name == "copy" || func_name == "identity" || func_name == "id" {
-                        args.first().map(|arg| match arg {
-                            Expr::Ident(arg_name, _) => state.is_dict(arg_name),
-                            Expr::Dict { .. } => true,
-                            _ => false,
-                        }).unwrap_or(false)
+                        args.first()
+                            .map(|arg| match arg {
+                                Expr::Ident(arg_name, _) => state.is_dict(arg_name),
+                                Expr::Dict { .. } => true,
+                                _ => false,
+                            })
+                            .unwrap_or(false)
                     } else {
                         false
                     }
@@ -697,7 +699,7 @@ fn generate_aug_assign_index<'ctx>(
     value: &Expr,
 ) -> crate::codegen::Result<()> {
     use crate::codegen::inline_lists::{inline_f64_list_get, inline_f64_list_set};
-    
+
     // Determine if this is a float list
     let is_float_list = {
         let obj_type = crate::codegen::expressions::infer_expr_type(obj);
@@ -733,43 +735,59 @@ fn generate_aug_assign_index<'ctx>(
             _ => is_likely_float_list,
         }
     };
-    
+
     // Generate index value (untagged for runtime functions)
     let index_val = crate::codegen::expressions::generate_expr(state, index)?.into_int_value();
-    
+
     // For float lists, use inline access
     if is_float_list {
         let obj_val = crate::codegen::expressions::generate_expr(state, obj)?;
         let list_ptr = obj_val.into_pointer_value();
-        
+
         // Load current f64 value using inline access
         let current_f64 = inline_f64_list_get(state, list_ptr, index_val)?;
-        
+
         // Generate RHS value
         let rhs_val = crate::codegen::expressions::generate_expr(state, value)?;
-        
+
         // Perform float operation
         let result_val = match op {
             BinOp::Add => {
                 let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
                 let current: inkwell::values::BasicValueEnum = current_f64.into();
-                state.builder.build_float_add(current.into_float_value(), rhs_f64.into_float_value(), "fadd").expect("fadd").into()
-            },
+                state
+                    .builder
+                    .build_float_add(current.into_float_value(), rhs_f64.into_float_value(), "fadd")
+                    .expect("fadd")
+                    .into()
+            }
             BinOp::Sub => {
                 let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
                 let current: inkwell::values::BasicValueEnum = current_f64.into();
-                state.builder.build_float_sub(current.into_float_value(), rhs_f64.into_float_value(), "fsub").expect("fsub").into()
-            },
+                state
+                    .builder
+                    .build_float_sub(current.into_float_value(), rhs_f64.into_float_value(), "fsub")
+                    .expect("fsub")
+                    .into()
+            }
             BinOp::Mul => {
                 let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
                 let current: inkwell::values::BasicValueEnum = current_f64.into();
-                state.builder.build_float_mul(current.into_float_value(), rhs_f64.into_float_value(), "fmul").expect("fmul").into()
-            },
+                state
+                    .builder
+                    .build_float_mul(current.into_float_value(), rhs_f64.into_float_value(), "fmul")
+                    .expect("fmul")
+                    .into()
+            }
             BinOp::Div => {
                 let rhs_f64: inkwell::values::BasicValueEnum = rhs_val.into_float_value().into();
                 let current: inkwell::values::BasicValueEnum = current_f64.into();
-                state.builder.build_float_div(current.into_float_value(), rhs_f64.into_float_value(), "fdiv").expect("fdiv").into()
-            },
+                state
+                    .builder
+                    .build_float_div(current.into_float_value(), rhs_f64.into_float_value(), "fdiv")
+                    .expect("fdiv")
+                    .into()
+            }
             _ => {
                 return crate::codegen::codegen_error(format!(
                     "Unsupported augmented assignment operator for float list: {:?}",
@@ -777,13 +795,12 @@ fn generate_aug_assign_index<'ctx>(
                 ));
             }
         };
-        
+
         // Store result using inline access
         inline_f64_list_set(state, list_ptr, index_val, result_val)?;
         return Ok(());
     }
 
-    
     // For non-float lists, fall back to runtime functions
     // Load current tagged int value
     let obj_val = crate::codegen::expressions::generate_expr(state, obj)?;
@@ -791,7 +808,7 @@ fn generate_aug_assign_index<'ctx>(
         .module
         .get_function("vp_list_get")
         .ok_or_else(|| "vp_list_get not declared".to_string())?;
-    
+
     // Untag index
     let index_untagged = state
         .builder
@@ -802,23 +819,18 @@ fn generate_aug_assign_index<'ctx>(
             "index_untagged",
         )
         .expect("index untag");
-    
+
     let current_tagged = state
         .ir_builder
-        .build_call(
-            state.builder,
-            list_get,
-            &[obj_val.into(), index_untagged.into()],
-            "list_get",
-        )
+        .build_call(state.builder, list_get, &[obj_val.into(), index_untagged.into()], "list_get")
         .ok_or_else(|| "vp_list_get call failed".to_string())?;
-    
+
     // Generate RHS and perform tagged int operation (simplified - just int for now)
     let rhs_val = crate::codegen::expressions::generate_expr(state, value)?;
-    
+
     let lhs = current_tagged.into_int_value();
     let rhs = rhs_val.into_int_value();
-    
+
     let result = match op {
         BinOp::Add => state.ir_builder.build_add(state.builder, lhs, rhs, "add"),
         BinOp::Sub => state.ir_builder.build_sub(state.builder, lhs, rhs, "sub"),
@@ -830,20 +842,20 @@ fn generate_aug_assign_index<'ctx>(
             ));
         }
     };
-    
+
     // Store using runtime function
     let list_set = state
         .module
         .get_function("vp_list_set")
         .ok_or_else(|| "vp_list_set not declared".to_string())?;
-    
+
     let _ = state.ir_builder.build_call(
         state.builder,
         list_set,
         &[obj_val.into(), index_untagged.into(), result.into()],
         "list_set",
     );
-    
+
     Ok(())
 }
 
@@ -858,7 +870,7 @@ pub(crate) fn generate_aug_assign<'ctx>(
     if let Expr::Index { obj, index, .. } = target {
         return generate_aug_assign_index(state, obj, index, op, value);
     }
-    
+
     if let Expr::Ident(name, _) = target {
         // Handle global variable augmented assignment
         if state.global_constants.contains_key(name) && !state.variables.contains_key(name) {
@@ -960,11 +972,8 @@ pub(crate) fn generate_aug_assign<'ctx>(
             };
 
             let new_val = crate::codegen::expressions::generate_expr(state, value)?;
-            let rhs_int = if var_type == VarType::Int {
-                Some(new_val.into_int_value())
-            } else {
-                None
-            };
+            let rhs_int =
+                if var_type == VarType::Int { Some(new_val.into_int_value()) } else { None };
 
             let result: inkwell::values::BasicValueEnum<'ctx> = if var_type == VarType::Float {
                 let lhs = current.into_float_value();
@@ -1172,8 +1181,24 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
                 .build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
                 .map_err(|e| format!("Failed to load tuple element: {:?}", e))?;
 
+            // Determine variable type: if the value is a pointer, it's likely a list
+            // (functions returning multiple values typically return lists, strings, or other collections)
+            // We need to check the type of the expression being unpacked to determine if it's a list
+            let var_type = if let Expr::Call { func, .. } = value {
+                // For function calls that return tuples, the elements are typically pointers (lists, strings, etc.)
+                // Mark as pointer type - this allows proper handling in list indexing
+                VarType::Pointer
+            } else {
+                VarType::Int
+            };
+
+            // If this looks like a function call return (likely lists), mark as list
+            if matches!(value, Expr::Call { .. }) {
+                state.mark_as_list(name.clone());
+            }
+
             // Store in variable
-            state.variables.insert(name.clone(), VarInfo::new_register(elem_val, VarType::Int));
+            state.variables.insert(name.clone(), VarInfo::new_register(elem_val, var_type));
         } else {
             return crate::codegen::codegen_error(
                 "Tuple unpacking only supports simple identifiers".to_string(),

@@ -36,15 +36,15 @@ pub union ViperStringData {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ViperStringHeap {
-    pub heap_data: *const u8,   /* 0:  Pointer to heap data */
-    pub length: i64,            /* 8:  String length (positive, bit 63 is 0) */
+    pub heap_data: *const u8, /* 0:  Pointer to heap data */
+    pub length: i64,          /* 8:  String length (positive, bit 63 is 0) */
 }
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ViperStringSSO {
-    pub sso_data: [u8; 15],     /* 0-14: Inline storage */
-    pub sso_len_flags: i8,      /* 15:   Length and SSO flag (bit 7) */
+    pub sso_data: [u8; 15], /* 0-14: Inline storage */
+    pub sso_len_flags: i8,  /* 15:   Length and SSO flag (bit 7) */
 }
 
 impl ViperString {

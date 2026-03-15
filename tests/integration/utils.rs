@@ -64,7 +64,7 @@ pub fn build_and_run_auto_memoize(code: &str) -> Result<String, String> {
     // AOT adds _bin suffix, so we use base name without suffix
     let output_base = temp_dir.join(format!("viper_test_{}", timestamp));
     let output_binary = format!("{}_bin", output_base.display());
-    
+
     fs::write(&test_file, code).map_err(|e| format!("Failed to write: {}", e))?;
 
     // Build with auto-memoize
@@ -83,9 +83,8 @@ pub fn build_and_run_auto_memoize(code: &str) -> Result<String, String> {
     }
 
     // Run the binary (AOT adds _bin suffix)
-    let run_output = Command::new(&output_binary)
-        .output()
-        .map_err(|e| format!("Failed to run: {}", e))?;
+    let run_output =
+        Command::new(&output_binary).output().map_err(|e| format!("Failed to run: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&run_output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&run_output.stderr).to_string();

@@ -310,6 +310,8 @@ pub(crate) fn generate_try_except<'ctx>(
             state.bool_list_vars,
             state.bigint_vars,
             state.var_types,
+            state.function_param_names,
+            state.function_param_defaults,
             stmt,
         )?;
     }
@@ -331,6 +333,8 @@ pub(crate) fn generate_try_except<'ctx>(
                 state.bool_list_vars,
                 state.bigint_vars,
                 state.var_types,
+                state.function_param_names,
+                state.function_param_defaults,
                 stmt,
             )?;
         }
@@ -353,6 +357,8 @@ pub(crate) fn generate_try_except<'ctx>(
                 state.bool_list_vars,
                 state.bigint_vars,
                 state.var_types,
+                state.function_param_names,
+                state.function_param_defaults,
                 stmt,
             )?;
         }

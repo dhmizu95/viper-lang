@@ -201,9 +201,6 @@ pub fn generate_index<'ctx>(
     // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
 
-    
-
-    
     // Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {

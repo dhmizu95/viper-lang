@@ -131,10 +131,7 @@ fn tagged_both_small<'ctx>(
             "rhs_is_small",
         )
         .expect("rhs small");
-    state
-        .builder
-        .build_and(lhs_is_small, rhs_is_small, "both_small")
-        .expect("both small")
+    state.builder.build_and(lhs_is_small, rhs_is_small, "both_small").expect("both small")
 }
 
 fn tagged_int_runtime_call<'ctx>(
@@ -299,30 +296,18 @@ fn generate_tagged_int_comparison_fast_path<'ctx>(
 
     state.builder.position_at_end(slow_block);
     let slow_result = match op {
-        TaggedIntComparisonOp::Eq => tagged_int_runtime_call(
-            state,
-            "tagged_int_eq",
-            lhs,
-            rhs,
-            "tagged_eq_slow",
-        )?
-        .into_int_value(),
-        TaggedIntComparisonOp::Lt => tagged_int_runtime_call(
-            state,
-            "tagged_int_lt",
-            lhs,
-            rhs,
-            "tagged_lt_slow",
-        )?
-        .into_int_value(),
-        TaggedIntComparisonOp::Gt => tagged_int_runtime_call(
-            state,
-            "tagged_int_gt",
-            lhs,
-            rhs,
-            "tagged_gt_slow",
-        )?
-        .into_int_value(),
+        TaggedIntComparisonOp::Eq => {
+            tagged_int_runtime_call(state, "tagged_int_eq", lhs, rhs, "tagged_eq_slow")?
+                .into_int_value()
+        }
+        TaggedIntComparisonOp::Lt => {
+            tagged_int_runtime_call(state, "tagged_int_lt", lhs, rhs, "tagged_lt_slow")?
+                .into_int_value()
+        }
+        TaggedIntComparisonOp::Gt => {
+            tagged_int_runtime_call(state, "tagged_int_gt", lhs, rhs, "tagged_gt_slow")?
+                .into_int_value()
+        }
         TaggedIntComparisonOp::LtEq => {
             let gt = tagged_int_runtime_call(state, "tagged_int_gt", lhs, rhs, "tagged_gt_slow")?
                 .into_int_value();
@@ -371,9 +356,15 @@ fn generate_tagged_int_bitwise_fast_path<'ctx>(
     let lhs_small = tagged_untag_small(state, lhs_tagged, "lhs_bit_small");
     let rhs_small = tagged_untag_small(state, rhs_tagged, "rhs_bit_small");
     let small_result = match op {
-        TaggedIntBitwiseOp::And => state.builder.build_and(lhs_small, rhs_small, "tagged_and_fast").expect("and"),
-        TaggedIntBitwiseOp::Or => state.builder.build_or(lhs_small, rhs_small, "tagged_or_fast").expect("or"),
-        TaggedIntBitwiseOp::Xor => state.builder.build_xor(lhs_small, rhs_small, "tagged_xor_fast").expect("xor"),
+        TaggedIntBitwiseOp::And => {
+            state.builder.build_and(lhs_small, rhs_small, "tagged_and_fast").expect("and")
+        }
+        TaggedIntBitwiseOp::Or => {
+            state.builder.build_or(lhs_small, rhs_small, "tagged_or_fast").expect("or")
+        }
+        TaggedIntBitwiseOp::Xor => {
+            state.builder.build_xor(lhs_small, rhs_small, "tagged_xor_fast").expect("xor")
+        }
     };
     let fast_result = tagged_retag_small(state, small_result, "tagged_bit_fast_result");
     state.builder.build_unconditional_branch(merge_block).expect("bit fast merge");
@@ -385,7 +376,8 @@ fn generate_tagged_int_bitwise_fast_path<'ctx>(
         TaggedIntBitwiseOp::Or => ("tagged_int_bitor", "tagged_or_slow"),
         TaggedIntBitwiseOp::Xor => ("tagged_int_bitxor", "tagged_xor_slow"),
     };
-    let slow_result = tagged_int_runtime_call(state, func_name, lhs, rhs, result_name)?.into_int_value();
+    let slow_result =
+        tagged_int_runtime_call(state, func_name, lhs, rhs, result_name)?.into_int_value();
     state.builder.build_unconditional_branch(merge_block).expect("bit slow merge");
     let slow_end = state.builder.get_insert_block().expect("bit slow end");
 
@@ -426,7 +418,12 @@ fn generate_tagged_int_shift_fast_path<'ctx>(
 
     let rhs_non_negative = state
         .builder
-        .build_int_compare(IntPredicate::SGE, rhs_small, i64_type.const_zero(), "shift_non_negative")
+        .build_int_compare(
+            IntPredicate::SGE,
+            rhs_small,
+            i64_type.const_zero(),
+            "shift_non_negative",
+        )
         .expect("shift non-negative");
     let shift_limit = match op {
         TaggedIntShiftOp::Left => i64_type.const_int(62, false),
@@ -471,12 +468,18 @@ fn generate_tagged_int_shift_fast_path<'ctx>(
                 .builder
                 .build_int_compare(IntPredicate::SLT, wide_result, min_small, "lshift_below_min")
                 .expect("lshift below min");
-            let overflow = state.builder.build_or(above_max, below_min, "lshift_overflow").expect("lshift overflow");
+            let overflow = state
+                .builder
+                .build_or(above_max, below_min, "lshift_overflow")
+                .expect("lshift overflow");
             state.builder.build_not(overflow, "lshift_fits").expect("lshift fits")
         }
         TaggedIntShiftOp::Right => state.context.bool_type().const_all_ones(),
     };
-    let take_fast = state.builder.build_and(shift_is_fast, result_fits, "take_shift_fast").expect("take shift fast");
+    let take_fast = state
+        .builder
+        .build_and(shift_is_fast, result_fits, "take_shift_fast")
+        .expect("take shift fast");
     state
         .builder
         .build_conditional_branch(take_fast, fast_ok_block, slow_block)
@@ -502,7 +505,8 @@ fn generate_tagged_int_shift_fast_path<'ctx>(
         TaggedIntShiftOp::Left => ("tagged_int_lshift", "tagged_lshift_slow"),
         TaggedIntShiftOp::Right => ("tagged_int_rshift", "tagged_rshift_slow"),
     };
-    let slow_result = tagged_int_runtime_call(state, func_name, lhs, rhs, result_name)?.into_int_value();
+    let slow_result =
+        tagged_int_runtime_call(state, func_name, lhs, rhs, result_name)?.into_int_value();
     state.builder.build_unconditional_branch(merge_block).expect("shift slow merge");
     let slow_end = state.builder.get_insert_block().expect("shift slow end");
 
@@ -530,18 +534,12 @@ fn generate_tagged_int_neg_fast_path<'ctx>(
         .builder
         .build_int_compare(
             IntPredicate::EQ,
-            state
-                .builder
-                .build_and(value, tagged_small_mask(state), "neg_tag")
-                .expect("neg tag"),
+            state.builder.build_and(value, tagged_small_mask(state), "neg_tag").expect("neg tag"),
             i64_type.const_zero(),
             "neg_is_small",
         )
         .expect("neg small");
-    state
-        .builder
-        .build_conditional_branch(is_small, fast_block, slow_block)
-        .expect("neg check");
+    state.builder.build_conditional_branch(is_small, fast_block, slow_block).expect("neg check");
 
     state.builder.position_at_end(fast_block);
     let small_value = tagged_untag_small(state, value, "neg_small_value");
@@ -587,17 +585,29 @@ pub fn generate_float_binop<'ctx>(
     op: &BinOp,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let builder = state.builder;
-    
+
     // Coerce lhs to float if it's an integer
     let lhs = if lhs.is_int_value() {
         let int_val = lhs.into_int_value();
         // Untag if it's a 64-bit integer (tagged int)
         let untagged = if int_val.get_type().get_bit_width() == 64 {
-            builder.build_right_shift(int_val, state.context.i64_type().const_int(1, false), true, "lhs_untag").expect("lhs untag")
+            builder
+                .build_right_shift(
+                    int_val,
+                    state.context.i64_type().const_int(1, false),
+                    true,
+                    "lhs_untag",
+                )
+                .expect("lhs untag")
         } else {
-            builder.build_int_s_extend(int_val, state.context.i64_type(), "lhs_sext").expect("lhs sext")
+            builder
+                .build_int_s_extend(int_val, state.context.i64_type(), "lhs_sext")
+                .expect("lhs sext")
         };
-        builder.build_signed_int_to_float(untagged, state.context.f64_type(), "lhs_f64").expect("lhs to float").into()
+        builder
+            .build_signed_int_to_float(untagged, state.context.f64_type(), "lhs_f64")
+            .expect("lhs to float")
+            .into()
     } else {
         lhs.into_float_value()
     };
@@ -606,11 +616,23 @@ pub fn generate_float_binop<'ctx>(
     let rhs = if rhs.is_int_value() {
         let int_val = rhs.into_int_value();
         let untagged = if int_val.get_type().get_bit_width() == 64 {
-            builder.build_right_shift(int_val, state.context.i64_type().const_int(1, false), true, "rhs_untag").expect("rhs untag")
+            builder
+                .build_right_shift(
+                    int_val,
+                    state.context.i64_type().const_int(1, false),
+                    true,
+                    "rhs_untag",
+                )
+                .expect("rhs untag")
         } else {
-            builder.build_int_s_extend(int_val, state.context.i64_type(), "rhs_sext").expect("rhs sext")
+            builder
+                .build_int_s_extend(int_val, state.context.i64_type(), "rhs_sext")
+                .expect("rhs sext")
         };
-        builder.build_signed_int_to_float(untagged, state.context.f64_type(), "rhs_f64").expect("rhs to float").into()
+        builder
+            .build_signed_int_to_float(untagged, state.context.f64_type(), "rhs_f64")
+            .expect("rhs to float")
+            .into()
     } else {
         rhs.into_float_value()
     };
@@ -858,7 +880,9 @@ pub fn generate_tagged_int_binop<'ctx>(
         ),
         BinOp::NotEq => {
             let eq = generate_tagged_int_comparison_fast_path(
-                state, lhs_tagged, rhs_tagged,
+                state,
+                lhs_tagged,
+                rhs_tagged,
                 TaggedIntComparisonOp::Eq,
             )?;
             Ok(state.builder.build_not(eq.into_int_value(), "neq").expect("not").into())
@@ -928,7 +952,9 @@ pub fn generate_tagged_int_binop<'ctx>(
         ),
         BinOp::IsNot => {
             let eq = generate_tagged_int_comparison_fast_path(
-                state, lhs_tagged, rhs_tagged,
+                state,
+                lhs_tagged,
+                rhs_tagged,
                 TaggedIntComparisonOp::Eq,
             )?;
             Ok(state.builder.build_not(eq.into_int_value(), "isnot").expect("not").into())

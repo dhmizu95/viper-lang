@@ -20,12 +20,8 @@ pub extern "C" fn vp_list_bool_create_stub() -> *mut ViperList {
     let vec = Box::new(Vec::<bool>::new());
     let data_ptr = Box::into_raw(vec) as *mut c_void;
 
-    let list = Box::new(ViperList {
-        length: 0,
-        capacity: 0,
-        elem_type: VIPER_LIST_BOOL,
-        data: data_ptr,
-    });
+    let list =
+        Box::new(ViperList { length: 0, capacity: 0, elem_type: VIPER_LIST_BOOL, data: data_ptr });
 
     Box::into_raw(list)
 }

@@ -44,9 +44,32 @@ impl<'a> PrattParser<'a> {
             if self.match_token(&TokenKind::LParen) {
                 // Function call
                 let mut args = Vec::new();
+                let mut keywords = Vec::new();
+
                 if !self.match_token(&TokenKind::RParen) {
                     loop {
-                        args.push(self.parse_expr(Precedence::MIN)?);
+                        // Check if this is a keyword argument
+                        let saved_pos = self.pos();
+                        let mut is_keyword = false;
+
+                        if let TokenKind::Ident(name) = &self.current().kind {
+                            let name = name.clone();
+                            self.advance();
+                            if self.match_token(&TokenKind::Eq)
+                                || self.match_token(&TokenKind::EqEq)
+                            {
+                                let value = self.parse_expr(Precedence::MIN)?;
+                                keywords.push((name, value));
+                                is_keyword = true;
+                            } else {
+                                self.set_pos(saved_pos);
+                            }
+                        }
+
+                        if !is_keyword {
+                            args.push(self.parse_expr(Precedence::MIN)?);
+                        }
+
                         if !self.match_token(&TokenKind::Comma) {
                             break;
                         }
@@ -54,7 +77,7 @@ impl<'a> PrattParser<'a> {
                     self.expect(&TokenKind::RParen)?;
                 }
                 let call_span = left.span().merge(self.previous().span);
-                left = Expr::Call { func: Box::new(left), args, span: call_span };
+                left = Expr::Call { func: Box::new(left), args, keywords, span: call_span };
             } else if self.match_token(&TokenKind::LBracket) {
                 // Indexing or slicing
                 let _index_span_start = self.current().span;
@@ -192,7 +215,12 @@ impl<'a> PrattParser<'a> {
                     let right = self.parse_expr(Precedence(Precedence::PIPELINE.0 + 1))?;
                     // Transform: left |> right  =>  right(left)
                     let span = left.span().merge(right.span());
-                    left = Expr::Call { func: Box::new(right), args: vec![left], span };
+                    left = Expr::Call {
+                        func: Box::new(right),
+                        args: vec![left],
+                        keywords: Vec::new(),
+                        span,
+                    };
                     continue;
                 }
 

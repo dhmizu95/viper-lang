@@ -6,14 +6,19 @@ use crate::error::{Result, ViperError};
 use std::path::Path;
 
 /// Load project config and merge with CLI args (CLI args take precedence)
-fn load_config_with_overrides(input_path: &str, cli_auto_memoize: bool, cli_opt: u32, cli_lto: bool) -> (bool, u32, bool) {
+fn load_config_with_overrides(
+    input_path: &str,
+    cli_auto_memoize: bool,
+    cli_opt: u32,
+    cli_lto: bool,
+) -> (bool, u32, bool) {
     // Get the directory containing the input file
     let input_dir = Path::new(input_path).parent().unwrap_or(Path::new("."));
-    
+
     // Try to load config from input directory or parents
-    let config = ProjectConfig::load_from_dir(input_dir)
-        .or_else(|| ProjectConfig::load_from_current_dir());
-    
+    let config =
+        ProjectConfig::load_from_dir(input_dir).or_else(|| ProjectConfig::load_from_current_dir());
+
     if let Some(config) = config {
         // CLI args override config, config overrides defaults
         let auto_memoize = cli_auto_memoize || config.compiler.auto_memoize;
@@ -38,23 +43,34 @@ pub fn execute(args: Args) -> Result<()> {
                 eprintln!("  cd runtime && make");
                 std::process::exit(1);
             }
-            
+
             // Load config and merge with CLI args
-            let (auto_memoize, opt_level, lto) = load_config_with_overrides(&input, auto_memoize, optimize, lto);
-            
-            compile_file_aot(&input, opt_level, output.as_deref(), lto, emit_llvm, pgo.as_deref(), auto_memoize)
+            let (auto_memoize, opt_level, lto) =
+                load_config_with_overrides(&input, auto_memoize, optimize, lto);
+
+            compile_file_aot(
+                &input,
+                opt_level,
+                output.as_deref(),
+                lto,
+                emit_llvm,
+                pgo.as_deref(),
+                auto_memoize,
+            )
         }
         Commands::Run { input, optimize, auto_memoize } => {
             let current_exe = std::env::current_exe().map_err(ViperError::Io)?;
-            
+
             // Load config and merge with CLI args
-            let (auto_memoize, opt_level, _) = load_config_with_overrides(&input, auto_memoize, optimize, false);
-            
+            let (auto_memoize, opt_level, _) =
+                load_config_with_overrides(&input, auto_memoize, optimize, false);
+
             compile_and_run_jit_isolated(&current_exe, &input, opt_level, auto_memoize)
         }
         Commands::RunInternal { input, optimize, auto_memoize } => {
             // For internal run, also check config
-            let (auto_memoize, opt_level, _) = load_config_with_overrides(&input, auto_memoize, optimize, false);
+            let (auto_memoize, opt_level, _) =
+                load_config_with_overrides(&input, auto_memoize, optimize, false);
             compile_and_run_jit_with_memo(&input, opt_level, auto_memoize)
         }
         Commands::Init { name } => {

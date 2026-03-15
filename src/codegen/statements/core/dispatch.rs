@@ -40,6 +40,9 @@ pub fn generate_stmt<'ctx>(
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
+    function_param_names: &HashMap<String, Vec<String>>,
+    function_param_defaults: &HashMap<String, Vec<Option<crate::ast::Expr>>>,
+
     stmt: &Stmt,
 ) -> crate::codegen::Result<()> {
     let mut closure_cells = HashMap::new();
@@ -58,6 +61,8 @@ pub fn generate_stmt<'ctx>(
         bigint_vars,
         var_types,
         &mut closure_cells,
+        function_param_names,
+        function_param_defaults,
     );
 
     generate_stmt_internal(&mut state, stmt)
@@ -78,6 +83,9 @@ pub fn generate_stmt_with_escape<'ctx>(
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
+    function_param_names: &HashMap<String, Vec<String>>,
+    function_param_defaults: &HashMap<String, Vec<Option<crate::ast::Expr>>>,
+
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
@@ -101,6 +109,8 @@ pub fn generate_stmt_with_escape<'ctx>(
         escape_analyzer,
         current_function,
         &mut closure_cells,
+        function_param_names,
+        function_param_defaults,
     );
     state.current_class = current_class.map(|s| s.to_string());
 
@@ -122,6 +132,9 @@ pub fn generate_stmt_with_closure<'ctx>(
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
+    function_param_names: &HashMap<String, Vec<String>>,
+    function_param_defaults: &HashMap<String, Vec<Option<crate::ast::Expr>>>,
+
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
@@ -150,6 +163,8 @@ pub fn generate_stmt_with_closure<'ctx>(
         current_function,
         closure_analyzer,
         &mut closure_cells,
+        function_param_names,
+        function_param_defaults,
     );
     state.current_class = current_class.map(|s| s.to_string());
 
@@ -161,6 +176,15 @@ pub(crate) fn generate_stmt_internal<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     stmt: &Stmt,
 ) -> crate::codegen::Result<()> {
+    // Check if the current block is already terminated
+    // If so, subsequent statements in the same block are unreachable and should be skipped
+    // to avoid "Terminator found in the middle of a basic block" error in LLVM
+    if let Some(block) = state.builder.get_insert_block() {
+        if block.get_terminator().is_some() {
+            return Ok(());
+        }
+    }
+
     match stmt {
         Stmt::Expr(expr) => {
             crate::codegen::expressions::generate_expr(state, expr)?;
@@ -307,6 +331,8 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                         state.bool_list_vars,
                         state.bigint_vars,
                         state.var_types,
+                        state.function_param_names,
+                        state.function_param_defaults,
                         stmt,
                     )?;
                 }
@@ -333,46 +359,64 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         }
         // New Python keyword statements - stub implementations for now
         Stmt::Assert { condition, message, span: _ } => {
-            let cond_val = crate::codegen::expressions::generate_expr(state, condition)?.into_int_value();
-            
+            let cond_val =
+                crate::codegen::expressions::generate_expr(state, condition)?.into_int_value();
+
             // Convert condition to i1 (boolean) for branch
             let is_true = if cond_val.get_type().get_bit_width() == 1 {
                 cond_val
             } else {
-                state.builder.build_int_compare(
-                    inkwell::IntPredicate::NE,
-                    cond_val,
-                    state.context.i64_type().const_int(0, false),
-                    "assert_cond"
-                ).unwrap()
+                state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        cond_val,
+                        state.context.i64_type().const_int(0, false),
+                        "assert_cond",
+                    )
+                    .unwrap()
             };
-            
+
             let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
             let fail_bb = state.context.append_basic_block(func, "assert_fail");
             let pass_bb = state.context.append_basic_block(func, "assert_pass");
-            
+
             state.builder.build_conditional_branch(is_true, pass_bb, fail_bb).unwrap();
-            
+
             // Failure path
             state.builder.position_at_end(fail_bb);
-            let panic_func = state.module.get_function("viper_panic")
+            let panic_func = state
+                .module
+                .get_function("viper_panic")
                 .ok_or_else(|| "viper_panic not declared".to_string())?;
-            
+
             let msg_ptr = if let Some(msg_expr) = message {
                 // If message is a string literal, use it directly
                 if let Expr::Str(s, _) = &**msg_expr {
-                    state.builder.build_global_string_ptr(s, "assert_msg").unwrap().as_pointer_value()
+                    state
+                        .builder
+                        .build_global_string_ptr(s, "assert_msg")
+                        .unwrap()
+                        .as_pointer_value()
                 } else {
                     // Otherwise just use default
-                    state.builder.build_global_string_ptr("Assertion failed", "assert_msg").unwrap().as_pointer_value()
+                    state
+                        .builder
+                        .build_global_string_ptr("Assertion failed", "assert_msg")
+                        .unwrap()
+                        .as_pointer_value()
                 }
             } else {
-                state.builder.build_global_string_ptr("Assertion failed", "assert_msg").unwrap().as_pointer_value()
+                state
+                    .builder
+                    .build_global_string_ptr("Assertion failed", "assert_msg")
+                    .unwrap()
+                    .as_pointer_value()
             };
-            
+
             state.builder.build_call(panic_func, &[msg_ptr.into()], "panic_call").unwrap();
             state.builder.build_unreachable().unwrap();
-            
+
             // Success path
             state.builder.position_at_end(pass_bb);
         }
@@ -384,15 +428,24 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                         if let Some(var) = var {
                             if let Some(ptr) = var.get_alloca() {
                                 let i64_type = state.context.i64_type();
-                                let val = state.builder.build_load(i64_type, ptr, "del_val").unwrap();
-                                
+                                let val =
+                                    state.builder.build_load(i64_type, ptr, "del_val").unwrap();
+
                                 // Release the value (handles BigInts/Objects)
-                                let release_func = state.module.get_function("tagged_int_release")
+                                let release_func = state
+                                    .module
+                                    .get_function("tagged_int_release")
                                     .ok_or_else(|| "tagged_int_release not declared".to_string())?;
-                                state.builder.build_call(release_func, &[val.into()], "release_call").unwrap();
-                                
+                                state
+                                    .builder
+                                    .build_call(release_func, &[val.into()], "release_call")
+                                    .unwrap();
+
                                 // Clear to None (0)
-                                state.builder.build_store(ptr, state.context.i64_type().const_int(0, false)).unwrap();
+                                state
+                                    .builder
+                                    .build_store(ptr, state.context.i64_type().const_int(0, false))
+                                    .unwrap();
                             }
                             state.variables.remove(name);
                         }
@@ -400,32 +453,56 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                     Expr::Index { obj, index, .. } => {
                         let obj_val = crate::codegen::expressions::generate_expr(state, obj)?;
                         let index_val = crate::codegen::expressions::generate_expr(state, index)?;
-                        
-                        let obj_type = crate::codegen::expressions::core::infer_type_with_state(state, obj);
-                        
+
+                        let obj_type =
+                            crate::codegen::expressions::core::infer_type_with_state(state, obj);
+
                         // Decide which removal function to use based on inferred type
                         if matches!(obj_type, Type::Dict(..)) {
-                            let remove_func = state.module.get_function("vp_dict_remove")
+                            let remove_func = state
+                                .module
+                                .get_function("vp_dict_remove")
                                 .ok_or_else(|| "vp_dict_remove not declared".to_string())?;
-                            
+
                             // vp_dict_remove(dict, key) - key must be un-tagged if it's a string
                             // Dictionaries currently only support strings as keys
-                            state.builder.build_call(remove_func, &[obj_val.into(), index_val.into()], "del_dict_item").unwrap();
+                            state
+                                .builder
+                                .build_call(
+                                    remove_func,
+                                    &[obj_val.into(), index_val.into()],
+                                    "del_dict_item",
+                                )
+                                .unwrap();
                         } else {
                             // Assume it's a list
-                            let remove_func = state.module.get_function("vp_list_remove")
+                            let remove_func = state
+                                .module
+                                .get_function("vp_list_remove")
                                 .ok_or_else(|| "vp_list_remove not declared".to_string())?;
-                            
-                            let result_call = state.builder.build_call(remove_func, &[obj_val.into(), index_val.into()], "del_list_item").unwrap();
+
+                            let result_call = state
+                                .builder
+                                .build_call(
+                                    remove_func,
+                                    &[obj_val.into(), index_val.into()],
+                                    "del_list_item",
+                                )
+                                .unwrap();
                             let removed_val = match result_call.try_as_basic_value() {
                                 inkwell::values::ValueKind::Basic(v) => v,
                                 _ => panic!("Expected basic value from vp_list_remove"),
                             };
-                            
+
                             // vp_list_remove returns the item, we must release it
-                            let release_func = state.module.get_function("tagged_int_release")
+                            let release_func = state
+                                .module
+                                .get_function("tagged_int_release")
                                 .ok_or_else(|| "tagged_int_release not declared".to_string())?;
-                            state.builder.build_call(release_func, &[removed_val.into()], "release_removed").unwrap();
+                            state
+                                .builder
+                                .build_call(release_func, &[removed_val.into()], "release_removed")
+                                .unwrap();
                         }
                     }
                     _ => {}

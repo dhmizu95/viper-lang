@@ -158,7 +158,11 @@ impl<'ctx> IRBuilder<'ctx> {
         then_block: inkwell::basic_block::BasicBlock<'ctx>,
         else_block: inkwell::basic_block::BasicBlock<'ctx>,
     ) {
-        builder.build_conditional_branch(cond, then_block, else_block).expect("cond_br");
+        if let Some(current_block) = builder.get_insert_block() {
+            if current_block.get_terminator().is_none() {
+                builder.build_conditional_branch(cond, then_block, else_block).expect("cond_br");
+            }
+        }
     }
 
     /// Build an unconditional branch
@@ -167,7 +171,11 @@ impl<'ctx> IRBuilder<'ctx> {
         builder: &inkwell::builder::Builder<'ctx>,
         block: inkwell::basic_block::BasicBlock<'ctx>,
     ) {
-        builder.build_unconditional_branch(block).expect("br");
+        if let Some(current_block) = builder.get_insert_block() {
+            if current_block.get_terminator().is_none() {
+                builder.build_unconditional_branch(block).expect("br");
+            }
+        }
     }
 
     /// Build a return

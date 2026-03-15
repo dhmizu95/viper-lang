@@ -10,15 +10,7 @@ fn check_command_exists_any(commands: &[&str]) -> bool {
 /// Check prerequisites for AOT compilation.
 pub fn check_aot_prerequisites() -> Result<()> {
     if !check_command_exists_any(&[
-        "opt",
-        "opt-21",
-        "opt-20",
-        "opt-19",
-        "opt-18",
-        "opt-17",
-        "opt-16",
-        "opt-15",
-        "opt-14",
+        "opt", "opt-21", "opt-20", "opt-19", "opt-18", "opt-17", "opt-16", "opt-15", "opt-14",
     ]) {
         return Err(ViperError::driver(
             "LLVM opt tool not found in PATH (looked for opt and versioned opt-* binaries)",
@@ -133,10 +125,11 @@ pub fn analyze_recursive_functions(module: &mut Module) -> (Vec<String>, usize) 
         if info.recursive_call_count >= 2 {
             // Exponential recursion - add memoization
             add_lru_cache_decorator(module, name);
-            
+
             if let Some(warning) = recursion_analyzer.generate_warning(name) {
                 // Update the warning to reflect auto-memoization
-                let updated_warning = warning.replace("but not memoized", "automatically memoized with @lru_cache");
+                let updated_warning =
+                    warning.replace("but not memoized", "automatically memoized with @lru_cache");
                 warnings.push(updated_warning);
             }
         } else {

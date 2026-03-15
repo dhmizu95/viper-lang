@@ -2,7 +2,6 @@
 
 use crate::jit_stubs::io::ViperString;
 
-
 /// String concatenation stub for JIT
 /// Takes two ViperString* and returns a new ViperString*
 pub extern "C" fn vp_str_concat_stub(a: *mut ViperString, b: *mut ViperString) -> *mut ViperString {
@@ -192,7 +191,7 @@ pub extern "C" fn vp_str_format_stub(
                 let arg_ptr = *args_array.offset(i as isize);
                 if !arg_ptr.is_null() {
                     let arg_str = get_string_data(arg_ptr);
-                    
+
                     // Simple replacement of the first {...} we find
                     if let Some(start) = result.find('{') {
                         if let Some(end_offset) = result[start..].find('}') {
@@ -203,8 +202,11 @@ pub extern "C" fn vp_str_format_stub(
                             if placeholder.contains(':') {
                                 // Handle float formatting like {:.3f}, {:.9f}, etc.
                                 if let Some(precision_start) = placeholder.find('.') {
-                                    if let Some(precision_end) = placeholder[precision_start..].find('f') {
-                                        let precision_str = &placeholder[precision_start + 1..precision_start + precision_end];
+                                    if let Some(precision_end) =
+                                        placeholder[precision_start..].find('f')
+                                    {
+                                        let precision_str = &placeholder
+                                            [precision_start + 1..precision_start + precision_end];
                                         if let Ok(precision) = precision_str.parse::<usize>() {
                                             if let Ok(val) = arg_str.parse::<f64>() {
                                                 formatted = format!("{:.*}", precision, val);
@@ -239,10 +241,10 @@ pub fn create_viper_string(s: &str) -> *mut ViperString {
     extern "C" {
         fn vp_str_create_with_len(s: *const std::ffi::c_char, len: i64) -> *mut ViperString;
     }
-    
+
     let len = s.len() as i64;
     let c_str = std::ffi::CString::new(s).unwrap_or_else(|_| std::ffi::CString::new("").unwrap());
-    
+
     unsafe { vp_str_create_with_len(c_str.as_ptr(), len) }
 }
 
@@ -294,7 +296,7 @@ pub extern "C" fn vp_bytes_free_stub(bytes: *mut ViperBytes) {
 
     unsafe {
         extern "C" {
-             fn vp_arc_release(ptr: *mut std::ffi::c_void);
+            fn vp_arc_release(ptr: *mut std::ffi::c_void);
         }
         vp_arc_release(bytes as *mut std::ffi::c_void);
     }

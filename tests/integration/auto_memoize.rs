@@ -22,22 +22,18 @@ def main():
 main()
 "#;
 
-    let (stdout, stderr) = run_viper_code_auto_memoize(code)
-        .expect("auto-memoize program should run successfully");
-    
+    let (stdout, stderr) =
+        run_viper_code_auto_memoize(code).expect("auto-memoize program should run successfully");
+
     // Check that auto-memoization was applied
     assert!(
         stderr.contains("auto-memoized") || stderr.contains("recursive"),
         "Should mention auto-memoization or recursion, got stderr: {}",
         stderr
     );
-    
+
     // Verify correct result
-    assert!(
-        stdout.contains("9227465"),
-        "fib(35) should equal 9227465, got: {}",
-        stdout
-    );
+    assert!(stdout.contains("9227465"), "fib(35) should equal 9227465, got: {}", stdout);
 }
 
 /// Test auto-memoization with Fibonacci (AOT mode)
@@ -57,14 +53,10 @@ def main():
 main()
 "#;
 
-    let stdout = build_and_run_auto_memoize(code)
-        .expect("auto-memoize AOT program should run successfully");
-    
-    assert!(
-        stdout.contains("9227465"),
-        "fib(35) should equal 9227465, got: {}",
-        stdout
-    );
+    let stdout =
+        build_and_run_auto_memoize(code).expect("auto-memoize AOT program should run successfully");
+
+    assert!(stdout.contains("9227465"), "fib(35) should equal 9227465, got: {}", stdout);
 }
 
 /// Test auto-memoization with large Fibonacci
@@ -83,14 +75,10 @@ def main():
 main()
 "#;
 
-    let (stdout, _) = run_viper_code_auto_memoize(code)
-        .expect("large fibonacci should run successfully");
-    
-    assert!(
-        stdout.contains("12586269025"),
-        "fib(50) should equal 12586269025, got: {}",
-        stdout
-    );
+    let (stdout, _) =
+        run_viper_code_auto_memoize(code).expect("large fibonacci should run successfully");
+
+    assert!(stdout.contains("12586269025"), "fib(50) should equal 12586269025, got: {}", stdout);
 }
 
 /// Test that linear recursion is NOT auto-memoized
@@ -112,16 +100,12 @@ main()
 
     // Linear recursion should NOT be auto-memoized (only 1 recursive call)
     // But should still work correctly without memoization
-    let (stdout, stderr) = run_viper_code_auto_memoize(code)
-        .expect("linear recursion should run successfully");
-    
+    let (stdout, stderr) =
+        run_viper_code_auto_memoize(code).expect("linear recursion should run successfully");
+
     // Verify correct result
-    assert!(
-        stdout.contains("3628800"),
-        "factorial(10) should equal 3628800, got: {}",
-        stdout
-    );
-    
+    assert!(stdout.contains("3628800"), "factorial(10) should equal 3628800, got: {}", stdout);
+
     // Should show warning about linear recursion (not auto-memoized)
     assert!(
         stderr.contains("recursive") && !stderr.contains("automatically memoized"),
@@ -154,10 +138,9 @@ def main():
 main()
 "#;
 
-    let stdout = run_viper_code_auto_memoize(code)
-        .expect("mutual recursion should run successfully")
-        .0;
-    
+    let stdout =
+        run_viper_code_auto_memoize(code).expect("mutual recursion should run successfully").0;
+
     assert!(stdout.contains("True"));
     assert!(stdout.contains("False"));
 }
@@ -180,8 +163,8 @@ main()
 
     let (stdout, _stderr) = run_viper_code_auto_memoize(code)
         .expect("multiple recursive functions should run successfully");
-    
-    assert!(stdout.contains("832040"));  // fib(30)
+
+    assert!(stdout.contains("832040")); // fib(30)
 }
 
 /// Test that manually memoized functions are not double-memoized
@@ -204,12 +187,8 @@ main()
 
     let (stdout, _) = run_viper_code_auto_memoize(code)
         .expect("manually memoized function should run successfully");
-    
-    assert!(
-        stdout.contains("9227465"),
-        "fib(35) should equal 9227465, got: {}",
-        stdout
-    );
+
+    assert!(stdout.contains("9227465"), "fib(35) should equal 9227465, got: {}", stdout);
 }
 
 /// Test auto-memoization with BigInt return type
@@ -228,9 +207,9 @@ def main():
 main()
 "#;
 
-    let (stdout, _) = run_viper_code_auto_memoize(code)
-        .expect("BigInt fibonacci should run successfully");
-    
+    let (stdout, _) =
+        run_viper_code_auto_memoize(code).expect("BigInt fibonacci should run successfully");
+
     assert!(
         stdout.contains("2111485077978050"),
         "fib(75) should equal 2111485077978050, got: {}",

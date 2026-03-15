@@ -105,7 +105,8 @@ def main():
 main()
 "#;
 
-    let stdout = run_viper_code(code).expect("large fibonacci cache program should run successfully");
+    let stdout =
+        run_viper_code(code).expect("large fibonacci cache program should run successfully");
     assert!(
         stdout.contains("2111485077978050"),
         "fib(75) should equal 2111485077978050, got: {}",
@@ -129,7 +130,8 @@ def main():
 main()
 "#;
 
-    let stdout = run_viper_code(code).expect("bounded large fibonacci cache program should run successfully");
+    let stdout = run_viper_code(code)
+        .expect("bounded large fibonacci cache program should run successfully");
     assert!(
         stdout.contains("2111485077978050"),
         "fib(75) with bounded cache should equal 2111485077978050, got: {}",

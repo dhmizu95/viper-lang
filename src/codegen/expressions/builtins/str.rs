@@ -175,7 +175,7 @@ pub fn generate_str_call<'ctx>(
         let arg_val = generate_expr(state, arg)?;
         // Create an array with the argument to pass to generate_tagged_int_to_str
         // Or directly call the generation logic here to avoid arg repackaging:
-        
+
         let to_str_func = state
             .module
             .get_function("tagged_int_to_viper_str")

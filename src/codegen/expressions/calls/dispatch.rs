@@ -9,6 +9,7 @@ use inkwell::values::BasicValueEnum;
 
 use crate::codegen::state::CodeGenState;
 
+use crate::codegen::expressions::builtins::gather::generate_gather_call;
 use crate::codegen::expressions::builtins::len::generate_len_call;
 use crate::codegen::expressions::builtins::math::{
     generate_math_builtin, generate_math_constant, generate_math_float_func,
@@ -20,7 +21,6 @@ use crate::codegen::expressions::builtins::r#struct::{
 use crate::codegen::expressions::builtins::str::{
     generate_bytes_call, generate_str_call, generate_type_convert,
 };
-use crate::codegen::expressions::builtins::gather::generate_gather_call;
 use crate::codegen::expressions::calls::methods::generate_dict_call;
 use crate::codegen::expressions::collections::{
     generate_list_call, generate_set_call, generate_tuple_call,
@@ -36,6 +36,7 @@ pub fn generate_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     func: &Expr,
     args: &[Expr],
+    keywords: &[(String, Expr)],
     _span: crate::utils::Span,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     if let Expr::Attribute { obj, attr, .. } = func {
@@ -137,18 +138,14 @@ pub fn generate_call<'ctx>(
                 let ms = state
                     .builder
                     .build_float_mul(
-                    val.into_float_value(),
-                    state.context.f64_type().const_float(1000.0),
-                    "sleep_ms",
-                )
+                        val.into_float_value(),
+                        state.context.f64_type().const_float(1000.0),
+                        "sleep_ms",
+                    )
                     .map_err(|e| format!("Failed to multiply sleep seconds: {:?}", e))?;
                 state
                     .builder
-                    .build_float_to_signed_int(
-                        ms,
-                        state.context.i64_type(),
-                        "sleep_ms_i64",
-                    )
+                    .build_float_to_signed_int(ms, state.context.i64_type(), "sleep_ms_i64")
                     .map_err(|e| format!("Failed to convert sleep seconds: {:?}", e))?
             } else if val.is_int_value() {
                 val.into_int_value()
@@ -199,9 +196,12 @@ pub fn generate_call<'ctx>(
                 .module
                 .get_function("vp_future_retain")
                 .ok_or_else(|| "vp_future_retain not declared".to_string())?;
-            state
-                .ir_builder
-                .build_call(state.builder, retain_func, &[future_ptr.into()], "future_retain");
+            state.ir_builder.build_call(
+                state.builder,
+                retain_func,
+                &[future_ptr.into()],
+                "future_retain",
+            );
 
             return Ok(val);
         }
@@ -443,10 +443,53 @@ pub fn generate_call<'ctx>(
         // Check for user-defined functions with overload resolution
         // Infer argument types from the expressions themselves, not from var_types
         // This ensures we use the correct types regardless of the caller's scope
-        let arg_types: Vec<Type> = args
-            .iter()
-            .map(|a| infer_expr_type(a))
-            .collect();
+        // Resolve parameters with keyword arguments and defaults
+        let (resolved_args, arg_types) =
+            if let Some(param_names) = state.function_param_names.get(name) {
+                let mut final_args = vec![None; param_names.len()];
+
+                // 1. Fill positional arguments
+                for (i, arg) in args.iter().enumerate() {
+                    if i < final_args.len() {
+                        final_args[i] = Some(arg.clone());
+                    }
+                }
+
+                // 2. Fill keyword arguments
+                for (k, v) in keywords {
+                    if let Some(pos) = param_names.iter().position(|pn| pn == k) {
+                        if final_args[pos].is_some() && pos < args.len() {
+                            return Err(crate::error::ViperError::codegen(format!(
+                                "Multiple values for argument '{}'",
+                                k
+                            )));
+                        }
+                        final_args[pos] = Some(v.clone());
+                    }
+                }
+
+                // 3. Fill defaults
+                if let Some(defaults) = state.function_param_defaults.get(name) {
+                    for i in 0..final_args.len() {
+                        if final_args[i].is_none() {
+                            if let Some(Some(default_expr)) = defaults.get(i) {
+                                final_args[i] = Some(default_expr.clone());
+                            }
+                        }
+                    }
+                }
+
+                let final_args_compact: Vec<Expr> = final_args.into_iter().flatten().collect();
+                let arg_types: Vec<Type> =
+                    final_args_compact.iter().map(|a| infer_expr_type(a)).collect();
+                (final_args_compact, arg_types)
+            } else {
+                let arg_types: Vec<Type> = args.iter().map(|a| infer_expr_type(a)).collect();
+                (args.to_vec(), arg_types)
+            };
+
+        // Use resolved_args instead of args from now on for user functions
+        let args = &resolved_args;
 
         // Check for identity function pattern (def f(x): return x) and inline it
         // This avoids type conversion issues for generic helpers like copy(x)
@@ -505,23 +548,16 @@ pub fn generate_call<'ctx>(
             let mut arg_values: Vec<inkwell::values::BasicMetadataValueEnum<'ctx>> = Vec::new();
             for (i, a) in args.iter().enumerate() {
                 let arg_val = generate_expr(state, a)?;
-                // Convert pointer to i64 if function expects i64 (for Type::Infer identity functions)
-                let converted_val = if arg_val.is_pointer_value() {
-                    if let Some(&expected_ty) = param_types.get(i) {
-                        if expected_ty.is_int_type() && expected_ty.into_int_type().get_bit_width() == 64 {
-                            // Function expects i64, cast pointer to i64 (bits pass through)
-                            state
-                                .builder
-                                .build_ptr_to_int(
-                                    arg_val.into_pointer_value(),
-                                    state.context.i64_type(),
-                                    "ptr_to_i64",
-                                )
-                                .expect("ptr to int")
-                                .into()
-                        } else {
-                            arg_val
-                        }
+                let converted_val = if let Some(&expected_ty) = param_types.get(i) {
+                    if arg_val.is_pointer_value() && expected_ty.is_int_type() && expected_ty.into_int_type().get_bit_width() == 64 {
+                        // Pointer to i64
+                        state.builder.build_ptr_to_int(arg_val.into_pointer_value(), state.context.i64_type(), "ptr_to_i64").expect("ptr to int").into()
+                    } else if arg_val.is_int_value() && expected_ty.is_pointer_type() {
+                        // i64 to Pointer
+                        state.builder.build_int_to_ptr(arg_val.into_int_value(), expected_ty.into_pointer_type(), "int_to_ptr").expect("int to ptr").into()
+                    } else if arg_val.is_int_value() && arg_val.into_int_value().get_type().get_bit_width() == 1 && expected_ty.is_int_type() && expected_ty.into_int_type().get_bit_width() == 64 {
+                        // i1 to i64
+                        state.builder.build_int_z_extend(arg_val.into_int_value(), state.context.i64_type(), "bool_to_i64").expect("zext").into()
                     } else {
                         arg_val
                     }
@@ -564,10 +600,9 @@ pub fn generate_call<'ctx>(
             // TAIL CALL OPTIMIZATION: Add tail attribute for recursive calls
             // This allows LLVM to convert tail-recursive calls into jumps (TCO)
             // We check if this is a recursive call by comparing function names
-            let is_current_function = state.current_function
-                .as_ref()
-                .map_or(false, |cf| cf == name);
-            
+            let is_current_function =
+                state.current_function.as_ref().map_or(false, |cf| cf == name);
+
             if is_current_function {
                 // Add tail attribute to enable TCO for recursive calls
                 let tail_attr = state.context.create_string_attribute("tail", "");

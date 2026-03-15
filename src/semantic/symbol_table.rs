@@ -94,9 +94,9 @@ pub enum BuiltinSignature {
     WaitGroupDone,   // done(wg) -> None
     WaitGroupWait,   // wait(wg) -> None
     // Async/await primitives
-    AsyncRange,      // async_range(n) -> async iterator
-    AsyncGather,     // gather(futures...) -> [results]
-    AsyncSleep,      // sleep(ms/seconds) -> Future[None]
+    AsyncRange,        // async_range(n) -> async iterator
+    AsyncGather,       // gather(futures...) -> [results]
+    AsyncSleep,        // sleep(ms/seconds) -> Future[None]
     AsyncFutureRetain, // future_retain(future) -> Future[T]
     // BigInt functions - removed, use int type instead
     // BigInt constructor removed - BigInt(str) -> BigInt
@@ -360,7 +360,10 @@ impl SymbolTable {
             ("async_range", SymbolKind::Builtin { signature: BuiltinSignature::AsyncRange }),
             ("gather", SymbolKind::Builtin { signature: BuiltinSignature::AsyncGather }),
             ("sleep", SymbolKind::Builtin { signature: BuiltinSignature::AsyncSleep }),
-            ("future_retain", SymbolKind::Builtin { signature: BuiltinSignature::AsyncFutureRetain }),
+            (
+                "future_retain",
+                SymbolKind::Builtin { signature: BuiltinSignature::AsyncFutureRetain },
+            ),
             // BigInt functions - removed, use int type instead
             ("str_bigint", SymbolKind::Builtin { signature: BuiltinSignature::StrBigint }),
             ("int_bigint", SymbolKind::Builtin { signature: BuiltinSignature::IntBigint }),

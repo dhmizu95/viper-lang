@@ -29,16 +29,13 @@ impl<'ctx> CodeGen<'ctx> {
 
         // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
-            if let Stmt::Function { name, params, return_type, body, decorators, is_async, .. } = stmt {
+            if let Stmt::Function {
+                name, params, return_type, body, decorators, is_async, ..
+            } = stmt
+            {
                 // Handle async functions specially - they return Future and spawn fiber
                 if *is_async {
-                    self.define_async_function(
-                        name,
-                        params,
-                        return_type,
-                        body,
-                        decorators,
-                    )?;
+                    self.define_async_function(name, params, return_type, body, decorators)?;
                 } else {
                     // Get closure info to determine nonlocal variables
                     let closure_info = self.closure_analyzer.get_closure_info(name);
@@ -365,6 +362,8 @@ impl<'ctx> CodeGen<'ctx> {
             original_name,
             &self.closure_analyzer,
             &mut self.closure_cells,
+            &self.function_param_names,
+            &self.function_param_defaults,
         );
         state.current_class = self.current_class.clone();
 
@@ -474,17 +473,22 @@ impl<'ctx> CodeGen<'ctx> {
         let body_func_name = format!("__async_body_{}", func_name);
 
         // Build param types for mangling
-        let param_types: Vec<Type> = params.iter()
-            .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
-            .collect();
+        let param_types: Vec<Type> =
+            params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect();
 
         use crate::utils::mangle_function_name;
         let mangled_name = mangle_function_name(func_name, &param_types);
 
         // Get the wrapper and body functions we declared earlier
-        let wrapper_func = self.functions.get(&mangled_name).copied()
+        let wrapper_func = self
+            .functions
+            .get(&mangled_name)
+            .copied()
             .ok_or_else(|| format!("Async wrapper function {} not found", mangled_name))?;
-        let body_func = self.functions.get(&body_func_name).copied()
+        let body_func = self
+            .functions
+            .get(&body_func_name)
+            .copied()
             .ok_or_else(|| format!("Async body function {} not found", body_func_name))?;
 
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -496,51 +500,57 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(wrapper_entry);
 
         // Create Future
-        let future_create = self.module.get_function("vp_future_create")
+        let future_create = self
+            .module
+            .get_function("vp_future_create")
             .ok_or_else(|| "vp_future_create not found".to_string())?;
-        let future = self.ir_builder.build_call(
-            &self.builder,
-            future_create,
-            &[],
-            "future",
-        ).unwrap().into_pointer_value();
+        let future = self
+            .ir_builder
+            .build_call(&self.builder, future_create, &[], "future")
+            .unwrap()
+            .into_pointer_value();
 
         // Build context struct type: { Future*, param1, param2, ... }
         let mut context_field_types: Vec<inkwell::types::BasicTypeEnum> = vec![ptr_type.into()];
         let mut wrapper_param_vals: Vec<inkwell::values::BasicValueEnum> = Vec::new();
-        
+
         for (i, _param) in params.iter().enumerate() {
             let param_val = wrapper_func.get_nth_param(i as u32).unwrap();
             wrapper_param_vals.push(param_val);
             context_field_types.push(param_val.get_type());
         }
-        
+
         let context_type = self.context.struct_type(&context_field_types, false);
-        
+
         // Allocate context on heap (not stack) so it can be freed by body function
-        let malloc_func = self.module.get_function("malloc")
-            .ok_or_else(|| "malloc not found".to_string())?;
+        let malloc_func =
+            self.module.get_function("malloc").ok_or_else(|| "malloc not found".to_string())?;
         let context_size = context_type.size_of().unwrap();
-        let context_ptr = self.ir_builder.build_call(
-            &self.builder,
-            malloc_func,
-            &[context_size.into()],
-            "context",
-        ).unwrap().into_pointer_value();
+        let context_ptr = self
+            .ir_builder
+            .build_call(&self.builder, malloc_func, &[context_size.into()], "context")
+            .unwrap()
+            .into_pointer_value();
 
         // Store future in context (field 0)
-        let future_gep = self.builder.build_struct_gep(context_type, context_ptr, 0, "future_gep").unwrap();
+        let future_gep =
+            self.builder.build_struct_gep(context_type, context_ptr, 0, "future_gep").unwrap();
         let _ = self.builder.build_store(future_gep, future);
 
         // Store params in context (fields 1..n)
         for (i, param_val) in wrapper_param_vals.iter().enumerate() {
             let field_idx = (i + 1) as u32;
-            let param_gep = self.builder.build_struct_gep(context_type, context_ptr, field_idx, &format!("param{}_gep", i)).unwrap();
+            let param_gep = self
+                .builder
+                .build_struct_gep(context_type, context_ptr, field_idx, &format!("param{}_gep", i))
+                .unwrap();
             let _ = self.builder.build_store(param_gep, *param_val);
         }
 
         // Spawn fiber to run body
-        let async_spawn = self.module.get_function("vp_async_spawn")
+        let async_spawn = self
+            .module
+            .get_function("vp_async_spawn")
             .ok_or_else(|| "vp_async_spawn not found".to_string())?;
         let body_func_ptr = body_func.as_global_value().as_pointer_value();
         self.ir_builder.build_call(
@@ -562,8 +572,13 @@ impl<'ctx> CodeGen<'ctx> {
         let context_arg = body_func.get_first_param().unwrap().into_pointer_value();
 
         // Load future from context (field 0)
-        let future_gep = self.builder.build_struct_gep(context_type, context_arg, 0, "future_load_gep").unwrap();
-        let future_val = self.builder.build_load(ptr_type, future_gep, "future_load").unwrap().into_pointer_value();
+        let future_gep =
+            self.builder.build_struct_gep(context_type, context_arg, 0, "future_load_gep").unwrap();
+        let future_val = self
+            .builder
+            .build_load(ptr_type, future_gep, "future_load")
+            .unwrap()
+            .into_pointer_value();
 
         // Save current state
         let saved_variables = std::mem::take(&mut self.variables);
@@ -577,23 +592,44 @@ impl<'ctx> CodeGen<'ctx> {
         // Unpack params from context and create local variables
         for (i, param) in params.iter().enumerate() {
             let field_idx = (i + 1) as u32;
-            let param_gep = self.builder.build_struct_gep(context_type, context_arg, field_idx, &format!("param{}_load_gep", i)).unwrap();
-            let param_val = self.builder.build_load(wrapper_param_vals[i].get_type(), param_gep, &format!("param{}_load", i)).unwrap();
-            
+            let param_gep = self
+                .builder
+                .build_struct_gep(
+                    context_type,
+                    context_arg,
+                    field_idx,
+                    &format!("param{}_load_gep", i),
+                )
+                .unwrap();
+            let param_val = self
+                .builder
+                .build_load(
+                    wrapper_param_vals[i].get_type(),
+                    param_gep,
+                    &format!("param{}_load", i),
+                )
+                .unwrap();
+
             // Create alloca for this param
-            let alloca = self.builder.build_alloca(param_val.get_type(), &param.name).expect("alloca param");
+            let alloca =
+                self.builder.build_alloca(param_val.get_type(), &param.name).expect("alloca param");
             let _ = self.builder.build_store(alloca, param_val);
-            
+
             let var_type = if param_val.is_pointer_value() {
                 crate::codegen::variables::VarType::Pointer
             } else if param_val.is_float_value() {
                 crate::codegen::variables::VarType::Float
-            } else if param_val.is_int_value() && param_val.into_int_value().get_type().get_bit_width() == 1 {
+            } else if param_val.is_int_value()
+                && param_val.into_int_value().get_type().get_bit_width() == 1
+            {
                 crate::codegen::variables::VarType::Bool
             } else {
                 crate::codegen::variables::VarType::Int
             };
-            self.variables.insert(param.name.clone(), crate::codegen::variables::VarInfo::new_stack(alloca, var_type));
+            self.variables.insert(
+                param.name.clone(),
+                crate::codegen::variables::VarInfo::new_stack(alloca, var_type),
+            );
         }
 
         // Create exit block
@@ -621,6 +657,8 @@ impl<'ctx> CodeGen<'ctx> {
                         &mut self.bigint_vars,
                         &mut self.var_types,
                         &mut dummy_closure,
+                        &self.function_param_names,
+                        &self.function_param_defaults,
                     );
                     match crate::codegen::expressions::generate_expr(&mut state, val) {
                         Ok(v) => {
@@ -637,7 +675,9 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 // Set result in future
-                let future_set_result = self.module.get_function("vp_future_set_result")
+                let future_set_result = self
+                    .module
+                    .get_function("vp_future_set_result")
                     .ok_or_else(|| "vp_future_set_result not found".to_string())?;
                 self.ir_builder.build_call(
                     &self.builder,
@@ -666,13 +706,17 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.bigint_vars,
                 &mut self.var_types,
                 &mut dummy_closure,
+                &self.function_param_names,
+                &self.function_param_defaults,
             );
             crate::codegen::statements::generate_stmt_internal(&mut state, stmt)?;
         }
 
         // Default return (no explicit return in all paths)
         if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
-            let future_set_result = self.module.get_function("vp_future_set_result")
+            let future_set_result = self
+                .module
+                .get_function("vp_future_set_result")
                 .ok_or_else(|| "vp_future_set_result not found".to_string())?;
             self.ir_builder.build_call(
                 &self.builder,
@@ -685,14 +729,9 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Exit block - free context and return
         self.builder.position_at_end(body_exit);
-        let free_func = self.module.get_function("free")
-            .ok_or_else(|| "free not found".to_string())?;
-        self.ir_builder.build_call(
-            &self.builder,
-            free_func,
-            &[context_arg.into()],
-            "free_context",
-        );
+        let free_func =
+            self.module.get_function("free").ok_or_else(|| "free not found".to_string())?;
+        self.ir_builder.build_call(&self.builder, free_func, &[context_arg.into()], "free_context");
         let _ = self.builder.build_return(Some(&i64_type.const_zero()));
 
         // Restore state
@@ -817,6 +856,8 @@ impl<'ctx> CodeGen<'ctx> {
             &body_func_name, // Set current_function for recursive call detection
             &self.closure_analyzer,
             &mut closure_cells_body,
+            &self.function_param_names,
+            &self.function_param_defaults,
         );
 
         for stmt in body {
@@ -1297,6 +1338,8 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.bool_list_vars,
                 &mut self.bigint_vars,
                 &mut self.var_types,
+                &self.function_param_names,
+                &self.function_param_defaults,
                 stmt,
             )?;
         }
@@ -1345,38 +1388,51 @@ impl<'ctx> CodeGen<'ctx> {
                     if *is_async {
                         // Declare the internal body function (prefixed with __async_body_)
                         let body_func_name = format!("__async_body_{}", func_name);
-                        
+
                         // Body function takes (context_ptr) and returns i64
-                        let body_func_type = self.context.i64_type().fn_type(&[
-                            self.context.ptr_type(inkwell::AddressSpace::default()).into()
-                        ], false);
-                        let body_func = self.module.add_function(&body_func_name, body_func_type, None);
+                        let body_func_type = self.context.i64_type().fn_type(
+                            &[self.context.ptr_type(inkwell::AddressSpace::default()).into()],
+                            false,
+                        );
+                        let body_func =
+                            self.module.add_function(&body_func_name, body_func_type, None);
                         self.functions.insert(body_func_name.clone(), body_func);
-                        
+
                         // Wrapper function returns Future* and takes original params
                         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                         let wrapper_return_type = ptr_type;
-                        
+
                         // Build param types for wrapper
-                        let param_types: Vec<Type> = params.iter()
+                        let param_types: Vec<Type> = params
+                            .iter()
                             .map(|p| p.type_ann.clone().unwrap_or(Type::I64))
                             .collect();
-                        
+
                         use crate::utils::mangle_function_name;
                         let mangled_name = mangle_function_name(func_name, &param_types);
 
                         // Create wrapper function type
-                        let llvm_param_types: Vec<_> = param_types.iter()
+                        let llvm_param_types: Vec<_> = param_types
+                            .iter()
                             .map(|t| self.type_mapper.llvm_type(t).into())
                             .collect();
-                        let wrapper_func_type = wrapper_return_type.fn_type(&llvm_param_types, false);
-                        let wrapper_func = self.module.add_function(&mangled_name, wrapper_func_type, None);
+                        let wrapper_func_type =
+                            wrapper_return_type.fn_type(&llvm_param_types, false);
+                        let wrapper_func =
+                            self.module.add_function(&mangled_name, wrapper_func_type, None);
                         self.functions.insert(mangled_name.clone(), wrapper_func);
-                        
+
                         // Recursively declare nested functions in the body
                         self.declare_all_functions(body)?;
                     } else {
                         // Regular function - declare with closure cell parameters
+                        let param_names: Vec<String> =
+                            params.iter().map(|p| p.name.clone()).collect();
+                        let param_defaults: Vec<Option<crate::ast::Expr>> =
+                            params.iter().map(|p| p.default.clone()).collect();
+                        self.function_param_names.insert(func_name.to_string(), param_names);
+                        self.function_param_defaults.insert(func_name.to_string(), param_defaults);
+
                         crate::codegen::functions::declare_function_with_closure(
                             self.context,
                             &mut self.module,
@@ -1397,6 +1453,12 @@ impl<'ctx> CodeGen<'ctx> {
                         params.iter().map(|p| p.type_ann.clone().unwrap_or(Type::I64)).collect();
                     use crate::utils::mangle_function_name;
                     let mangled_name = mangle_function_name(name, &param_types);
+                    let param_names: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
+                    let param_defaults: Vec<Option<crate::ast::Expr>> =
+                        params.iter().map(|p| p.default.clone()).collect();
+                    self.function_param_names.insert(name.clone(), param_names);
+                    self.function_param_defaults.insert(name.clone(), param_defaults);
+
                     crate::codegen::functions::declare_function(
                         self.context,
                         &mut self.module,
@@ -1615,9 +1677,7 @@ impl<'ctx> CodeGen<'ctx> {
         // Shared variables need individual releases
         for ptr_val in shared_vars {
             if let Some(release_func) = self.module.get_function("vp_release") {
-                self.builder
-                    .build_call(release_func, &[ptr_val.into()], "release_var")
-                    .unwrap();
+                self.builder.build_call(release_func, &[ptr_val.into()], "release_var").unwrap();
             }
         }
     }

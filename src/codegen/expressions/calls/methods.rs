@@ -118,7 +118,10 @@ pub fn generate_method_call<'ctx>(
             // Determine if this is a bool list or float list
             let is_bool_list = state.is_bool_list_expr(obj);
             let is_float_list = if let Expr::Ident(name, _) = obj {
-                matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass" | "real" | "imag")
+                matches!(
+                    name.as_str(),
+                    "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass" | "real" | "imag"
+                )
             } else {
                 false
             };
@@ -160,9 +163,18 @@ pub fn generate_method_call<'ctx>(
                 let f64_val = if val.is_float_value() {
                     val.into_float_value()
                 } else if val.is_int_value() {
-                    state.builder.build_signed_int_to_float(val.into_int_value(), state.context.f64_type(), "i64_to_f64").expect("i64 to f64")
+                    state
+                        .builder
+                        .build_signed_int_to_float(
+                            val.into_int_value(),
+                            state.context.f64_type(),
+                            "i64_to_f64",
+                        )
+                        .expect("i64 to f64")
                 } else {
-                    return crate::codegen::codegen_error("append() to float list requires numeric value".to_string());
+                    return crate::codegen::codegen_error(
+                        "append() to float list requires numeric value".to_string(),
+                    );
                 };
 
                 // Convert list_ptr to pointer value for the call
@@ -173,7 +185,7 @@ pub fn generate_method_call<'ctx>(
                     append_func,
                     &[list_arg, f64_val.into()],
                     "append_f64",
-                ).expect("append f64 call");
+                );
             } else {
                 // Fallback for generic lists
                 if val.is_float_value() {
@@ -189,7 +201,7 @@ pub fn generate_method_call<'ctx>(
                         append_func,
                         &[list_ptr.into(), f64_val.into()],
                         "append_f64",
-                    ).expect("append f64 call");
+                    );
                 } else {
                     let int_val = if val.is_int_value() {
                         val.into_int_value()
@@ -640,7 +652,7 @@ pub fn generate_method_call<'ctx>(
                             args_array,
                             &[
                                 state.context.i32_type().const_zero(),
-                                state.context.i32_type().const_int(i as u64, false)
+                                state.context.i32_type().const_int(i as u64, false),
                             ],
                             "arg_ptr",
                         )

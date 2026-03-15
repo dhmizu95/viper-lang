@@ -71,7 +71,7 @@ impl TypeChecker {
                 // The actual method resolution happens at compile time
                 Some(Type::Object)
             }
-            Expr::Call { func, args, span: _ } => {
+            Expr::Call { func, args, keywords: _, span: _ } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
                     // Handle Result constructors with context from function return type
                     match name.as_str() {

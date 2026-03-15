@@ -378,7 +378,7 @@ impl EscapeAnalyzer {
                     if !ctx.variables.contains_key(name) {
                         ctx.variables.insert(name.clone(), VariableEscapeInfo::new(None, true, 0));
                     }
-                    
+
                     // Mark variable as non-movable (mutated) - it cannot be in an SSA register
                     // This is critical for correctness: SSA registers don't update in loops
                     if let Some(var_info) = ctx.variables.get_mut(name) {

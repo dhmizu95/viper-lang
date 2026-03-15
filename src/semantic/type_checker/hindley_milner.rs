@@ -169,7 +169,7 @@ impl TypeChecker {
                 (Type::Tuple(tuple_types), all_constraints)
             }
 
-            Expr::Call { func, args, span } => {
+            Expr::Call { func, args, keywords: _, span } => {
                 // Check for builtin BigInt functions
                 if let Expr::Ident(name, _) = func.as_ref() {
                     if let Some(builtin_sig) = self.get_bigint_builtin_signature(name, args, *span)

@@ -17,11 +17,7 @@ pub extern "C" fn vp_tuple_create_stub(size: i64) -> *mut ViperTuple {
     }
 
     unsafe {
-        let mut tuple = Box::new(ViperTuple {
-            size,
-            elements: std::ptr::null_mut(),
-            _reserved: 0,
-        });
+        let mut tuple = Box::new(ViperTuple { size, elements: std::ptr::null_mut(), _reserved: 0 });
 
         if size > 0 {
             let elements_layout = Layout::from_size_align((size as usize) * 8, 8).unwrap();

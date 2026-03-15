@@ -53,7 +53,11 @@ fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) ->
 
 /// Collect local variable types from assignment statements.
 /// Scans assignments like `e = 0.0` and infers that `e` is F64.
-fn collect_local_var_types(body: &[Stmt], param_types: &[(String, Type)], out: &mut Vec<(String, Type)>) {
+fn collect_local_var_types(
+    body: &[Stmt],
+    param_types: &[(String, Type)],
+    out: &mut Vec<(String, Type)>,
+) {
     for stmt in body {
         match stmt {
             Stmt::Assign { target, value, .. } => {
@@ -83,8 +87,12 @@ fn collect_local_var_types(body: &[Stmt], param_types: &[(String, Type)], out: &
             }
             Stmt::If { body, elif_blocks, else_body, .. } => {
                 collect_local_var_types(body, param_types, out);
-                for (_, b) in elif_blocks { collect_local_var_types(b, param_types, out); }
-                if let Some(b) = else_body { collect_local_var_types(b, param_types, out); }
+                for (_, b) in elif_blocks {
+                    collect_local_var_types(b, param_types, out);
+                }
+                if let Some(b) = else_body {
+                    collect_local_var_types(b, param_types, out);
+                }
             }
             Stmt::While { body, .. } | Stmt::For { body, .. } => {
                 collect_local_var_types(body, param_types, out);
@@ -191,6 +199,11 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return Type::List(Box::new(Type::Infer));
             }
 
+            // Check if parameter is used as a boolean (in conditionals)
+            if param_is_used_as_bool(&param.name, body) {
+                return Type::Bool;
+            }
+
             // Arithmetic/comparison usage indicates the language-level int type.
             if param_is_used_as_scalar(&param.name, body) {
                 if param_is_used_as_float_scalar(&param.name, body) {
@@ -245,12 +258,33 @@ fn infer_param_type_for_identity(_param_name: &str, _body: &[Stmt]) -> Type {
 /// Collection-processing functions that accept list/iterable arguments
 /// Parameters passed to these functions should be inferred as list types
 fn is_collection_function(name: &str) -> bool {
-    matches!(name,
-        "sum" | "min" | "max" | "len" | "avg" | "mean" | "median" | "mode"
-        | "sorted" | "reversed" | "enumerate" | "zip" | "map" | "filter"
-        | "all" | "any" | "count" | "index"
-        | "reduce" | "fold" | "accumulate"
-        | "vp_list_sum" | "vp_list_min" | "vp_list_max" | "vp_list_len"
+    matches!(
+        name,
+        "sum"
+            | "min"
+            | "max"
+            | "len"
+            | "avg"
+            | "mean"
+            | "median"
+            | "mode"
+            | "sorted"
+            | "reversed"
+            | "enumerate"
+            | "zip"
+            | "map"
+            | "filter"
+            | "all"
+            | "any"
+            | "count"
+            | "index"
+            | "reduce"
+            | "fold"
+            | "accumulate"
+            | "vp_list_sum"
+            | "vp_list_min"
+            | "vp_list_max"
+            | "vp_list_len"
     )
 }
 
@@ -272,23 +306,28 @@ fn stmt_contains_collection_function_call_with_param(param_name: &str, stmt: &St
         Stmt::Assign { value, .. } => {
             expr_contains_collection_function_call_with_param(param_name, value)
         }
-        Stmt::Declare { value, .. } => {
-            value.as_ref().map_or(false, |v| expr_contains_collection_function_call_with_param(param_name, v))
-        }
+        Stmt::Declare { value, .. } => value
+            .as_ref()
+            .map_or(false, |v| expr_contains_collection_function_call_with_param(param_name, v)),
         Stmt::If { condition, body, else_body, .. } => {
             expr_contains_collection_function_call_with_param(param_name, condition)
-                || body.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+                || body
+                    .iter()
+                    .any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
                 || else_body.as_ref().map_or(false, |eb| {
-                    eb.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+                    eb.iter()
+                        .any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
                 })
         }
         Stmt::While { condition, body, .. } => {
             expr_contains_collection_function_call_with_param(param_name, condition)
-                || body.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
+                || body
+                    .iter()
+                    .any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
         }
-        Stmt::Return { value, .. } => {
-            value.as_ref().map_or(false, |v| expr_contains_collection_function_call_with_param(param_name, v))
-        }
+        Stmt::Return { value, .. } => value
+            .as_ref()
+            .map_or(false, |v| expr_contains_collection_function_call_with_param(param_name, v)),
         Stmt::Function { body, .. } => {
             body.iter().any(|s| stmt_contains_collection_function_call_with_param(param_name, s))
         }
@@ -327,7 +366,8 @@ fn expr_contains_collection_function_call_with_param(param_name: &str, expr: &Ex
                 }
             }
             // Also check nested calls in arguments
-            args.iter().any(|arg| expr_contains_collection_function_call_with_param(param_name, arg))
+            args.iter()
+                .any(|arg| expr_contains_collection_function_call_with_param(param_name, arg))
         }
         Expr::BinOp { left, right, .. } => {
             expr_contains_collection_function_call_with_param(param_name, left)
@@ -336,7 +376,9 @@ fn expr_contains_collection_function_call_with_param(param_name: &str, expr: &Ex
         Expr::UnaryOp { operand, .. } => {
             expr_contains_collection_function_call_with_param(param_name, operand)
         }
-        Expr::Attribute { obj, .. } => expr_contains_collection_function_call_with_param(param_name, obj),
+        Expr::Attribute { obj, .. } => {
+            expr_contains_collection_function_call_with_param(param_name, obj)
+        }
         Expr::Index { obj, index, .. } => {
             expr_contains_collection_function_call_with_param(param_name, obj)
                 || expr_contains_collection_function_call_with_param(param_name, index)
@@ -435,20 +477,85 @@ fn param_is_used_as_float_scalar(param_name: &str, body: &[Stmt]) -> bool {
     false
 }
 
+/// Check if a parameter is used as a boolean (in conditional contexts).
+/// Returns true if the parameter appears in if/while conditions.
+fn param_is_used_as_bool(param_name: &str, body: &[Stmt]) -> bool {
+    for stmt in body {
+        if stmt_is_bool_conditional_usage(param_name, stmt) {
+            return true;
+        }
+    }
+    false
+}
+
+fn stmt_is_bool_conditional_usage(param_name: &str, stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::If { condition, elif_blocks, else_body, .. } => {
+            if expr_contains_ident(param_name, condition) {
+                return true;
+            }
+            for (_, elif_body) in elif_blocks {
+                for s in elif_body {
+                    if stmt_is_bool_conditional_usage(param_name, s) {
+                        return true;
+                    }
+                }
+            }
+            if let Some(else_body) = else_body {
+                for s in else_body {
+                    if stmt_is_bool_conditional_usage(param_name, s) {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+        Stmt::While { condition, body, .. } => {
+            if expr_contains_ident(param_name, condition) {
+                return true;
+            }
+            body.iter().any(|s| stmt_is_bool_conditional_usage(param_name, s))
+        }
+        Stmt::For { body, .. } => {
+            body.iter().any(|s| stmt_is_bool_conditional_usage(param_name, s))
+        }
+        _ => false,
+    }
+}
+
 fn stmt_contains_float_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
     match stmt {
-        Stmt::Assign { value, .. } => expr_contains_float_scalar_usage(param_name, value),
+        Stmt::Assign { target, value, .. } => {
+            // Check if target is param[i] (list element assignment)
+            let target_is_param_index = matches!(target.as_ref(), Expr::Index { obj, .. } if matches!(obj.as_ref(), Expr::Ident(n, _) if n == param_name));
+            if target_is_param_index {
+                // Check if value involves float operations
+                return expr_contains_float_scalar_usage(param_name, value);
+            }
+            expr_contains_float_scalar_usage(param_name, value)
+        }
         Stmt::Declare { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_float_scalar_usage(param_name, v))
         }
         Stmt::Return { value, .. } => {
             value.as_ref().map_or(false, |v| expr_contains_float_scalar_usage(param_name, v))
         }
-        Stmt::AugAssign { value, .. } => expr_contains_float_scalar_usage(param_name, value),
+        Stmt::AugAssign { target, value, .. } => {
+            // Check if target is param[i]
+            let target_is_param_index = matches!(target.as_ref(), Expr::Index { obj, .. } if matches!(obj.as_ref(), Expr::Ident(n, _) if n == param_name));
+            if target_is_param_index {
+                return expr_contains_float_scalar_usage(param_name, value);
+            }
+            expr_contains_float_scalar_usage(param_name, value)
+        }
         Stmt::If { body, elif_blocks, else_body, .. } => {
             body.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s))
-                || elif_blocks.iter().any(|(_, b)| b.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s)))
-                || else_body.as_ref().map_or(false, |b| b.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s)))
+                || elif_blocks
+                    .iter()
+                    .any(|(_, b)| b.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s)))
+                || else_body.as_ref().map_or(false, |b| {
+                    b.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s))
+                })
         }
         Stmt::For { body, .. } | Stmt::While { body, .. } => {
             body.iter().any(|s| stmt_contains_float_scalar_usage(param_name, s))
@@ -466,10 +573,28 @@ fn expr_is_float(expr: &Expr) -> bool {
             if let Expr::Attribute { obj, attr, .. } = func.as_ref() {
                 if let Expr::Ident(module, _) = obj.as_ref() {
                     if module == "math" {
-                        return matches!(attr.as_str(),
-                            "sqrt" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "atan2"
-                            | "exp" | "log" | "log2" | "log10" | "cbrt" | "hypot"
-                            | "floor" | "ceil" | "trunc" | "pi" | "e" | "tau"
+                        return matches!(
+                            attr.as_str(),
+                            "sqrt"
+                                | "sin"
+                                | "cos"
+                                | "tan"
+                                | "asin"
+                                | "acos"
+                                | "atan"
+                                | "atan2"
+                                | "exp"
+                                | "log"
+                                | "log2"
+                                | "log10"
+                                | "cbrt"
+                                | "hypot"
+                                | "floor"
+                                | "ceil"
+                                | "trunc"
+                                | "pi"
+                                | "e"
+                                | "tau"
                         );
                     }
                 }
@@ -495,12 +620,31 @@ fn expr_contains_float_scalar_usage(param_name: &str, expr: &Expr) -> bool {
             if right_is_param && expr_is_float(left) {
                 return true;
             }
+            // Also check for list element access: param[i] * float
+            let left_is_param_index = matches!(left.as_ref(), Expr::Index { obj, .. } if matches!(obj.as_ref(), Expr::Ident(n, _) if n == param_name));
+            let right_is_param_index = matches!(right.as_ref(), Expr::Index { obj, .. } if matches!(obj.as_ref(), Expr::Ident(n, _) if n == param_name));
+            if left_is_param_index && expr_is_float(right) {
+                return true;
+            }
+            if right_is_param_index && expr_is_float(left) {
+                return true;
+            }
             // Recurse
             expr_contains_float_scalar_usage(param_name, left)
                 || expr_contains_float_scalar_usage(param_name, right)
         }
         Expr::UnaryOp { operand, .. } => expr_contains_float_scalar_usage(param_name, operand),
-        Expr::Call { args, .. } => args.iter().any(|a| expr_contains_float_scalar_usage(param_name, a)),
+        Expr::Call { args, .. } => {
+            args.iter().any(|a| expr_contains_float_scalar_usage(param_name, a))
+        }
+        Expr::Index { obj, index, .. } => {
+            // Check if this is param[i] access
+            if matches!(obj.as_ref(), Expr::Ident(n, _) if n == param_name) {
+                return true;
+            }
+            expr_contains_float_scalar_usage(param_name, obj)
+                || expr_contains_float_scalar_usage(param_name, index)
+        }
         _ => false,
     }
 }
@@ -522,8 +666,12 @@ fn stmt_contains_scalar_usage(param_name: &str, stmt: &Stmt) -> bool {
         Stmt::If { condition, body, elif_blocks, else_body, .. } => {
             expr_contains_scalar_usage(param_name, condition)
                 || body.iter().any(|s| stmt_contains_scalar_usage(param_name, s))
-                || elif_blocks.iter().any(|(_, b)| b.iter().any(|s| stmt_contains_scalar_usage(param_name, s)))
-                || else_body.as_ref().map_or(false, |eb| eb.iter().any(|s| stmt_contains_scalar_usage(param_name, s)))
+                || elif_blocks
+                    .iter()
+                    .any(|(_, b)| b.iter().any(|s| stmt_contains_scalar_usage(param_name, s)))
+                || else_body.as_ref().map_or(false, |eb| {
+                    eb.iter().any(|s| stmt_contains_scalar_usage(param_name, s))
+                })
         }
         Stmt::While { condition, body, .. } => {
             expr_contains_scalar_usage(param_name, condition)

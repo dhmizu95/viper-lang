@@ -23,17 +23,18 @@ pub fn generate_list<'ctx>(
         }
         crate::codegen::expressions::infer_expr_type(e) == crate::ast::Type::F64
     });
-    let is_bool_list = !is_float_list && elements.iter().any(|e| {
-        if matches!(e, Expr::Bool(..)) {
-            return true;
-        }
-        if let Expr::Ident(name, _) = e {
-            if let Some(ty) = state.var_types.get(name) {
-                return matches!(ty, crate::ast::Type::Bool);
+    let is_bool_list = !is_float_list
+        && elements.iter().any(|e| {
+            if matches!(e, Expr::Bool(..)) {
+                return true;
             }
-        }
-        crate::codegen::expressions::infer_expr_type(e) == crate::ast::Type::Bool
-    });
+            if let Expr::Ident(name, _) = e {
+                if let Some(ty) = state.var_types.get(name) {
+                    return matches!(ty, crate::ast::Type::Bool);
+                }
+            }
+            crate::codegen::expressions::infer_expr_type(e) == crate::ast::Type::Bool
+        });
 
     // For empty lists or mixed types, check all elements
     let (list_func_name, append_func_name) = if is_float_list {
@@ -161,27 +162,42 @@ pub fn generate_list_comprehension<'ctx>(
                 // Not range(), evaluate as regular expression
                 let v = generate_expr(state, iter)?;
                 iter_val = Some(v);
-                let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
-                let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
+                let len_func =
+                    state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
+                let len = state
+                    .ir_builder
+                    .build_call(state.builder, len_func, &[v.into()], "iter_len")
+                    .unwrap()
+                    .into_int_value();
                 (state.ir_builder.i64_const(0), len)
             }
         } else {
             let v = generate_expr(state, iter)?;
             iter_val = Some(v);
-            let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
-            let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
+            let len_func =
+                state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
+            let len = state
+                .ir_builder
+                .build_call(state.builder, len_func, &[v.into()], "iter_len")
+                .unwrap()
+                .into_int_value();
             (state.ir_builder.i64_const(0), len)
         }
     } else {
         let v = generate_expr(state, iter)?;
         iter_val = Some(v);
-        
+
         // Determine if iter is a float list for optimized get
         let iter_type = infer_expr_type(iter);
         iter_is_float_list = matches!(iter_type, Type::List(inner) if matches!(*inner, Type::F64));
 
-        let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
-        let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
+        let len_func =
+            state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
+        let len = state
+            .ir_builder
+            .build_call(state.builder, len_func, &[v.into()], "iter_len")
+            .unwrap()
+            .into_int_value();
         (state.ir_builder.i64_const(0), len)
     };
 
@@ -243,34 +259,43 @@ pub fn generate_list_comprehension<'ctx>(
         // Fetch element from list: list[counter]
         let list_val = iter_val.expect("iter_val should be present if not range");
         let get_func_name = if iter_is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
-        let get_func = state.module.get_function(get_func_name).ok_or_else(|| format!("{} not declared", get_func_name))?;
+        let get_func = state
+            .module
+            .get_function(get_func_name)
+            .ok_or_else(|| format!("{} not declared", get_func_name))?;
 
-        state.ir_builder.build_call(state.builder, get_func, &[list_val.into(), counter_val.into()], "extracted_elem").unwrap()
+        state
+            .ir_builder
+            .build_call(
+                state.builder,
+                get_func,
+                &[list_val.into(), counter_val.into()],
+                "extracted_elem",
+            )
+            .unwrap()
     };
 
     // Create a separate variable for the loop variable
-    let var_type = if is_range { 
-        crate::codegen::variables::VarType::Int 
+    let var_type = if is_range {
+        crate::codegen::variables::VarType::Int
     } else if iter_is_float_list {
         crate::codegen::variables::VarType::Float
     } else {
         crate::codegen::variables::VarType::Int
     };
-    
-    let storage_type: inkwell::types::BasicTypeEnum = if matches!(var_type, crate::codegen::variables::VarType::Float) {
-        state.context.f64_type().into()
-    } else {
-        state.context.i64_type().into()
-    };
+
+    let storage_type: inkwell::types::BasicTypeEnum =
+        if matches!(var_type, crate::codegen::variables::VarType::Float) {
+            state.context.f64_type().into()
+        } else {
+            state.context.i64_type().into()
+        };
 
     let var_ptr = state.builder.build_alloca(storage_type, var).expect("alloca");
     state.builder.build_store(var_ptr, loop_var_val).expect("store var");
 
     // Set up the loop variable in the symbol table
-    let old_var = state.variables.insert(
-        var.to_string(),
-        VarInfo::new_stack(var_ptr, var_type),
-    );
+    let old_var = state.variables.insert(var.to_string(), VarInfo::new_stack(var_ptr, var_type));
 
     // Generate the element expression
     let elem_val = generate_expr(state, element)?;

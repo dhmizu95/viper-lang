@@ -62,22 +62,7 @@ fn generate_while_simple<'ctx>(
     state.loop_stack.push(LoopContext::new(exit_block, cond_block));
 
     for stmt in body {
-        crate::codegen::statements::generate_stmt(
-            state.context,
-            state.module,
-            state.builder,
-            state.ir_builder,
-            state.variables,
-            state.functions,
-            state.global_constants,
-            state.loop_stack,
-            state.list_vars,
-            state.dict_vars,
-            state.bool_list_vars,
-            state.bigint_vars,
-            state.var_types,
-            stmt,
-        )?;
+        crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
     }
 
     state.loop_stack.pop();
@@ -90,22 +75,7 @@ fn generate_while_simple<'ctx>(
     if let Some(else_stmts) = else_body {
         state.builder.position_at_end(else_block.unwrap());
         for stmt in else_stmts {
-            crate::codegen::statements::generate_stmt(
-                state.context,
-                state.module,
-                state.builder,
-                state.ir_builder,
-                state.variables,
-                state.functions,
-                state.global_constants,
-                state.loop_stack,
-                state.list_vars,
-                state.dict_vars,
-                state.bool_list_vars,
-                state.bigint_vars,
-                state.var_types,
-                stmt,
-            )?;
+            crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
         }
         // After else block, jump to exit
         if state.builder.get_insert_block().unwrap().get_terminator().is_none() {
@@ -269,6 +239,8 @@ fn generate_for_with_iterator<'ctx>(
                 state.bool_list_vars,
                 state.bigint_vars,
                 state.var_types,
+                state.function_param_names,
+                state.function_param_defaults,
                 stmt,
             )?;
         }
@@ -299,6 +271,8 @@ fn generate_for_with_iterator<'ctx>(
                         state.bool_list_vars,
                         state.bigint_vars,
                         state.var_types,
+                        state.function_param_names,
+                        state.function_param_defaults,
                         stmt,
                     )?;
                 }
@@ -392,11 +366,16 @@ pub fn generate_for<'ctx>(
                 // Get the current position and create blocks for the loop
                 let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
                 let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-                let alloca_block = state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
-                let init_block = state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
-                let cond_block = state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
-                let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
-                let step_block = state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
+                let alloca_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
+                let init_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
+                let cond_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
+                let body_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
+                let step_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
                 let else_block = if else_body.is_some() {
                     Some(
                         state.context.append_basic_block(func_ctx, &format!("for_else{}", for_num)),
@@ -404,7 +383,8 @@ pub fn generate_for<'ctx>(
                 } else {
                     None
                 };
-                let exit_block = state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
+                let exit_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
                 // Branch from current position to alloca block
                 let old_position = state.builder.get_insert_block().unwrap();
@@ -499,21 +479,8 @@ pub fn generate_for<'ctx>(
                 };
 
                 for stmt in body {
-                    crate::codegen::statements::generate_stmt(
-                        state.context,
-                        state.module,
-                        state.builder,
-                        state.ir_builder,
-                        state.variables,
-                        state.functions,
-                        state.global_constants,
-                        state.loop_stack,
-                        state.list_vars,
-                        state.dict_vars,
-                        state.bool_list_vars,
-                        state.bigint_vars,
-                        state.var_types,
-                        stmt,
+                    crate::codegen::statements::core::dispatch::generate_stmt_internal(
+                        state, stmt,
                     )?;
                 }
 
@@ -555,21 +522,8 @@ pub fn generate_for<'ctx>(
                 if let Some(else_stmts) = else_body {
                     state.builder.position_at_end(else_block.unwrap());
                     for stmt in else_stmts {
-                        crate::codegen::statements::generate_stmt(
-                            state.context,
-                            state.module,
-                            state.builder,
-                            state.ir_builder,
-                            state.variables,
-                            state.functions,
-                            state.global_constants,
-                            state.loop_stack,
-                            state.list_vars,
-                            state.dict_vars,
-                            state.bool_list_vars,
-                            state.bigint_vars,
-                            state.var_types,
-                            stmt,
+                        crate::codegen::statements::core::dispatch::generate_stmt_internal(
+                            state, stmt,
                         )?;
                     }
                     // After else block, jump to exit
@@ -613,7 +567,8 @@ pub fn generate_for<'ctx>(
 
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let alloca_block = state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
+    let alloca_block =
+        state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
     let init_block = state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
     let cond_block = state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
     let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
@@ -730,22 +685,7 @@ pub fn generate_for<'ctx>(
     state.loop_stack.push(LoopContext::new(exit_block, step_block));
 
     for stmt in body {
-        crate::codegen::statements::generate_stmt(
-            state.context,
-            state.module,
-            state.builder,
-            state.ir_builder,
-            state.variables,
-            state.functions,
-            state.global_constants,
-            state.loop_stack,
-            state.list_vars,
-            state.dict_vars,
-            state.bool_list_vars,
-            state.bigint_vars,
-            state.var_types,
-            stmt,
-        )?;
+        crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
     }
 
     state.loop_stack.pop();
@@ -910,8 +850,7 @@ pub fn generate_async_for<'ctx>(
 
     // Store iterator in alloca (use fixed pointer type)
     let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-    let iterator_ptr =
-        state.builder.build_alloca(ptr_type, "iterator_ptr").expect("alloca");
+    let iterator_ptr = state.builder.build_alloca(ptr_type, "iterator_ptr").expect("alloca");
     state.builder.build_store(iterator_ptr, iterator).expect("store");
 
     // Allocate storage for the iteration variable (in init block, before loop)
@@ -959,7 +898,7 @@ pub fn generate_async_for<'ctx>(
     // Store the item value in the pre-allocated alloca
     if let Some((target_name, alloca)) = &item_alloca {
         state.builder.build_store(*alloca, item.into_int_value()).expect("store item");
-        
+
         // Bind the target variable
         state.variables.insert(
             target_name.clone(),
@@ -977,22 +916,7 @@ pub fn generate_async_for<'ctx>(
     state.loop_stack.push(LoopContext::new(exit_block, step_block));
 
     for stmt in body {
-        crate::codegen::statements::generate_stmt(
-            state.context,
-            state.module,
-            state.builder,
-            state.ir_builder,
-            state.variables,
-            state.functions,
-            state.global_constants,
-            state.loop_stack,
-            state.list_vars,
-            state.dict_vars,
-            state.bool_list_vars,
-            state.bigint_vars,
-            state.var_types,
-            stmt,
-        )?;
+        crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
     }
 
     state.loop_stack.pop();

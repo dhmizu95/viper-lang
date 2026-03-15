@@ -61,7 +61,13 @@ impl RecursionAnalyzer {
         let mut recursive_calls = 0;
         let mut tail_calls = 0;
 
-        Self::collect_function_calls(body, &mut called_functions, name, &mut recursive_calls, &mut tail_calls);
+        Self::collect_function_calls(
+            body,
+            &mut called_functions,
+            name,
+            &mut recursive_calls,
+            &mut tail_calls,
+        );
 
         self.call_graph.insert(name.to_string(), called_functions);
 
@@ -154,9 +160,16 @@ impl RecursionAnalyzer {
     ) {
         // Check if this is the last statement block (tail position)
         let is_tail_position = true;
-        
+
         for stmt in stmts {
-            Self::collect_calls_in_stmt(stmt, called, current_function, recursive_count, tail_call_count, is_tail_position);
+            Self::collect_calls_in_stmt(
+                stmt,
+                called,
+                current_function,
+                recursive_count,
+                tail_call_count,
+                is_tail_position,
+            );
         }
     }
 
@@ -170,51 +183,134 @@ impl RecursionAnalyzer {
     ) {
         match stmt {
             Stmt::Expr(expr) => {
-                Self::collect_calls_in_expr(expr, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    expr,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
             }
             Stmt::If { condition, body, else_body, .. } => {
-                Self::collect_calls_in_expr(condition, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    condition,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
                 // Process each branch - each could end with a tail call
                 for s in body {
-                    Self::collect_calls_in_stmt(s, called, current_function, recursive_count, tail_call_count, true);
+                    Self::collect_calls_in_stmt(
+                        s,
+                        called,
+                        current_function,
+                        recursive_count,
+                        tail_call_count,
+                        true,
+                    );
                 }
                 if let Some(else_stmts) = else_body {
                     for s in else_stmts {
-                        Self::collect_calls_in_stmt(s, called, current_function, recursive_count, tail_call_count, true);
+                        Self::collect_calls_in_stmt(
+                            s,
+                            called,
+                            current_function,
+                            recursive_count,
+                            tail_call_count,
+                            true,
+                        );
                     }
                 }
             }
             Stmt::While { condition, body, .. } => {
-                Self::collect_calls_in_expr(condition, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    condition,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
                 // While loops aren't tail position for the function
                 for s in body {
-                    Self::collect_calls_in_stmt(s, called, current_function, recursive_count, tail_call_count, false);
+                    Self::collect_calls_in_stmt(
+                        s,
+                        called,
+                        current_function,
+                        recursive_count,
+                        tail_call_count,
+                        false,
+                    );
                 }
             }
             Stmt::For { iter, body, .. } => {
-                Self::collect_calls_in_expr(iter, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    iter,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
                 for s in body {
-                    Self::collect_calls_in_stmt(s, called, current_function, recursive_count, tail_call_count, false);
+                    Self::collect_calls_in_stmt(
+                        s,
+                        called,
+                        current_function,
+                        recursive_count,
+                        tail_call_count,
+                        false,
+                    );
                 }
             }
             Stmt::Return { value, .. } => {
                 // Return statements ARE in tail position!
                 if let Some(expr) = value {
-                    Self::collect_calls_in_expr(expr, called, current_function, recursive_count, tail_call_count, true);
+                    Self::collect_calls_in_expr(
+                        expr,
+                        called,
+                        current_function,
+                        recursive_count,
+                        tail_call_count,
+                        true,
+                    );
                 }
             }
             Stmt::Assign { value, .. } => {
-                Self::collect_calls_in_expr(value, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    value,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
             }
             Stmt::Declare { value, .. } => {
                 if let Some(expr) = value {
-                    Self::collect_calls_in_expr(expr, called, current_function, recursive_count, tail_call_count, false);
+                    Self::collect_calls_in_expr(
+                        expr,
+                        called,
+                        current_function,
+                        recursive_count,
+                        tail_call_count,
+                        false,
+                    );
                 }
             }
             Stmt::Function { name: inner_name, body, .. } => {
                 // Nested function - analyze separately
                 if inner_name != current_function {
-                    Self::collect_function_calls(body, called, inner_name, recursive_count, tail_call_count);
+                    Self::collect_function_calls(
+                        body,
+                        called,
+                        inner_name,
+                        recursive_count,
+                        tail_call_count,
+                    );
                 }
             }
             _ => {}
@@ -242,28 +338,98 @@ impl RecursionAnalyzer {
                     }
                 }
                 for arg in args {
-                    Self::collect_calls_in_expr(arg, called, current_function, recursive_count, tail_call_count, false);
+                    Self::collect_calls_in_expr(
+                        arg,
+                        called,
+                        current_function,
+                        recursive_count,
+                        tail_call_count,
+                        false,
+                    );
                 }
             }
             Expr::BinOp { left, right, .. } => {
-                Self::collect_calls_in_expr(left, called, current_function, recursive_count, tail_call_count, false);
-                Self::collect_calls_in_expr(right, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    left,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
+                Self::collect_calls_in_expr(
+                    right,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
             }
             Expr::UnaryOp { operand, .. } => {
-                Self::collect_calls_in_expr(operand, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    operand,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
             }
             Expr::Attribute { obj, .. } => {
-                Self::collect_calls_in_expr(obj, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    obj,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
             }
             Expr::Index { obj, index, .. } => {
-                Self::collect_calls_in_expr(obj, called, current_function, recursive_count, tail_call_count, false);
-                Self::collect_calls_in_expr(index, called, current_function, recursive_count, tail_call_count, false);
+                Self::collect_calls_in_expr(
+                    obj,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
+                Self::collect_calls_in_expr(
+                    index,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
             }
             Expr::Conditional { condition, then_expr, else_expr, .. } => {
                 // In conditional, only the last expression in each branch could be tail
-                Self::collect_calls_in_expr(condition, called, current_function, recursive_count, tail_call_count, false);
-                Self::collect_calls_in_expr(then_expr, called, current_function, recursive_count, tail_call_count, in_tail_position);
-                Self::collect_calls_in_expr(else_expr, called, current_function, recursive_count, tail_call_count, in_tail_position);
+                Self::collect_calls_in_expr(
+                    condition,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    false,
+                );
+                Self::collect_calls_in_expr(
+                    then_expr,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    in_tail_position,
+                );
+                Self::collect_calls_in_expr(
+                    else_expr,
+                    called,
+                    current_function,
+                    recursive_count,
+                    tail_call_count,
+                    in_tail_position,
+                );
             }
             _ => {}
         }

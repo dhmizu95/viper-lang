@@ -60,6 +60,8 @@ impl<'ctx> CodeGen<'ctx> {
                             &mut self.bigint_vars,
                             &mut self.var_types,
                             &mut closure_cells,
+                            &self.function_param_names,
+                            &self.function_param_defaults,
                         ),
                         value,
                     )?;
@@ -97,6 +99,8 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.bigint_vars,
                                 &mut self.var_types,
                                 &mut closure_cells,
+                                &self.function_param_names,
+                                &self.function_param_defaults,
                             ),
                             value,
                         )?;

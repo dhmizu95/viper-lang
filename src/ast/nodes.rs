@@ -27,7 +27,7 @@ pub enum Expr {
     /// Unary operation
     UnaryOp { op: UnaryOp, operand: Box<Expr>, span: Span },
     /// Function call
-    Call { func: Box<Expr>, args: Vec<Expr>, span: Span },
+    Call { func: Box<Expr>, args: Vec<Expr>, keywords: Vec<(String, Expr)>, span: Span },
     /// Index access (list[i])
     Index { obj: Box<Expr>, index: Box<Expr>, span: Span },
     /// Slice access (list[start:end] or list[start:end:step])
@@ -115,9 +115,13 @@ impl Expr {
                 operand: Box::new(operand.substitute(substitution)),
                 span: *span,
             },
-            Expr::Call { func, args, span } => Expr::Call {
+            Expr::Call { func, args, keywords, span } => Expr::Call {
                 func: Box::new(func.substitute(substitution)),
                 args: args.iter().map(|a| a.substitute(substitution)).collect(),
+                keywords: keywords
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.substitute(substitution)))
+                    .collect(),
                 span: *span,
             },
             Expr::Index { obj, index, span } => Expr::Index {
@@ -487,7 +491,10 @@ impl Stmt {
                 elif_blocks: elif_blocks
                     .iter()
                     .map(|(c, b)| {
-                        (c.substitute(substitution), b.iter().map(|s| s.substitute(substitution)).collect())
+                        (
+                            c.substitute(substitution),
+                            b.iter().map(|s| s.substitute(substitution)).collect(),
+                        )
                     })
                     .collect(),
                 else_body: else_body

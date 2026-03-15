@@ -350,7 +350,7 @@ impl<'ctx> TieredJitEngine<'ctx> {
         // Store bitcode for the optimizing engine
         let bitcode = module.write_bitcode_to_memory();
         self.module_bitcode.push(bitcode.as_slice().to_vec());
-        
+
         // Add to baseline engine
         self.baseline_engine.add_module(module);
     }
@@ -372,18 +372,20 @@ impl<'ctx> TieredJitEngine<'ctx> {
             if self.optimizing_engine.is_none() {
                 let context = self.baseline_engine.context;
                 let mut opt_engine = LazyJitEngine::new(context, 3); // O3 for optimizing
-                
+
                 // Add all modules from bitcode
                 for (i, bitcode_data) in self.module_bitcode.iter().enumerate() {
                     let buffer = inkwell::memory_buffer::MemoryBuffer::create_from_memory_range(
                         bitcode_data,
                         &format!("module_{}", i),
                     );
-                    let module = Module::parse_bitcode_from_buffer(&buffer, context)
-                        .map_err(|e| ViperError::driver(format!("Failed to parse bitcode: {}", e)))?;
+                    let module =
+                        Module::parse_bitcode_from_buffer(&buffer, context).map_err(|e| {
+                            ViperError::driver(format!("Failed to parse bitcode: {}", e))
+                        })?;
                     opt_engine.add_module(module);
                 }
-                
+
                 self.optimizing_engine = Some(opt_engine);
             }
 

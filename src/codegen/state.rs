@@ -50,6 +50,10 @@ pub struct CodeGenState<'a, 'ctx> {
     /// Closure cells passed from enclosing function (for nested functions)
     /// This is a mutable reference to share state across statements
     pub closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
+    /// Function parameter names for keyword argument resolution
+    pub function_param_names: &'a HashMap<String, Vec<String>>,
+    /// Function parameter default values
+    pub function_param_defaults: &'a HashMap<String, Vec<Option<crate::ast::Expr>>>,
 }
 
 impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
@@ -69,6 +73,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
         closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
+        function_param_names: &'a HashMap<String, Vec<String>>,
+        function_param_defaults: &'a HashMap<String, Vec<Option<crate::ast::Expr>>>,
     ) -> Self {
         Self {
             context,
@@ -93,6 +99,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             memoized_func_name: None,
             captured_vars: HashSet::new(),
             closure_cells,
+            function_param_names,
+            function_param_defaults,
         }
     }
 
@@ -115,6 +123,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
         closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
+        function_param_names: &'a HashMap<String, Vec<String>>,
+        function_param_defaults: &'a HashMap<String, Vec<Option<crate::ast::Expr>>>,
     ) -> Self {
         Self {
             context,
@@ -139,6 +149,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             memoized_func_name: None,
             captured_vars: HashSet::new(),
             closure_cells,
+            function_param_names,
+            function_param_defaults,
         }
     }
 
@@ -162,6 +174,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         current_function: &'a str,
         closure_analyzer: &'a ClosureAnalyzer,
         closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
+        function_param_names: &'a HashMap<String, Vec<String>>,
+        function_param_defaults: &'a HashMap<String, Vec<Option<crate::ast::Expr>>>,
     ) -> Self {
         Self {
             context,
@@ -186,6 +200,8 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             memoized_func_name: None,
             captured_vars: HashSet::new(),
             closure_cells,
+            function_param_names,
+            function_param_defaults,
         }
     }
 
@@ -344,11 +360,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         if self.is_thread_shared(name) {
             if let Some(release_func) = self.module.get_function("vp_release") {
                 self.builder
-                    .build_call(
-                        release_func,
-                        &[value.into()],
-                        &format!("release_{}", name),
-                    )
+                    .build_call(release_func, &[value.into()], &format!("release_{}", name))
                     .expect("build release call");
             }
         } else {
@@ -391,7 +403,10 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             }
             crate::ast::Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
                 if let crate::ast::Expr::List { elements, .. } = left.as_ref() {
-                    elements.first().map(|e| matches!(e, crate::ast::Expr::Bool(..))).unwrap_or(false)
+                    elements
+                        .first()
+                        .map(|e| matches!(e, crate::ast::Expr::Bool(..)))
+                        .unwrap_or(false)
                 } else {
                     false
                 }

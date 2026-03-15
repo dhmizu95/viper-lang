@@ -42,6 +42,10 @@ pub struct CodeGen<'ctx> {
     pub(crate) auto_memoize: bool,
     /// Warn about non-memoized recursive functions (default: true)
     pub(crate) memoize_warn: bool,
+    /// Function parameter names for keyword argument resolution (base name -> [param names])
+    pub(crate) function_param_names: HashMap<String, Vec<String>>,
+    /// Function parameter default values (base name -> [defaults])
+    pub(crate) function_param_defaults: HashMap<String, Vec<Option<crate::ast::Expr>>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -76,6 +80,8 @@ impl<'ctx> CodeGen<'ctx> {
             memoized_functions: HashMap::new(),
             auto_memoize: false, // Disabled by default - users must opt-in via @lru_cache
             memoize_warn: true,  // Warn about non-memoized recursion by default
+            function_param_names: HashMap::new(),
+            function_param_defaults: HashMap::new(),
         }
     }
 

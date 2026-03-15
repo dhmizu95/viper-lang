@@ -238,7 +238,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
                 _ => {}
             }
             Type::Infer
-        },
+        }
         Expr::Slice { .. } => Type::List(Box::new(Type::Infer)),
         Expr::FString { .. } => Type::Str,
         Expr::Await { .. } => Type::Infer,
@@ -369,7 +369,10 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                     if matches!(elem_type.as_ref(), Type::Infer) {
                         if let Expr::Ident(name, _) = obj.as_ref() {
                             // Heuristic: common float list variable names in benchmarks
-                            if matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass") {
+                            if matches!(
+                                name.as_str(),
+                                "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass"
+                            ) {
                                 return Type::F64;
                             }
                             // Try to infer from var_types directly
@@ -383,7 +386,7 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                         }
                     }
                     return elem_type.as_ref().clone();
-                },
+                }
                 Type::Array(elem_type, _) => return elem_type.as_ref().clone(),
                 Type::GenericApp { name, type_args } if name == "list" || name == "List" => {
                     if let Some(elem) = type_args.first() {
@@ -393,7 +396,7 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                 _ => {}
             }
             Type::Infer
-        },
+        }
         _ => Type::Infer,
     }
 }
@@ -666,7 +669,27 @@ pub fn generate_expr<'ctx>(
                 match &var_info.storage {
                     VarStorage::Register(value) => {
                         // Register-allocated variable: return value directly
-                        Ok(*value)
+                        // But if it's supposed to be a pointer (like a list), cast it
+                        // Only do this for pointer types - not for bool/int/etc.
+                        if matches!(var_info.var_type, VarType::Pointer | VarType::Bytes) {
+                            // Only cast if not already a pointer
+                            if value.is_pointer_value() {
+                                Ok(*value)
+                            } else {
+                                // Cast i64 to pointer
+                                let ptr_val = state
+                                    .builder
+                                    .build_int_to_ptr(
+                                        value.into_int_value(),
+                                        state.context.ptr_type(inkwell::AddressSpace::default()),
+                                        "i64_to_ptr",
+                                    )
+                                    .map_err(|e| format!("Failed to cast i64 to ptr: {:?}", e))?;
+                                Ok(ptr_val.into())
+                            }
+                        } else {
+                            Ok(*value)
+                        }
                     }
                     VarStorage::Stack(alloca) => {
                         // Stack-allocated variable: load from alloca
@@ -807,7 +830,12 @@ pub fn generate_expr<'ctx>(
                     }
                 }
             } else {
-                crate::codegen::codegen_error(format!("Undefined variable: {}", name))
+                crate::codegen::codegen_error(format!(
+                    "Undefined variable '{}' in function '{:?}'. Keys: {:?}",
+                    name,
+                    state.current_function,
+                    state.variables.keys().collect::<Vec<_>>()
+                ))
             }
         }
         Expr::List { elements, span: _ } => generate_list(state, elements),
@@ -823,7 +851,9 @@ pub fn generate_expr<'ctx>(
         Expr::Conditional { condition, then_expr, else_expr, span: _ } => {
             generate_conditional(state, condition, then_expr, else_expr)
         }
-        Expr::Call { func, args, span } => generate_call(state, func, args, *span),
+        Expr::Call { func, args, keywords, span } => {
+            generate_call(state, func, args, keywords, *span)
+        }
         Expr::Attribute { obj, attr, span: _ } => {
             // Handle module.attribute access (e.g., math.pi, math.sqrt)
             if let Expr::Ident(module_name, _) = obj.as_ref() {

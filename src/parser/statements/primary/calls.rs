@@ -20,9 +20,31 @@ pub fn parse_ident_expr(
             expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
+            let mut keywords = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(parse_expression(parser)?);
+                    // Check if this is a keyword argument
+                    let saved_pos = parser.pos;
+                    let mut is_keyword = false;
+
+                    if let TokenKind::Ident(name) = &parser.current().kind {
+                        let name = name.clone();
+                        parser.advance();
+                        if parser.match_token(&TokenKind::Eq)
+                            || parser.match_token(&TokenKind::EqEq)
+                        {
+                            let value = parse_expression(parser)?;
+                            keywords.push((name, value));
+                            is_keyword = true;
+                        } else {
+                            parser.pos = saved_pos;
+                        }
+                    }
+
+                    if !is_keyword {
+                        args.push(parse_expression(parser)?);
+                    }
+
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -31,7 +53,7 @@ pub fn parse_ident_expr(
             }
             // RParen was already consumed by match_token if it matched
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+            expr = Expr::Call { func: Box::new(expr), args, keywords, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             // Parse slice or index
             let is_slice = super::is_slice_pattern(parser);
@@ -67,9 +89,30 @@ pub fn parse_send_expr(parser: &mut StatementParser, span: Span) -> crate::error
             expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
+            let mut keywords = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(parse_expression(parser)?);
+                    // Check if this is a keyword argument
+                    let saved_pos = parser.pos;
+                    let mut is_keyword = false;
+
+                    if let TokenKind::Ident(name) = &parser.current().kind {
+                        let name = name.clone();
+                        parser.advance();
+                        if parser.match_token(&TokenKind::Eq)
+                            || parser.match_token(&TokenKind::EqEq)
+                        {
+                            let value = parse_expression(parser)?;
+                            keywords.push((name, value));
+                            is_keyword = true;
+                        } else {
+                            parser.pos = saved_pos;
+                        }
+                    }
+
+                    if !is_keyword {
+                        args.push(parse_expression(parser)?);
+                    }
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -77,7 +120,7 @@ pub fn parse_send_expr(parser: &mut StatementParser, span: Span) -> crate::error
                 parser.expect(&TokenKind::RParen)?;
             }
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+            expr = Expr::Call { func: Box::new(expr), args, keywords, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             let is_slice = super::is_slice_pattern(parser);
 
@@ -111,9 +154,30 @@ pub fn parse_recv_expr(parser: &mut StatementParser, span: Span) -> crate::error
             expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
+            let mut keywords = Vec::new();
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(parse_expression(parser)?);
+                    // Check if this is a keyword argument
+                    let saved_pos = parser.pos;
+                    let mut is_keyword = false;
+
+                    if let TokenKind::Ident(name) = &parser.current().kind {
+                        let name = name.clone();
+                        parser.advance();
+                        if parser.match_token(&TokenKind::Eq)
+                            || parser.match_token(&TokenKind::EqEq)
+                        {
+                            let value = parse_expression(parser)?;
+                            keywords.push((name, value));
+                            is_keyword = true;
+                        } else {
+                            parser.pos = saved_pos;
+                        }
+                    }
+
+                    if !is_keyword {
+                        args.push(parse_expression(parser)?);
+                    }
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -121,7 +185,7 @@ pub fn parse_recv_expr(parser: &mut StatementParser, span: Span) -> crate::error
                 parser.expect(&TokenKind::RParen)?;
             }
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+            expr = Expr::Call { func: Box::new(expr), args, keywords: Vec::new(), span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             let is_slice = super::is_slice_pattern(parser);
 

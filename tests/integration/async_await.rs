@@ -16,7 +16,7 @@ async def main():
 
 main()
 "#;
-    
+
     let output = run_viper_code(code).unwrap();
     assert!(output.contains("result: 42"));
 }
@@ -40,7 +40,7 @@ async def main():
 
 main()
 "#;
-    
+
     let output = run_viper_code(code).unwrap();
     assert!(output.contains("results: 2 4 6"));
 }
@@ -57,7 +57,7 @@ async def main():
 
 main()
 "#;
-    
+
     let output = run_viper_code(code).unwrap();
     assert!(output.contains("sum: 30"));
 }
@@ -86,7 +86,7 @@ async def main():
 
 main()
 "#;
-    
+
     let output = run_viper_code(code).unwrap();
     assert!(output.contains("total:"));
 }
@@ -102,7 +102,7 @@ async def main():
 
 main()
 "#;
-    
+
     let output = run_viper_code(code).unwrap();
     assert!(output.contains("total: 45"));
 }
@@ -123,7 +123,7 @@ async def main():
 
 main()
 "#;
-    
+
     let output = run_viper_code(code).unwrap();
     assert!(output.contains("results: [0, 2, 4, 6, 8]"));
 }
@@ -149,7 +149,7 @@ async def main():
 
 main()
 "#;
-    
+
     let output = run_viper_code(code).unwrap();
     assert!(output.contains("done:"));
 }

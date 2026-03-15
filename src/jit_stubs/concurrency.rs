@@ -1,9 +1,9 @@
-use std::collections::VecDeque;
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicI64, Ordering};
-use std::cell::Cell;
 use crate::jit_stubs::bigint::vp_bigint_to_i64_stub;
 use crate::jit_stubs::tagged_int::tagged_int_from_i64;
+use std::cell::Cell;
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Mutex;
 
 // Concurrency runtime stubs for JIT (Phase 3)
 // Proper implementations using channels and synchronization
@@ -92,20 +92,18 @@ fn ensure_worker_running() {
     };
 
     if should_spawn {
-        std::thread::spawn(|| {
-            loop {
-                let task = {
-                    let mut state = JIT_CONCURRENCY.lock().unwrap();
-                    state.tasks.pop_front()
-                };
+        std::thread::spawn(|| loop {
+            let task = {
+                let mut state = JIT_CONCURRENCY.lock().unwrap();
+                state.tasks.pop_front()
+            };
 
-                match task {
-                    Some(task) => run_task(task.func, task.arg as *mut std::ffi::c_void),
-                    None => {
-                        let mut state = JIT_CONCURRENCY.lock().unwrap();
-                        state.worker_running = false;
-                        break;
-                    }
+            match task {
+                Some(task) => run_task(task.func, task.arg as *mut std::ffi::c_void),
+                None => {
+                    let mut state = JIT_CONCURRENCY.lock().unwrap();
+                    state.worker_running = false;
+                    break;
                 }
             }
         });
@@ -218,7 +216,7 @@ pub extern "C" fn vp_wait_all_tasks() {
 #[repr(C)]
 struct JitFuture {
     id: i64,
-    state: AtomicI64,        // 0=PENDING, 1=READY, 2=RUNNING, 3=COMPLETED, 4=ERROR
+    state: AtomicI64, // 0=PENDING, 1=READY, 2=RUNNING, 3=COMPLETED, 4=ERROR
     result: AtomicI64,
     callback: *mut std::ffi::c_void,
     callback_arg: *mut std::ffi::c_void,
@@ -230,10 +228,10 @@ pub extern "C" fn vp_future_await(future: *mut std::ffi::c_void) -> i64 {
     if future.is_null() {
         return 0;
     }
-    
+
     unsafe {
         let fut = &*(future as *mut JitFuture);
-        
+
         // Wait until future is completed (state == 3) or error (state == 4)
         while {
             let state = fut.state.load(Ordering::Acquire);
@@ -249,7 +247,7 @@ pub extern "C" fn vp_future_await(future: *mut std::ffi::c_void) -> i64 {
                 std::thread::yield_now();
             }
         }
-        
+
         fut.result.load(Ordering::Acquire)
     }
 }
@@ -258,7 +256,7 @@ pub extern "C" fn vp_future_set_result(future: *mut std::ffi::c_void, result: i6
     if future.is_null() {
         return;
     }
-    
+
     unsafe {
         let fut = &mut *(future as *mut JitFuture);
         fut.result.store(result, Ordering::Release);
@@ -343,19 +341,19 @@ pub extern "C" fn vp_async_iter(obj: *mut std::ffi::c_void) -> *mut std::ffi::c_
 pub extern "C" fn vp_async_next(iterator: *mut std::ffi::c_void) -> i64 {
     // Call vp_async_range_next for range iterators
     if iterator.is_null() {
-        return -1;  // StopAsyncIteration
+        return -1; // StopAsyncIteration
     }
-    
+
     let range = unsafe { &mut *(iterator as *mut JitAsyncRange) };
 
     if range.magic != JIT_ASYNC_RANGE_MAGIC {
         return -1;
     }
-    
+
     if range.current >= range.end {
-        return -1;  // StopAsyncIteration
+        return -1; // StopAsyncIteration
     }
-    
+
     let value = range.current;
     range.current += range.step;
     tagged_int_from_i64(value)
@@ -398,10 +396,7 @@ pub extern "C" fn vp_async_sleep(milliseconds: i64) -> i64 {
     let future_ptr = vp_future_create();
     let ms = if milliseconds < 0 { 0 } else { milliseconds } as u64;
     let sleep_task = Box::new(SleepTask { future: future_ptr, ms });
-    let task = JitTask {
-        func: run_sleep_task,
-        arg: Box::into_raw(sleep_task) as usize,
-    };
+    let task = JitTask { func: run_sleep_task, arg: Box::into_raw(sleep_task) as usize };
     {
         let mut state = JIT_CONCURRENCY.lock().unwrap();
         state.tasks.push_back(task);
@@ -431,7 +426,7 @@ pub extern "C" fn vp_future_gather(futures_ptr: i64, count: i64) -> i64 {
 
         // Return pointer to results (convert Vec to raw pointer)
         let results_ptr = results.as_mut_ptr();
-        std::mem::forget(results);  // Don't drop, we're transferring ownership
+        std::mem::forget(results); // Don't drop, we're transferring ownership
         results_ptr as i64
     }
 }

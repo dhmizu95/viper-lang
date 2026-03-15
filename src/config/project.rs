@@ -12,11 +12,11 @@ pub struct ProjectConfig {
     /// Package metadata
     #[serde(default)]
     pub package: PackageConfig,
-    
+
     /// Build configuration
     #[serde(default)]
     pub build: BuildConfig,
-    
+
     /// Compiler configuration
     #[serde(default)]
     pub compiler: CompilerConfig,
@@ -46,15 +46,15 @@ pub struct CompilerConfig {
     /// Automatically memoize pure recursive functions with exponential complexity
     #[serde(default)]
     pub auto_memoize: bool,
-    
+
     /// Default optimization level (0-3)
     #[serde(default)]
     pub opt_level: Option<u32>,
-    
+
     /// Enable Link-Time Optimization
     #[serde(default)]
     pub lto: bool,
-    
+
     /// Enable Profile-Guided Optimization
     #[serde(default)]
     pub pgo: bool,
@@ -75,21 +75,21 @@ impl ProjectConfig {
                 return None;
             }
         };
-        
+
         Self::load_from_path(&config_path)
     }
-    
+
     /// Load configuration from a specific path
     pub fn load_from_path(path: &Path) -> Option<Self> {
         if !path.exists() {
             return None;
         }
-        
+
         let content = std::fs::read_to_string(path).ok()?;
         let config: ProjectConfig = toml::from_str(&content).ok()?;
         Some(config)
     }
-    
+
     /// Load configuration from current directory or any parent directory
     pub fn load_from_current_dir() -> Option<Self> {
         std::env::current_dir().ok().and_then(|dir| {
@@ -107,7 +107,7 @@ impl ProjectConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_parse_compiler_config() {
         let toml_str = r#"
@@ -121,7 +121,7 @@ lto = true
         assert_eq!(config.compiler.opt_level, Some(2));
         assert!(config.compiler.lto);
     }
-    
+
     #[test]
     fn test_parse_default_config() {
         let toml_str = r#"

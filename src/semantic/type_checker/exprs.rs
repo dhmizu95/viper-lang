@@ -118,7 +118,7 @@ impl TypeChecker {
                     }
                 }
             }
-            Expr::Call { func, args, span } => {
+            Expr::Call { func, args, keywords: _, span } => {
                 // First, check all argument expressions to infer their types
                 for (i, arg) in args.iter().enumerate() {
                     // Special case: isinstance's second argument is a type name, not a value

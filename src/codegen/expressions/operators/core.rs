@@ -215,16 +215,14 @@ pub fn generate_binop<'ctx>(
     let left_type = crate::codegen::expressions::core::infer_type_with_state(state, left);
     let right_type = crate::codegen::expressions::core::infer_type_with_state(state, right);
 
-
     // Check if either operand is Type::F64 (float operations take precedence)
     let is_float = left_type == crate::ast::Type::F64 || right_type == crate::ast::Type::F64;
-    
+
     // Check if either operand value is actually a float (even if type inference says Infer)
     let lhs_val_check = generate_expr(state, left)?;
     let rhs_val_check = generate_expr(state, right)?;
     let is_float_val = lhs_val_check.is_float_value() || rhs_val_check.is_float_value();
-    
-    
+
     // Check if either operand is Type::Int (from type annotation or inference)
     let is_tagged_int = left_type == crate::ast::Type::Int || right_type == crate::ast::Type::Int;
 
@@ -421,18 +419,25 @@ pub fn generate_binop<'ctx>(
         if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
             // Use string comparison functions
             if matches!(op, BinOp::Eq | BinOp::NotEq) {
-                let str_equals_func = state.module.get_function("vp_str_equals")
+                let str_equals_func = state
+                    .module
+                    .get_function("vp_str_equals")
                     .ok_or_else(|| "vp_str_equals not declared".to_string())?;
 
-                let result = state.ir_builder.build_call(
-                    state.builder,
-                    str_equals_func,
-                    &[lhs_val.into(), rhs_val.into()],
-                    "str_cmp",
-                ).ok_or_else(|| "vp_str_equals call failed".to_string())?;
+                let result = state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        str_equals_func,
+                        &[lhs_val.into(), rhs_val.into()],
+                        "str_cmp",
+                    )
+                    .ok_or_else(|| "vp_str_equals call failed".to_string())?;
 
                 if matches!(op, BinOp::NotEq) {
-                    let not_result = state.builder.build_not(result.into_int_value(), "str_neq")
+                    let not_result = state
+                        .builder
+                        .build_not(result.into_int_value(), "str_neq")
                         .map_err(|e| format!("Failed to negate: {:?}", e))?;
                     return Ok(not_result.into());
                 }
@@ -440,37 +445,50 @@ pub fn generate_binop<'ctx>(
             }
 
             // For <, >, <=, >=, use string comparison
-            let str_compare_func = state.module.get_function("vp_str_compare")
+            let str_compare_func = state
+                .module
+                .get_function("vp_str_compare")
                 .ok_or_else(|| "vp_str_compare not declared".to_string())?;
 
-            let cmp_result = state.ir_builder.build_call(
-                state.builder,
-                str_compare_func,
-                &[lhs_val.into(), rhs_val.into()],
-                "str_compare",
-            ).ok_or_else(|| "vp_str_compare call failed".to_string())?;
+            let cmp_result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    str_compare_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "str_compare",
+                )
+                .ok_or_else(|| "vp_str_compare call failed".to_string())?;
 
             let cmp_val = cmp_result.into_int_value();
             let zero = state.context.i64_type().const_zero();
 
             match op {
                 BinOp::Lt => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
                         .map_err(|e| format!("str_lt: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::Gt => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
                         .map_err(|e| format!("str_gt: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::LtEq => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
                         .map_err(|e| format!("str_lte: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::GtEq => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
                         .map_err(|e| format!("str_gte: {:?}", e))?;
                     return Ok(result.into());
                 }
@@ -506,11 +524,8 @@ pub fn generate_binop<'ctx>(
                 .ok_or_else(|| "vp_str_get_first call failed".to_string())?
                 .into_int_value();
 
-            let (lhs, rhs) = if is_lhs_ptr {
-                (str_char_val, int_val)
-            } else {
-                (int_val, str_char_val)
-            };
+            let (lhs, rhs) =
+                if is_lhs_ptr { (str_char_val, int_val) } else { (int_val, str_char_val) };
 
             return arithmetic::generate_int_binop(state, lhs.into(), rhs.into(), op);
         }

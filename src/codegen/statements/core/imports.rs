@@ -145,6 +145,8 @@ pub(crate) fn generate_sync_with<'ctx>(
             state.bool_list_vars,
             state.bigint_vars,
             state.var_types,
+            state.function_param_names,
+            state.function_param_defaults,
             stmt,
         )?;
     }
@@ -362,6 +364,8 @@ pub(crate) fn generate_async_with<'ctx>(
             state.bool_list_vars,
             state.bigint_vars,
             state.var_types,
+            state.function_param_names,
+            state.function_param_defaults,
             stmt,
         )?;
     }

@@ -37,12 +37,8 @@ pub extern "C" fn vp_bitvec_create_stub() -> *mut ViperList {
     vec.resize(words, 0u64);
     let data_ptr = Box::into_raw(Box::new(vec)) as *mut c_void;
 
-    let list = Box::new(ViperList {
-        length: 0,
-        capacity,
-        elem_type: VIPER_LIST_BITVEC,
-        data: data_ptr,
-    });
+    let list =
+        Box::new(ViperList { length: 0, capacity, elem_type: VIPER_LIST_BITVEC, data: data_ptr });
 
     Box::into_raw(list)
 }
@@ -55,12 +51,8 @@ pub extern "C" fn vp_bitvec_create_with_capacity_stub(cap: i64) -> *mut ViperLis
     vec.resize(words, 0u64);
     let data_ptr = Box::into_raw(Box::new(vec)) as *mut c_void;
 
-    let list = Box::new(ViperList {
-        length: 0,
-        capacity,
-        elem_type: VIPER_LIST_BITVEC,
-        data: data_ptr,
-    });
+    let list =
+        Box::new(ViperList { length: 0, capacity, elem_type: VIPER_LIST_BITVEC, data: data_ptr });
 
     Box::into_raw(list)
 }

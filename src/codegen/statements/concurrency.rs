@@ -46,7 +46,7 @@ pub(crate) fn generate_task<'ctx>(
                 // Get the actual parameter types from the function signature
                 let fn_type = func_val.get_type();
                 let param_types = fn_type.get_param_types();
-                
+
                 // Verify argument count matches
                 if param_types.len() != arg_values.len() {
                     return crate::codegen::codegen_error(format!(
