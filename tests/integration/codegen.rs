@@ -1,32 +1,10 @@
 //! Code Generation Integration Tests
 
 use inkwell::context::Context;
-use std::env;
-use std::fs;
-use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::utils::run_viper_code;
 use viper_lang::codegen::CodeGen;
 use viper_lang::lexer::Lexer;
 use viper_lang::parser::Parser;
-
-fn run_viper_code(code: &str) -> Result<String, String> {
-    let temp_dir = env::temp_dir();
-    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let test_file = temp_dir.join(format!("viper_test_{}.vp", timestamp));
-    fs::write(&test_file, code).map_err(|e| format!("Failed to write: {}", e))?;
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .map_err(|e| format!("Failed to run: {}", e))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let _ = fs::remove_file(&test_file);
-    if !output.status.success() {
-        return Err(format!("stdout: {}\nstderr: {}", stdout, stderr));
-    }
-    Ok(stdout)
-}
 
 fn generate_module_ir(code: &str) -> Result<String, String> {
     let mut lexer = Lexer::new(code);

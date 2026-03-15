@@ -1,3 +1,6 @@
+#[path = "integration/utils.rs"]
+pub mod utils;
+
 #[path = "integration/algorithms.rs"]
 mod algorithms;
 #[path = "integration/bigint.rs"]

@@ -1,16 +1,4 @@
-// Test for @lru_cache and @cache decorators
-// Run with: cargo test --test test_decorators
-
-use std::fs;
-use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-fn write_temp_viper_file(name: &str, code: &str) -> std::path::PathBuf {
-    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = std::env::temp_dir().join(format!("{}_{}.vp", name, timestamp));
-    fs::write(&path, code).unwrap();
-    path
-}
+use crate::utils::run_viper_code;
 
 /// Test @lru_cache decorator with fibonacci
 #[test]
@@ -30,15 +18,7 @@ def main():
 main()
 "#;
 
-    let test_file = write_temp_viper_file("test_fib_cache", code);
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .expect("Failed to execute viper compiler");
-    let _ = fs::remove_file(&test_file);
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_viper_code(code).expect("should run");
     assert!(stdout.contains("9227465"), "fib(35) should equal 9227465, got: {}", stdout);
 }
 
@@ -60,15 +40,7 @@ def main():
 main()
 "#;
 
-    let test_file = write_temp_viper_file("test_factorial_cache", code);
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .expect("Failed to execute viper compiler");
-    let _ = fs::remove_file(&test_file);
-
-    assert!(output.status.success(), "factorial cache program should run successfully");
+    let _ = run_viper_code(code).expect("factorial cache program should run successfully");
 }
 
 /// Test recursion detection warning
@@ -88,15 +60,7 @@ def main():
 main()
 "#;
 
-    let test_file = write_temp_viper_file("test_fib_no_cache", code);
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .expect("Failed to execute viper compiler");
-    let _ = fs::remove_file(&test_file);
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let (_, stderr) = crate::utils::run_viper_code_with_stderr(code).expect("should run");
     // Should warn about recursive function without memoization
     assert!(
         stderr.contains("recursive") || stderr.contains("lru_cache"),
@@ -121,15 +85,7 @@ def main():
 main()
 "#;
 
-    let test_file = write_temp_viper_file("test_gcd_cache", code);
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .expect("Failed to execute viper compiler");
-    let _ = fs::remove_file(&test_file);
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_viper_code(code).expect("should run");
     assert!(stdout.contains("6"), "increment(5) should equal 6, got: {}", stdout);
 }
 
@@ -149,17 +105,7 @@ def main():
 main()
 "#;
 
-    let test_file = write_temp_viper_file("test_large_fib_cache", code);
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .expect("Failed to execute viper compiler");
-    let _ = fs::remove_file(&test_file);
-
-    assert!(output.status.success(), "large fibonacci cache program should run successfully");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_viper_code(code).expect("large fibonacci cache program should run successfully");
     assert!(
         stdout.contains("2111485077978050"),
         "fib(75) should equal 2111485077978050, got: {}",
@@ -183,20 +129,7 @@ def main():
 main()
 "#;
 
-    let test_file = write_temp_viper_file("test_bounded_large_fib_cache", code);
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .expect("Failed to execute viper compiler");
-    let _ = fs::remove_file(&test_file);
-
-    assert!(
-        output.status.success(),
-        "bounded large fibonacci cache program should run successfully"
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_viper_code(code).expect("bounded large fibonacci cache program should run successfully");
     assert!(
         stdout.contains("2111485077978050"),
         "fib(75) with bounded cache should equal 2111485077978050, got: {}",
@@ -220,17 +153,7 @@ def main():
 main()
 "#;
 
-    let test_file = write_temp_viper_file("test_simple_cache", code);
-    let output = Command::new(env!("CARGO_BIN_EXE_viper"))
-        .args(["run"])
-        .arg(&test_file)
-        .output()
-        .expect("Failed to execute viper compiler");
-    let _ = fs::remove_file(&test_file);
-
-    assert!(output.status.success(), "decorator program should run successfully");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_viper_code(code).expect("decorator program should run successfully");
     assert!(stdout.contains("double(5) ="), "unexpected stdout: {}", stdout);
     assert!(stdout.contains("double(10) ="), "unexpected stdout: {}", stdout);
 }

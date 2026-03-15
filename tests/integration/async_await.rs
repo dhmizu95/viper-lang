@@ -1,7 +1,6 @@
 //! Integration tests for async/await with fiber-based implementation
 
-mod utils;
-use utils::run_code;
+use crate::utils::run_viper_code;
 
 #[test]
 fn test_async_def_returns_future() {
@@ -18,7 +17,7 @@ async def main():
 main()
 "#;
     
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("result: 42"));
 }
 
@@ -42,7 +41,7 @@ async def main():
 main()
 "#;
     
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("results: 2 4 6"));
 }
 
@@ -59,7 +58,7 @@ async def main():
 main()
 "#;
     
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("sum: 30"));
 }
 
@@ -88,7 +87,7 @@ async def main():
 main()
 "#;
     
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("total:"));
 }
 
@@ -104,7 +103,7 @@ async def main():
 main()
 "#;
     
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("total: 45"));
 }
 
@@ -125,7 +124,7 @@ async def main():
 main()
 "#;
     
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("results: [0, 2, 4, 6, 8]"));
 }
 
@@ -151,6 +150,6 @@ async def main():
 main()
 "#;
     
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("done:"));
 }
