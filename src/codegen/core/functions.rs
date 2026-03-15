@@ -62,8 +62,11 @@ impl<'ctx> CodeGen<'ctx> {
                     let is_lru_cache = decorators.iter().any(|d| d.name == "lru_cache");
                     let is_cache = decorators.iter().any(|d| d.name == "cache");
 
-                    // Check if function is recursive (for auto-memoization)
-                    let is_recursive = recursion_analyzer.is_recursive(name);
+                    // Check if function has exponential recursion (2+ recursive calls)
+                    // Linear recursion (1 recursive call) should NOT be auto-memoized
+                    let is_exponential_recursion = recursion_analyzer
+                        .get_recursive_function(name)
+                        .map_or(false, |info| info.recursive_call_count >= 2);
 
                     // Check if function returns BigInt (for proper caching)
                     // Check both explicit type annotation and inferred from body
@@ -78,8 +81,10 @@ impl<'ctx> CodeGen<'ctx> {
                     };
 
                     // Determine if we should memoize this function
+                    // Auto-memoize ONLY for exponential recursion (fibonacci-style)
+                    // Linear recursion (factorial-style) should NOT be auto-memoized
                     let should_memoize =
-                        is_lru_cache || is_cache || (self.auto_memoize && is_recursive);
+                        is_lru_cache || is_cache || (self.auto_memoize && is_exponential_recursion);
 
                     if should_memoize {
                         let mut use_lru_cache = is_lru_cache;
@@ -1298,6 +1303,10 @@ impl<'ctx> CodeGen<'ctx> {
 
         // Generate ARC cleanup for module-level variables
         self.generate_arc_cleanup("__module_level__");
+
+        // Note: Cache cleanup for memoized functions is intentionally disabled
+        // The runtime handles cache cleanup via ARC when the program exits
+        // TODO: Implement proper cache cleanup when needed for long-running programs
 
         // Only emit an explicit __user_main call when the module-level statements did NOT
         // already call main() themselves. This handles the implicit-main pattern:

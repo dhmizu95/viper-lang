@@ -34,7 +34,7 @@ fn find_llvm_tool(tool: &str) -> String {
 
 #[allow(dead_code)]
 pub fn compile_file(input_path: &str, output_path: Option<&str>) -> Result<()> {
-    compile_file_aot(input_path, 0, output_path, false, false, None)
+    compile_file_aot(input_path, 0, output_path, false, false, None, false)
 }
 
 pub fn compile_file_aot(
@@ -44,6 +44,7 @@ pub fn compile_file_aot(
     lto: bool,
     emit_llvm: bool,
     pgo: Option<&str>,
+    auto_memoize: bool,
 ) -> Result<()> {
     println!("🐍 Viper Compiler {} (AOT)", env!("CARGO_PKG_VERSION"));
     println!("   Compiling: {}", input_path);
@@ -56,6 +57,9 @@ pub fn compile_file_aot(
     }
     if let Some(pgo_mode) = &pgo {
         println!("   PGO: {} mode", pgo_mode);
+    }
+    if auto_memoize {
+        println!("   Auto-memoize: enabled");
     }
 
     let source = fs::read_to_string(input_path).map_err(ViperError::Io)?;
@@ -96,7 +100,11 @@ pub fn compile_file_aot(
     }
 
     if !warnings.is_empty() {
-        println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warnings.len());
+        if auto_memoize {
+            println!("   ℹ {} recursive function(s) will be auto-memoized", warnings.len());
+        } else {
+            println!("   ℹ {} recursive function(s) could benefit from @lru_cache", warnings.len());
+        }
     } else if recursive_func_count > 0 {
         println!("   ✓ All recursive functions are memoized");
     } else {
@@ -124,6 +132,12 @@ pub fn compile_file_aot(
     let module_name = Path::new(input_path).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
 
     let mut codegen = codegen::CodeGen::new(&context, module_name);
+    
+    // Enable automatic memoization if requested
+    if auto_memoize {
+        codegen.auto_memoize = true;
+    }
+    
     codegen.generate(&ast)?;
     codegen.verify()?;
     println!("   ✓ Generated LLVM IR");

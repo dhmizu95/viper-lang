@@ -1,7 +1,6 @@
 //! Print Function Integration Tests
 
-mod utils;
-use utils::run_code;
+use crate::utils::run_viper_code;
 
 // Integer Printing
 #[test]
@@ -11,7 +10,7 @@ def test():
     print(42)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("42"));
 }
 
@@ -22,7 +21,7 @@ def test():
     print(-17)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("-17"));
 }
 
@@ -33,7 +32,7 @@ def test():
     print(0)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("0"));
 }
 
@@ -44,7 +43,7 @@ def test():
     print(999999999999999999)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("999999999999999999"));
 }
 
@@ -56,7 +55,7 @@ def test():
     print(3.14)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("3.14"));
 }
 
@@ -67,7 +66,7 @@ def test():
     print(-2.5)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("-2.5"));
 }
 
@@ -78,7 +77,7 @@ def test():
     print(1.5e10)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("e"));
 }
 
@@ -90,7 +89,7 @@ def test():
     print("Hello, World!")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Hello, World!"));
 }
 
@@ -101,7 +100,7 @@ def test():
     print('Single quotes')
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Single quotes"));
 }
 
@@ -113,7 +112,7 @@ def test():
 test()
 "#;
     // Empty string prints as just a newline - verify code runs without error
-    let result = run_code(code);
+    let result = run_viper_code(code);
     assert!(result.is_ok());
 }
 
@@ -124,7 +123,7 @@ def test():
     print("Line1\nLine2")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Line1"));
     assert!(output.contains("Line2"));
 }
@@ -137,7 +136,7 @@ def test():
     print(True)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("True"));
 }
 
@@ -148,7 +147,7 @@ def test():
     print(False)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("False"));
 }
 
@@ -160,7 +159,7 @@ def test():
     print(None)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     // None is represented as 0 in Viper's internal representation
     assert!(output.contains("0"));
 }
@@ -173,7 +172,7 @@ def test():
     print(1, 2, 3)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("1"));
     assert!(output.contains("2"));
     assert!(output.contains("3"));
@@ -186,7 +185,7 @@ def test():
     print("Value:", 42, "is", True)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Value:"));
     assert!(output.contains("42"));
     assert!(output.contains("is"));
@@ -202,7 +201,7 @@ def test():
     print(x)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("100"));
 }
 
@@ -214,7 +213,7 @@ def test():
     print(msg)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Hello"));
 }
 
@@ -226,7 +225,7 @@ def test():
     print(10 + 5 * 2)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("20"));
 }
 
@@ -237,7 +236,7 @@ def test():
     print(10 > 5)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("True"));
 }
 
@@ -248,7 +247,7 @@ def test():
     print("Hello" + " " + "World")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Hello World"));
 }
 
@@ -263,7 +262,7 @@ def test():
     print(add(3, 7))
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("10"));
 }
 
@@ -276,7 +275,7 @@ def test():
     print(x)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("123456789012345678901234567890"));
 }
 
@@ -289,7 +288,7 @@ def test():
     print(lst)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("["));
     assert!(output.contains("]"));
 }
@@ -302,7 +301,7 @@ def test():
     print(lst)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("[]"));
 }
 
@@ -315,7 +314,7 @@ def test():
     print(d)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("{"));
     assert!(output.contains("}"));
 }
@@ -329,7 +328,7 @@ def test():
     print(b)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("hello"));
 }
 
@@ -342,7 +341,7 @@ def test():
     print(f"Hello, {name}!")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Hello, Viper!"));
 }
 
@@ -354,7 +353,7 @@ def test():
     print(f"The answer is {x}")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("The answer is 42"));
 }
 
@@ -366,7 +365,7 @@ def test():
     print(f"Pi = {pi}")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Pi = 3.14159"));
 }
 
@@ -379,7 +378,7 @@ def test():
     print(f"Sum = {a + b}")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Sum = 30"));
 }
 
@@ -393,7 +392,7 @@ def test():
     print("Line 3")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("Line 1"));
     assert!(output.contains("Line 2"));
     assert!(output.contains("Line 3"));
@@ -408,7 +407,7 @@ def test():
         print(i)
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("0"));
     assert!(output.contains("1"));
     assert!(output.contains("2"));
@@ -426,6 +425,6 @@ def test():
         print("lesser")
 test()
 "#;
-    let output = run_code(code).unwrap();
+    let output = run_viper_code(code).unwrap();
     assert!(output.contains("greater"));
 }

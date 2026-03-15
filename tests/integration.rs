@@ -3,6 +3,8 @@ pub mod utils;
 
 #[path = "integration/algorithms.rs"]
 mod algorithms;
+#[path = "integration/auto_memoize.rs"]
+mod auto_memoize;
 #[path = "integration/bigint.rs"]
 mod bigint;
 #[path = "integration/codegen.rs"]

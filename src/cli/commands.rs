@@ -5,7 +5,7 @@ use crate::error::{Result, ViperError};
 
 pub fn execute(args: Args) -> Result<()> {
     match args.command {
-        Commands::Build { input, output, optimize, lto, emit_llvm, pgo, auto_memoize: _ } => {
+        Commands::Build { input, output, optimize, lto, emit_llvm, pgo, auto_memoize } => {
             check_aot_prerequisites()?;
 
             // Check runtime library for AOT compilation
@@ -16,7 +16,7 @@ pub fn execute(args: Args) -> Result<()> {
                 eprintln!("  cd runtime && make");
                 std::process::exit(1);
             }
-            compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref())
+            compile_file_aot(&input, optimize, output.as_deref(), lto, emit_llvm, pgo.as_deref(), auto_memoize)
         }
         Commands::Run { input, optimize, auto_memoize } => {
             let current_exe = std::env::current_exe().map_err(ViperError::Io)?;
