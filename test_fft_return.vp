@@ -1,0 +1,13 @@
+# FFT test with early return
+def fft(real, imag, inverse=False):
+    n = len(real)
+    if n <= 1:
+        return
+    print("FFT processing", n, "elements")
+
+def main():
+    real = [1.0, 2.0, 3.0, 4.0]
+    imag = [0.0, 0.0, 0.0, 0.0]
+    fft(real, imag, False)
+
+main()

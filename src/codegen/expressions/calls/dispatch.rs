@@ -30,6 +30,40 @@ use crate::codegen::expressions::concurrency::{
     generate_waitgroup_create, generate_waitgroup_done, generate_waitgroup_wait,
 };
 use crate::codegen::expressions::core::infer_expr_type;
+use std::collections::HashMap;
+
+/// Find a function by name, handling default parameters by trying different arities
+fn find_function_with_defaults<'ctx>(
+    state: &CodeGenState<'_, 'ctx>,
+    name: &str,
+    arg_types: &[Type],
+) -> Option<(inkwell::values::FunctionValue<'ctx>, usize)> {
+    // First try exact match
+    let mangled = mangle_function_name(name, arg_types);
+    if let Some(func) = state.functions.get(&mangled) {
+        return Some((*func, arg_types.len()));
+    }
+
+    // Look for a function with more parameters (has defaults)
+    // Search through all functions with matching prefix
+    let mut best_match: Option<(inkwell::values::FunctionValue<'ctx>, usize)> = None;
+    
+    for (mangled_name, func) in state.functions.iter() {
+        if mangled_name.starts_with(&format!("{}_", name)) || mangled_name == name {
+            // Count parameters by counting underscores in mangled name
+            let param_count = mangled_name.chars().filter(|c| *c == '_').count();
+            if param_count > arg_types.len() {
+                // This function has more params than args - potential default param match
+                // Prefer the one with the smallest number of extra params
+                if best_match.is_none() || param_count < best_match.unwrap().1 {
+                    best_match = Some((*func, param_count));
+                }
+            }
+        }
+    }
+
+    best_match
+}
 
 /// Generate function/method call
 pub fn generate_call<'ctx>(
@@ -496,6 +530,18 @@ pub fn generate_call<'ctx>(
                 .and_then(|mangled| state.functions.get(mangled).copied())
         });
 
+        // If still no match, try to find a function with default parameters (more params than args)
+        let (func_val, expected_param_count) = if let Some(func_val) = func_val {
+            (Some(func_val), arg_types.len())
+        } else {
+            // Try finding a function with more parameters (has defaults)
+            if let Some((func, param_count)) = find_function_with_defaults(state, name, &arg_types) {
+                (Some(func), param_count)
+            } else {
+                (None, arg_types.len())
+            }
+        };
+
         if let Some(func_val) = func_val {
             // Get function parameter types for conversion
             let fn_type = func_val.get_type();
@@ -529,6 +575,35 @@ pub fn generate_call<'ctx>(
                     arg_val
                 };
                 arg_values.push(inkwell::values::BasicMetadataValueEnum::from(converted_val));
+            }
+
+            // Fill in default values for missing parameters (default parameter support)
+            // Default to false for bool, 0 for int, 0.0 for float, null for pointers
+            for i in args.len()..expected_param_count {
+                if let Some(&param_ty) = param_types.get(i) {
+                    let default_val = if param_ty.is_float_type() {
+                        param_ty.into_float_type().const_float(0.0).into()
+                    } else if param_ty.is_int_type() {
+                        let int_ty = param_ty.into_int_type();
+                        if int_ty.get_bit_width() == 1 {
+                            int_ty.const_int(0, false).into()  // bool false
+                        } else {
+                            int_ty.const_int(0, false).into()
+                        }
+                    } else if param_ty.is_pointer_type() {
+                        param_ty.into_pointer_type().const_null().into()
+                    } else {
+                        // Fallback for other types using pattern match
+                        match param_ty {
+                            inkwell::types::BasicMetadataTypeEnum::IntType(it) => it.const_zero().into(),
+                            inkwell::types::BasicMetadataTypeEnum::FloatType(ft) => ft.const_zero().into(),
+                            inkwell::types::BasicMetadataTypeEnum::PointerType(pt) => pt.const_null().into(),
+                            inkwell::types::BasicMetadataTypeEnum::VectorType(vt) => vt.const_zero().into(),
+                            _ => state.context.i64_type().const_int(0, false).into(),
+                        }
+                    };
+                    arg_values.push(default_val);
+                }
             }
 
             // If this is a nested function call, append closure cells

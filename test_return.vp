@@ -1,0 +1,10 @@
+# Test early return without default params
+def test(n):
+    if n <= 1:
+        return
+    print("Processing", n)
+
+def main():
+    test(5)
+
+main()

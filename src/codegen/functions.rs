@@ -180,6 +180,19 @@ pub fn infer_param_types_from_body(params: &[Param], body: &[Stmt]) -> Vec<Type>
                 return ty.clone();
             }
 
+            // If parameter has a default value, infer type from the default
+            if let Some(ref default_expr) = param.default {
+                // Infer type from default expression
+                return match default_expr {
+                    crate::ast::Expr::Bool(_, _) => Type::Bool,
+                    crate::ast::Expr::Int(_, _) => Type::Int,
+                    crate::ast::Expr::Float(_, _) => Type::F64,
+                    crate::ast::Expr::Str(_, _) => Type::Str,
+                    crate::ast::Expr::None(_) => Type::None,
+                    _ => Type::Infer,  // For non-literal defaults, infer from usage
+                };
+            }
+
             // Otherwise, try to infer from usage in body
             // Check if parameter is used with index operations (indicating a list)
             if param_is_used_as_list(&param.name, body) {
@@ -748,6 +761,9 @@ pub fn declare_function<'ctx>(
     let mangled_name = mangle_function_name(name, &param_types);
     let func = module.add_function(&mangled_name, fn_type, None);
     functions.insert(mangled_name, func);
+
+    // Note: Default parameters are handled at the call site by filling in missing arguments
+    // We don't create wrapper functions here to avoid type inference mismatches
 
     Ok(())
 }

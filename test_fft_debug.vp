@@ -1,0 +1,14 @@
+# Simplified FFT test
+def fft(real, imag, inverse=False):
+    n = len(real)
+    if n <= 1:
+        return
+    print("FFT called with inverse:", inverse)
+
+def main():
+    real = [1.0, 2.0, 3.0, 4.0]
+    imag = [0.0, 0.0, 0.0, 0.0]
+    fft(real, imag)
+    fft(real, imag, inverse=True)
+
+main()

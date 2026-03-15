@@ -168,12 +168,12 @@ pub fn generate_method_call<'ctx>(
                 // Convert list_ptr to pointer value for the call
                 let list_arg = list_ptr.into();
 
-                state.ir_builder.build_call(
+                let _ = state.ir_builder.build_call(
                     state.builder,
                     append_func,
                     &[list_arg, f64_val.into()],
                     "append_f64",
-                ).expect("append f64 call");
+                );
             } else {
                 // Fallback for generic lists
                 if val.is_float_value() {
@@ -184,12 +184,12 @@ pub fn generate_method_call<'ctx>(
                         .ok_or_else(|| "vp_list_append_f64 not declared".to_string())?;
 
                     let f64_val = val.into_float_value();
-                    state.ir_builder.build_call(
+                    let _ = state.ir_builder.build_call(
                         state.builder,
                         append_func,
                         &[list_ptr.into(), f64_val.into()],
                         "append_f64",
-                    ).expect("append f64 call");
+                    );
                 } else {
                     let int_val = if val.is_int_value() {
                         val.into_int_value()

@@ -1,0 +1,12 @@
+# Test math functions
+import math
+
+def main():
+    x = 16.0
+    print(math.sqrt(x))
+    print(math.sin(1.0))
+    print(math.cos(1.0))
+    print(math.log2(8.0))
+    print(math.log10(100.0))
+
+main()

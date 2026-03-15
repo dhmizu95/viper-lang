@@ -1,0 +1,7 @@
+# Test math.sin only
+import math
+
+def main():
+    print(math.sin(1.0))
+
+main()

@@ -119,6 +119,10 @@ pub fn generate_if<'ctx>(
     state.builder.position_at_end(then_block);
     for stmt in body {
         crate::codegen::statements::core::dispatch::generate_stmt_internal(state, stmt)?;
+        // Stop generating statements if block has terminator (return/break/continue)
+        if state.builder.get_insert_block().unwrap().get_terminator().is_some() {
+            break;
+        }
     }
     let then_terminates = state.builder.get_insert_block().unwrap().get_terminator().is_some();
     if !then_terminates {

@@ -1,0 +1,6 @@
+def test(n):
+    if n <= 1:
+        print("small")
+    print("done", n)
+
+test(5)

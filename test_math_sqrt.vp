@@ -1,0 +1,8 @@
+# Test math.sqrt only
+import math
+
+def main():
+    x = 16.0
+    print(math.sqrt(x))
+
+main()

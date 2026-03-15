@@ -1,0 +1,6 @@
+def test(n):
+    if n <= 1:
+        return
+    print("Processing", n)
+
+test(0)  # Condition is true, should return early

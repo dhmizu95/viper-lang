@@ -1,0 +1,13 @@
+# FFT test with if
+def fft(real, imag, inverse=False):
+    n = len(real)
+    if n > 1:
+        print("FFT processing", n, "elements")
+    print("inverse =", inverse)
+
+def main():
+    real = [1.0, 2.0, 3.0, 4.0]
+    imag = [0.0, 0.0, 0.0, 0.0]
+    fft(real, imag, False)
+
+main()

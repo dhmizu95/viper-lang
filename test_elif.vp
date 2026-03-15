@@ -1,0 +1,8 @@
+def test(n):
+    if n <= 1:
+        return
+    elif n <= 5:
+        print("medium")
+    print("done", n)
+
+test(3)

@@ -1,0 +1,10 @@
+# Simple FFT test
+def fft(real, imag, inverse=False):
+    print("FFT called, inverse =", inverse)
+
+def main():
+    real = [1.0, 2.0]
+    imag = [0.0, 0.0]
+    fft(real, imag, False)
+
+main()
