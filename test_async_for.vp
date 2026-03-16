@@ -1,6 +1,0 @@
-# Debug async for
-async def main():
-    async for i in async_range(3):
-        print("i =", i)
-
-main()
