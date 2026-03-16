@@ -257,7 +257,18 @@ pub(crate) fn generate_assign<'ctx>(
                     } else if func_name.starts_with("vp_str_") || func_name == "str" {
                         false
                     } else {
-                        false
+                        // Check the function's LLVM return type for user-defined functions
+                        if let Some(func_val) = state.module.get_function(func_name) {
+                            if let Some(ret_type) = func_val.get_type().get_return_type() {
+                                // If the function returns a pointer, it might be a list
+                                // For now, assume pointer return from user functions could be lists
+                                ret_type.is_pointer_type()
+                            } else {
+                                false  // void return
+                            }
+                        } else {
+                            false  // function not found
+                        }
                     }
                 } else {
                     false

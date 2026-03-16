@@ -375,7 +375,8 @@ fn test_expr_span_lambda() {
 fn test_expr_span_list_comprehension() {
     let element = Box::new(Expr::Int(1, test_span()));
     let iter = Box::new(Expr::Ident("lst".to_string(), test_span()));
-    let expr = Expr::ListComprehension { element, var: "x".to_string(), iter, span: test_span() };
+    let target = Expr::Ident("x".to_string(), test_span());
+    let expr = Expr::ListComprehension { element, target, iter, ifs: vec![], span: test_span() };
     assert_eq!(expr.span(), test_span());
 }
 
