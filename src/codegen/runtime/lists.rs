@@ -430,3 +430,47 @@ pub fn declare_list_functions<'ctx>(
 
     Ok(())
 }
+
+/// Declare bytearray runtime functions
+pub fn declare_bytearray_functions<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> crate::codegen::Result<()> {
+    let i64_type = context.i64_type();
+    let void_type = context.void_type();
+    let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+
+    // bytearray() constructor
+    let bytearray_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_bytearray_create", bytearray_create_type, None);
+
+    // bytearray with capacity
+    let bytearray_create_cap_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_bytearray_create_with_capacity", bytearray_create_cap_type, None);
+
+    // bytearray len
+    let bytearray_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bytearray_len", bytearray_len_type, None);
+
+    // bytearray append
+    let bytearray_append_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_append", bytearray_append_type, None);
+
+    // bytearray get
+    let bytearray_get_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_get", bytearray_get_type, None);
+
+    // bytearray set
+    let bytearray_set_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_set", bytearray_set_type, None);
+
+    // bytearray print
+    let bytearray_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bytearray_print", bytearray_print_type, None);
+
+    // bytearray repeat
+    let bytearray_repeat_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_repeat", bytearray_repeat_type, None);
+
+    Ok(())
+}

@@ -450,6 +450,7 @@ double vp_math_stddev(double* values, int64_t count) {
     return sqrt(vp_math_variance(values, count));
 }
 
+
 /* ============================================ */
 /* Integer Math Functions                       */
 /* ============================================ */
@@ -477,104 +478,4 @@ int64_t vp_math_isqrt(int64_t n) {
     }
     
     return x;
-}
-
-/**
- * Greatest common divisor using Euclidean algorithm.
- */
-int64_t vp_math_gcd(int64_t a, int64_t b) {
-    a = llabs(a);
-    b = llabs(b);
-    
-    while (b != 0) {
-        int64_t temp = b;
-        b = a % b;
-        a = temp;
-    }
-    
-    return a;
-}
-
-/**
- * Least common multiple.
- */
-int64_t vp_math_lcm(int64_t a, int64_t b) {
-    if (a == 0 || b == 0) {
-        return 0;
-    }
-    return llabs(a) / vp_math_gcd(a, b) * llabs(b);
-}
-
-/**
- * Factorial (iterative, with overflow check).
- */
-int64_t vp_math_factorial(int64_t n) {
-    if (n < 0) {
-        return -1;  /* Error: negative input */
-    }
-    if (n <= 1) {
-        return 1;
-    }
-    
-    int64_t result = 1;
-    for (int64_t i = 2; i <= n; i++) {
-        /* Check for overflow */
-        if (result > INT64_MAX / i) {
-            return -1;  /* Overflow */
-        }
-        result *= i;
-    }
-    
-    return result;
-}
-
-/**
- * Binomial coefficient C(n, k).
- */
-int64_t vp_math_comb(int64_t n, int64_t k) {
-    if (k < 0 || k > n) {
-        return 0;
-    }
-    if (k == 0 || k == n) {
-        return 1;
-    }
-    
-    /* Use symmetry: C(n, k) = C(n, n-k) */
-    if (k > n - k) {
-        k = n - k;
-    }
-    
-    int64_t result = 1;
-    for (int64_t i = 0; i < k; i++) {
-        /* Check for overflow before multiplication */
-        if (result > INT64_MAX / (n - i)) {
-            return -1;  /* Overflow */
-        }
-        result = result * (n - i) / (i + 1);
-    }
-    
-    return result;
-}
-
-/**
- * Permutations P(n, k) = n! / (n-k)!
- */
-int64_t vp_math_perm(int64_t n, int64_t k) {
-    if (k < 0 || k > n) {
-        return 0;
-    }
-    if (k == 0) {
-        return 1;
-    }
-    
-    int64_t result = 1;
-    for (int64_t i = 0; i < k; i++) {
-        /* Check for overflow */
-        if (result > INT64_MAX / (n - i)) {
-            return -1;  /* Overflow */
-        }
-        result *= (n - i);
-    }
-    
-    return result;
 }

@@ -476,6 +476,8 @@ impl EscapeAnalyzer {
             | Expr::BigInt(_, _)
             | Expr::Bool(_, _)
             | Expr::None(_)
+            | Expr::FString(_, _)
+            | Expr::FStringElement { .. }
             | Expr::Super(_) => {
                 // Literals and super() don't escape
             }

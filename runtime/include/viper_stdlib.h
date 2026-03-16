@@ -303,3 +303,23 @@ bool vp_bool_from_f64(double val);
 bool vp_bool_from_str(ViperString* str);
 
 #endif /* VIPER_STDLIB_H */
+
+/* ============================================ */
+/* bytearray functions                          */
+/* ============================================ */
+
+typedef struct ViperByteArray ViperByteArray;
+
+ViperByteArray* vp_bytearray_create(void);
+ViperByteArray* vp_bytearray_create_with_capacity(int64_t cap);
+ViperByteArray* vp_bytearray_from_bytes(const uint8_t* bytes, int64_t len);
+void vp_bytearray_free(ViperByteArray* ba);
+int64_t vp_bytearray_len(ViperByteArray* ba);
+void vp_bytearray_append(ViperByteArray* ba, int64_t value);
+void vp_bytearray_set(ViperByteArray* ba, int64_t index, int64_t value);
+int64_t vp_bytearray_get(ViperByteArray* ba, int64_t index);
+void vp_bytearray_extend(ViperByteArray* ba, ViperByteArray* other);
+ViperByteArray* vp_bytearray_slice(ViperByteArray* ba, int64_t start, int64_t end, int64_t step);
+void vp_bytearray_print(ViperByteArray* ba);
+ViperByteArray* vp_bytearray_repeat(int64_t value, int64_t count);
+ViperByteArray* vp_bytearray_from_list(ViperList* list);

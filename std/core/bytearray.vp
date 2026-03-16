@@ -1,0 +1,51 @@
+# Viper Standard Library - bytearray module
+# Mutable sequence of bytes (0-255)
+
+# Module metadata
+__name__ = "bytearray"
+__version__ = "0.1.0"
+
+# ============================================
+# bytearray type
+# ============================================
+
+extern "C" def vp_bytearray_create() -> ptr
+extern "C" def vp_bytearray_create_with_capacity(cap: int) -> ptr
+extern "C" def vp_bytearray_len(ba: ptr) -> int
+extern "C" def vp_bytearray_append(ba: ptr, value: int)
+extern "C" def vp_bytearray_get(ba: ptr, index: int) -> int
+extern "C" def vp_bytearray_set(ba: ptr, index: int, value: int)
+extern "C" def vp_bytearray_print(ba: ptr)
+extern "C" def vp_bytearray_repeat(value: int, count: int) -> ptr
+
+def bytearray() -> ptr:
+    """Create an empty bytearray."""
+    return vp_bytearray_create()
+
+def bytearray_with_capacity(cap: int) -> ptr:
+    """Create a bytearray with pre-allocated capacity."""
+    return vp_bytearray_create_with_capacity(cap)
+
+def len(ba: ptr) -> int:
+    """Return the length of the bytearray."""
+    return vp_bytearray_len(ba)
+
+def append(ba: ptr, value: int):
+    """Append a byte (0-255) to the bytearray."""
+    vp_bytearray_append(ba, value)
+
+def get(ba: ptr, index: int) -> int:
+    """Get the byte at index."""
+    return vp_bytearray_get(ba, index)
+
+def set(ba: ptr, index: int, value: int):
+    """Set the byte at index."""
+    vp_bytearray_set(ba, index, value)
+
+def print_bytearray(ba: ptr):
+    """Print the bytearray."""
+    vp_bytearray_print(ba)
+
+def repeat(value: int, count: int) -> ptr:
+    """Create a bytearray with count repetitions of value."""
+    return vp_bytearray_repeat(value, count)

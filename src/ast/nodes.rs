@@ -10,7 +10,9 @@ pub enum Expr {
     Float(f64, Span),
     /// String literal
     Str(String, Span),
-    /// FString literal
+    /// FString element - either a string literal or an expression with optional format spec
+    FStringElement { expr: Box<Expr>, format_spec: Option<String>, span: Span },
+    /// FString literal (sequence of string literals and elements)
     FString(Vec<Expr>, Span),
     /// Bytes literal
     Bytes(Vec<u8>, Span),
@@ -74,6 +76,7 @@ impl Expr {
             Expr::Int(_, s) => *s,
             Expr::Float(_, s) => *s,
             Expr::Str(_, s) => *s,
+            Expr::FStringElement { span, .. } => *span,
             Expr::FString(_, s) => *s,
             Expr::Bytes(_, s) => *s,
             Expr::BigInt(_, s) => *s,
@@ -170,6 +173,11 @@ impl Expr {
             Expr::AssignmentExpr { target, value, span } => Expr::AssignmentExpr {
                 target: Box::new(target.substitute(substitution)),
                 value: Box::new(value.substitute(substitution)),
+                span: *span,
+            },
+            Expr::FStringElement { expr, format_spec, span } => Expr::FStringElement {
+                expr: Box::new(expr.substitute(substitution)),
+                format_spec: format_spec.clone(),
                 span: *span,
             },
             _ => self.clone(),

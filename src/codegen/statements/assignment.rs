@@ -14,6 +14,7 @@ fn is_pure_aug_assign_rhs(expr: &Expr) -> bool {
         | Expr::None(_)
         | Expr::Bytes(_, _)
         | Expr::FString(_, _)
+        | Expr::FStringElement { .. }
         | Expr::Ident(_, _) => true,
         Expr::BinOp { left, right, .. } => {
             is_pure_aug_assign_rhs(left) && is_pure_aug_assign_rhs(right)

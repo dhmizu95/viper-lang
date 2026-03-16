@@ -42,16 +42,16 @@ def sleep_us(microseconds: int):
 # Time Conversion
 # ============================================
 
-def localtime(timestamp: float = None) -> struct_time:
-    """Convert timestamp to local time struct."""
-    if timestamp is None:
+def localtime(timestamp: float = 0.0) -> struct_time:
+    """Convert timestamp to local time struct. If timestamp is 0, uses current time."""
+    if timestamp == 0.0:
         timestamp = time()
     # Implemented in runtime
     return struct_time()
 
-def gmtime(timestamp: float = None) -> struct_time:
-    """Convert timestamp to UTC time struct."""
-    if timestamp is None:
+def gmtime(timestamp: float = 0.0) -> struct_time:
+    """Convert timestamp to UTC time struct. If timestamp is 0, uses current time."""
+    if timestamp == 0.0:
         timestamp = time()
     # Implemented in runtime
     return struct_time()

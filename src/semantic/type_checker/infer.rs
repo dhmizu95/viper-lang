@@ -17,7 +17,7 @@ impl TypeChecker {
             Expr::Int(_, _) => Some(Type::I64),
             Expr::Float(_, _) => Some(Type::F64),
             Expr::Bool(_, _) => Some(Type::Bool),
-            Expr::Str(_, _) | Expr::FString(_, _) => Some(Type::Str),
+            Expr::Str(_, _) | Expr::FString(_, _) | Expr::FStringElement { .. } => Some(Type::Str),
             Expr::Bytes(_, _) => Some(Type::Bytes),
             Expr::BigInt(_, _) => Some(Type::BigInt),
             Expr::None(_) => Some(Type::None),

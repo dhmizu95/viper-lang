@@ -314,11 +314,28 @@ impl<'a> PrattParser<'a> {
                             current_lit.clear();
                         }
 
+                        // Parse inner expression and optional format spec
                         let mut inner_expr_str = String::new();
+                        let mut format_spec: Option<String> = None;
+                        let mut found_colon = false;
+                        
                         while let Some(&next_c) = chars.peek() {
                             if next_c == '}' {
                                 chars.next(); // consume '}'
                                 break;
+                            } else if next_c == ':' && !found_colon {
+                                // Format spec separator
+                                found_colon = true;
+                                chars.next(); // consume ':'
+                                // Rest is format spec
+                                let mut spec = String::new();
+                                while let Some(&spec_c) = chars.peek() {
+                                    if spec_c == '}' {
+                                        break;
+                                    }
+                                    spec.push(chars.next().unwrap());
+                                }
+                                format_spec = Some(spec);
                             } else {
                                 inner_expr_str.push(chars.next().unwrap());
                             }
@@ -329,7 +346,12 @@ impl<'a> PrattParser<'a> {
                         if let Ok(tokens) = inner_lexer.tokenize() {
                             let mut inner_parser = PrattParser::new(&tokens);
                             if let Ok(expr) = inner_parser.parse_expr(Precedence::MIN) {
-                                elements.push(expr);
+                                // Create FStringElement with format spec
+                                elements.push(Expr::FStringElement {
+                                    expr: Box::new(expr),
+                                    format_spec,
+                                    span,
+                                });
                             }
                         }
                     } else {

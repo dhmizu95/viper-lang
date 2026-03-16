@@ -21,9 +21,9 @@ def randint(a: int, b: int) -> int:
     """Return a random integer N such that a <= N <= b."""
     return vp_random_randint(a, b)
 
-def seed(a: int = None):
-    """Initialize the random number generator."""
-    if a is None:
+def seed(a: int = 0):
+    """Initialize the random number generator. If a is 0, uses time-based seed."""
+    if a == 0:
         vp_random_seed(0)  # Use time-based seed
     else:
         vp_random_seed(a)
