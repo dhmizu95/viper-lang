@@ -23,7 +23,7 @@ use crate::codegen::expressions::builtins::str::{
 use crate::codegen::expressions::builtins::gather::generate_gather_call;
 use crate::codegen::expressions::calls::methods::generate_dict_call;
 use crate::codegen::expressions::collections::{
-    generate_list_call, generate_set_call, generate_tuple_call,
+    generate_bytearray_call, generate_list_call, generate_set_call, generate_tuple_call,
 };
 use crate::codegen::expressions::concurrency::{
     generate_chan_create, generate_chan_recv, generate_chan_send, generate_waitgroup_add,
@@ -306,6 +306,9 @@ pub fn generate_call<'ctx>(
         }
         if name == "set" {
             return generate_set_call(state, args);
+        }
+        if name == "bytearray" {
+            return generate_bytearray_call(state, args);
         }
 
         // range() - returns a list of integers

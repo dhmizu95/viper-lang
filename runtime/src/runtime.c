@@ -899,3 +899,29 @@ void vp_list_set_f64(ViperList* list, int64_t index, double value) {
     }
     list->data.data_f64[index] = value;
 }
+
+/* Repeat string n times */
+ViperString* vp_str_repeat(ViperString* str, int64_t n) {
+    if (!str || n <= 0) {
+        return vp_str_create("");
+    }
+    
+    const char* str_data = vp_str_data_inline(str);
+    int64_t str_len = vp_str_len_inline(str);
+    
+    int64_t new_len = str_len * n;
+    char* new_data = (char*)malloc(new_len + 1);
+    if (!new_data) {
+        fprintf(stderr, "Failed to allocate repeated string\n");
+        exit(1);
+    }
+    
+    for (int64_t i = 0; i < n; i++) {
+        memcpy(new_data + (i * str_len), str_data, str_len);
+    }
+    new_data[new_len] = '\0';
+    
+    ViperString* result = vp_str_create(new_data);
+    free(new_data);
+    return result;
+}

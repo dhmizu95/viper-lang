@@ -500,3 +500,87 @@ pub fn generate_set_call<'ctx>(
 
     Ok(result)
 }
+
+/// Generate bytearray() call - create mutable byte array
+pub fn generate_bytearray_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    // bytearray() with no args returns empty bytearray
+    if args.is_empty() {
+        let ba_func = state
+            .module
+            .get_function("vp_bytearray_create")
+            .ok_or_else(|| "vp_bytearray_create not declared".to_string())?;
+        let result = state.ir_builder.build_call(state.builder, ba_func, &[], "empty_bytearray")
+            .ok_or_else(|| "bytearray_create returned None".to_string())?;
+        return Ok(result);
+    }
+
+    if args.len() > 1 {
+        return crate::codegen::codegen_error(format!(
+            "bytearray() takes at most 1 argument, got {}",
+            args.len()
+        ));
+    }
+
+    let arg = &args[0];
+
+    // Handle bytearray([1, 2, 3]) - create from list of integers
+    if let Expr::List { elements, .. } = arg {
+        if elements.is_empty() {
+            let ba_func = state
+                .module
+                .get_function("vp_bytearray_create")
+                .ok_or_else(|| "vp_bytearray_create not declared".to_string())?;
+            let result = state.ir_builder.build_call(state.builder, ba_func, &[], "empty_bytearray")
+                .ok_or_else(|| "bytearray_create returned None".to_string())?;
+            return Ok(result);
+        }
+
+        // Create bytearray with capacity
+        let ba_func = state
+            .module
+            .get_function("vp_bytearray_create_with_capacity")
+            .ok_or_else(|| "vp_bytearray_create_with_capacity not declared".to_string())?;
+        let capacity = state.ir_builder.i64_const(elements.len() as i64);
+        let result = state.ir_builder.build_call(state.builder, ba_func, &[capacity.into()], "bytearray_with_cap")
+            .ok_or_else(|| "bytearray_create_with_capacity returned None".to_string())?;
+        let ba_ptr = result.into_pointer_value();
+
+        // Append each element
+        let append_func = state
+            .module
+            .get_function("vp_bytearray_append")
+            .ok_or_else(|| "vp_bytearray_append not declared".to_string())?;
+
+        for (i, elem) in elements.iter().enumerate() {
+            let elem_val = generate_expr(state, elem)?;
+            let elem_i64 = if elem_val.is_int_value() {
+                elem_val.into_int_value()
+            } else {
+                // Convert to i64
+                let to_i64_func = state.module.get_function("tagged_int_to_i64")
+                    .ok_or_else(|| "tagged_int_to_i64 not declared".to_string())?;
+                state.ir_builder.build_call(
+                    state.builder,
+                    to_i64_func,
+                    &[elem_val.into()],
+                    "to_i64",
+                ).ok_or_else(|| "to_i64 returned None".to_string())?.into_int_value()
+            };
+            state.ir_builder.build_call(state.builder, append_func, &[ba_ptr.into(), elem_i64.into()], &format!("ba_append_{}", i));
+        }
+
+        return Ok(ba_ptr.into());
+    }
+
+    // For other cases, create empty bytearray
+    let ba_func = state
+        .module
+        .get_function("vp_bytearray_create")
+        .ok_or_else(|| "vp_bytearray_create not declared".to_string())?;
+    let result = state.ir_builder.build_call(state.builder, ba_func, &[], "bytearray")
+        .ok_or_else(|| "bytearray_create returned None".to_string())?;
+    Ok(result)
+}

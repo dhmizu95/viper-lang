@@ -42,17 +42,13 @@ def sleep_us(microseconds: int):
 # Time Conversion
 # ============================================
 
-def localtime(timestamp: float = 0.0) -> struct_time:
-    """Convert timestamp to local time struct. If timestamp is 0, uses current time."""
-    if timestamp == 0.0:
-        timestamp = time()
+def localtime(timestamp: float) -> struct_time:
+    """Convert timestamp to local time struct."""
     # Implemented in runtime
     return struct_time()
 
-def gmtime(timestamp: float = 0.0) -> struct_time:
-    """Convert timestamp to UTC time struct. If timestamp is 0, uses current time."""
-    if timestamp == 0.0:
-        timestamp = time()
+def gmtime(timestamp: float) -> struct_time:
+    """Convert timestamp to UTC time struct."""
     # Implemented in runtime
     return struct_time()
 
@@ -61,7 +57,7 @@ def mktime(t: struct_time) -> float:
     # Implemented in runtime
     return 0.0
 
-def strftime(format: str, t: struct_time = None) -> str:
+def strftime(format: str, t: struct_time = struct_time()) -> str:
     """Format time according to format string."""
     if t is None:
         t = localtime()
@@ -73,21 +69,21 @@ def strptime(string: str, format: str = "%a %b %d %H:%M:%S %Y") -> struct_time:
     # Implemented in runtime - simplified for now
     return struct_time()
 
-def asctime(t: struct_time = None) -> str:
+def asctime(t: struct_time = struct_time()) -> str:
     """Convert struct_time to ASCII string."""
     if t is None:
         t = localtime()
     return strftime("%a %b %d %H:%M:%S %Y", t)
 
-def ctime(timestamp: float = None) -> str:
+def ctime(timestamp: float = 0.0) -> str:
     """Convert timestamp to ASCII string."""
-    if timestamp is None:
+    if timestamp == 0.0:
         timestamp = time()
     return asctime(localtime(timestamp))
 
-def isoformat(timestamp: float = None) -> str:
+def isoformat(timestamp: float = 0.0) -> str:
     """Convert timestamp to ISO 8601 format."""
-    if timestamp is None:
+    if timestamp == 0.0:
         timestamp = time()
     return strftime("%Y-%m-%dT%H:%M:%S", localtime(timestamp))
 

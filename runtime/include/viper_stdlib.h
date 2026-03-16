@@ -193,6 +193,7 @@ ViperString* vp_str_create(const char* str);
 ViperString* vp_str_create_with_len(const char* str, int64_t len);
 void vp_str_free(ViperString* s);
 ViperString* vp_str_concat(ViperString* a, ViperString* b);
+ViperString* vp_str_repeat(ViperString* str, int64_t n);
 int64_t vp_str_len(ViperString* s);
 bool vp_str_equals(ViperString* a, ViperString* b);
 const char* vp_str_data(ViperString* s);

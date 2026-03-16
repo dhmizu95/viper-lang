@@ -1,0 +1,39 @@
+# Simplified prime sieve for testing
+import math
+
+def prime_sieve(limit):
+    if limit < 2:
+        return []
+
+    # Create sieve using list multiplication
+    sieve = [1] * (limit + 1)
+    sieve[0] = 0
+    sieve[1] = 0
+
+    for i in range(2, int(math.isqrt(limit)) + 1):
+        if sieve[i]:
+            for j in range(i*i, limit+1, i):
+                sieve[j] = 0
+
+    # Collect primes
+    primes = []
+    for k in range(limit + 1):
+        if sieve[k]:
+            primes.append(k)
+
+    return primes
+
+def main():
+    limit = 10000  # Smaller limit for testing
+
+    print("Prime Sieve up to", limit)
+    print("-" * 40)
+
+    primes = prime_sieve(limit)
+
+    print("Primes found:", len(primes))
+    if len(primes) > 0:
+        print("First prime:", primes[0])
+        print("Last prime:", primes[len(primes)-1])
+
+main()
