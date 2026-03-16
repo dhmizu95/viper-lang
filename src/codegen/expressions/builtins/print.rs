@@ -60,6 +60,12 @@ pub fn generate_print_call<'ctx>(
             let is_list_arg = match arg {
                 Expr::Ident(name, _) => state.is_list(name),
                 Expr::List { .. } | Expr::ListComprehension { .. } => true,
+                // Check if it's a call to a list-returning function
+                Expr::Call { func, .. } => {
+                    // Check if the function returns a list type
+                    let inferred = infer_expr_type(arg);
+                    matches!(inferred, Type::List(_))
+                }
                 _ => false,
             };
 

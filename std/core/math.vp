@@ -252,6 +252,7 @@ def lgamma(x: float) -> float:
 # Integer Functions
 # ============================================
 
+extern "C" def vp_math_isqrt(n: int) -> int
 extern "C" def vp_math_gcd(a: int, b: int) -> int
 extern "C" def vp_math_lcm(a: int, b: int) -> int
 extern "C" def vp_math_factorial(n: int) -> int
@@ -285,7 +286,7 @@ def perm(n, k):
 
 def isqrt(n):
     """Integer square root. Works on int and bigint."""
-    return int(sqrt(float(n)))
+    return vp_math_isqrt(n)
 
 # ============================================
 # Floating Point Utilities

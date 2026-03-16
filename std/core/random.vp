@@ -9,20 +9,24 @@ __version__ = "0.4.5"
 # Basic Functions
 # ============================================
 
+extern "C" def vp_random_random() -> float
+extern "C" def vp_random_randint(a: int, b: int) -> int
+extern "C" def vp_random_seed(a: int)
+
 def random() -> float:
     """Return a random float in the range [0.0, 1.0)."""
-    # Implemented in runtime
-    return 0.0
+    return vp_random_random()
 
 def randint(a: int, b: int) -> int:
     """Return a random integer N such that a <= N <= b."""
-    # Implemented in runtime
-    return 0
+    return vp_random_randint(a, b)
 
-def randrange(start: int, stop: int = None, step: int = 1) -> int:
-    """Return a randomly selected element from range(start, stop, step)."""
-    # Implemented in runtime
-    return 0
+def seed(a: int = None):
+    """Initialize the random number generator."""
+    if a is None:
+        vp_random_seed(0)  # Use time-based seed
+    else:
+        vp_random_seed(a)
 
 def uniform(a: float, b: float) -> float:
     """Return a random float N such that a <= N <= b."""

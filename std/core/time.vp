@@ -9,25 +9,26 @@ __version__ = "0.4.5"
 # Time Functions
 # ============================================
 
+extern "C" def vp_time_time() -> float
+extern "C" def vp_time_monotonic() -> float
+extern "C" def vp_time_perf_counter() -> float
+extern "C" def vp_time_sleep(seconds: float)
+
 def time() -> float:
     """Get current time as Unix timestamp (seconds since epoch)."""
-    # Implemented in runtime
-    return 0.0
+    return vp_time_time()
 
 def monotonic() -> float:
     """Get monotonic clock time (cannot go backwards)."""
-    # Implemented in runtime
-    return 0.0
+    return vp_time_monotonic()
 
 def perf_counter() -> float:
     """Get performance counter with highest available resolution."""
-    # Implemented in runtime
-    return 0.0
+    return vp_time_perf_counter()
 
 def sleep(seconds: float):
     """Sleep for the specified number of seconds."""
-    # Implemented in runtime
-    pass
+    vp_time_sleep(seconds)
 
 def sleep_ms(milliseconds: int):
     """Sleep for the specified number of milliseconds."""
