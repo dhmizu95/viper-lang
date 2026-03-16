@@ -1,8 +1,105 @@
 use crate::ast::{BinOp, Expr, Type, UnaryOp};
 use crate::semantic::symbol_table::SymbolKind;
 use crate::semantic::type_checker::{TypeChecker, TypeError};
+use crate::utils::Span;
 
 impl TypeChecker {
+    fn resolve_call_arguments<'a>(
+        &mut self,
+        func: &Expr,
+        args: &'a [Expr],
+        keywords: &'a [(String, Expr)],
+        span: Span,
+    ) -> Vec<&'a Expr> {
+        if keywords.is_empty() {
+            return args.iter().collect();
+        }
+
+        let mut param_names: Option<&Vec<String>> = None;
+
+        if let Expr::Ident(name, _) = func {
+            let overloads = self.symbol_table.get_function_overloads(name);
+            if let Some(symbol) = overloads.first() {
+                if let SymbolKind::Function { param_names: names, .. } = &symbol.kind {
+                    param_names = Some(names);
+                }
+            } else if let Some(symbol) = self.symbol_table.lookup(name) {
+                match &symbol.kind {
+                    SymbolKind::Function { param_names: names, .. } => {
+                        param_names = Some(names);
+                    }
+                    SymbolKind::Builtin { .. } => {
+                        self.errors.push(TypeError::new(
+                            "Keyword arguments are not supported for builtins yet".to_string(),
+                            span,
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+        } else {
+            self.errors.push(TypeError::new(
+                "Keyword arguments are only supported for direct function calls".to_string(),
+                span,
+            ));
+        }
+
+        let Some(param_names) = param_names else {
+            return args.iter().chain(keywords.iter().map(|(_, value)| value)).collect();
+        };
+
+        if args.len() > param_names.len() {
+            self.errors.push(TypeError::new(
+                format!(
+                    "Expected at most {} arguments, got {}",
+                    param_names.len(),
+                    args.len() + keywords.len()
+                ),
+                span,
+            ));
+        }
+
+        let mut ordered: Vec<Option<&Expr>> = vec![None; param_names.len()];
+
+        for (idx, arg) in args.iter().enumerate() {
+            if idx < ordered.len() {
+                ordered[idx] = Some(arg);
+            }
+        }
+
+        for (name, value) in keywords {
+            if let Some(pos) = param_names.iter().position(|p| p == name) {
+                if ordered[pos].is_some() {
+                    self.errors.push(TypeError::new(
+                        format!("Multiple values for argument '{}'", name),
+                        span,
+                    ));
+                } else {
+                    ordered[pos] = Some(value);
+                }
+            } else {
+                self.errors.push(TypeError::new(
+                    format!("Unknown keyword argument '{}'", name),
+                    span,
+                ));
+            }
+        }
+
+        let mut resolved = Vec::new();
+        for (idx, slot) in ordered.into_iter().enumerate() {
+            if let Some(expr) = slot {
+                resolved.push(expr);
+            } else {
+                self.errors.push(TypeError::new(
+                    format!("Missing argument for parameter '{}'", param_names[idx]),
+                    span,
+                ));
+            }
+        }
+
+        resolved
+    }
+
     /// Check an expression and return its type
     pub(crate) fn check_expr(&mut self, expr: &Expr) -> Option<Type> {
         let expr_type = self.infer_expr_type(expr);
@@ -118,9 +215,11 @@ impl TypeChecker {
                     }
                 }
             }
-            Expr::Call { func, args, span } => {
+            Expr::Call { func, args, keywords, span } => {
+                let resolved_args = self.resolve_call_arguments(func, args, keywords, *span);
+
                 // First, check all argument expressions to infer their types
-                for (i, arg) in args.iter().enumerate() {
+                for (i, arg) in resolved_args.iter().enumerate() {
                     // Special case: isinstance's second argument is a type name, not a value
                     // We still check it as an expression but don't enforce type constraints
                     if let Expr::Ident(name, _) = func.as_ref() {
@@ -132,6 +231,9 @@ impl TypeChecker {
                     }
                     self.check_expr(arg);
                 }
+
+                let resolved_args_vec: Vec<Expr> =
+                    resolved_args.iter().map(|arg| (*arg).clone()).collect();
 
                 // Handle function call with overload resolution
                 if let Expr::Ident(name, _) = func.as_ref() {
@@ -151,7 +253,7 @@ impl TypeChecker {
 
                         if overloads.len() > 1 {
                             // Multiple overloads - resolve to the best match
-                            match self.resolve_overload(name, args) {
+                            match self.resolve_overload(name, &resolved_args_vec) {
                                 Ok(_mangled_name) => {
                                     // Successfully resolved - the mangled name is used by codegen
                                     // Type is inferred from the resolved function
@@ -163,12 +265,12 @@ impl TypeChecker {
                         } else if let Some(symbol) = self.symbol_table.lookup(name) {
                             // Single function or builtin - check argument count
                             if let SymbolKind::Function { params, .. } = &symbol.kind {
-                                if params.len() != args.len() {
+                                if params.len() != resolved_args_vec.len() {
                                     self.errors.push(TypeError::new(
                                         format!(
                                             "Expected {} arguments, got {}",
                                             params.len(),
-                                            args.len()
+                                            resolved_args_vec.len()
                                         ),
                                         *span,
                                     ));

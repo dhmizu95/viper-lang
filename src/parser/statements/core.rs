@@ -227,12 +227,14 @@ pub fn parse_statement(parser: &mut StatementParser) -> crate::error::Result<Stm
             let expr = parse_expression(parser)?;
 
             // Check if this is a concurrency builtin call that should be a statement
-            if let Expr::Call { func, args, span } = expr {
-                if let Some(stmt) = transform_concurrency_call(parser, &func, args.clone(), span) {
+            if let Expr::Call { func, args, keywords, span } = expr {
+                if let Some(stmt) =
+                    transform_concurrency_call(parser, &func, args.clone(), keywords.clone(), span)
+                {
                     return Ok(stmt);
                 }
                 // Otherwise, put it back as a Call expression
-                Ok(Stmt::Expr(Expr::Call { func, args, span }))
+                Ok(Stmt::Expr(Expr::Call { func, args, keywords, span }))
             } else {
                 Ok(Stmt::Expr(expr))
             }

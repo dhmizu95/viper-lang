@@ -98,6 +98,8 @@ impl TypeChecker {
                         p.type_ann.as_ref().map(|t| self.normalize_type(t)).unwrap_or(Type::Infer)
                     })
                     .collect();
+                let param_names: Vec<String> =
+                    params.iter().map(|p| p.name.clone()).collect();
 
                 // Normalize return type (convert GenericApp Result to Type::Result)
                 let normalized_return_type = return_type.as_ref().map(|t| self.normalize_type(t));
@@ -105,6 +107,7 @@ impl TypeChecker {
                 // type_params is already Vec<String>
                 let symbol = Symbol::new_function(
                     name.clone(),
+                    param_names,
                     param_types,
                     normalized_return_type,
                     *span,
@@ -122,12 +125,15 @@ impl TypeChecker {
                         p.type_ann.as_ref().map(|t| self.normalize_type(t)).unwrap_or(Type::Infer)
                     })
                     .collect();
+                let param_names: Vec<String> =
+                    params.iter().map(|p| p.name.clone()).collect();
 
                 // Normalize return type
                 let normalized_return_type = return_type.as_ref().map(|t| self.normalize_type(t));
 
                 let symbol = Symbol::new_function(
                     name.clone(),
+                    param_names,
                     param_types,
                     normalized_return_type,
                     *span,
@@ -279,6 +285,7 @@ impl TypeChecker {
                                     // Create a symbol for the imported item
                                     let symbol_kind = if export.is_function {
                                         crate::semantic::symbol_table::SymbolKind::Function {
+                                            param_names: vec![],
                                             params: vec![],
                                             return_type: export.symbol_type.clone(),
                                             mangled_name: format!("__import_{}_{}", mod_name, name),

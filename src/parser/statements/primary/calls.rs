@@ -20,9 +20,26 @@ pub fn parse_ident_expr(
             expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
+            let mut keywords = Vec::new();
+            let mut seen_keyword = false;
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(parse_expression(parser)?);
+                    let is_keyword = matches!(parser.current().kind, TokenKind::Ident(_))
+                        && parser.peek().map_or(false, |t| matches!(t.kind, TokenKind::Eq));
+                    if is_keyword {
+                        let keyword_name = parser.expect_ident()?;
+                        parser.expect(&TokenKind::Eq)?;
+                        let keyword_value = parse_expression(parser)?;
+                        keywords.push((keyword_name, keyword_value));
+                        seen_keyword = true;
+                    } else {
+                        if seen_keyword {
+                            return crate::parser::parse_error(
+                                "Positional arguments cannot follow keyword arguments".to_string(),
+                            );
+                        }
+                        args.push(parse_expression(parser)?);
+                    }
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -31,7 +48,7 @@ pub fn parse_ident_expr(
             }
             // RParen was already consumed by match_token if it matched
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+            expr = Expr::Call { func: Box::new(expr), args, keywords, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             // Parse slice or index
             let is_slice = super::is_slice_pattern(parser);
@@ -67,9 +84,26 @@ pub fn parse_send_expr(parser: &mut StatementParser, span: Span) -> crate::error
             expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
+            let mut keywords = Vec::new();
+            let mut seen_keyword = false;
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(parse_expression(parser)?);
+                    let is_keyword = matches!(parser.current().kind, TokenKind::Ident(_))
+                        && parser.peek().map_or(false, |t| matches!(t.kind, TokenKind::Eq));
+                    if is_keyword {
+                        let keyword_name = parser.expect_ident()?;
+                        parser.expect(&TokenKind::Eq)?;
+                        let keyword_value = parse_expression(parser)?;
+                        keywords.push((keyword_name, keyword_value));
+                        seen_keyword = true;
+                    } else {
+                        if seen_keyword {
+                            return crate::parser::parse_error(
+                                "Positional arguments cannot follow keyword arguments".to_string(),
+                            );
+                        }
+                        args.push(parse_expression(parser)?);
+                    }
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -77,7 +111,7 @@ pub fn parse_send_expr(parser: &mut StatementParser, span: Span) -> crate::error
                 parser.expect(&TokenKind::RParen)?;
             }
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+            expr = Expr::Call { func: Box::new(expr), args, keywords, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             let is_slice = super::is_slice_pattern(parser);
 
@@ -111,9 +145,26 @@ pub fn parse_recv_expr(parser: &mut StatementParser, span: Span) -> crate::error
             expr = Expr::Attribute { obj: Box::new(expr), attr, span: span.merge(attr_span) };
         } else if parser.match_token(&TokenKind::LParen) {
             let mut args = Vec::new();
+            let mut keywords = Vec::new();
+            let mut seen_keyword = false;
             if !parser.match_token(&TokenKind::RParen) {
                 loop {
-                    args.push(parse_expression(parser)?);
+                    let is_keyword = matches!(parser.current().kind, TokenKind::Ident(_))
+                        && parser.peek().map_or(false, |t| matches!(t.kind, TokenKind::Eq));
+                    if is_keyword {
+                        let keyword_name = parser.expect_ident()?;
+                        parser.expect(&TokenKind::Eq)?;
+                        let keyword_value = parse_expression(parser)?;
+                        keywords.push((keyword_name, keyword_value));
+                        seen_keyword = true;
+                    } else {
+                        if seen_keyword {
+                            return crate::parser::parse_error(
+                                "Positional arguments cannot follow keyword arguments".to_string(),
+                            );
+                        }
+                        args.push(parse_expression(parser)?);
+                    }
                     if !parser.match_token(&TokenKind::Comma) {
                         break;
                     }
@@ -121,7 +172,7 @@ pub fn parse_recv_expr(parser: &mut StatementParser, span: Span) -> crate::error
                 parser.expect(&TokenKind::RParen)?;
             }
             let call_span = span.merge(parser.previous().span);
-            expr = Expr::Call { func: Box::new(expr), args, span: call_span };
+            expr = Expr::Call { func: Box::new(expr), args, keywords, span: call_span };
         } else if parser.match_token(&TokenKind::LBracket) {
             let is_slice = super::is_slice_pattern(parser);
 

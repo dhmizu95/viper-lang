@@ -169,16 +169,21 @@ impl TypeChecker {
                 (Type::Tuple(tuple_types), all_constraints)
             }
 
-            Expr::Call { func, args, span } => {
+            Expr::Call { func, args, keywords, span } => {
+                let mut call_args: Vec<&Expr> = args.iter().collect();
+                for (_, value) in keywords {
+                    call_args.push(value);
+                }
                 // Check for builtin BigInt functions
                 if let Expr::Ident(name, _) = func.as_ref() {
-                    if let Some(builtin_sig) = self.get_bigint_builtin_signature(name, args, *span)
+                    if let Some(builtin_sig) =
+                        self.get_bigint_builtin_signature(name, &call_args, *span)
                     {
                         let (arg_tys, return_ty) = builtin_sig;
                         let mut constraints = Vec::new();
 
                         // Constrain arguments to expected types
-                        for (arg, expected_arg_ty) in args.iter().zip(arg_tys.iter()) {
+                        for (arg, expected_arg_ty) in call_args.iter().zip(arg_tys.iter()) {
                             let (arg_ty, arg_constraints) = self.infer_expr_hm(arg);
                             constraints.extend(arg_constraints);
                             constraints.push(Constraint::new(
@@ -196,8 +201,10 @@ impl TypeChecker {
                 let (func_ty, mut constraints) = self.infer_expr_hm(func);
 
                 // Create fresh type variables for argument and return types
-                let arg_tys: Vec<Type> =
-                    args.iter().map(|_| Type::Var(self.fresh_type_var())).collect();
+                let arg_tys: Vec<Type> = call_args
+                    .iter()
+                    .map(|_| Type::Var(self.fresh_type_var()))
+                    .collect();
                 let return_ty = Type::Var(self.fresh_type_var());
 
                 // Function type should be: arg1 -> arg2 -> ... -> return
@@ -207,7 +214,7 @@ impl TypeChecker {
                 constraints.push(Constraint::new(func_ty, expected_func_ty, *span));
 
                 // Infer argument types and constrain
-                for (arg, expected_arg_ty) in args.iter().zip(arg_tys.iter()) {
+                for (arg, expected_arg_ty) in call_args.iter().zip(arg_tys.iter()) {
                     let (arg_ty, arg_constraints) = self.infer_expr_hm(arg);
                     constraints.extend(arg_constraints);
                     constraints.push(Constraint::new(arg_ty, expected_arg_ty.clone(), arg.span()));
@@ -573,7 +580,7 @@ impl TypeChecker {
     fn get_bigint_builtin_signature(
         &self,
         name: &str,
-        args: &[Expr],
+        args: &[&Expr],
         _span: crate::utils::Span,
     ) -> Option<(Vec<Type>, Type)> {
         match name {

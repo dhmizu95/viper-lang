@@ -363,6 +363,7 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.bool_list_vars,
             &mut self.bigint_vars,
             &mut self.var_types,
+            &self.function_param_names,
             &mut self.escape_analyzer,
             original_name,
             &self.closure_analyzer,
@@ -622,6 +623,7 @@ impl<'ctx> CodeGen<'ctx> {
                         &mut self.bool_list_vars,
                         &mut self.bigint_vars,
                         &mut self.var_types,
+                        &self.function_param_names,
                         &mut dummy_closure,
                     );
                     match crate::codegen::expressions::generate_expr(&mut state, val) {
@@ -667,6 +669,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.bool_list_vars,
                 &mut self.bigint_vars,
                 &mut self.var_types,
+                &self.function_param_names,
                 &mut dummy_closure,
             );
             crate::codegen::statements::generate_stmt_internal(&mut state, stmt)?;
@@ -815,6 +818,7 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.bool_list_vars,
             &mut self.bigint_vars,
             &mut self.var_types,
+            &self.function_param_names,
             &mut self.escape_analyzer,
             &body_func_name, // Set current_function for recursive call detection
             &self.closure_analyzer,
@@ -1299,6 +1303,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.bool_list_vars,
                 &mut self.bigint_vars,
                 &mut self.var_types,
+                &self.function_param_names,
                 stmt,
             )?;
         }
@@ -1334,6 +1339,12 @@ impl<'ctx> CodeGen<'ctx> {
         for stmt in stmts {
             match stmt {
                 Stmt::Function { name, params, return_type, body, is_async, .. } => {
+                    let param_names: Vec<String> =
+                        params.iter().map(|p| p.name.clone()).collect();
+                    self.function_param_names
+                        .entry(name.clone())
+                        .or_insert_with(|| param_names.clone());
+
                     // Get closure info for this function
                     let closure_info = self.closure_analyzer.get_closure_info(name);
                     let nonlocal_vars: Vec<String> = closure_info

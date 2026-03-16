@@ -396,6 +396,8 @@ impl TypeChecker {
                                     .unwrap_or(Type::Infer)
                             })
                             .collect();
+                        let param_names: Vec<String> =
+                            nested_params.iter().map(|p| p.name.clone()).collect();
 
                         // Normalize nested function return type
                         let normalized_return =
@@ -404,6 +406,7 @@ impl TypeChecker {
                         // Register nested function in current scope
                         let symbol = Symbol::new_function(
                             nested_name.clone(),
+                            param_names,
                             param_types,
                             normalized_return,
                             *nested_span,

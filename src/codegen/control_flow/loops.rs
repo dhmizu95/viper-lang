@@ -76,7 +76,8 @@ fn generate_while_simple<'ctx>(
             state.bool_list_vars,
             state.bigint_vars,
             state.var_types,
-            stmt,
+                state.function_param_names,
+                stmt,
         )?;
     }
 
@@ -104,6 +105,7 @@ fn generate_while_simple<'ctx>(
                 state.bool_list_vars,
                 state.bigint_vars,
                 state.var_types,
+                state.function_param_names,
                 stmt,
             )?;
         }
@@ -269,6 +271,7 @@ fn generate_for_with_iterator<'ctx>(
                 state.bool_list_vars,
                 state.bigint_vars,
                 state.var_types,
+                state.function_param_names,
                 stmt,
             )?;
         }
@@ -299,7 +302,8 @@ fn generate_for_with_iterator<'ctx>(
                         state.bool_list_vars,
                         state.bigint_vars,
                         state.var_types,
-                        stmt,
+                state.function_param_names,
+                stmt,
                     )?;
                 }
             }
@@ -513,7 +517,8 @@ pub fn generate_for<'ctx>(
                         state.bool_list_vars,
                         state.bigint_vars,
                         state.var_types,
-                        stmt,
+                state.function_param_names,
+                stmt,
                     )?;
                 }
 
@@ -569,7 +574,8 @@ pub fn generate_for<'ctx>(
                             state.bool_list_vars,
                             state.bigint_vars,
                             state.var_types,
-                            stmt,
+                state.function_param_names,
+                stmt,
                         )?;
                     }
                     // After else block, jump to exit
@@ -744,7 +750,8 @@ pub fn generate_for<'ctx>(
             state.bool_list_vars,
             state.bigint_vars,
             state.var_types,
-            stmt,
+                state.function_param_names,
+                stmt,
         )?;
     }
 
@@ -991,7 +998,8 @@ pub fn generate_async_for<'ctx>(
             state.bool_list_vars,
             state.bigint_vars,
             state.var_types,
-            stmt,
+                state.function_param_names,
+                stmt,
         )?;
     }
 

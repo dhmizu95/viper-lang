@@ -823,7 +823,9 @@ pub fn generate_expr<'ctx>(
         Expr::Conditional { condition, then_expr, else_expr, span: _ } => {
             generate_conditional(state, condition, then_expr, else_expr)
         }
-        Expr::Call { func, args, span } => generate_call(state, func, args, *span),
+        Expr::Call { func, args, keywords, span } => {
+            generate_call(state, func, args, keywords, *span)
+        }
         Expr::Attribute { obj, attr, span: _ } => {
             // Handle module.attribute access (e.g., math.pi, math.sqrt)
             if let Expr::Ident(module_name, _) = obj.as_ref() {

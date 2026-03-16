@@ -122,10 +122,13 @@ impl ConstantFolder {
                     *expr = self.constant_to_expr(const_val.clone());
                 }
             }
-            Expr::Call { args, .. } => {
+            Expr::Call { args, keywords, .. } => {
                 // Fold arguments
                 for arg in args {
                     self.fold_expr(arg);
+                }
+                for (_, value) in keywords {
+                    self.fold_expr(value);
                 }
             }
             Expr::List { elements, .. } => {

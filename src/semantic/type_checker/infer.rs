@@ -71,13 +71,19 @@ impl TypeChecker {
                 // The actual method resolution happens at compile time
                 Some(Type::Object)
             }
-            Expr::Call { func, args, span: _ } => {
+            Expr::Call { func, args, keywords, span: _ } => {
+                let mut call_args: Vec<&Expr> = args.iter().collect();
+                for (_, value) in keywords {
+                    call_args.push(value);
+                }
                 if let Expr::Ident(name, _) = func.as_ref() {
                     // Handle Result constructors with context from function return type
                     match name.as_str() {
                         "Ok" => {
                             // Ok(value) -> Result[value_type, Infer] or use return type context
-                            let value_type = args.first().and_then(|a| self.infer_expr_type(a));
+                            let value_type = call_args
+                                .first()
+                                .and_then(|a| self.infer_expr_type(a));
 
                             // Check if we're in a function returning Result[T, E]
                             if let Some(ref ret_type) = self.current_return_type {
@@ -100,7 +106,9 @@ impl TypeChecker {
                         }
                         "Err" => {
                             // Err(error) -> Result[Infer, error_type] or use return type context
-                            let error_type = args.first().and_then(|a| self.infer_expr_type(a));
+                            let error_type = call_args
+                                .first()
+                                .and_then(|a| self.infer_expr_type(a));
 
                             // Check if we're in a function returning Result[T, E]
                             if let Some(ref ret_type) = self.current_return_type {

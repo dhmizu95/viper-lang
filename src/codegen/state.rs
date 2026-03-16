@@ -36,6 +36,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub bool_list_vars: &'a mut HashSet<String>, // Track bool-specific lists
     pub bigint_vars: &'a mut HashSet<String>,    // Track BigInt variables
     pub var_types: &'a mut HashMap<String, Type>, // Type information for variables
+    pub function_param_names: &'a HashMap<String, Vec<String>>,
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
     pub closure_analyzer: Option<&'a ClosureAnalyzer>, // Reference to closure analyzer
     pub current_function: Option<&'a str>,
@@ -68,6 +69,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         bool_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
+        function_param_names: &'a HashMap<String, Vec<String>>,
         closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
     ) -> Self {
         Self {
@@ -84,6 +86,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             bool_list_vars,
             bigint_vars,
             var_types,
+            function_param_names,
             escape_analyzer: None,
             closure_analyzer: None,
             current_function: None,
@@ -112,6 +115,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         bool_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
+        function_param_names: &'a HashMap<String, Vec<String>>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
         closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
@@ -130,6 +134,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             bool_list_vars,
             bigint_vars,
             var_types,
+            function_param_names,
             escape_analyzer: Some(escape_analyzer),
             closure_analyzer: None,
             current_function: Some(current_function),
@@ -158,6 +163,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         bool_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
+        function_param_names: &'a HashMap<String, Vec<String>>,
         escape_analyzer: &'a mut EscapeAnalyzer,
         current_function: &'a str,
         closure_analyzer: &'a ClosureAnalyzer,
@@ -177,6 +183,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             bool_list_vars,
             bigint_vars,
             var_types,
+            function_param_names,
             escape_analyzer: Some(escape_analyzer),
             closure_analyzer: Some(closure_analyzer),
             current_function: Some(current_function),

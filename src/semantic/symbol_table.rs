@@ -12,6 +12,7 @@ pub enum SymbolKind {
     },
     /// Function with optional generic type parameters
     Function {
+        param_names: Vec<String>,
         params: Vec<Type>,
         return_type: Option<Type>,
         mangled_name: String,
@@ -172,6 +173,7 @@ impl Symbol {
 
     pub fn new_function(
         name: String,
+        param_names: Vec<String>,
         params: Vec<Type>,
         return_type: Option<Type>,
         span: Span,
@@ -181,7 +183,13 @@ impl Symbol {
         let mangled_name = mangle_function_name(&name, &params);
         Self {
             name,
-            kind: SymbolKind::Function { params, return_type, mangled_name, type_params },
+            kind: SymbolKind::Function {
+                param_names,
+                params,
+                return_type,
+                mangled_name,
+                type_params,
+            },
             span,
             scope_id,
         }

@@ -40,6 +40,7 @@ pub fn generate_stmt<'ctx>(
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
+    function_param_names: &HashMap<String, Vec<String>>,
     stmt: &Stmt,
 ) -> crate::codegen::Result<()> {
     let mut closure_cells = HashMap::new();
@@ -57,6 +58,7 @@ pub fn generate_stmt<'ctx>(
         bool_list_vars,
         bigint_vars,
         var_types,
+        function_param_names,
         &mut closure_cells,
     );
 
@@ -78,6 +80,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
+    function_param_names: &HashMap<String, Vec<String>>,
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
@@ -98,6 +101,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         bool_list_vars,
         bigint_vars,
         var_types,
+        function_param_names,
         escape_analyzer,
         current_function,
         &mut closure_cells,
@@ -122,6 +126,7 @@ pub fn generate_stmt_with_closure<'ctx>(
     bool_list_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
+    function_param_names: &HashMap<String, Vec<String>>,
     stmt: &Stmt,
     escape_analyzer: &mut EscapeAnalyzer,
     current_function: &str,
@@ -146,6 +151,7 @@ pub fn generate_stmt_with_closure<'ctx>(
         bool_list_vars,
         bigint_vars,
         var_types,
+        function_param_names,
         escape_analyzer,
         current_function,
         closure_analyzer,
@@ -307,6 +313,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                         state.bool_list_vars,
                         state.bigint_vars,
                         state.var_types,
+                        state.function_param_names,
                         stmt,
                     )?;
                 }

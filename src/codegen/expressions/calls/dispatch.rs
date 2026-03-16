@@ -65,17 +65,87 @@ fn find_function_with_defaults<'ctx>(
     best_match
 }
 
+fn resolve_keyword_args(
+    name: &str,
+    args: &[Expr],
+    keywords: &[(String, Expr)],
+    state: &CodeGenState<'_, '_>,
+) -> crate::codegen::Result<Vec<Expr>> {
+    let Some(param_names) = state.function_param_names.get(name) else {
+        return crate::codegen::codegen_error(format!(
+            "Keyword arguments are not supported for function '{}'",
+            name
+        ));
+    };
+
+    let mut ordered: Vec<Option<Expr>> = vec![None; param_names.len()];
+
+    for (idx, arg) in args.iter().enumerate() {
+        if idx >= ordered.len() {
+            return crate::codegen::codegen_error(format!(
+                "Expected at most {} arguments, got {}",
+                param_names.len(),
+                args.len() + keywords.len()
+            ));
+        }
+        ordered[idx] = Some(arg.clone());
+    }
+
+    for (keyword, value) in keywords {
+        if let Some(pos) = param_names.iter().position(|p| p == keyword) {
+            if ordered[pos].is_some() {
+                return crate::codegen::codegen_error(format!(
+                    "Multiple values for argument '{}'",
+                    keyword
+                ));
+            }
+            ordered[pos] = Some(value.clone());
+        } else {
+            return crate::codegen::codegen_error(format!(
+                "Unknown keyword argument '{}'",
+                keyword
+            ));
+        }
+    }
+
+    let mut resolved = Vec::new();
+    for (idx, slot) in ordered.into_iter().enumerate() {
+        if let Some(expr) = slot {
+            resolved.push(expr);
+        } else {
+            return crate::codegen::codegen_error(format!(
+                "Missing argument for parameter '{}'",
+                param_names[idx]
+            ));
+        }
+    }
+
+    Ok(resolved)
+}
+
 /// Generate function/method call
 pub fn generate_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     func: &Expr,
     args: &[Expr],
+    keywords: &[(String, Expr)],
     _span: crate::utils::Span,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    let resolved_args = if keywords.is_empty() {
+        args.to_vec()
+    } else if let Expr::Ident(name, _) = func {
+        resolve_keyword_args(name, args, keywords, state)?
+    } else {
+        return crate::codegen::codegen_error(
+            "Keyword arguments are only supported for direct function calls".to_string(),
+        );
+    };
+    let args = &resolved_args;
+
     if let Expr::Attribute { obj, attr, .. } = func {
         // Check for super().method() call
         if let Expr::Super(_) = obj.as_ref() {
-            return generate_super_method_call(state, attr, args);
+            return generate_super_method_call(state, attr, &resolved_args);
         }
 
         // Handle module.function() calls
@@ -106,66 +176,68 @@ pub fn generate_call<'ctx>(
         }
 
         // First try user-defined class method call
-        if let Ok(result) = crate::codegen::oop::generate_user_method_call(state, obj, attr, args) {
+        if let Ok(result) =
+            crate::codegen::oop::generate_user_method_call(state, obj, attr, &resolved_args)
+        {
             return Ok(result);
         }
         // Fall back to built-in method calls
-        return generate_method_call(state, obj, attr, args);
+        return generate_method_call(state, obj, attr, &resolved_args);
     }
 
     if let Expr::Ident(name, _) = func {
         // Check if this is a class instantiation
         if crate::codegen::oop::class_exists(name) {
-            return crate::codegen::oop::generate_class_instantiation(state, name, args);
+            return crate::codegen::oop::generate_class_instantiation(state, name, &resolved_args);
         }
 
         // Special handling: redirect calls to main() to __user_main()
         // This is needed because we wrap user's main to ensure viper_init runs first
         if name == "main" && state.functions.contains_key("__user_main") {
-            return generate_user_main_call(state, args);
+            return generate_user_main_call(state, &resolved_args);
         }
 
         if name == "print" {
-            return generate_print_call(state, args);
+            return generate_print_call(state, &resolved_args);
         }
 
         if name == "exit" {
-            return generate_exit_call(state, args);
+            return generate_exit_call(state, &resolved_args);
         }
 
         if name == "len" {
-            return generate_len_call(state, args);
+            return generate_len_call(state, &resolved_args);
         }
 
         if name == "hash" {
-            return generate_hash_call(state, args);
+            return generate_hash_call(state, &resolved_args);
         }
 
         if name == "str" {
-            return generate_str_call(state, args);
+            return generate_str_call(state, &resolved_args);
         }
 
         if name == "bytes" {
-            return generate_bytes_call(state, args);
+            return generate_bytes_call(state, &resolved_args);
         }
 
         // Type conversion functions
         if name == "float" || name == "int" || name == "bool" {
-            return generate_type_convert(state, name, args);
+            return generate_type_convert(state, name, &resolved_args);
         }
 
         // Async/await gather
         if name == "gather" {
-            return generate_gather_call(state, args);
+            return generate_gather_call(state, &resolved_args);
         }
         if name == "sleep" {
-            if args.len() != 1 {
+            if resolved_args.len() != 1 {
                 return crate::codegen::codegen_error(format!(
                     "sleep() takes exactly 1 argument, got {}",
-                    args.len()
+                    resolved_args.len()
                 ));
             }
-            let val = crate::codegen::expressions::generate_expr(state, &args[0])?;
+            let val = crate::codegen::expressions::generate_expr(state, &resolved_args[0])?;
             let ms_val = if val.is_float_value() {
                 // Treat float seconds as milliseconds
                 let ms = state

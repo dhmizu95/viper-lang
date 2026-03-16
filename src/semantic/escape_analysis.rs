@@ -423,11 +423,14 @@ impl EscapeAnalyzer {
                     self.analyze_return_expr(elem, ctx);
                 }
             }
-            Expr::Call { func, args, .. } => {
+            Expr::Call { func, args, keywords, .. } => {
                 // Function call result being returned
                 self.analyze_expr(func, ctx, EscapeState::None);
                 for arg in args {
                     self.analyze_expr(arg, ctx, EscapeState::None);
+                }
+                for (_, value) in keywords {
+                    self.analyze_expr(value, ctx, EscapeState::None);
                 }
             }
             Expr::BinOp { left, right, .. } => {
@@ -527,11 +530,14 @@ impl EscapeAnalyzer {
             Expr::UnaryOp { operand, .. } => {
                 self.analyze_expr(operand, ctx, state);
             }
-            Expr::Call { func, args, .. } => {
+            Expr::Call { func, args, keywords, .. } => {
                 self.analyze_expr(func, ctx, EscapeState::None);
                 // Arguments may escape to called function
                 for arg in args {
                     self.analyze_expr(arg, ctx, EscapeState::MayEscape);
+                }
+                for (_, value) in keywords {
+                    self.analyze_expr(value, ctx, EscapeState::MayEscape);
                 }
             }
             Expr::Lambda { body, .. } => {

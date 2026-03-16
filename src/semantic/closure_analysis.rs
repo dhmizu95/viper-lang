@@ -394,10 +394,13 @@ impl ClosureAnalyzer {
             Expr::UnaryOp { operand, .. } => {
                 self.collect_used_vars_in_expr(operand, used);
             }
-            Expr::Call { func, args, .. } => {
+            Expr::Call { func, args, keywords, .. } => {
                 self.collect_used_vars_in_expr(func, used);
                 for arg in args {
                     self.collect_used_vars_in_expr(arg, used);
+                }
+                for (_, value) in keywords {
+                    self.collect_used_vars_in_expr(value, used);
                 }
             }
             Expr::Index { obj, index, .. } => {

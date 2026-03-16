@@ -230,7 +230,7 @@ impl RecursionAnalyzer {
         in_tail_position: bool,
     ) {
         match expr {
-            Expr::Call { func, args, .. } => {
+            Expr::Call { func, args, keywords, .. } => {
                 if let Expr::Ident(name, _) = func.as_ref() {
                     called.push(name.clone());
                     if name == current_function {
@@ -243,6 +243,16 @@ impl RecursionAnalyzer {
                 }
                 for arg in args {
                     Self::collect_calls_in_expr(arg, called, current_function, recursive_count, tail_call_count, false);
+                }
+                for (_, value) in keywords {
+                    Self::collect_calls_in_expr(
+                        value,
+                        called,
+                        current_function,
+                        recursive_count,
+                        tail_call_count,
+                        false,
+                    );
                 }
             }
             Expr::BinOp { left, right, .. } => {
@@ -309,7 +319,7 @@ impl RecursionAnalyzer {
 
     fn is_expr_pure(expr: &Expr) -> bool {
         match expr {
-            Expr::Call { func, args, .. } => {
+            Expr::Call { func, args, keywords, .. } => {
                 // Check if calling a pure function
                 let func_is_pure = if let Expr::Ident(name, _) = func.as_ref() {
                     // Built-in pure functions
@@ -320,7 +330,9 @@ impl RecursionAnalyzer {
                 } else {
                     false
                 };
-                func_is_pure && args.iter().all(Self::is_expr_pure)
+                func_is_pure
+                    && args.iter().all(Self::is_expr_pure)
+                    && keywords.iter().all(|(_, value)| Self::is_expr_pure(value))
             }
             Expr::BinOp { left, right, .. } => {
                 Self::is_expr_pure(left) && Self::is_expr_pure(right)

@@ -175,10 +175,13 @@ fn collect_expr_usage(expr: &crate::ast::Expr, vars: &mut std::collections::Hash
         Expr::UnaryOp { operand, .. } => {
             collect_expr_usage(operand, vars);
         }
-        Expr::Call { func, args, .. } => {
+        Expr::Call { func, args, keywords, .. } => {
             collect_expr_usage(func, vars);
             for a in args {
                 collect_expr_usage(a, vars);
+            }
+            for (_, value) in keywords {
+                collect_expr_usage(value, vars);
             }
         }
         Expr::List { elements, .. } => {

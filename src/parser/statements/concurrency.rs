@@ -24,8 +24,12 @@ pub fn transform_concurrency_call(
     _parser: &mut StatementParser,
     func: &Expr,
     args: Vec<Expr>,
+    keywords: Vec<(String, Expr)>,
     span: Span,
 ) -> Option<Stmt> {
+    if !keywords.is_empty() {
+        return None;
+    }
     if let Expr::Ident(name, _) = func {
         match name.as_str() {
             "chan" => {

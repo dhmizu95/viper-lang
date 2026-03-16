@@ -59,6 +59,7 @@ impl<'ctx> CodeGen<'ctx> {
                             &mut self.bool_list_vars,
                             &mut self.bigint_vars,
                             &mut self.var_types,
+                            &self.function_param_names,
                             &mut closure_cells,
                         ),
                         value,
@@ -93,13 +94,14 @@ impl<'ctx> CodeGen<'ctx> {
                                 &mut self.loop_stack,
                                 &mut self.list_vars,
                                 &mut self.dict_vars,
-                                &mut self.bool_list_vars,
-                                &mut self.bigint_vars,
-                                &mut self.var_types,
-                                &mut closure_cells,
-                            ),
-                            value,
-                        )?;
+                            &mut self.bool_list_vars,
+                            &mut self.bigint_vars,
+                            &mut self.var_types,
+                            &self.function_param_names,
+                            &mut closure_cells,
+                        ),
+                        value,
+                    )?;
                         let ty = val.get_type();
                         let global = self.module.add_global(ty, None, name);
                         global.set_constant(false); // Mutable at LLVM level (type checker enforces)

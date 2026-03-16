@@ -758,6 +758,22 @@ fn test_parse_call_with_args() {
     }
 }
 
+#[test]
+fn test_parse_call_with_keywords() {
+    let expr = parse_expr("foo(a=1, b=2)").unwrap();
+    match &expr {
+        Expr::Call { args, keywords, .. } => {
+            assert!(args.is_empty());
+            assert_eq!(keywords.len(), 2);
+            assert_eq!(keywords[0].0, "a");
+            assert_is_int(&keywords[0].1, 1);
+            assert_eq!(keywords[1].0, "b");
+            assert_is_int(&keywords[1].1, 2);
+        }
+        _ => panic!("Expected Call, got {:?}", expr),
+    }
+}
+
 // ============================================================================
 // Index Expression Tests
 // ============================================================================
