@@ -850,8 +850,8 @@ pub fn generate_expr<'ctx>(
         }
         Expr::Await { future, span: _ } => generate_await(state, future),
         Expr::Lambda { params, body, span } => generate_lambda(state, params, body, *span),
-        Expr::ListComprehension { element, var, iter, span } => {
-            generate_list_comprehension(state, element, var, iter, *span)
+        Expr::ListComprehension { element, target, iter, ifs, span } => {
+            generate_list_comprehension(state, element, target, iter, ifs, *span)
         }
         Expr::AssignmentExpr { target, value, span } => {
             generate_assignment_expr(state, target, value, *span)

@@ -96,13 +96,14 @@ pub fn generate_list<'ctx>(
     Ok(list_val)
 }
 
-/// Generate list comprehension: [expr for var in iter]
+/// Generate list comprehension: [expr for target in iter] or [expr for t1, t2 in iter if cond]
 /// Currently supports: [expr for var in range(n)] and [expr for var in range(start, end)]
 pub fn generate_list_comprehension<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     element: &Expr,
-    var: &str,
+    target: &Expr,
     iter: &Expr,
+    ifs: &[Expr],
     _span: crate::utils::Span,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     // Determine element type by analyzing the element expression
@@ -184,6 +185,23 @@ pub fn generate_list_comprehension<'ctx>(
         let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
         (state.ir_builder.i64_const(0), len)
     };
+
+    // Extract variable name from target (for now, only support simple identifier)
+    // Tuple unpacking like (i, is_prime) will be handled in a future update
+    let var_name = match target {
+        Expr::Ident(name, _) => name.clone(),
+        Expr::Tuple { elements, .. } => {
+            // For tuple unpacking, use the first element's name for now
+            // Full tuple unpacking support requires more complex codegen
+            if let Some(Expr::Ident(name, _)) = elements.first() {
+                name.clone()
+            } else {
+                "var".to_string()
+            }
+        }
+        _ => "var".to_string(),
+    };
+    let var = &var_name;
 
     // Create loop blocks
     let func = state
@@ -271,6 +289,57 @@ pub fn generate_list_comprehension<'ctx>(
         var.to_string(),
         VarInfo::new_stack(var_ptr, var_type),
     );
+
+    // Handle filter conditions (if clauses)
+    if !ifs.is_empty() {
+        // Generate all if conditions and combine them with AND
+        let mut combined_cond: Option<inkwell::values::BasicValueEnum> = None;
+        for if_expr in ifs {
+            let cond_val = generate_expr(state, if_expr)?;
+            let cond_i1 = if cond_val.is_int_value() {
+                state.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond_val.into_int_value(),
+                    state.context.i64_type().const_zero(),
+                    "if_cond",
+                ).expect("compare").into()
+            } else {
+                cond_val
+            };
+            
+            if let Some(prev) = combined_cond {
+                combined_cond = Some(state.builder.build_and(
+                    prev.into_int_value(),
+                    cond_i1.into_int_value(),
+                    "combined_if",
+                ).expect("and").into());
+            } else {
+                combined_cond = Some(cond_i1);
+            }
+        }
+        
+        // Branch based on filter condition
+        let filter_pass_block = state.context.append_basic_block(func, "filter_pass");
+        let skip_block = state.context.append_basic_block(func, "filter_skip");
+        
+        if let Some(cond) = combined_cond {
+            state.ir_builder.build_cond_branch(
+                state.builder,
+                cond.into_int_value(),
+                filter_pass_block,
+                skip_block,
+            );
+        } else {
+            state.builder.build_unconditional_branch(filter_pass_block).expect("branch");
+        }
+        
+        // Skip block: jump to step without appending
+        state.builder.position_at_end(skip_block);
+        state.builder.build_unconditional_branch(step_block).expect("branch to step");
+        
+        // Generate element in filter_pass block
+        state.builder.position_at_end(filter_pass_block);
+    }
 
     // Generate the element expression
     let elem_val = generate_expr(state, element)?;

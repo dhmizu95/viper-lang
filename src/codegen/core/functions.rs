@@ -1663,6 +1663,7 @@ fn is_pure_statement(stmt: &Stmt) -> bool {
 
         // These statements have side effects
         Stmt::AugAssign { .. } => false, // Mutation
+        Stmt::SliceAssign { .. } => false, // Slice mutation
 
         // Functions and classes are declarations, not statements in function body
         Stmt::Function { .. } => false, // Nested function definition is impure

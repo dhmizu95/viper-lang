@@ -50,8 +50,14 @@ pub enum Expr {
     Array { elements: Vec<Expr>, size: Option<usize>, span: Span },
     /// Lambda expression
     Lambda { params: Vec<String>, body: Box<Expr>, span: Span },
-    /// List comprehension: [expr for var in iter]
-    ListComprehension { element: Box<Expr>, var: String, iter: Box<Expr>, span: Span },
+    /// List comprehension: [expr for var in iter] or [expr for var1, var2 in iter if cond]
+    ListComprehension {
+        element: Box<Expr>,
+        target: Box<Expr>,  // Can be Ident or Tuple for unpacking
+        iter: Box<Expr>,
+        ifs: Vec<Expr>,     // Optional filter conditions
+        span: Span,
+    },
     /// Conditional expression (a if cond else b)
     Conditional { condition: Box<Expr>, then_expr: Box<Expr>, else_expr: Box<Expr>, span: Span },
     /// Await expression (await future)
@@ -145,10 +151,11 @@ impl Expr {
                     .collect(),
                 span: *span,
             },
-            Expr::ListComprehension { element, var, iter, span } => Expr::ListComprehension {
+            Expr::ListComprehension { element, target, iter, ifs, span } => Expr::ListComprehension {
                 element: Box::new(element.substitute(substitution)),
-                var: var.clone(),
+                target: Box::new(target.substitute(substitution)),
                 iter: Box::new(iter.substitute(substitution)),
+                ifs: ifs.iter().map(|e| e.substitute(substitution)).collect(),
                 span: *span,
             },
             Expr::Conditional { condition, then_expr, else_expr, span } => Expr::Conditional {
@@ -256,6 +263,15 @@ pub enum Stmt {
     Assign { target: Box<Expr>, value: Box<Expr>, span: Span },
     /// Augmented assignment: x += expr
     AugAssign { target: Box<Expr>, op: BinOp, value: Box<Expr>, span: Span },
+    /// Slice assignment: obj[start:end:step] = value
+    SliceAssign {
+        obj: Box<Expr>,
+        start: Option<Box<Expr>>,
+        end: Option<Box<Expr>>,
+        step: Option<Box<Expr>>,
+        value: Box<Expr>,
+        span: Span,
+    },
     /// Variable declaration with type: x: i64 = expr
     Declare { name: String, type_ann: Option<Type>, value: Option<Expr>, mutable: bool, span: Span },
     /// Global variable declaration: global x, y, z (inside function)
@@ -427,6 +443,7 @@ impl Stmt {
             Stmt::Expr(e) => e.span(),
             Stmt::Assign { span, .. } => *span,
             Stmt::AugAssign { span, .. } => *span,
+            Stmt::SliceAssign { span, .. } => *span,
             Stmt::Declare { span, .. } => *span,
             Stmt::Global { span, .. } => *span,
             Stmt::Nonlocal { span, .. } => *span,
@@ -471,6 +488,14 @@ impl Stmt {
             Stmt::Expr(expr) => Stmt::Expr(expr.substitute(substitution)),
             Stmt::Assign { target, value, span } => Stmt::Assign {
                 target: Box::new(target.substitute(substitution)),
+                value: Box::new(value.substitute(substitution)),
+                span: *span,
+            },
+            Stmt::SliceAssign { obj, start, end, step, value, span } => Stmt::SliceAssign {
+                obj: Box::new(obj.substitute(substitution)),
+                start: start.as_ref().map(|e| Box::new(e.substitute(substitution))),
+                end: end.as_ref().map(|e| Box::new(e.substitute(substitution))),
+                step: step.as_ref().map(|e| Box::new(e.substitute(substitution))),
                 value: Box::new(value.substitute(substitution)),
                 span: *span,
             },

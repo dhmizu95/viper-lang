@@ -1,0 +1,4 @@
+def test():
+    return [1] * 100
+
+test()

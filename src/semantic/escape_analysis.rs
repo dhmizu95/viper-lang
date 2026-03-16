@@ -243,6 +243,20 @@ impl EscapeAnalyzer {
                 self.analyze_expr(target, ctx, EscapeState::MayEscape);
                 self.analyze_expr(value, ctx, EscapeState::MayEscape);
             }
+            Stmt::SliceAssign { obj, start, end, step, value, .. } => {
+                // Slice assignment mutates the object
+                self.analyze_expr(obj, ctx, EscapeState::MayEscape);
+                if let Some(s) = start {
+                    self.analyze_expr(s, ctx, EscapeState::None);
+                }
+                if let Some(e) = end {
+                    self.analyze_expr(e, ctx, EscapeState::None);
+                }
+                if let Some(s) = step {
+                    self.analyze_expr(s, ctx, EscapeState::None);
+                }
+                self.analyze_expr(value, ctx, EscapeState::MayEscape);
+            }
             Stmt::Declare { name, value, type_ann, mutable, span } => {
                 ctx.variables.insert(
                     name.clone(),
