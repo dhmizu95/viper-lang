@@ -160,19 +160,24 @@ void vp_bytearray_print(ViperByteArray* ba) {
     printf("\")");
 }
 
-ViperByteArray* vp_bytearray_repeat(int64_t value, int64_t count) {
-    ViperByteArray* ba = vp_bytearray_create_with_capacity(count);
-    for (int64_t i = 0; i < count; i++) {
-        vp_bytearray_append(ba, value);
-    }
-    return ba;
-}
 
-ViperByteArray* vp_bytearray_from_list(ViperList* list) {
-    if (!list) return vp_bytearray_create();
-    ViperByteArray* ba = vp_bytearray_create_with_capacity(list->length);
-    for (int64_t i = 0; i < list->length; i++) {
-        vp_bytearray_append(ba, list->data.data_i64[i]);
+/**
+ * Repeat bytearray n times
+ */
+ViperByteArray* vp_bytearray_repeat(ViperByteArray* ba, int64_t count) {
+    if (!ba || count <= 0) {
+        return vp_bytearray_create();
     }
-    return ba;
+    
+    int64_t orig_len = ba->length;
+    int64_t new_len = orig_len * count;
+    
+    ViperByteArray* result = vp_bytearray_create_with_capacity(new_len);
+    
+    for (int64_t i = 0; i < count; i++) {
+        memcpy(result->data + (i * orig_len), ba->data, orig_len);
+    }
+    result->length = new_len;
+    
+    return result;
 }

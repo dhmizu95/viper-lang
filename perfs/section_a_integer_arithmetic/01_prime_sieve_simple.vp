@@ -1,30 +1,36 @@
-# Simplified prime sieve for testing
+# Simplified prime sieve - use single element list repetition
 import math
 
 def prime_sieve(limit):
     if limit < 2:
         return []
 
-    # Create sieve using list multiplication
+    # Create sieve using single-element list repetition
     sieve = [1] * (limit + 1)
     sieve[0] = 0
     sieve[1] = 0
 
-    for i in range(2, int(math.isqrt(limit)) + 1):
+    i = 2
+    while i * i <= limit:
         if sieve[i]:
-            for j in range(i*i, limit+1, i):
+            j = i * i
+            while j <= limit:
                 sieve[j] = 0
+                j = j + i
+        i = i + 1
 
     # Collect primes
     primes = []
-    for k in range(limit + 1):
+    k = 0
+    while k <= limit:
         if sieve[k]:
             primes.append(k)
+        k = k + 1
 
     return primes
 
 def main():
-    limit = 10000  # Smaller limit for testing
+    limit = 1000
 
     print("Prime Sieve up to", limit)
     print("-" * 40)

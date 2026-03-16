@@ -322,5 +322,5 @@ int64_t vp_bytearray_get(ViperByteArray* ba, int64_t index);
 void vp_bytearray_extend(ViperByteArray* ba, ViperByteArray* other);
 ViperByteArray* vp_bytearray_slice(ViperByteArray* ba, int64_t start, int64_t end, int64_t step);
 void vp_bytearray_print(ViperByteArray* ba);
-ViperByteArray* vp_bytearray_repeat(int64_t value, int64_t count);
 ViperByteArray* vp_bytearray_from_list(ViperList* list);
+ViperByteArray* vp_bytearray_repeat(ViperByteArray* ba, int64_t count);

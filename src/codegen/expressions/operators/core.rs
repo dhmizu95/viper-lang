@@ -2,6 +2,7 @@
 
 use crate::ast::{BinOp, Expr, UnaryOp};
 use crate::codegen::expressions::core::generate_expr;
+use crate::codegen::expressions::collections::generate_list;
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
 
@@ -36,6 +37,60 @@ pub fn generate_binop<'ctx>(
     // This must be checked BEFORE generating the left operand to avoid generating
     // the full list literal first
     if *op == BinOp::Mul {
+        // Handle bytearray * int for bytearray repetition
+        let is_bytearray_left = match left {
+            Expr::Call { func, .. } => {
+                if let Expr::Ident(name, _) = func.as_ref() {
+                    name == "bytearray"
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+        
+        if is_bytearray_left {
+            // Generate bytearray and count
+            let ba_val = generate_expr(state, left)?;
+            let count_val = generate_expr(state, right)?;
+            let count_int = if count_val.is_int_value() {
+                count_val.into_int_value()
+            } else {
+                return crate::codegen::codegen_error(
+                    "bytearray repeat count must be an integer".to_string(),
+                );
+            };
+            
+            // Untag the count (tagged ints are shifted left by 1)
+            let count_untagged = state
+                .builder
+                .build_right_shift(
+                    count_int,
+                    state.context.i64_type().const_int(1, false),
+                    false,
+                    "count_untagged",
+                )
+                .expect("untag count");
+            
+            // Call vp_bytearray_repeat
+            let repeat_func = state
+                .module
+                .get_function("vp_bytearray_repeat")
+                .ok_or_else(|| "vp_bytearray_repeat not declared".to_string())?;
+            
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    repeat_func,
+                    &[ba_val.into(), count_untagged.into()],
+                    "ba_repeat",
+                )
+                .expect("ba_repeat call");
+            
+            return Ok(result.into());
+        }
+
         let elements = match left {
             Expr::List { elements, .. } => Some(elements),
             Expr::Array { elements, .. } => Some(elements),
@@ -43,6 +98,111 @@ pub fn generate_binop<'ctx>(
         };
 
         if let Some(elems) = elements {
+            // Handle multi-element list repetition: [a, b, c] * n
+            if elems.len() > 1 {
+                // First create the base list
+                let base_list = generate_list(state, elems)?;
+                let base_ptr = base_list.into_pointer_value();
+                
+                // Generate count
+                let count_val = generate_expr(state, right)?;
+                let count_int = count_val.into_int_value();
+                
+                // Untag the count
+                let count_untagged = state
+                    .builder
+                    .build_right_shift(
+                        count_int,
+                        state.context.i64_type().const_int(1, false),
+                        false,
+                        "count_untagged",
+                    )
+                    .expect("untag count");
+                
+                // Get base list length
+                let len_func = state
+                    .module
+                    .get_function("vp_list_len")
+                    .ok_or_else(|| "vp_list_len not declared".to_string())?;
+                let base_len = state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        len_func,
+                        &[base_ptr.into()],
+                        "base_len",
+                    )
+                    .expect("base_len")
+                    .into_int_value();
+                
+                // Calculate new length
+                let new_len = state
+                    .builder
+                    .build_int_mul(base_len, count_untagged, "new_len")
+                    .expect("new_len");
+                
+                // Create result list with capacity
+                let create_func = state
+                    .module
+                    .get_function("vp_list_create_with_capacity")
+                    .ok_or_else(|| "vp_list_create_with_capacity not declared".to_string())?;
+                let result_list = state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        create_func,
+                        &[new_len.into()],
+                        "result_list",
+                    )
+                    .expect("create result")
+                    .into_pointer_value();
+                
+                // Extend result list count times
+                let extend_func = state
+                    .module
+                    .get_function("vp_list_extend")
+                    .ok_or_else(|| "vp_list_extend not declared".to_string())?;
+                
+                // Create loop
+                let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+                let init_block = state.context.append_basic_block(func, "list_repeat_init");
+                let cond_block = state.context.append_basic_block(func, "list_repeat_cond");
+                let body_block = state.context.append_basic_block(func, "list_repeat_body");
+                let step_block = state.context.append_basic_block(func, "list_repeat_step");
+                let end_block = state.context.append_basic_block(func, "list_repeat_end");
+                
+                state.ir_builder.build_branch(state.builder, init_block);
+                
+                // Init: counter = 0
+                state.builder.position_at_end(init_block);
+                let counter = state.builder.build_alloca(state.context.i64_type(), "counter").expect("alloca");
+                state.builder.build_store(counter, state.context.i64_type().const_int(0, false)).expect("store");
+                state.ir_builder.build_branch(state.builder, cond_block);
+                
+                // Condition: counter < count
+                state.builder.position_at_end(cond_block);
+                let counter_val = state.builder.build_load(state.context.i64_type(), counter, "counter_val").expect("load").into_int_value();
+                let cond = state.builder.build_int_compare(inkwell::IntPredicate::ULT, counter_val, count_untagged, "cond").expect("cond");
+                state.ir_builder.build_cond_branch(state.builder, cond, body_block, end_block);
+                
+                // Body: extend
+                state.builder.position_at_end(body_block);
+                state.ir_builder.build_call(state.builder, extend_func, &[result_list.into(), base_ptr.into()], "extend").expect("extend");
+                state.ir_builder.build_branch(state.builder, step_block);
+                
+                // Step: counter++
+                state.builder.position_at_end(step_block);
+                let next_counter = state.builder.build_int_add(counter_val, state.context.i64_type().const_int(1, false), "next").expect("add");
+                state.builder.build_store(counter, next_counter).expect("store");
+                state.ir_builder.build_branch(state.builder, cond_block);
+                
+                // End
+                state.builder.position_at_end(end_block);
+                
+                return Ok(result_list.into());
+            }
+            
+            // Single-element list repetition (optimized path)
             if let Some(elem) = elems.first() {
                 // Only generate the element expression and count, not the full list
                 let count_val = generate_expr(state, right)?;
