@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Prime sieve up to 10^9 - Tests CPU integer speed and bit operations"""
+
+import time
+import math
+
+def prime_sieve(limit):
+    """Sieve of Eratosthenes to find all primes up to limit"""
+    if limit < 2:
+        return []
+    
+    sieve = bytearray([1]) * (limit + 1)
+    sieve[0:2] = b'\x00\x00'
+    
+    for i in range(2, int(math.isqrt(limit)) + 1):
+        if sieve[i]:
+            sieve[i*i:limit+1:i] = bytearray([0]) * len(sieve[i*i:limit+1:i])
+    
+    return [i for i, is_prime in enumerate(sieve) if is_prime]
+
+def main():
+    limit = 10**8  # Using 10^8 instead of 10^9 for practical runtime
+    
+    print(f"Prime Sieve up to {limit:,}")
+    print("-" * 40)
+    
+    start = time.perf_counter()
+    primes = prime_sieve(limit)
+    elapsed = time.perf_counter() - start
+    
+    print(f"Primes found: {len(primes):,}")
+    print(f"Time: {elapsed:.3f} seconds")
+    print(f"Last prime: {primes[-1]:,}")
+
+if __name__ == "__main__":
+    main()
