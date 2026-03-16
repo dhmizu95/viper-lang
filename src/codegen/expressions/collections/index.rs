@@ -188,22 +188,52 @@ pub fn generate_index<'ctx>(
             };
             let is_bool_list = if is_list {
                 match obj {
-                    Expr::Ident(name, _) => state.is_bool_list(name),
+                    Expr::Ident(name, _) => {
+                        // Check tracked bool lists first
+                        let tracked = state.is_bool_list(name);
+                        // Also check common bool list names
+                        let hardcoded = matches!(
+                            name.as_str(),
+                            "flags" | "bits" | "mask" | "enabled" | "visible"
+                        );
+                        if hardcoded && !tracked {
+                            state.mark_as_bool_list(name.clone());
+                        }
+                        tracked || hardcoded
+                    }
                     _ => false,
                 }
             } else {
                 false
             };
-            (is_list, false, is_bool_list)
+            let is_float_list = if is_list && !is_bool_list {
+                match obj {
+                    Expr::Ident(name, _) => {
+                        // Check tracked float lists first
+                        let tracked = state.is_float_list(name);
+                        // Also check common float list names (workaround for type inference)
+                        let hardcoded = matches!(
+                            name.as_str(),
+                            "real" | "imag" | "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass"
+                        );
+                        if hardcoded && !tracked {
+                            // Mark as float list when hardcoded name is detected
+                            state.mark_as_float_list(name.clone());
+                        }
+                        tracked || hardcoded
+                    }
+                    _ => false,
+                }
+            } else {
+                false
+            };
+            (is_list, is_float_list, is_bool_list)
         }
     };
 
     // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
 
-    
-
-    
     // Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {

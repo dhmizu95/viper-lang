@@ -46,6 +46,7 @@ BENCHMARKS=(
     "12_bigint_overflow"
     "13_factorial"
     "14_recursive_list_sum"
+    "15_fft"
 )
 
 if command -v python3 &> /dev/null; then

@@ -1,6 +1,6 @@
 # Viper Benchmark Report
 
-**Date:** 2026-03-16 01:55:25  
+**Date:** 2026-03-16 14:32:02  
 **Iterations:** 3  
 **Max Memory Limit:** 4096MB  
 **Max Time Limit:** 300s  
@@ -10,27 +10,27 @@
 | Metric | Value |
 |--------|-------|
 | Total Tests | 8 |
-| Passed | 8 |
-| Failed/Crashed | 0 |
-| Success Rate | 100% |
+| Passed | 3 |
+| Failed/Crashed | 5 |
+| Success Rate | 37% |
 
 ## Performance (Time in ms)
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |
 |-----------|-----|--------|--------|--------|---|------|-----|--------|
-| 14_recursive_list_sum | 187 | 68 | 64 | 68 | 69 | 66 | 66 | 68 |
+| 15_fft | CRASH | CRASH | CRASH | CRASH | BUILD | 81 | 75 | 125 |
 
 ## Memory (Peak RSS in KB)
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |
 |-----------|-----|--------|--------|--------|---|------|-----|--------|
-| 14_recursive_list_sum | 66352 | 2048 | 2176 | 2133 | 1408 | 2005 | 1621 | 9941 |
+| 15_fft | N/A | N/A | N/A | N/A | N/A | 2560 | 1621 | 10752 |
 
 ## Status
 
 | Benchmark | JIT | AOT-O1 | AOT-O2 | AOT-O3 | C | Rust | Go | Python |
 |-----------|:---:|:------:|:------:|:------:|:-:|:----:|:---:|:------:|
-| 14_recursive_list_sum | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 15_fft | ❌ | ❌ | ❌ | ❌ | 🔨 | ✅ | ✅ | ✅ |
 
 ---
 
@@ -40,34 +40,34 @@
 
 | Benchmark | JIT vs C | AOT-O1 vs C | AOT-O2 vs C | AOT-O3 vs C |
 |-----------|----------|-------------|-------------|-------------|
-| 14_recursive_list_sum | 2.7× | 1.0× | 0.9× | 1.0× |
+| 15_fft | N/A | N/A | N/A | N/A |
 
 ### Performance Ratio vs Rust
 
 | Benchmark | JIT vs Rust | AOT-O1 vs Rust | AOT-O2 vs Rust | AOT-O3 vs Rust |
 |-----------|-------------|----------------|----------------|----------------|
-| 14_recursive_list_sum | 2.8× | 1.0× | 1.0× | 1.0× |
+| 15_fft | N/A | N/A | N/A | N/A |
 
 ### Performance Ratio vs Go
 
 | Benchmark | JIT vs Go | AOT-O1 vs Go | AOT-O2 vs Go | AOT-O3 vs Go |
 |-----------|-----------|--------------|--------------|--------------|
-| 14_recursive_list_sum | 2.8× | 1.0× | 1.0× | 1.0× |
+| 15_fft | N/A | N/A | N/A | N/A |
 
 ### Memory Efficiency
 
 | Mode | Avg Memory (KB) | vs C |
 |------|-----------------|------|
-| Viper JIT | 66352 | 47.1× |
-| Viper AOT-O1 | 2048 | 1.5× |
-| Viper AOT-O2 | 2176 | 1.5× |
-| Viper AOT-O3 | 2133 | 1.5× |
+| Viper JIT | 0 | 0.0× |
+| Viper AOT-O1 | 0 | 0.0× |
+| Viper AOT-O2 | 0 | 0.0× |
+| Viper AOT-O3 | 0 | 0.0× |
 
 ### Key Findings
 
 1. **AOT-O1** typically offers the best performance/memory balance
-2. **JIT mode** has ~47.1× memory overhead (66352KB vs C's ~1408KB)
-3. **AOT memory** is ~1.5× C baseline (2119KB vs ~1408KB)
+2. **JIT mode** has ~N/A× memory overhead (0KB vs C's ~3200KB)
+3. **AOT memory** is ~N/A× C baseline (0KB vs ~3200KB)
 4. Performance varies by workload - see individual benchmark ratios above
 
 ---

@@ -117,11 +117,7 @@ pub fn generate_method_call<'ctx>(
 
             // Determine if this is a bool list or float list
             let is_bool_list = state.is_bool_list_expr(obj);
-            let is_float_list = if let Expr::Ident(name, _) = obj {
-                matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass" | "real" | "imag")
-            } else {
-                false
-            };
+            let is_float_list = state.is_float_list_expr(obj);
 
             // Use inline append for optimized performance
             if is_bool_list {
@@ -177,6 +173,11 @@ pub fn generate_method_call<'ctx>(
             } else {
                 // Fallback for generic lists
                 if val.is_float_value() {
+                    // Mark as float list when appending floats
+                    if let Expr::Ident(list_name, _) = obj {
+                        state.mark_as_float_list(list_name.clone());
+                    }
+
                     // Try to guess if this should be a float list if we are appending a float
                     let append_func = state
                         .module

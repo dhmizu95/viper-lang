@@ -34,6 +34,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub list_vars: &'a mut HashSet<String>,
     pub dict_vars: &'a mut HashSet<String>,
     pub bool_list_vars: &'a mut HashSet<String>, // Track bool-specific lists
+    pub float_list_vars: &'a mut HashSet<String>, // Track float-specific lists
     pub bigint_vars: &'a mut HashSet<String>,    // Track BigInt variables
     pub var_types: &'a mut HashMap<String, Type>, // Type information for variables
     pub function_param_names: &'a HashMap<String, Vec<String>>,
@@ -67,6 +68,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        float_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
         function_param_names: &'a HashMap<String, Vec<String>>,
@@ -84,6 +86,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            float_list_vars,
             bigint_vars,
             var_types,
             function_param_names,
@@ -113,6 +116,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        float_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
         function_param_names: &'a HashMap<String, Vec<String>>,
@@ -132,6 +136,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            float_list_vars,
             bigint_vars,
             var_types,
             function_param_names,
@@ -161,6 +166,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        float_list_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
         function_param_names: &'a HashMap<String, Vec<String>>,
@@ -181,6 +187,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            float_list_vars,
             bigint_vars,
             var_types,
             function_param_names,
@@ -303,6 +310,17 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         self.bool_list_vars.contains(name)
     }
 
+    /// Mark a variable as a float list
+    pub fn mark_as_float_list(&mut self, name: String) {
+        self.float_list_vars.insert(name.clone());
+        self.list_vars.insert(name); // Float lists are also lists
+    }
+
+    /// Check if a variable is a float list
+    pub fn is_float_list(&self, name: &str) -> bool {
+        self.float_list_vars.contains(name)
+    }
+
     /// Check if a variable is a dict
     pub fn is_dict(&self, name: &str) -> bool {
         self.dict_vars.contains(name)
@@ -399,6 +417,24 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             crate::ast::Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
                 if let crate::ast::Expr::List { elements, .. } = left.as_ref() {
                     elements.first().map(|e| matches!(e, crate::ast::Expr::Bool(..))).unwrap_or(false)
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// Check if an expression is a float list
+    pub fn is_float_list_expr(&self, expr: &crate::ast::Expr) -> bool {
+        match expr {
+            crate::ast::Expr::Ident(name, _) => self.is_float_list(name),
+            crate::ast::Expr::List { elements, .. } => {
+                elements.first().map(|e| matches!(e, crate::ast::Expr::Float(..))).unwrap_or(false)
+            }
+            crate::ast::Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                if let crate::ast::Expr::List { elements, .. } = left.as_ref() {
+                    elements.first().map(|e| matches!(e, crate::ast::Expr::Float(..))).unwrap_or(false)
                 } else {
                     false
                 }

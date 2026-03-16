@@ -187,6 +187,8 @@ impl<'ctx> CodeGen<'ctx> {
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
         let saved_list_vars = std::mem::take(&mut self.list_vars);
+        let saved_bool_list_vars = std::mem::take(&mut self.bool_list_vars);
+        let saved_float_list_vars = std::mem::take(&mut self.float_list_vars);
         let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
         let saved_var_types = std::mem::take(&mut self.var_types);
         let saved_current_function = self.current_function.clone();
@@ -361,6 +363,7 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.list_vars,
             &mut self.dict_vars,
             &mut self.bool_list_vars,
+            &mut self.float_list_vars,
             &mut self.bigint_vars,
             &mut self.var_types,
             &self.function_param_names,
@@ -457,6 +460,8 @@ impl<'ctx> CodeGen<'ctx> {
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
+        self.bool_list_vars = saved_bool_list_vars;
+        self.float_list_vars = saved_float_list_vars;
         self.bigint_vars = saved_bigint_vars;
         self.var_types = saved_var_types;
         self.current_function = saved_current_function;
@@ -572,6 +577,8 @@ impl<'ctx> CodeGen<'ctx> {
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
         let saved_list_vars = std::mem::take(&mut self.list_vars);
+        let saved_bool_list_vars = std::mem::take(&mut self.bool_list_vars);
+        let saved_float_list_vars = std::mem::take(&mut self.float_list_vars);
         let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
         let saved_var_types = std::mem::take(&mut self.var_types);
         let saved_current_function = self.current_function.clone();
@@ -621,6 +628,7 @@ impl<'ctx> CodeGen<'ctx> {
                         &mut self.list_vars,
                         &mut self.dict_vars,
                         &mut self.bool_list_vars,
+                        &mut self.float_list_vars,
                         &mut self.bigint_vars,
                         &mut self.var_types,
                         &self.function_param_names,
@@ -667,6 +675,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.float_list_vars,
                 &mut self.bigint_vars,
                 &mut self.var_types,
                 &self.function_param_names,
@@ -704,6 +713,8 @@ impl<'ctx> CodeGen<'ctx> {
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
+        self.bool_list_vars = saved_bool_list_vars;
+        self.float_list_vars = saved_float_list_vars;
         self.bigint_vars = saved_bigint_vars;
         self.var_types = saved_var_types;
         self.current_function = saved_current_function;
@@ -756,6 +767,8 @@ impl<'ctx> CodeGen<'ctx> {
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
         let saved_list_vars = std::mem::take(&mut self.list_vars);
+        let saved_bool_list_vars = std::mem::take(&mut self.bool_list_vars);
+        let saved_float_list_vars = std::mem::take(&mut self.float_list_vars);
         let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
         let saved_var_types = std::mem::take(&mut self.var_types);
         let saved_current_function = self.current_function.clone();
@@ -816,6 +829,7 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.list_vars,
             &mut self.dict_vars,
             &mut self.bool_list_vars,
+            &mut self.float_list_vars,
             &mut self.bigint_vars,
             &mut self.var_types,
             &self.function_param_names,
@@ -833,6 +847,8 @@ impl<'ctx> CodeGen<'ctx> {
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
+        self.bool_list_vars = saved_bool_list_vars;
+        self.float_list_vars = saved_float_list_vars;
         self.bigint_vars = saved_bigint_vars;
         self.var_types = saved_var_types;
         self.current_function = saved_current_function;
@@ -1301,6 +1317,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.float_list_vars,
                 &mut self.bigint_vars,
                 &mut self.var_types,
                 &self.function_param_names,
