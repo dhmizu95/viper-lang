@@ -14,7 +14,7 @@ use crate::semantic::escape_analysis::EscapeAnalyzer;
 
 // Import helper functions from sibling modules
 use crate::codegen::statements::assignment::{
-    generate_assign, generate_aug_assign, generate_tuple_unpack,
+    generate_assign, generate_aug_assign, generate_slice_assign, generate_tuple_unpack,
 };
 use crate::codegen::statements::concurrency::{
     generate_chan, generate_recv, generate_send, generate_sync, generate_task, generate_waitgroup,
@@ -187,6 +187,9 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         }
         Stmt::AugAssign { target, op, value, .. } => {
             generate_aug_assign(state, target, op, value)?;
+        }
+        Stmt::SliceAssign { obj, start, end, step, value, .. } => {
+            generate_slice_assign(state, obj, start, end, step, value)?;
         }
         Stmt::Return { value, .. } => {
             return crate::codegen::control_flow::generate_return(state, value);

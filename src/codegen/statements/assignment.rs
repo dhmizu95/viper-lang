@@ -1183,3 +1183,102 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
 
     Ok(())
 }
+
+
+/// Generate slice assignment: obj[start:end:step] = value
+pub(crate) fn generate_slice_assign<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    obj: &Expr,
+    start: &Option<Box<Expr>>,
+    end: &Option<Box<Expr>>,
+    step: &Option<Box<Expr>>,
+    value: &Expr,
+) -> crate::codegen::Result<()> {
+    use crate::codegen::expressions::generate_expr;
+    
+    // Generate the object (the list/array being sliced)
+    let obj_val = generate_expr(state, obj)?;
+    
+    // Generate start, end, step indices (default to 0, len, 1)
+    let start_val = if let Some(s) = start {
+        generate_expr(state, s)?.into_int_value()
+    } else {
+        state.context.i64_type().const_int(0, false)
+    };
+    
+    let end_val = if let Some(e) = end {
+        generate_expr(state, e)?.into_int_value()
+    } else {
+        let len_func = state.module.get_function("vp_list_len")
+            .ok_or("vp_list_len not declared")?;
+        state.ir_builder.build_call(
+            state.builder,
+            len_func,
+            &[obj_val.into()],
+            "slice_len",
+        ).unwrap().into_int_value()
+    };
+    
+    let step_val = if let Some(s) = step {
+        generate_expr(state, s)?.into_int_value()
+    } else {
+        state.context.i64_type().const_int(1, false)
+    };
+    
+    // Generate the value
+    let value_val = generate_expr(state, value)?;
+    
+    // Generate loop: for i in range(start, end, step): obj[i] = value
+    let func = state.builder.get_insert_block()
+        .ok_or("No insertion block")?
+        .get_parent()
+        .ok_or("No parent function")?;
+    
+    let init_block = state.context.append_basic_block(func, "slice_assign_init");
+    let cond_block = state.context.append_basic_block(func, "slice_assign_cond");
+    let body_block = state.context.append_basic_block(func, "slice_assign_body");
+    let step_block = state.context.append_basic_block(func, "slice_assign_step");
+    let end_block = state.context.append_basic_block(func, "slice_assign_end");
+    
+    state.ir_builder.build_branch(state.builder, init_block);
+    
+    // Init: counter = start
+    state.builder.position_at_end(init_block);
+    let counter = state.builder.build_alloca(state.context.i64_type(), "slice_counter").expect("alloca");
+    state.builder.build_store(counter, start_val).expect("store");
+    state.ir_builder.build_branch(state.builder, cond_block);
+    
+    // Condition: counter < end
+    state.builder.position_at_end(cond_block);
+    let counter_val = state.builder.build_load(state.context.i64_type(), counter, "counter_val")
+        .expect("load counter")
+        .into_int_value();
+    
+    let cond = state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "slice_cond");
+    state.ir_builder.build_cond_branch(state.builder, cond, body_block, end_block);
+    
+    // Body: obj[counter] = value
+    state.builder.position_at_end(body_block);
+    
+    let set_func = state.module.get_function("vp_list_set")
+        .ok_or("vp_list_set not declared")?;
+    state.ir_builder.build_call(
+        state.builder,
+        set_func,
+        &[obj_val.into(), counter_val.into(), value_val.into()],
+        "list_set",
+    );
+    
+    state.ir_builder.build_branch(state.builder, step_block);
+    
+    // Step: counter += step
+    state.builder.position_at_end(step_block);
+    let next_counter = state.ir_builder.build_add(state.builder, counter_val, step_val, "next_counter");
+    state.builder.build_store(counter, next_counter).expect("store");
+    state.ir_builder.build_branch(state.builder, cond_block);
+    
+    // End
+    state.builder.position_at_end(end_block);
+    
+    Ok(())
+}

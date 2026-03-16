@@ -186,22 +186,59 @@ pub fn generate_list_comprehension<'ctx>(
         (state.ir_builder.i64_const(0), len)
     };
 
-    // Extract variable name from target (for now, only support simple identifier)
-    // Tuple unpacking like (i, is_prime) will be handled in a future update
-    let var_name = match target {
-        Expr::Ident(name, _) => name.clone(),
-        Expr::Tuple { elements, .. } => {
-            // For tuple unpacking, use the first element's name for now
-            // Full tuple unpacking support requires more complex codegen
-            if let Some(Expr::Ident(name, _)) = elements.first() {
-                name.clone()
+    // Handle target variable(s) - support both simple identifier and tuple unpacking
+    let target_vars: Vec<(String, inkwell::values::PointerValue<'ctx>)> = match target {
+        Expr::Ident(name, _) => {
+            // Simple identifier: for i in ...
+            let var_type = if is_range {
+                crate::codegen::variables::VarType::Int
+            } else if iter_is_float_list {
+                crate::codegen::variables::VarType::Float
             } else {
-                "var".to_string()
-            }
+                crate::codegen::variables::VarType::Int
+            };
+
+            let storage_type: inkwell::types::BasicTypeEnum = if matches!(var_type, crate::codegen::variables::VarType::Float) {
+                state.context.f64_type().into()
+            } else {
+                state.context.i64_type().into()
+            };
+
+            let var_ptr = state.builder.build_alloca(storage_type, name).expect("alloca");
+            vec![(name.clone(), var_ptr)]
         }
-        _ => "var".to_string(),
+        Expr::Tuple { elements, .. } => {
+            // Tuple unpacking: for i, is_prime in enumerate(sieve)
+            // For enumerate, first var is index (i64), second is element from list
+            let mut vars = Vec::new();
+            for (idx, elem) in elements.iter().enumerate() {
+                if let Expr::Ident(name, _) = elem {
+                    // First variable is the index, rest are list elements
+                    let var_type = if idx == 0 {
+                        crate::codegen::variables::VarType::Int  // index is always int
+                    } else if iter_is_float_list {
+                        crate::codegen::variables::VarType::Float
+                    } else {
+                        crate::codegen::variables::VarType::Int
+                    };
+
+                    let storage_type: inkwell::types::BasicTypeEnum = if matches!(var_type, crate::codegen::variables::VarType::Float) {
+                        state.context.f64_type().into()
+                    } else {
+                        state.context.i64_type().into()
+                    };
+
+                    let var_ptr = state.builder.build_alloca(storage_type, name).expect("alloca");
+                    vars.push((name.clone(), var_ptr));
+                }
+            }
+            vars
+        }
+        _ => {
+            let var_ptr = state.builder.build_alloca(state.context.i64_type(), "var").expect("alloca");
+            vec![("var".to_string(), var_ptr)]
+        }
     };
-    let var = &var_name;
 
     // Create loop blocks
     let func = state
@@ -255,40 +292,44 @@ pub fn generate_list_comprehension<'ctx>(
         .expect("load counter")
         .into_int_value();
 
-    let loop_var_val = if is_range {
-        counter_val.into()
-    } else {
-        // Fetch element from list: list[counter]
-        let list_val = iter_val.expect("iter_val should be present if not range");
-        let get_func_name = if iter_is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
-        let get_func = state.module.get_function(get_func_name).ok_or_else(|| format!("{} not declared", get_func_name))?;
+    // Bind variables based on target pattern
+    for (var_idx, (var_name, var_ptr)) in target_vars.iter().enumerate() {
+        let loop_var_val = if var_idx == 0 {
+            // First variable is always the index/counter
+            counter_val.into()
+        } else if is_range {
+            // For range, all vars after first are just the counter
+            counter_val.into()
+        } else {
+            // Fetch element from list: list[counter]
+            let list_val = iter_val.expect("iter_val should be present if not range");
+            let get_func_name = if iter_is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
+            let get_func = state.module.get_function(get_func_name).ok_or_else(|| format!("{} not declared", get_func_name))?;
 
-        state.ir_builder.build_call(state.builder, get_func, &[list_val.into(), counter_val.into()], "extracted_elem").unwrap()
-    };
+            state.ir_builder.build_call(state.builder, get_func, &[list_val.into(), counter_val.into()], "extracted_elem").unwrap()
+        };
 
-    // Create a separate variable for the loop variable
-    let var_type = if is_range { 
-        crate::codegen::variables::VarType::Int 
-    } else if iter_is_float_list {
-        crate::codegen::variables::VarType::Float
-    } else {
-        crate::codegen::variables::VarType::Int
-    };
-    
-    let storage_type: inkwell::types::BasicTypeEnum = if matches!(var_type, crate::codegen::variables::VarType::Float) {
-        state.context.f64_type().into()
-    } else {
-        state.context.i64_type().into()
-    };
+        state.builder.build_store(*var_ptr, loop_var_val).expect("store var");
 
-    let var_ptr = state.builder.build_alloca(storage_type, var).expect("alloca");
-    state.builder.build_store(var_ptr, loop_var_val).expect("store var");
+        // Set up the loop variable in the symbol table
+        let var_type = if var_idx == 0 {
+            crate::codegen::variables::VarType::Int
+        } else if iter_is_float_list {
+            crate::codegen::variables::VarType::Float
+        } else {
+            crate::codegen::variables::VarType::Int
+        };
 
-    // Set up the loop variable in the symbol table
-    let old_var = state.variables.insert(
-        var.to_string(),
-        VarInfo::new_stack(var_ptr, var_type),
-    );
+        let old_var = state.variables.insert(
+            var_name.clone(),
+            crate::codegen::variables::VarInfo::new_stack(*var_ptr, var_type),
+        );
+
+        // Store old var for restoration later (only need to track last one for now)
+        if var_idx == target_vars.len() - 1 {
+            let _ = old_var;
+        }
+    }
 
     // Handle filter conditions (if clauses)
     if !ifs.is_empty() {
@@ -380,11 +421,9 @@ pub fn generate_list_comprehension<'ctx>(
         "list_append",
     );
 
-    // Restore the variable after body
-    if let Some(old) = old_var {
-        state.variables.insert(var.to_string(), old);
-    } else {
-        state.variables.remove(var);
+    // Restore variables after body (remove all target vars from symbol table)
+    for (var_name, _) in &target_vars {
+        state.variables.remove(var_name);
     }
 
     // Branch to step block
