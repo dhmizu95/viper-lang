@@ -224,8 +224,99 @@ pub extern "C" fn vp_bytearray_free(ba: *mut ViperByteArrayStub) {
 }
 
 pub extern "C" fn vp_enumerate_bytearray(ba: *mut ViperByteArrayStub, start: i64) -> *mut std::ffi::c_void {
-    // For now, return null - full implementation would create list of tuples
-    // This is a simplified stub for JIT mode
-    eprintln!("enumerate(bytearray) not fully implemented in JIT stubs");
-    std::ptr::null_mut()
+    // Create a ViperList of (index, value) tuples
+    // ViperList layout (32 bytes):
+    //   offset 0-7: length (i64)
+    //   offset 8-15: capacity (i64)
+    //   offset 16-23: elem_type (i64) - VIPER_LIST_GENERIC = 6
+    //   offset 24-31: data pointer (*mut i64) - array of ViperTuple* pointers
+    
+    // ViperTuple layout (24 bytes):
+    //   offset 0-7: size (i64)
+    //   offset 8-15: elements pointer (i64*)
+    //   offset 16-23: reserved/padding (i64)
+    
+    if ba.is_null() {
+        return std::ptr::null_mut();
+    }
+    
+    let ba_ref = unsafe { &*ba };
+    let len = ba_ref.length;
+    let tuple_count = len as usize;
+    
+    // Allocate array of tuple pointers
+    let tuple_ptrs = unsafe {
+        libc::malloc((tuple_count as usize) * std::mem::size_of::<*mut i64>()) as *mut *mut i64
+    };
+    
+    if tuple_ptrs.is_null() {
+        return std::ptr::null_mut();
+    }
+    
+    // Create tuples
+    unsafe {
+        for i in 0..tuple_count {
+            // Allocate ViperTuple (24 bytes)
+            let tuple = libc::malloc(24) as *mut i64;
+            if tuple.is_null() {
+                // Cleanup on failure
+                for j in 0..i {
+                    libc::free(*tuple_ptrs.add(j) as *mut libc::c_void);
+                }
+                libc::free(tuple_ptrs as *mut libc::c_void);
+                return std::ptr::null_mut();
+            }
+            
+            // Allocate elements array (2 i64 values)
+            let elements = libc::malloc(2 * std::mem::size_of::<i64>()) as *mut i64;
+            if elements.is_null() {
+                libc::free(tuple as *mut libc::c_void);
+                for j in 0..i {
+                    libc::free(*tuple_ptrs.add(j) as *mut libc::c_void);
+                }
+                libc::free(tuple_ptrs as *mut libc::c_void);
+                return std::ptr::null_mut();
+            }
+            
+            // Set tuple fields
+            *tuple.add(0) = 2;                    // size = 2
+            *tuple.add(1) = elements as i64;      // elements pointer
+            *tuple.add(2) = 0;                    // reserved
+            
+            // Set tuple elements
+            let idx = start + i as i64;
+            let val = *ba_ref.data.add(i) as i64;
+            *elements.add(0) = idx;
+            *elements.add(1) = val;
+            
+            *tuple_ptrs.add(i) = tuple;
+        }
+    }
+    
+    // Allocate ViperList structure
+    let list_ptr = unsafe {
+        libc::malloc(32) as *mut i64
+    };
+    
+    if list_ptr.is_null() {
+        unsafe {
+            for i in 0..tuple_count {
+                let tuple = *tuple_ptrs.add(i);
+                libc::free(*tuple.add(1) as *mut libc::c_void);  // elements
+                libc::free(tuple as *mut libc::c_void);          // tuple
+            }
+            libc::free(tuple_ptrs as *mut libc::c_void);
+        }
+        return std::ptr::null_mut();
+    }
+    
+    // Set ViperList fields
+    unsafe {
+        *list_ptr.add(0) = len;                    // length
+        *list_ptr.add(1) = len;                    // capacity
+        *list_ptr.add(2) = 6;                      // elem_type = VIPER_LIST_GENERIC
+        *list_ptr.add(3) = tuple_ptrs as i64;      // data pointer (array of tuple pointers)
+    }
+    
+    list_ptr as *mut std::ffi::c_void
 }
