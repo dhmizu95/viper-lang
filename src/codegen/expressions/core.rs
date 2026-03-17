@@ -240,6 +240,7 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
             Type::Infer
         },
         Expr::Slice { .. } => Type::List(Box::new(Type::Infer)),
+        Expr::FStringElement { .. } => Type::Str,
         Expr::FString { .. } => Type::Str,
         Expr::Await { .. } => Type::Infer,
         Expr::Lambda { .. } => Type::Fn(vec![], Box::new(Type::Infer)),
@@ -398,6 +399,98 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
     }
 }
 
+/// Convert a value to a ViperString based on its type
+fn convert_value_to_string<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    elem_val: BasicValueEnum<'ctx>,
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    if elem_val.is_float_value() {
+        let str_func = state
+            .module
+            .get_function("vp_str_from_f64")
+            .ok_or_else(|| "vp_str_from_f64 not declared".to_string())?;
+        Ok(state
+            .ir_builder
+            .build_call(state.builder, str_func, &[elem_val.into()], "elem_to_str")
+            .unwrap())
+    } else if elem_val.is_pointer_value() {
+        // Check if this is bytes - need to convert bytes to string for f-string
+        // For now, pass through as-is (bytes will be handled by print function)
+        // TODO: Add proper bytes-to-str conversion if needed
+        Ok(elem_val)
+    } else if elem_val.is_int_value() {
+        let int_val = elem_val.into_int_value();
+        // Check if it's a bool (i1 type)
+        if int_val.get_type().get_bit_width() == 1 {
+            // Bool to string
+            let to_str_func = state
+                .module
+                .get_function("vp_str_from_bool")
+                .ok_or_else(|| "vp_str_from_bool not declared".to_string())?;
+            Ok(state
+                .ir_builder
+                .build_call(state.builder, to_str_func, &[int_val.into()], "bool_to_str")
+                .unwrap())
+        } else {
+            // Integer - use tagged int to str, which returns char*
+            // Then convert char* to ViperString*
+            let to_str_func = state
+                .module
+                .get_function("tagged_int_to_str")
+                .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
+            let c_str_val = state
+                .ir_builder
+                .build_call(state.builder, to_str_func, &[elem_val.into()], "elem_to_cstr")
+                .unwrap();
+
+            // Convert C string to ViperString
+            let str_create_func = state
+                .module
+                .get_function("vp_str_create")
+                .ok_or_else(|| "vp_str_create not declared".to_string())?;
+            Ok(state
+                .ir_builder
+                .build_call(state.builder, str_create_func, &[c_str_val.into()], "elem_to_str")
+                .unwrap())
+        }
+    } else {
+        // Fallback - try to convert as int
+        let to_str_func = state
+            .module
+            .get_function("tagged_int_to_str")
+            .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
+        let c_str_val = state
+            .ir_builder
+            .build_call(state.builder, to_str_func, &[elem_val.into()], "elem_to_cstr")
+            .unwrap();
+
+        let str_create_func = state
+            .module
+            .get_function("vp_str_create")
+            .ok_or_else(|| "vp_str_create not declared".to_string())?;
+        Ok(state
+            .ir_builder
+            .build_call(state.builder, str_create_func, &[c_str_val.into()], "elem_to_str")
+            .unwrap())
+    }
+}
+
+/// Concatenate two ViperStrings
+fn generate_str_concat<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    left: BasicValueEnum<'ctx>,
+    right: BasicValueEnum<'ctx>,
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    let concat_func = state
+        .module
+        .get_function("vp_str_concat")
+        .ok_or_else(|| "vp_str_concat not declared".to_string())?;
+    Ok(state
+        .ir_builder
+        .build_call(state.builder, concat_func, &[left.into(), right.into()], "str_concat")
+        .unwrap())
+}
+
 /// Generate code for an expression
 pub fn generate_expr<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
@@ -417,7 +510,7 @@ pub fn generate_expr<'ctx>(
                 // Must promote to tagged BigInt at runtime
                 let func = state
                     .module
-                    .get_function("tagged_int_from_i64")
+                    .get_function("tagged_int_from_i64_export")
                     .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
                 let const_val = state.ir_builder.i64_const(val);
                 let result = state
@@ -472,12 +565,17 @@ pub fn generate_expr<'ctx>(
             let create_func = state.module.get_function("vp_bytes_create").ok_or_else(|| {
                 "vp_bytes_create not declared. Add to runtime library.".to_string()
             })?;
+            
+            // Cast the array pointer to i8* for the runtime function
+            let i8_ptr_type = state.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+            let bytes_data = state.builder.build_pointer_cast(bytes_val, i8_ptr_type, "bytes_data").expect("cast");
+            
             let result = state
                 .ir_builder
                 .build_call(
                     state.builder,
                     create_func,
-                    &[bytes_val.into(), state.ir_builder.i64_const(b.len() as i64).into()],
+                    &[bytes_data.into(), state.ir_builder.i64_const(b.len() as i64).into()],
                     "bytes_create",
                 )
                 .unwrap();
@@ -507,109 +605,60 @@ pub fn generate_expr<'ctx>(
                             .build_call(state.builder, create_func, &[str_val.into()], "str_elem")
                             .unwrap()
                     }
-                    // Expression element - generate and convert to string
-                    _ => {
-                        let elem_val = generate_expr(state, elem)?;
-                        // Convert to string based on type
-                        if elem_val.is_float_value() {
-                            let str_func = state
-                                .module
-                                .get_function("vp_str_from_f64")
-                                .ok_or_else(|| "vp_str_from_f64 not declared".to_string())?;
-                            state
-                                .ir_builder
-                                .build_call(
-                                    state.builder,
-                                    str_func,
-                                    &[elem_val.into()],
-                                    "elem_to_str",
-                                )
-                                .unwrap()
-                        } else if elem_val.is_pointer_value() {
-                            // Already a string or other pointer - use directly
-                            elem_val
-                        } else if elem_val.is_int_value() {
-                            let int_val = elem_val.into_int_value();
-                            // Check if it's a bool (i1 type)
-                            if int_val.get_type().get_bit_width() == 1 {
-                                // Bool to string
-                                let to_str_func = state
+                    // FStringElement with optional format spec
+                    Expr::FStringElement { expr, format_spec, .. } => {
+                        let elem_val = generate_expr(state, expr)?;
+                        // Apply format spec if present
+                        if let Some(spec) = format_spec {
+                            // Handle common format specs
+                            if spec == "," {
+                                // Thousands separator for integers
+                                let format_func = state
                                     .module
-                                    .get_function("vp_str_from_bool")
-                                    .ok_or_else(|| "vp_str_from_bool not declared".to_string())?;
+                                    .get_function("vp_str_format_int_comma")
+                                    .unwrap_or_else(|| {
+                                        // Fallback: just convert to string without commas
+                                        state.module.get_function("tagged_int_to_str").unwrap()
+                                    });
                                 state
                                     .ir_builder
                                     .build_call(
                                         state.builder,
-                                        to_str_func,
-                                        &[int_val.into()],
-                                        "bool_to_str",
+                                        format_func,
+                                        &[elem_val.into()],
+                                        "format_int_comma",
+                                    )
+                                    .unwrap()
+                            } else if spec.ends_with('f') && spec.starts_with('.') {
+                                // Fixed-point notation: .Nf
+                                let precision: u32 = spec[1..spec.len()-1].parse().unwrap_or(6);
+                                let format_func = state
+                                    .module
+                                    .get_function("vp_str_from_f64")
+                                    .ok_or_else(|| "vp_str_from_f64 not declared".to_string())?;
+                                // For now, just convert float to string (precision handling needs runtime support)
+                                state
+                                    .ir_builder
+                                    .build_call(
+                                        state.builder,
+                                        format_func,
+                                        &[elem_val.into()],
+                                        "format_float",
                                     )
                                     .unwrap()
                             } else {
-                                // Integer - use tagged int to str, which returns char*
-                                // Then convert char* to ViperString*
-                                let to_str_func = state
-                                    .module
-                                    .get_function("tagged_int_to_str")
-                                    .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
-                                let c_str_val = state
-                                    .ir_builder
-                                    .build_call(
-                                        state.builder,
-                                        to_str_func,
-                                        &[int_val.into()],
-                                        "elem_to_cstr",
-                                    )
-                                    .unwrap();
-
-                                // Convert C string to ViperString
-                                let str_create_func = state
-                                    .module
-                                    .get_function("vp_str_create")
-                                    .ok_or_else(|| "vp_str_create not declared".to_string())?;
-                                state
-                                    .ir_builder
-                                    .build_call(
-                                        state.builder,
-                                        str_create_func,
-                                        &[c_str_val.into()],
-                                        "elem_to_str",
-                                    )
-                                    .unwrap()
+                                // Unknown format spec - just convert to string
+                                convert_value_to_string(state, elem_val)?
                             }
                         } else {
-                            // Fallback for integer - use tagged int to str, which returns char*
-                            // Then convert char* to ViperString*
-                            let to_str_func = state
-                                .module
-                                .get_function("tagged_int_to_str")
-                                .ok_or_else(|| "tagged_int_to_str not declared".to_string())?;
-                            let c_str_val = state
-                                .ir_builder
-                                .build_call(
-                                    state.builder,
-                                    to_str_func,
-                                    &[elem_val.into()],
-                                    "elem_to_cstr",
-                                )
-                                .unwrap();
-
-                            // Convert C string to ViperString
-                            let str_create_func = state
-                                .module
-                                .get_function("vp_str_create")
-                                .ok_or_else(|| "vp_str_create not declared".to_string())?;
-                            state
-                                .ir_builder
-                                .build_call(
-                                    state.builder,
-                                    str_create_func,
-                                    &[c_str_val.into()],
-                                    "elem_to_str",
-                                )
-                                .unwrap()
+                            // No format spec - convert based on type
+                            convert_value_to_string(state, elem_val)?
                         }
+                    }
+                    // Other expression element - generate and convert to string
+                    _ => {
+                        let elem_val = generate_expr(state, elem)?;
+                        convert_value_to_string(state, elem_val)?
                     }
                 };
 
@@ -850,11 +899,45 @@ pub fn generate_expr<'ctx>(
         }
         Expr::Await { future, span: _ } => generate_await(state, future),
         Expr::Lambda { params, body, span } => generate_lambda(state, params, body, *span),
-        Expr::ListComprehension { element, var, iter, span } => {
-            generate_list_comprehension(state, element, var, iter, *span)
+        Expr::ListComprehension { element, target, iter, ifs, span } => {
+            generate_list_comprehension(state, element, target, iter, ifs, *span)
         }
         Expr::AssignmentExpr { target, value, span } => {
             generate_assignment_expr(state, target, value, *span)
+        }
+        Expr::FStringElement { expr, format_spec, span } => {
+            // Handle FStringElement - generate the expression and apply format spec
+            let elem_val = generate_expr(state, expr)?;
+            // Apply format spec if present
+            if let Some(spec) = format_spec {
+                if spec == "," {
+                    // Thousands separator for integers
+                    let format_func = state
+                        .module
+                        .get_function("vp_str_format_int_comma")
+                        .unwrap_or_else(|| state.module.get_function("tagged_int_to_str").unwrap());
+                    Ok(state
+                        .ir_builder
+                        .build_call(state.builder, format_func, &[elem_val.into()], "format_int_comma")
+                        .unwrap())
+                } else if spec.ends_with('f') && spec.starts_with('.') {
+                    // Fixed-point notation: .Nf
+                    let format_func = state
+                        .module
+                        .get_function("vp_str_from_f64")
+                        .ok_or_else(|| "vp_str_from_f64 not declared".to_string())?;
+                    Ok(state
+                        .ir_builder
+                        .build_call(state.builder, format_func, &[elem_val.into()], "format_float")
+                        .unwrap())
+                } else {
+                    // Unknown format spec - just convert to string
+                    convert_value_to_string(state, elem_val)
+                }
+            } else {
+                // No format spec - convert based on type
+                convert_value_to_string(state, elem_val)
+            }
         }
         Expr::Super(_span) => {
             // super() - returns a special super object for method resolution

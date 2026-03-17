@@ -14,6 +14,7 @@ fn is_pure_aug_assign_rhs(expr: &Expr) -> bool {
         | Expr::None(_)
         | Expr::Bytes(_, _)
         | Expr::FString(_, _)
+        | Expr::FStringElement { .. }
         | Expr::Ident(_, _) => true,
         Expr::BinOp { left, right, .. } => {
             is_pure_aug_assign_rhs(left) && is_pure_aug_assign_rhs(right)
@@ -257,7 +258,18 @@ pub(crate) fn generate_assign<'ctx>(
                     } else if func_name.starts_with("vp_str_") || func_name == "str" {
                         false
                     } else {
-                        false
+                        // Check the function's LLVM return type for user-defined functions
+                        if let Some(func_val) = state.module.get_function(func_name) {
+                            if let Some(ret_type) = func_val.get_type().get_return_type() {
+                                // If the function returns a pointer, it might be a list
+                                // For now, assume pointer return from user functions could be lists
+                                ret_type.is_pointer_type()
+                            } else {
+                                false  // void return
+                            }
+                        } else {
+                            false  // function not found
+                        }
                     }
                 } else {
                     false
@@ -340,6 +352,36 @@ pub(crate) fn generate_assign<'ctx>(
             state.mark_as_bool_list(name.clone());
         } else {
             state.bool_list_vars.remove(name);
+        }
+
+        // Track bytearray variables
+        let is_bytearray = match value {
+            Expr::Call { func, .. } => {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "bytearray"
+                } else {
+                    false
+                }
+            }
+            Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+                // Handle bytearray * n pattern
+                match left.as_ref() {
+                    Expr::Call { func, .. } => {
+                        if let Expr::Ident(func_name, _) = func.as_ref() {
+                            func_name == "bytearray"
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        };
+        if is_bytearray {
+            state.mark_as_bytearray(name.clone());
+        } else {
+            state.bytearray_vars.remove(name);
         }
 
         // Track dict variables
@@ -600,8 +642,14 @@ pub(crate) fn generate_assign<'ctx>(
             matches!(obj.as_ref(), Expr::List { .. })
         };
 
+        // Check if this is a bytearray
+        let is_bytearray_assign = match obj.as_ref() {
+            Expr::Ident(name, _) => state.is_bytearray(name),
+            _ => false,
+        };
+
         // Check if this is an array (pointer) or list
-        if obj_val.is_pointer_value() && !is_list {
+        if obj_val.is_pointer_value() && !is_list && !is_bytearray_assign {
             // Array index assignment using GEP and store
             let obj_ptr = obj_val.into_pointer_value();
             let elem_type = value_val.get_type();
@@ -615,6 +663,37 @@ pub(crate) fn generate_assign<'ctx>(
                 .builder
                 .build_store(elem_ptr, value_val)
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
+        } else if is_bytearray_assign && obj_val.is_pointer_value() {
+            // Bytearray index assignment using vp_bytearray_set
+            // Untag the index (tagged ints are shifted left by 1)
+            let index_untagged = state
+                .builder
+                .build_right_shift(
+                    index_val,
+                    state.context.i64_type().const_int(1, false),
+                    false,
+                    "index_untagged",
+                )
+                .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
+            // Value should be an integer
+            let value_int = if value_val.is_int_value() {
+                value_val.into_int_value()
+            } else {
+                return crate::codegen::codegen_error("Bytearray assignment requires integer value".to_string());
+            };
+
+            let bytearray_set = state
+                .module
+                .get_function("vp_bytearray_set")
+                .ok_or_else(|| "vp_bytearray_set not declared".to_string())?;
+
+            let _result = state.ir_builder.build_call(
+                state.builder,
+                bytearray_set,
+                &[obj_val.into(), index_untagged.into(), value_int.into()],
+                "bytearray_set",
+            );
         } else {
             let is_float_list = if let Expr::Ident(name, _) = obj.as_ref() {
                 matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
@@ -1180,6 +1259,264 @@ pub(crate) fn generate_tuple_unpack<'ctx>(
             );
         }
     }
+
+    Ok(())
+}
+
+
+/// Generate slice assignment: obj[start:end:step] = value
+pub(crate) fn generate_slice_assign<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    obj: &Expr,
+    start: &Option<Box<Expr>>,
+    end: &Option<Box<Expr>>,
+    step: &Option<Box<Expr>>,
+    value: &Expr,
+) -> crate::codegen::Result<()> {
+    use crate::codegen::expressions::generate_expr;
+
+    // Check if this is bytearray slice assignment
+    let is_bytearray_slice = match obj {
+        Expr::Ident(name, _) => state.is_bytearray(name),
+        _ => false,
+    };
+
+    // Generate the object (the list/array being sliced)
+    let obj_val = generate_expr(state, obj)?;
+
+    // Helper to untag a value if it's a tagged integer
+    let untag_i64 = |state: &mut CodeGenState<'_, 'ctx>, val: inkwell::values::IntValue<'ctx>| {
+        state.builder.build_right_shift(
+            val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "untagged"
+        ).unwrap()
+    };
+
+    // Generate start, end, step indices (default to 0, len, 1)
+    let start_val = if let Some(s) = start {
+        let val = generate_expr(state, s)?.into_int_value();
+        untag_i64(state, val)
+    } else {
+        state.context.i64_type().const_int(0, false)
+    };
+
+    let end_val = if let Some(e) = end {
+        let val = generate_expr(state, e)?.into_int_value();
+        untag_i64(state, val)
+    } else {
+        // Use appropriate len function for bytearray vs list
+        let len_func = if is_bytearray_slice {
+            state.module.get_function("vp_bytearray_len")
+                .ok_or("vp_bytearray_len not declared")?
+        } else {
+            state.module.get_function("vp_list_len")
+                .ok_or("vp_list_len not declared")?
+        };
+        state.ir_builder.build_call(
+            state.builder,
+            len_func,
+            &[obj_val.into()],
+            "slice_len",
+        ).unwrap().into_int_value()
+    };
+
+    let step_val = if let Some(s) = step {
+        let val = generate_expr(state, s)?.into_int_value();
+        untag_i64(state, val)
+    } else {
+        state.context.i64_type().const_int(1, false)
+    };
+
+    // Generate the value
+    let value_val = generate_expr(state, value)?;
+
+    // For bytearray slice assignment with bytes/bytearray, use bytearray_set for each element
+    let is_bytes_value = matches!(value, Expr::Bytes(_, _));
+    
+    // Check if value is a bytearray (from bytearray() call or bytearray * n expression)
+    let is_bytearray_value = match value {
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bytearray"
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            // Handle bytearray * n pattern
+            if let Expr::Call { func, .. } = left.as_ref() {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "bytearray"
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
+    if is_bytearray_slice && (is_bytes_value || is_bytearray_value) {
+        // For bytearray[idx] = bytes/bytearray, we need to copy element by element
+        // Get the bytes/bytearray data pointer
+        let bytes_ptr = value_val.into_pointer_value();
+        
+        // Get the length of the value
+        let value_len = if is_bytes_value {
+            let bytes_len_func = state.module.get_function("vp_bytes_len")
+                .ok_or("vp_bytes_len not declared")?;
+            state.ir_builder.build_call(
+                state.builder,
+                bytes_len_func,
+                &[bytes_ptr.into()],
+                "bytes_len",
+            ).unwrap().into_int_value()
+        } else {
+            // bytearray
+            let bytearray_len_func = state.module.get_function("vp_bytearray_len")
+                .ok_or("vp_bytearray_len not declared")?;
+            state.ir_builder.build_call(
+                state.builder,
+                bytearray_len_func,
+                &[bytes_ptr.into()],
+                "ba_len",
+            ).unwrap().into_int_value()
+        };
+
+        // Generate loop: for i in range(start, min(end, start + value_len), step): 
+        //   bytearray[i] = value[i - start]
+        let func = state.builder.get_insert_block()
+            .ok_or("No insertion block")?
+            .get_parent()
+            .ok_or("No parent function")?;
+
+        let init_block = state.context.append_basic_block(func, "ba_slice_init");
+        let cond_block = state.context.append_basic_block(func, "ba_slice_cond");
+        let body_block = state.context.append_basic_block(func, "ba_slice_body");
+        let step_block = state.context.append_basic_block(func, "ba_slice_step");
+        let end_block = state.context.append_basic_block(func, "ba_slice_end");
+
+        state.ir_builder.build_branch(state.builder, init_block);
+
+        // Init: counter = start
+        state.builder.position_at_end(init_block);
+        let counter = state.builder.build_alloca(state.context.i64_type(), "slice_counter").expect("alloca");
+        state.builder.build_store(counter, start_val).expect("store");
+        state.ir_builder.build_branch(state.builder, cond_block);
+
+        // Condition: counter < end && (counter - start) / step < value_len
+        state.builder.position_at_end(cond_block);
+        let counter_val = state.builder.build_load(state.context.i64_type(), counter, "counter_val")
+            .expect("load counter")
+            .into_int_value();
+
+        let cond1 = state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "slice_cond1");
+
+        // Check if we're still within the value bounds: (counter - start) / step < value_len
+        let offset = state.builder.build_int_sub(counter_val, start_val, "offset").expect("sub");
+        let elem_idx = state.builder.build_int_unsigned_div(offset, step_val, "elem_idx").expect("div");
+        let cond2 = state.ir_builder.build_icmp_lt(state.builder, elem_idx, value_len, "slice_cond2");
+
+        let cond = state.builder.build_and(cond1, cond2, "slice_cond").expect("and");
+        state.ir_builder.build_cond_branch(state.builder, cond, body_block, end_block);
+
+        // Body: bytearray[counter] = value[elem_idx]
+        state.builder.position_at_end(body_block);
+
+        // Get byte value from bytes/bytearray object using elem_idx
+        let get_func_name = if is_bytes_value { "vp_bytes_get" } else { "vp_bytearray_get" };
+        let get_func = state.module.get_function(get_func_name)
+            .ok_or(format!("{} not declared", get_func_name))?;
+        let byte_val = state.ir_builder.build_call(
+            state.builder,
+            get_func,
+            &[bytes_ptr.into(), elem_idx.into()],
+            "byte_val",
+        ).unwrap().into_int_value();
+
+        // Set bytearray element using vp_bytearray_set
+        let bytearray_set_func = state.module.get_function("vp_bytearray_set")
+            .ok_or("vp_bytearray_set not declared")?;
+        state.ir_builder.build_call(
+            state.builder,
+            bytearray_set_func,
+            &[obj_val.into(), counter_val.into(), byte_val.into()],
+            "ba_set",
+        );
+
+        state.ir_builder.build_branch(state.builder, step_block);
+
+        // Step: counter += step
+        state.builder.position_at_end(step_block);
+        let next_counter = state.builder.build_int_add(counter_val, step_val, "next_counter").expect("add");
+        state.builder.build_store(counter, next_counter).expect("store");
+        state.ir_builder.build_branch(state.builder, cond_block);
+
+        // End
+        state.builder.position_at_end(end_block);
+        
+        return Ok(());
+    }
+
+    // Generate loop: for i in range(start, end, step): obj[i] = value
+    let func = state.builder.get_insert_block()
+        .ok_or("No insertion block")?
+        .get_parent()
+        .ok_or("No parent function")?;
+
+    let init_block = state.context.append_basic_block(func, "slice_assign_init");
+    let cond_block = state.context.append_basic_block(func, "slice_assign_cond");
+    let body_block = state.context.append_basic_block(func, "slice_assign_body");
+    let step_block = state.context.append_basic_block(func, "slice_assign_step");
+    let end_block = state.context.append_basic_block(func, "slice_assign_end");
+
+    state.ir_builder.build_branch(state.builder, init_block);
+
+    // Init: counter = start
+    state.builder.position_at_end(init_block);
+    let counter = state.builder.build_alloca(state.context.i64_type(), "slice_counter").expect("alloca");
+    state.builder.build_store(counter, start_val).expect("store");
+    state.ir_builder.build_branch(state.builder, cond_block);
+
+    // Condition: counter < end
+    state.builder.position_at_end(cond_block);
+    let counter_val = state.builder.build_load(state.context.i64_type(), counter, "counter_val")
+        .expect("load counter")
+        .into_int_value();
+
+    let cond = state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "slice_cond");
+    state.ir_builder.build_cond_branch(state.builder, cond, body_block, end_block);
+
+    // Body: obj[counter] = value
+    state.builder.position_at_end(body_block);
+
+    let set_func = if is_bytearray_slice {
+        state.module.get_function("vp_bytearray_set")
+            .ok_or("vp_bytearray_set not declared")?
+    } else {
+        state.module.get_function("vp_list_set")
+            .ok_or("vp_list_set not declared")?
+    };
+    state.ir_builder.build_call(
+        state.builder,
+        set_func,
+        &[obj_val.into(), counter_val.into(), value_val.into()],
+        "set",
+    );
+
+    state.ir_builder.build_branch(state.builder, step_block);
+
+    // Step: counter += step
+    state.builder.position_at_end(step_block);
+    let next_counter = state.builder.build_int_add(counter_val, step_val, "next_counter").expect("add");
+    state.builder.build_store(counter, next_counter).expect("store");
+    state.ir_builder.build_branch(state.builder, cond_block);
+
+    // End
+    state.builder.position_at_end(end_block);
 
     Ok(())
 }

@@ -158,6 +158,31 @@ pub fn generate_index<'ctx>(
         inferred_type
     };
 
+    // Check if this is a bytearray access
+    let is_bytearray = match obj {
+        Expr::Ident(name, _) => state.is_bytearray(name),
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bytearray"
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            // Handle bytearray * n pattern
+            if let Expr::Call { func, .. } = left.as_ref() {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "bytearray"
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
     let (is_list, is_float_list, is_bool_list) = match &obj_type {
         Type::List(inner) => match &**inner {
             Type::F64 => (true, true, false),
@@ -179,12 +204,15 @@ pub fn generate_index<'ctx>(
         _ => {
             // Fallback for cases where type inference failed but it might still be a list
             let is_list = match obj {
-                Expr::List { .. } | Expr::ListComprehension { .. } => true,
+                Expr::List { .. } | Expr::ListComprehension { .. } | Expr::Slice { .. } => true,
                 Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
                     matches!(left.as_ref(), Expr::List { .. })
                 }
                 Expr::Ident(name, _) => state.is_list(name),
-                _ => false,
+                _ => {
+                    let inferred = crate::codegen::expressions::core::infer_expr_type(obj);
+                    matches!(inferred, crate::ast::Type::List(_))
+                }
             };
             let is_bool_list = if is_list {
                 match obj {
@@ -201,10 +229,158 @@ pub fn generate_index<'ctx>(
     // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
 
-    
+    // Handle bytearray indexing - bytearray stores raw bytes (i8), returns i64
+    if is_bytearray && is_pointer_type {
+        let bytearray_ptr = obj_val.into_pointer_value();
 
-    
-    // Lists need to use inline GEP + load for better performance
+        // Untag the index (tagged ints are shifted left by 1)
+        let index_untagged = state
+            .builder
+            .build_right_shift(
+                index_val,
+                state.context.i64_type().const_int(1, false),
+                true,
+                "index_untagged",
+            )
+            .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
+        // Handle negative indices: if index < 0, index = length + index
+        let bytearray_len_func = state
+            .module
+            .get_function("vp_bytearray_len")
+            .ok_or_else(|| "vp_bytearray_len not declared".to_string())?;
+        let bytearray_len = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                bytearray_len_func,
+                &[bytearray_ptr.into()],
+                "ba_len",
+            )
+            .unwrap()
+            .into_int_value();
+        
+        let is_negative = state
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::SLT,
+                index_untagged,
+                state.context.i64_type().const_zero(),
+                "index_is_neg",
+            )
+            .expect("compare neg");
+        
+        let adjusted_index = state
+            .builder
+            .build_int_add(bytearray_len, index_untagged, "adjusted_index")
+            .expect("add len");
+        
+        let final_index = state
+            .builder
+            .build_select(is_negative, adjusted_index, index_untagged, "final_index")
+            .expect("select index")
+            .into_int_value();
+
+        // Call vp_bytearray_get(bytearray: ViperByteArray*, index: i64) -> i64
+        let bytearray_get = state
+            .module
+            .get_function("vp_bytearray_get")
+            .ok_or_else(|| "vp_bytearray_get not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                bytearray_get,
+                &[bytearray_ptr.into(), final_index.into()],
+                "bytearray_get",
+            )
+            .ok_or_else(|| "vp_bytearray_get call failed".to_string())?;
+
+        return Ok(result);
+    }
+
+    // Handle bytes indexing - bytes stores raw bytes, returns i64
+    let is_bytes = match obj {
+        Expr::Bytes(_, _) => true,
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, Type::Bytes)
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+    if is_bytes && is_pointer_type {
+        let bytes_ptr = obj_val.into_pointer_value();
+
+        // Untag the index (tagged ints are shifted left by 1)
+        let index_untagged = state
+            .builder
+            .build_right_shift(
+                index_val,
+                state.context.i64_type().const_int(1, false),
+                true,
+                "index_untagged",
+            )
+            .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
+        // Call vp_bytes_get(bytes: ViperBytes*, index: i64) -> i64
+        let bytes_get = state
+            .module
+            .get_function("vp_bytes_get")
+            .ok_or_else(|| "vp_bytes_get not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                bytes_get,
+                &[bytes_ptr.into(), index_untagged.into()],
+                "bytes_get",
+            )
+            .ok_or_else(|| "vp_bytes_get call failed".to_string())?;
+
+        return Ok(result);
+    }
+
+    // TEMPORARILY DISABLED: Lists need to use inline GEP + load for better performance
+    // Other pointers (strings, arrays) use array GEP
+    // if is_pointer_type && is_list {
+    //     let list_ptr = obj_val.into_pointer_value();
+
+    //     // Use inline bit vector get for bool lists (more memory efficient)
+    //     if is_bool_list {
+    //         let bool_val = inline_bool_list_get(state, list_ptr, index_val)
+    //             .map_err(|e| format!("Inline bool list get failed: {:?}", e))?;
+
+    //         // Convert bool to i64 for compatibility with print() and other functions
+    //         let bool_int = bool_val.into_int_value();
+    //         let i64_val = state
+    //             .builder
+    //             .build_int_z_extend(bool_int, state.context.i64_type(), "bool_to_i64")
+    //             .map_err(|e| format!("Failed to extend bool to i64: {:?}", e))?;
+
+    //         return Ok(i64_val.into());
+    //     }
+
+    //     // Use inline f64 get for float lists
+    //     if is_float_list {
+    //         let f64_val = inline_f64_list_get(state, list_ptr, index_val)
+    //             .map_err(|e| format!("Inline f64 list get failed: {:?}", e))?;
+
+    //         return Ok(f64_val);
+    //     }
+
+    //     // Use inline i64 get for standard integer lists
+    //     let i64_val = inline_i64_list_get(state, list_ptr, index_val)
+    //         .map_err(|e| format!("Inline i64 list get failed: {:?}", e))?;
+
+    //     return Ok(i64_val);
+    // }
+
+    // TEMPORARILY DISABLED: Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {
         let list_ptr = obj_val.into_pointer_value();
@@ -254,17 +430,54 @@ pub fn generate_index<'ctx>(
             .build_right_shift(
                 index_val,
                 state.context.i64_type().const_int(1, false),
-                false,
+                true,
                 "index_untagged",
             )
             .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
+        // Handle negative indices: if index < 0, index = length + index
+        let list_len_func = state
+            .module
+            .get_function("vp_list_len")
+            .ok_or_else(|| "vp_list_len not declared".to_string())?;
+        let list_len = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                list_len_func,
+                &[obj_val.into()],
+                "list_len",
+            )
+            .unwrap()
+            .into_int_value();
+        
+        let is_negative = state
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::SLT,
+                index_untagged,
+                state.context.i64_type().const_zero(),
+                "index_is_neg",
+            )
+            .expect("compare neg");
+        
+        let adjusted_index = state
+            .builder
+            .build_int_add(list_len, index_untagged, "adjusted_index")
+            .expect("add len");
+        
+        let final_index = state
+            .builder
+            .build_select(is_negative, adjusted_index, index_untagged, "final_index")
+            .expect("select index")
+            .into_int_value();
 
         let result = state
             .ir_builder
             .build_call(
                 state.builder,
                 list_get,
-                &[obj_val.into(), index_untagged.into()],
+                &[obj_val.into(), final_index.into()],
                 "list_get",
             )
             .expect("vp_list_get call failed");
@@ -272,8 +485,24 @@ pub fn generate_index<'ctx>(
         return Ok(result);
     }
 
-    // For non-list pointers (strings, arrays), use array indexing
-    if is_pointer_type {
+    // For non-list pointers (known strings or arrays), use array indexing
+    let is_string_or_array = match obj {
+        Expr::Str(..) | Expr::FString(..) => true,
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, Type::Str | Type::Array(..))
+            } else {
+                false
+            }
+        }
+        Expr::Array { .. } => true,
+        _ => {
+            let inferred = crate::codegen::expressions::core::infer_expr_type(obj);
+            matches!(inferred, Type::Str | Type::Array(..))
+        }
+    };
+
+    if is_pointer_type && is_string_or_array {
         let obj_ptr = obj_val.into_pointer_value();
 
         // Determine element type based on the object
@@ -378,9 +607,20 @@ pub fn generate_index<'ctx>(
         .get_function("vp_list_get")
         .ok_or_else(|| "vp_list_get not declared".to_string())?;
 
+    // Untag the index for the runtime call
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            true,
+            "fallback_index_untagged",
+        )
+        .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
     let result = state
         .ir_builder
-        .build_call(state.builder, list_get, &[obj_val.into(), index_val.into()], "list_get")
+        .build_call(state.builder, list_get, &[obj_val.into(), index_untagged.into()], "list_get")
         .ok_or_else(|| "build call failed".to_string())?;
 
     Ok(result)

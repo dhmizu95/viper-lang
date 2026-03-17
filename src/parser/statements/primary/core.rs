@@ -91,6 +91,18 @@ pub fn parse_assignment_or_expr(parser: &mut StatementParser) -> crate::error::R
         let value = parse_value_or_tuple(parser)?;
         let span = target.span().merge(value.span());
 
+        // Check if this is slice assignment: obj[start:end:step] = value
+        if let Expr::Slice { obj, start, end, step, .. } = target {
+            return Ok(Stmt::SliceAssign {
+                obj,
+                start,
+                end,
+                step,
+                value: Box::new(value),
+                span,
+            });
+        }
+
         if type_ann.is_some() {
             if let Expr::Ident(name, _) = target {
                 return Ok(Stmt::Declare {
@@ -449,7 +461,7 @@ pub fn is_slice_pattern(parser: &mut StatementParser) -> bool {
     while pos < parser.tokens.len() {
         match &parser.tokens[pos].kind {
             TokenKind::Colon if bracket_depth == 1 => return true,
-            TokenKind::RBracket => {
+            TokenKind::RBracket | TokenKind::RParen => {
                 bracket_depth -= 1;
                 if bracket_depth == 0 {
                     return false;

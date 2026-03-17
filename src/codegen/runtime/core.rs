@@ -10,6 +10,7 @@ pub fn declare_runtime_functions<'ctx>(
 ) -> crate::codegen::Result<()> {
     super::print::declare_print_functions(context, module)?;
     super::lists::declare_list_functions(context, module)?;
+    super::lists::declare_bytearray_functions(context, module)?;
     super::dicts::declare_dict_functions(context, module)?;
     super::memory::declare_memory_functions(context, module)?;
     super::math::declare_math_functions(context, module)?;
@@ -27,6 +28,7 @@ pub fn declare_runtime_functions<'ctx>(
     super::logging::declare_logging_functions(context, module)?;
     super::typing::declare_typing_functions(context, module)?;
     super::iterator::declare_iterator_functions(context, module)?;
+    super::time::declare_time_functions(context, module)?;
     Ok(())
 }
 

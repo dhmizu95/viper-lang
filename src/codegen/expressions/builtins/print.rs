@@ -59,8 +59,12 @@ pub fn generate_print_call<'ctx>(
             // Check if this is a list - if so, use vp_list_print
             let is_list_arg = match arg {
                 Expr::Ident(name, _) => state.is_list(name),
-                Expr::List { .. } | Expr::ListComprehension { .. } => true,
-                _ => false,
+                Expr::List { .. } | Expr::ListComprehension { .. } | Expr::Slice { .. } => true,
+                // Check if it's a call/expression that returns a list type
+                _ => {
+                    let inferred = infer_expr_type(arg);
+                    matches!(inferred, Type::List(_))
+                }
             };
 
             // Check if this is a dict
@@ -74,78 +78,84 @@ pub fn generate_print_call<'ctx>(
             let is_bytes_arg = match arg {
                 Expr::Bytes(_, _) => true,
                 Expr::Ident(name, _) => {
+                    // Check both VarType and Type for bytes
                     state.variables.get(name).map_or(false, |v| v.var_type == VarType::Bytes)
+                    || state.var_types.get(name).map_or(false, |t| matches!(t, Type::Bytes))
                 }
                 _ => false,
             };
 
             // Check if BigInt - check variable, expression type, or if it's a pointer from a BigInt function
-            let is_bigint_arg = match arg {
-                Expr::Ident(name, _) => state.is_bigint(name),
-                Expr::BigInt(_, _) => true,
-                Expr::Call { func, .. } => {
-                    // Check if calling a known BigInt function or if result is a pointer
-                    // Method calls are represented as Call { func: Attribute { obj, attr }, args }
-                    let method_name = if let Expr::Attribute { attr, .. } = func.as_ref() {
-                        Some(attr.as_str())
-                    } else if let Expr::Ident(func_name, _) = func.as_ref() {
-                        Some(func_name.as_str())
-                    } else {
-                        None
-                    };
-
-                    if let Some(func_name) = method_name {
-                        // str_bigint() and int_bigint() return non-BigInt types
-                        if func_name == "str_bigint" || func_name == "int_bigint" {
-                            false
-                        // String methods return strings, not BigInts
-                        } else if func_name == "upper"
-                            || func_name == "lower"
-                            || func_name == "strip"
-                            || func_name == "capitalize"
-                            || func_name == "title"
-                            || func_name == "swapcase"
-                            || func_name == "replace"
-                            || func_name == "split"
-                            || func_name == "join"
-                        {
-                            false
+            // IMPORTANT: Check list/dict FIRST to avoid misidentifying them as BigInt
+            let is_bigint_arg = if is_list_arg || is_dict_arg {
+                false  // Lists and dicts are not BigInts
+            } else {
+                match arg {
+                    Expr::Ident(name, _) => state.is_bigint(name),
+                    Expr::BigInt(_, _) => true,
+                    Expr::Call { func, .. } => {
+                        // Check if calling a known BigInt function or if result is a pointer
+                        // Method calls are represented as Call { func: Attribute { obj, attr }, args }
+                        let method_name = if let Expr::Attribute { attr, .. } = func.as_ref() {
+                            Some(attr.as_str())
+                        } else if let Expr::Ident(func_name, _) = func.as_ref() {
+                            Some(func_name.as_str())
                         } else {
-                            // Check for BigInt-returning functions
-                            func_name == "bigint"
-                                || func_name == "BigInt"
-                                || func_name == "abs_bigint"
-                                || func_name == "abs"
-                                || func_name == "pow_bigint"
-                                || func_name == "pow"
-                                || func_name == "sqrt_bigint"
-                                || func_name == "min_bigint"
-                                || func_name == "max_bigint"
-                                || val.is_pointer_value() // User-defined BigInt function
+                            None
+                        };
+
+                        if let Some(func_name) = method_name {
+                            // str_bigint() and int_bigint() return non-BigInt types
+                            if func_name == "str_bigint" || func_name == "int_bigint" {
+                                false
+                            // String methods return strings, not BigInts
+                            } else if func_name == "upper"
+                                || func_name == "lower"
+                                || func_name == "strip"
+                                || func_name == "capitalize"
+                                || func_name == "title"
+                                || func_name == "swapcase"
+                                || func_name == "replace"
+                                || func_name == "split"
+                                || func_name == "join"
+                            {
+                                false
+                            } else {
+                                // Check for BigInt-returning functions
+                                func_name == "bigint"
+                                    || func_name == "BigInt"
+                                    || func_name == "abs_bigint"
+                                    || func_name == "abs"
+                                    || func_name == "pow_bigint"
+                                    || func_name == "pow"
+                                    || func_name == "sqrt_bigint"
+                                    || func_name == "min_bigint"
+                                    || func_name == "max_bigint"
+                            }
+                        } else {
+                            false  // Don't assume all pointer returns are BigInts
                         }
-                    } else {
-                        val.is_pointer_value()
                     }
-                }
-                // BinOp with BigInt operands returns a BigInt pointer
-                Expr::BinOp { left, right, op, .. } => {
-                    if matches!(
-                        op,
-                        crate::ast::BinOp::Add
-                            | crate::ast::BinOp::Sub
-                            | crate::ast::BinOp::Mul
-                            | crate::ast::BinOp::Div
-                            | crate::ast::BinOp::Mod
-                            | crate::ast::BinOp::Pow
-                    ) {
-                        // Check if either operand is BigInt
-                        is_bigint_expr_for_print(left, state)
-                            || is_bigint_expr_for_print(right, state)
-                    } else {
-                        val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt
+                    // BinOp with BigInt operands returns a BigInt pointer
+                    Expr::BinOp { left, right, op, .. } => {
+                        if matches!(
+                            op,
+                            crate::ast::BinOp::Add
+                                | crate::ast::BinOp::Sub
+                                | crate::ast::BinOp::Mul
+                                | crate::ast::BinOp::Div
+                                | crate::ast::BinOp::Mod
+                                | crate::ast::BinOp::Pow
+                        ) {
+                            // Check if either operand is BigInt
+                            is_bigint_expr_for_print(left, state)
+                                || is_bigint_expr_for_print(right, state)
+                        } else {
+                            val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt
+                        }
                     }
+                    _ => val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt,
                 }
-                _ => val.is_pointer_value() && infer_expr_type(arg) == Type::BigInt,
             };
 
             if is_bigint_arg {

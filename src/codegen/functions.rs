@@ -109,6 +109,45 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
             .find(|(n, _)| n == name)
             .map(|(_, t)| t.clone())
             .unwrap_or(Type::Infer),
+        Expr::Call { func, args: _, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                match name.as_str() {
+                    // List-producing builtins/runtime helpers
+                    "list"
+                    | "sorted"
+                    | "reversed"
+                    | "enumerate"
+                    | "zip"
+                    | "range"
+                    | "gather"
+                    | "vp_list_create"
+                    | "vp_list_create_f64"
+                    | "vp_list_create_with_capacity"
+                    | "vp_list_repeat"
+                    | "vp_list_slice"
+                    | "vp_list_concat"
+                    | "vp_list_copy"
+                    | "vp_list_sorted"
+                    | "vp_list_reversed"
+                    | "vp_list_zeros"
+                    | "vp_list_ones" => Type::List(Box::new(Type::Infer)),
+                    // Tuple-producing builtins
+                    "tuple" => Type::Tuple(vec![Type::Infer]),
+                    // Dict-producing builtins
+                    "dict" => Type::Dict(Box::new(Type::Infer), Box::new(Type::Infer)),
+                    _ => Type::Infer,
+                }
+            } else if let Expr::Attribute { attr, .. } = func.as_ref() {
+                // Common list-producing string methods
+                if attr == "split" {
+                    Type::List(Box::new(Type::Str))
+                } else {
+                    Type::Infer
+                }
+            } else {
+                Type::Infer
+            }
+        }
         Expr::List { elements, .. } => {
             if let Some(first) = elements.first() {
                 let elem_type = infer_type_from_expr(first, param_types);

@@ -20,9 +20,19 @@ pub fn generate_math_bigint_func<'ctx>(
         if val.is_pointer_value() {
             Ok(val)
         } else if val.is_int_value() {
+            // Untag the value (tagged ints are shifted left by 1)
+            let untagged = state
+                .builder
+                .build_right_shift(
+                    val.into_int_value(),
+                    state.context.i64_type().const_int(1, false),
+                    true,
+                    "untagged_for_bigint",
+                )
+                .expect("untag for bigint");
             let res = state
                 .ir_builder
-                .build_call(state.builder, from_i64_func, &[val.into()], "bigint_from_i64")
+                .build_call(state.builder, from_i64_func, &[untagged.into()], "bigint_from_i64")
                 .ok_or_else(|| "Failed to call vp_bigint_from_i64".to_string())?;
             Ok(res.into_pointer_value().into())
         } else {
@@ -112,7 +122,24 @@ pub fn generate_math_bigint_func<'ctx>(
         }
     }
 
-    Ok(result_ptr.into())
+    // Convert result BigInt to tagged integer
+    let to_i64_func = state
+        .module
+        .get_function("vp_bigint_to_i64")
+        .ok_or_else(|| "vp_bigint_to_i64 not declared".to_string())?;
+    let result_i64 = state
+        .ir_builder
+        .build_call(state.builder, to_i64_func, &[result_ptr.into()], "bigint_to_i64")
+        .ok_or_else(|| "Failed to call vp_bigint_to_i64".to_string())?
+        .into_int_value();
+    
+    // Tag the result
+    let tagged_result = state
+        .builder
+        .build_int_add(result_i64, result_i64, "tagged_result")
+        .expect("tag result");
+    
+    Ok(tagged_result.into())
 }
 
 /// Generate abs_bigint() call - absolute value of BigInt

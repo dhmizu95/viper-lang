@@ -348,6 +348,10 @@ pub fn declare_list_functions<'ctx>(
     let enumerate_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_enumerate", enumerate_type, None);
 
+    // enumerate_bytearray() - returns list of (index, value) tuples for bytearray
+    let enumerate_ba_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_enumerate_bytearray", enumerate_ba_type, None);
+
     // zip() - returns list of paired elements
     let zip_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_zip", zip_type, None);
@@ -427,6 +431,54 @@ pub fn declare_list_functions<'ctx>(
     // input - read from stdin
     let input_type = ptr_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_input", input_type, None);
+
+    Ok(())
+}
+
+/// Declare bytearray runtime functions
+pub fn declare_bytearray_functions<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> crate::codegen::Result<()> {
+    let i64_type = context.i64_type();
+    let void_type = context.void_type();
+    let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+
+    // bytearray() constructor
+    let bytearray_create_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_bytearray_create", bytearray_create_type, None);
+
+    // bytearray with capacity
+    let bytearray_create_cap_type = ptr_type.fn_type(&[i64_type.into()], false);
+    module.add_function("vp_bytearray_create_with_capacity", bytearray_create_cap_type, None);
+
+    // bytearray len
+    let bytearray_len_type = i64_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bytearray_len", bytearray_len_type, None);
+
+    // bytearray append
+    let bytearray_append_type = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_append", bytearray_append_type, None);
+
+    // bytearray get
+    let bytearray_get_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_get", bytearray_get_type, None);
+
+    // bytearray set
+    let bytearray_set_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_set", bytearray_set_type, None);
+
+    // bytearray print
+    let bytearray_print_type = void_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_bytearray_print", bytearray_print_type, None);
+
+    // bytearray repeat
+    let bytearray_repeat_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_repeat", bytearray_repeat_type, None);
+
+    // bytearray slice
+    let bytearray_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_slice", bytearray_slice_type, None);
 
     Ok(())
 }

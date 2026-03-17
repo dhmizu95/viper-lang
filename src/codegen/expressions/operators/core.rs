@@ -1,6 +1,7 @@
 //! Expression code generation for Viper - Operators
 
-use crate::ast::{BinOp, Expr, UnaryOp};
+use crate::ast::{BinOp, Expr, Type, UnaryOp};
+use crate::codegen::expressions::collections::generate_list;
 use crate::codegen::expressions::core::generate_expr;
 use crate::codegen::state::CodeGenState;
 use inkwell::values::BasicValueEnum;
@@ -36,6 +37,60 @@ pub fn generate_binop<'ctx>(
     // This must be checked BEFORE generating the left operand to avoid generating
     // the full list literal first
     if *op == BinOp::Mul {
+        // Handle bytearray * int for bytearray repetition
+        let is_bytearray_left = match left {
+            Expr::Call { func, .. } => {
+                if let Expr::Ident(name, _) = func.as_ref() {
+                    name == "bytearray"
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+
+        if is_bytearray_left {
+            // Generate bytearray and count
+            let ba_val = generate_expr(state, left)?;
+            let count_val = generate_expr(state, right)?;
+            let count_int = if count_val.is_int_value() {
+                count_val.into_int_value()
+            } else {
+                return crate::codegen::codegen_error(
+                    "bytearray repeat count must be an integer".to_string(),
+                );
+            };
+
+            // Untag the count (tagged ints are shifted left by 1)
+            let count_untagged = state
+                .builder
+                .build_right_shift(
+                    count_int,
+                    state.context.i64_type().const_int(1, false),
+                    false,
+                    "count_untagged",
+                )
+                .expect("untag count");
+
+            // Call vp_bytearray_repeat
+            let repeat_func = state
+                .module
+                .get_function("vp_bytearray_repeat")
+                .ok_or_else(|| "vp_bytearray_repeat not declared".to_string())?;
+
+            let result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    repeat_func,
+                    &[ba_val.into(), count_untagged.into()],
+                    "ba_repeat",
+                )
+                .expect("ba_repeat call");
+
+            return Ok(result.into());
+        }
+
         let elements = match left {
             Expr::List { elements, .. } => Some(elements),
             Expr::Array { elements, .. } => Some(elements),
@@ -43,6 +98,134 @@ pub fn generate_binop<'ctx>(
         };
 
         if let Some(elems) = elements {
+            // Handle multi-element list repetition: [a, b, c] * n
+            if elems.len() > 1 {
+                // First create the base list
+                let base_list = generate_list(state, elems)?;
+                let base_ptr = base_list.into_pointer_value();
+
+                // Generate count
+                let count_val = generate_expr(state, right)?;
+                let count_int = count_val.into_int_value();
+
+                // Untag the count
+                let count_untagged = state
+                    .builder
+                    .build_right_shift(
+                        count_int,
+                        state.context.i64_type().const_int(1, false),
+                        false,
+                        "count_untagged",
+                    )
+                    .expect("untag count");
+
+                // Get base list length
+                let len_func = state
+                    .module
+                    .get_function("vp_list_len")
+                    .ok_or_else(|| "vp_list_len not declared".to_string())?;
+                let base_len = state
+                    .ir_builder
+                    .build_call(state.builder, len_func, &[base_ptr.into()], "base_len")
+                    .expect("base_len")
+                    .into_int_value();
+
+                // Calculate new length
+                let new_len = state
+                    .builder
+                    .build_int_mul(base_len, count_untagged, "new_len")
+                    .expect("new_len");
+
+                // Create result list with capacity
+                let create_func = state
+                    .module
+                    .get_function("vp_list_create_with_capacity")
+                    .ok_or_else(|| "vp_list_create_with_capacity not declared".to_string())?;
+                let result_list = state
+                    .ir_builder
+                    .build_call(state.builder, create_func, &[new_len.into()], "result_list")
+                    .expect("create result")
+                    .into_pointer_value();
+
+                // Extend result list count times
+                let extend_func = state
+                    .module
+                    .get_function("vp_list_extend")
+                    .ok_or_else(|| "vp_list_extend not declared".to_string())?;
+
+                // Create loop
+                let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+                let init_block = state.context.append_basic_block(func, "list_repeat_init");
+                let cond_block = state.context.append_basic_block(func, "list_repeat_cond");
+                let body_block = state.context.append_basic_block(func, "list_repeat_body");
+                let step_block = state.context.append_basic_block(func, "list_repeat_step");
+                let end_block = state.context.append_basic_block(func, "list_repeat_end");
+
+                state.ir_builder.build_branch(state.builder, init_block);
+
+                // Init: counter = 0
+                state.builder.position_at_end(init_block);
+                let counter = state
+                    .builder
+                    .build_alloca(state.context.i64_type(), "counter")
+                    .expect("alloca");
+                state
+                    .builder
+                    .build_store(counter, state.context.i64_type().const_int(0, false))
+                    .expect("store");
+                state.ir_builder.build_branch(state.builder, cond_block);
+
+                // Condition: counter < count
+                state.builder.position_at_end(cond_block);
+                let counter_val = state
+                    .builder
+                    .build_load(state.context.i64_type(), counter, "counter_val")
+                    .expect("load")
+                    .into_int_value();
+                let cond = state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::ULT,
+                        counter_val,
+                        count_untagged,
+                        "cond",
+                    )
+                    .expect("cond");
+                state.ir_builder.build_cond_branch(state.builder, cond, body_block, end_block);
+
+                // Body: extend
+                state.builder.position_at_end(body_block);
+                state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        extend_func,
+                        &[result_list.into(), base_ptr.into()],
+                        "extend",
+                    )
+                    .expect("extend");
+                state.ir_builder.build_branch(state.builder, step_block);
+
+                // Step: counter++
+                state.builder.position_at_end(step_block);
+                let next_counter = state
+                    .builder
+                    .build_int_add(
+                        counter_val,
+                        state.context.i64_type().const_int(1, false),
+                        "next",
+                    )
+                    .expect("add");
+                state.builder.build_store(counter, next_counter).expect("store");
+                state.ir_builder.build_branch(state.builder, cond_block);
+
+                // End
+                state.builder.position_at_end(end_block);
+
+                return Ok(result_list.into());
+            }
+
+            // Single-element list repetition (optimized path)
             if let Some(elem) = elems.first() {
                 // Only generate the element expression and count, not the full list
                 let count_val = generate_expr(state, right)?;
@@ -215,16 +398,14 @@ pub fn generate_binop<'ctx>(
     let left_type = crate::codegen::expressions::core::infer_type_with_state(state, left);
     let right_type = crate::codegen::expressions::core::infer_type_with_state(state, right);
 
-
     // Check if either operand is Type::F64 (float operations take precedence)
     let is_float = left_type == crate::ast::Type::F64 || right_type == crate::ast::Type::F64;
-    
+
     // Check if either operand value is actually a float (even if type inference says Infer)
     let lhs_val_check = generate_expr(state, left)?;
     let rhs_val_check = generate_expr(state, right)?;
     let is_float_val = lhs_val_check.is_float_value() || rhs_val_check.is_float_value();
-    
-    
+
     // Check if either operand is Type::Int (from type annotation or inference)
     let is_tagged_int = left_type == crate::ast::Type::Int || right_type == crate::ast::Type::Int;
 
@@ -232,13 +413,23 @@ pub fn generate_binop<'ctx>(
     let is_left_int_call = matches!(left, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "int"));
     let is_right_int_call = matches!(right, Expr::Call { func, .. } if matches!(func.as_ref(), Expr::Ident(name, _) if name == "int"));
 
+    // Check if both operands are i64 values (tagged ints) when type inference returns Infer
+    // This handles cases like `a = 5; a * a` where the type is not explicitly annotated
+    // Only apply this when both types are Infer or Int (not I64 or other explicit types)
+    let both_are_i64_tagged = (left_type == Type::Infer || left_type == Type::Int)
+        && (right_type == Type::Infer || right_type == Type::Int)
+        && lhs_val_check.is_int_value()
+        && rhs_val_check.is_int_value()
+        && lhs_val_check.into_int_value().get_type().get_bit_width() == 64
+        && rhs_val_check.into_int_value().get_type().get_bit_width() == 64;
+
     // Float operations have higher priority than tagged int
     if is_float || is_float_val {
         // Generate operands for float operations
         return arithmetic::generate_float_binop(state, lhs_val_check, rhs_val_check, op);
     }
 
-    if is_tagged_int || is_left_int_call || is_right_int_call {
+    if is_tagged_int || is_left_int_call || is_right_int_call || both_are_i64_tagged {
         // Generate operands for tagged int operations
         return arithmetic::generate_tagged_int_binop(state, lhs_val_check, rhs_val_check, op);
     }
@@ -421,18 +612,25 @@ pub fn generate_binop<'ctx>(
         if lhs_val.is_pointer_value() && rhs_val.is_pointer_value() {
             // Use string comparison functions
             if matches!(op, BinOp::Eq | BinOp::NotEq) {
-                let str_equals_func = state.module.get_function("vp_str_equals")
+                let str_equals_func = state
+                    .module
+                    .get_function("vp_str_equals")
                     .ok_or_else(|| "vp_str_equals not declared".to_string())?;
 
-                let result = state.ir_builder.build_call(
-                    state.builder,
-                    str_equals_func,
-                    &[lhs_val.into(), rhs_val.into()],
-                    "str_cmp",
-                ).ok_or_else(|| "vp_str_equals call failed".to_string())?;
+                let result = state
+                    .ir_builder
+                    .build_call(
+                        state.builder,
+                        str_equals_func,
+                        &[lhs_val.into(), rhs_val.into()],
+                        "str_cmp",
+                    )
+                    .ok_or_else(|| "vp_str_equals call failed".to_string())?;
 
                 if matches!(op, BinOp::NotEq) {
-                    let not_result = state.builder.build_not(result.into_int_value(), "str_neq")
+                    let not_result = state
+                        .builder
+                        .build_not(result.into_int_value(), "str_neq")
                         .map_err(|e| format!("Failed to negate: {:?}", e))?;
                     return Ok(not_result.into());
                 }
@@ -440,37 +638,50 @@ pub fn generate_binop<'ctx>(
             }
 
             // For <, >, <=, >=, use string comparison
-            let str_compare_func = state.module.get_function("vp_str_compare")
+            let str_compare_func = state
+                .module
+                .get_function("vp_str_compare")
                 .ok_or_else(|| "vp_str_compare not declared".to_string())?;
 
-            let cmp_result = state.ir_builder.build_call(
-                state.builder,
-                str_compare_func,
-                &[lhs_val.into(), rhs_val.into()],
-                "str_compare",
-            ).ok_or_else(|| "vp_str_compare call failed".to_string())?;
+            let cmp_result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    str_compare_func,
+                    &[lhs_val.into(), rhs_val.into()],
+                    "str_compare",
+                )
+                .ok_or_else(|| "vp_str_compare call failed".to_string())?;
 
             let cmp_val = cmp_result.into_int_value();
             let zero = state.context.i64_type().const_zero();
 
             match op {
                 BinOp::Lt => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLT, cmp_val, zero, "str_lt")
                         .map_err(|e| format!("str_lt: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::Gt => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SGT, cmp_val, zero, "str_gt")
                         .map_err(|e| format!("str_gt: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::LtEq => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLE, cmp_val, zero, "str_lte")
                         .map_err(|e| format!("str_lte: {:?}", e))?;
                     return Ok(result.into());
                 }
                 BinOp::GtEq => {
-                    let result = state.builder.build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
+                    let result = state
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SGE, cmp_val, zero, "str_gte")
                         .map_err(|e| format!("str_gte: {:?}", e))?;
                     return Ok(result.into());
                 }
@@ -506,11 +717,8 @@ pub fn generate_binop<'ctx>(
                 .ok_or_else(|| "vp_str_get_first call failed".to_string())?
                 .into_int_value();
 
-            let (lhs, rhs) = if is_lhs_ptr {
-                (str_char_val, int_val)
-            } else {
-                (int_val, str_char_val)
-            };
+            let (lhs, rhs) =
+                if is_lhs_ptr { (str_char_val, int_val) } else { (int_val, str_char_val) };
 
             return arithmetic::generate_int_binop(state, lhs.into(), rhs.into(), op);
         }

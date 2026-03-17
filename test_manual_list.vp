@@ -1,8 +1,0 @@
-def main():
-    # Manually create list instead of using range
-    lst = []
-    for i in range(5):
-        lst.append(i)
-    print(lst)
-
-main()

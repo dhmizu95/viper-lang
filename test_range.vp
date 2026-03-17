@@ -1,5 +1,0 @@
-def main():
-    lst = list(range(5))
-    print(lst)
-
-main()

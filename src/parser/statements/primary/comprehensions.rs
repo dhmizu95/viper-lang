@@ -3,7 +3,7 @@ use crate::ast::Expr;
 use crate::lexer::TokenKind;
 use crate::utils::Span;
 
-/// Parse list comprehension: [expr for var in iter]
+/// Parse list comprehension: [expr for var in iter] or [expr for var1, var2 in iter if cond]
 pub fn parse_list_comprehension(
     parser: &mut StatementParser,
     element: Expr,
@@ -12,22 +12,34 @@ pub fn parse_list_comprehension(
     // This is a list comprehension
     parser.advance(); // consume 'for'
 
-    // Parse the variable name
-    let var = if let TokenKind::Ident(name) = &parser.current().kind {
-        let name = name.clone();
-        parser.advance();
-        name
-    } else {
-        return crate::parser::parse_error(
-            "Expected variable name in list comprehension".to_string(),
-        );
-    };
+    // Parse the target (can be identifier or tuple for unpacking)
+    let mut target = parse_primary_expr(parser)?;
+    
+    // Check for tuple unpacking: for i, is_prime in ...
+    if parser.match_token(&TokenKind::Comma) {
+        let mut elements = vec![target];
+        loop {
+            elements.push(parse_primary_expr(parser)?);
+            if !parser.match_token(&TokenKind::Comma) {
+                break;
+            }
+        }
+        let last_span = parser.previous().span;
+        let merged_span = elements.first().unwrap().span().merge(last_span);
+        target = Expr::Tuple { elements, span: merged_span };
+    }
 
     // Expect 'in' keyword
     parser.expect(&TokenKind::In)?;
 
     // Parse the iterable
     let iter = parse_expression(parser)?;
+
+    // Parse optional if clauses
+    let mut ifs = Vec::new();
+    while parser.match_token(&TokenKind::If) {
+        ifs.push(parse_expression(parser)?);
+    }
 
     // Expect closing bracket
     parser.expect(&TokenKind::RBracket)?;
@@ -36,8 +48,9 @@ pub fn parse_list_comprehension(
 
     Ok(Expr::ListComprehension {
         element: Box::new(element),
-        var,
+        target: Box::new(target),
         iter: Box::new(iter),
+        ifs,
         span: list_span,
     })
 }

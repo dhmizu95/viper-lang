@@ -55,16 +55,8 @@ pub fn generate_type_convert<'ctx>(
         "int" => {
             // Convert to int (Python-style: arbitrary precision using tagged ints)
             if arg_val.is_int_value() {
-                // Already an i64, convert to tagged int
-                let from_i64_func = state
-                    .module
-                    .get_function("tagged_int_from_i64")
-                    .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
-                let result = state
-                    .ir_builder
-                    .build_call(state.builder, from_i64_func, &[arg_val.into()], "int_from_i64")
-                    .unwrap();
-                Ok(result)
+                // Already a tagged int, return as-is
+                Ok(arg_val)
             } else if arg_val.is_float_value() {
                 // Float to int: first convert to i64, then to tagged int
                 let float_val = arg_val.into_float_value();
@@ -74,7 +66,7 @@ pub fn generate_type_convert<'ctx>(
                     .expect("float to int conversion");
                 let from_i64_func = state
                     .module
-                    .get_function("tagged_int_from_i64")
+                    .get_function("tagged_int_from_i64_export")
                     .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
                 let result = state
                     .ir_builder

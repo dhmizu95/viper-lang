@@ -113,6 +113,7 @@ pub enum BuiltinSignature {
     Tuple, // tuple(iterable?) -> tuple
     Set,   // set(iterable?) -> set
     Dict,  // dict(iterable?) -> dict
+    Bytearray, // bytearray() -> bytearray
     // Iteration builtins
     Enumerate, // enumerate(iterable, start=0) -> iterator
     Zip,       // zip(iter1, iter2, ...) -> iterator
@@ -249,6 +250,7 @@ impl Symbol {
                 BuiltinSignature::Dict => {
                     Some(Type::Dict(Box::new(Type::Infer), Box::new(Type::Infer)))
                 }
+                BuiltinSignature::Bytearray => Some(Type::Bytes),
                 // Iteration builtins - return list for simplicity
                 BuiltinSignature::Enumerate => {
                     Some(Type::List(Box::new(Type::Tuple(vec![Type::I64, Type::Infer]))))
@@ -373,6 +375,7 @@ impl SymbolTable {
             ("abs", SymbolKind::Builtin { signature: BuiltinSignature::Abs }),
             // Collection constructors
             ("dict", SymbolKind::Builtin { signature: BuiltinSignature::Dict }),
+            ("bytearray", SymbolKind::Builtin { signature: BuiltinSignature::Bytearray }),
             // Iteration builtins
             ("enumerate", SymbolKind::Builtin { signature: BuiltinSignature::Enumerate }),
             ("zip", SymbolKind::Builtin { signature: BuiltinSignature::Zip }),

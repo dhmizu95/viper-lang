@@ -456,6 +456,7 @@ impl ClosureAnalyzer {
             | Expr::Float(_, _)
             | Expr::Str(_, _)
             | Expr::FString(_, _)
+            | Expr::FStringElement { .. }
             | Expr::Bytes(_, _)
             | Expr::BigInt(_, _)
             | Expr::Bool(_, _)

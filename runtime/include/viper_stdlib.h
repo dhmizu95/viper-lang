@@ -12,6 +12,9 @@
 #include "viper_types.h"
 #include "viper_arc.h"
 
+/* Forward declarations */
+typedef struct ViperByteArray ViperByteArray;
+
 /* ============================================ */
 /* Basic I/O Functions - Defined later with ViperString* */
 /* ============================================ */
@@ -87,6 +90,7 @@ ViperList* vp_list_concat(ViperList* list1, ViperList* list2);
 
 /* Built-in iteration/functional functions */
 ViperList* vp_enumerate(ViperList* iterable, int64_t start);
+ViperList* vp_enumerate_bytearray(ViperByteArray* iterable, int64_t start);
 ViperList* vp_zip(ViperList* iter1, ViperList* iter2);
 int64_t vp_list_sum(ViperList* list);
 int64_t vp_list_min(ViperList* list);
@@ -193,6 +197,7 @@ ViperString* vp_str_create(const char* str);
 ViperString* vp_str_create_with_len(const char* str, int64_t len);
 void vp_str_free(ViperString* s);
 ViperString* vp_str_concat(ViperString* a, ViperString* b);
+ViperString* vp_str_repeat(ViperString* str, int64_t n);
 int64_t vp_str_len(ViperString* s);
 bool vp_str_equals(ViperString* a, ViperString* b);
 const char* vp_str_data(ViperString* s);
@@ -303,3 +308,21 @@ bool vp_bool_from_f64(double val);
 bool vp_bool_from_str(ViperString* str);
 
 #endif /* VIPER_STDLIB_H */
+
+/* ============================================ */
+/* bytearray functions                          */
+/* ============================================ */
+
+ViperByteArray* vp_bytearray_create(void);
+ViperByteArray* vp_bytearray_create_with_capacity(int64_t cap);
+ViperByteArray* vp_bytearray_from_bytes(const uint8_t* bytes, int64_t len);
+void vp_bytearray_free(ViperByteArray* ba);
+int64_t vp_bytearray_len(ViperByteArray* ba);
+void vp_bytearray_append(ViperByteArray* ba, int64_t value);
+void vp_bytearray_set(ViperByteArray* ba, int64_t index, int64_t value);
+int64_t vp_bytearray_get(ViperByteArray* ba, int64_t index);
+void vp_bytearray_extend(ViperByteArray* ba, ViperByteArray* other);
+ViperByteArray* vp_bytearray_slice(ViperByteArray* ba, int64_t start, int64_t end, int64_t step);
+void vp_bytearray_print(ViperByteArray* ba);
+ViperByteArray* vp_bytearray_from_list(ViperList* list);
+ViperByteArray* vp_bytearray_repeat(ViperByteArray* ba, int64_t count);

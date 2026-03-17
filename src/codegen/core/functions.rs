@@ -305,6 +305,31 @@ impl<'ctx> CodeGen<'ctx> {
                     self.list_vars.insert(param.name.clone());
                 }
             }
+
+            // Handle default parameter values
+            // For parameters with defaults, we need to check if the caller provided a value
+            // Python semantics: default values are used when argument is not provided
+            // Implementation: generate code at entry to check and assign default
+            if let Some(default_expr) = &param.default {
+                // For None defaults with pointer types, check if param is null
+                let is_none_default = matches!(default_expr, Expr::None(_));
+                
+                if is_none_default && param_value.is_pointer_value() {
+                    // Generate: if param == null: param = default_value (which is also null for None)
+                    // Actually for None default, the param already has the right value (null/None)
+                    // So we just need to ensure the type is correct
+                    // No code generation needed for None defaults on pointers
+                } else if is_none_default {
+                    // For None default on value types (int, float, bool)
+                    // We can't easily detect "not provided" without a wrapper
+                    // Skip for now - caller must provide explicit value
+                } else {
+                    // Non-None default - generate assignment code
+                    // This requires checking if param was provided, which needs wrapper functions
+                    // For now, skip - the default is documented but caller must provide value
+                    // TODO: Implement wrapper functions for proper default handling
+                }
+            }
         }
 
         // Set up closure cell parameters (hidden parameters after regular params)
@@ -359,6 +384,7 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.list_vars,
             &mut self.dict_vars,
             &mut self.bool_list_vars,
+            &mut self.bytearray_vars,
             &mut self.bigint_vars,
             &mut self.var_types,
             &mut self.escape_analyzer,
@@ -618,6 +644,7 @@ impl<'ctx> CodeGen<'ctx> {
                         &mut self.list_vars,
                         &mut self.dict_vars,
                         &mut self.bool_list_vars,
+                        &mut self.bytearray_vars,
                         &mut self.bigint_vars,
                         &mut self.var_types,
                         &mut dummy_closure,
@@ -663,6 +690,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.bytearray_vars,
                 &mut self.bigint_vars,
                 &mut self.var_types,
                 &mut dummy_closure,
@@ -811,6 +839,7 @@ impl<'ctx> CodeGen<'ctx> {
             &mut self.list_vars,
             &mut self.dict_vars,
             &mut self.bool_list_vars,
+            &mut self.bytearray_vars,
             &mut self.bigint_vars,
             &mut self.var_types,
             &mut self.escape_analyzer,
@@ -1295,6 +1324,7 @@ impl<'ctx> CodeGen<'ctx> {
                 &mut self.list_vars,
                 &mut self.dict_vars,
                 &mut self.bool_list_vars,
+                &mut self.bytearray_vars,
                 &mut self.bigint_vars,
                 &mut self.var_types,
                 stmt,
@@ -1663,6 +1693,7 @@ fn is_pure_statement(stmt: &Stmt) -> bool {
 
         // These statements have side effects
         Stmt::AugAssign { .. } => false, // Mutation
+        Stmt::SliceAssign { .. } => false, // Slice mutation
 
         // Functions and classes are declarations, not statements in function body
         Stmt::Function { .. } => false, // Nested function definition is impure
@@ -1732,7 +1763,8 @@ fn is_pure_expr(expr: &Expr) -> bool {
         | Expr::BigInt(_, _)
         | Expr::None(_)
         | Expr::Bytes(_, _)
-        | Expr::FString(_, _) => true,
+        | Expr::FString(_, _)
+        | Expr::FStringElement { .. } => true,
 
         // Identifiers are pure
         Expr::Ident(_, _) => true,

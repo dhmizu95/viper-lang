@@ -314,11 +314,28 @@ impl<'a> PrattParser<'a> {
                             current_lit.clear();
                         }
 
+                        // Parse inner expression and optional format spec
                         let mut inner_expr_str = String::new();
+                        let mut format_spec: Option<String> = None;
+                        let mut found_colon = false;
+                        
                         while let Some(&next_c) = chars.peek() {
                             if next_c == '}' {
                                 chars.next(); // consume '}'
                                 break;
+                            } else if next_c == ':' && !found_colon {
+                                // Format spec separator
+                                found_colon = true;
+                                chars.next(); // consume ':'
+                                // Rest is format spec
+                                let mut spec = String::new();
+                                while let Some(&spec_c) = chars.peek() {
+                                    if spec_c == '}' {
+                                        break;
+                                    }
+                                    spec.push(chars.next().unwrap());
+                                }
+                                format_spec = Some(spec);
                             } else {
                                 inner_expr_str.push(chars.next().unwrap());
                             }
@@ -329,7 +346,12 @@ impl<'a> PrattParser<'a> {
                         if let Ok(tokens) = inner_lexer.tokenize() {
                             let mut inner_parser = PrattParser::new(&tokens);
                             if let Ok(expr) = inner_parser.parse_expr(Precedence::MIN) {
-                                elements.push(expr);
+                                // Create FStringElement with format spec
+                                elements.push(Expr::FStringElement {
+                                    expr: Box::new(expr),
+                                    format_spec,
+                                    span,
+                                });
                             }
                         }
                     } else {
@@ -478,78 +500,114 @@ impl<'a> PrattParser<'a> {
                 let mut elements = Vec::new();
                 let mut size: Option<usize> = None;
 
-                if !self.match_token(&TokenKind::RBracket) {
-                    // Parse first element
-                    let first_elem = self.parse_expr(Precedence::MIN)?;
+                // Handle empty list: []
+                if self.match_token(&TokenKind::RBracket) {
+                    let last_span = self.previous().span;
+                    let merged_span = span.merge(last_span);
+                    return Ok(Expr::List { elements, span: merged_span });
+                }
 
-                    // Check for list comprehension: [expr for var in iter]
-                    if matches!(self.current().kind, TokenKind::For) {
-                        // This is a list comprehension
-                        self.advance(); // consume 'for'
+                // Parse first element
+                let first_elem = self.parse_expr(Precedence::MIN)?;
 
-                        // Parse the variable name
-                        let var = if let TokenKind::Ident(name) = &self.current().kind {
+                // Check for list comprehension: [expr for var in iter]
+                if matches!(self.current().kind, TokenKind::For) {
+                    // This is a list comprehension
+                    self.advance(); // consume 'for'
+
+                    // Parse the target (can be identifier or tuple for unpacking)
+                    let mut target = {
+                        // Parse as identifier first
+                        if let TokenKind::Ident(name) = &self.current().kind {
                             let name = name.clone();
                             self.advance();
-                            name
+                            Expr::Ident(name, span)
                         } else {
                             return crate::parser::parse_error(
                                 "Expected variable name in list comprehension".to_string(),
                             );
-                        };
-
-                        // Expect 'in' keyword
-                        self.expect(&TokenKind::In)?;
-
-                        // Parse the iterable
-                        let iter = self.parse_expr(Precedence::MIN)?;
-
-                        // Expect closing bracket
-                        self.expect(&TokenKind::RBracket)?;
-
-                        let last_span = self.previous().span;
-                        let merged_span = span.merge(last_span);
-
-                        return Ok(Expr::ListComprehension {
-                            element: Box::new(first_elem),
-                            var,
-                            iter: Box::new(iter),
-                            span: merged_span,
-                        });
-                    }
-
-                    // Not a list comprehension, treat as array/list
-                    elements.push(first_elem);
-
-                    // Check for array repetition syntax: [value; size]
-                    let is_semi = matches!(self.current().kind, TokenKind::Semi);
-                    if is_semi {
-                        self.advance(); // consume the semicolon
-                        let size_token = self.current();
-                        match &size_token.kind {
-                            TokenKind::Int(n) => {
-                                size = Some(*n as usize);
-                                self.advance();
-                            }
-                            _ => {
-                                return crate::parser::parse_error(format!(
-                                    "Expected integer size for array, found {:?}",
-                                    size_token.kind
-                                ))
-                            }
                         }
-                        self.expect(&TokenKind::RBracket)?;
-                    } else {
-                        // Regular list/array: parse remaining elements
-                        while self.match_token(&TokenKind::Comma) {
-                            if self.match_token(&TokenKind::RBracket) {
+                    };
+
+                    // Check for tuple unpacking: for i, is_prime in ...
+                    if matches!(self.current().kind, TokenKind::Comma) {
+                        let mut elements = vec![target];
+                        loop {
+                            self.advance(); // consume comma
+                            if let TokenKind::Ident(name) = &self.current().kind {
+                                let name = name.clone();
+                                self.advance();
+                                elements.push(Expr::Ident(name, span));
+                            } else {
+                                return crate::parser::parse_error(
+                                    "Expected variable name in tuple unpacking".to_string(),
+                                );
+                            }
+                            if !matches!(self.current().kind, TokenKind::Comma) {
                                 break;
                             }
-                            elements.push(self.parse_expr(Precedence::MIN)?);
                         }
-                        self.expect(&TokenKind::RBracket)?;
+                        let last_span = self.previous().span;
+                        let merged_span = elements.first().unwrap().span().merge(last_span);
+                        target = Expr::Tuple { elements, span: merged_span };
                     }
+
+                    // Expect 'in' keyword
+                    self.expect(&TokenKind::In)?;
+
+                    // Parse the iterable
+                    let iter = self.parse_expr(Precedence::MIN)?;
+
+                    // Parse optional if clauses
+                    let mut ifs = Vec::new();
+                    while self.match_token(&TokenKind::If) {
+                        ifs.push(self.parse_expr(Precedence::MIN)?);
+                    }
+
+                    // Expect closing bracket
+                    self.expect(&TokenKind::RBracket)?;
+
+                    let last_span = self.previous().span;
+                    let merged_span = span.merge(last_span);
+
+                    return Ok(Expr::ListComprehension {
+                        element: Box::new(first_elem),
+                        target: Box::new(target),
+                        iter: Box::new(iter),
+                        ifs,
+                        span: merged_span,
+                    });
+                }
+
+                // Not a list comprehension, treat as array/list
+                elements.push(first_elem);
+
+                // Check for array repetition syntax: [value; size]
+                let is_semi = matches!(self.current().kind, TokenKind::Semi);
+                if is_semi {
+                    self.advance(); // consume the semicolon
+                    let size_token = self.current();
+                    match &size_token.kind {
+                        TokenKind::Int(n) => {
+                            size = Some(*n as usize);
+                            self.advance();
+                        }
+                        _ => {
+                            return crate::parser::parse_error(format!(
+                                "Expected integer size for array, found {:?}",
+                                size_token.kind
+                            ))
+                        }
+                    }
+                    self.expect(&TokenKind::RBracket)?;
                 } else {
+                    // Regular list/array: parse remaining elements
+                    while self.match_token(&TokenKind::Comma) {
+                        if self.match_token(&TokenKind::RBracket) {
+                            break;
+                        }
+                        elements.push(self.parse_expr(Precedence::MIN)?);
+                    }
                     self.expect(&TokenKind::RBracket)?;
                 }
 
@@ -802,7 +860,7 @@ impl<'a> PrattParser<'a> {
         while pos < self.tokens.len() {
             match &self.tokens[pos].kind {
                 TokenKind::Colon if bracket_depth == 1 => return true,
-                TokenKind::RBracket => {
+                TokenKind::RBracket | TokenKind::RParen => {
                     bracket_depth -= 1;
                     if bracket_depth == 0 {
                         return false;

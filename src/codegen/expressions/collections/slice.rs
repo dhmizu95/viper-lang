@@ -31,6 +31,30 @@ pub fn generate_slice<'ctx>(
         _ => false,
     };
 
+    // Check if this is a bytearray
+    let is_bytearray = match obj {
+        Expr::Ident(obj_name, _) => state.is_bytearray(obj_name),
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bytearray"
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            if let Expr::Call { func, .. } = left.as_ref() {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "bytearray"
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
     // Check if this is a bool list (bit vector)
     let is_bool_list = match obj {
         Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
@@ -77,6 +101,25 @@ pub fn generate_slice<'ctx>(
         }
     };
 
+    // Untag start, end and step values if they are tagged integers
+    let untag_val = |state: &mut CodeGenState<'_, 'ctx>, val: BasicValueEnum<'ctx>| {
+        if val.is_int_value() {
+            let int_val = val.into_int_value();
+            // Tagged ints have bit 0 set to 0. We shift right by 1 to untag.
+            state.builder.build_right_shift(
+                int_val,
+                state.context.i64_type().const_int(1, false),
+                false,
+                "untagged"
+            ).unwrap().into()
+        } else {
+            val
+        }
+    };
+
+    let start_untagged = untag_val(state, start_val);
+    let end_untagged = untag_val(state, end_val);
+
     // For strings, use vp_str_slice (doesn't support step)
     if is_string {
         let str_slice = state
@@ -89,7 +132,7 @@ pub fn generate_slice<'ctx>(
             .build_call(
                 state.builder,
                 str_slice,
-                &[obj_val.into(), start_val.into(), end_val.into()],
+                &[obj_val.into(), start_untagged.into(), end_untagged.into()],
                 "str_slice",
             )
             .ok_or_else(|| "build call failed".to_string())?;
@@ -101,8 +144,50 @@ pub fn generate_slice<'ctx>(
     let step_val = if let Some(step_expr) = step {
         generate_expr(state, step_expr)?
     } else {
-        state.ir_builder.i64_const(1).into()
+        state.ir_builder.i64_const(2).into() // Tagged 1 is 2
     };
+
+    let step_untagged = untag_val(state, step_val);
+
+    // For strings, use vp_str_slice (doesn't support step)
+    if is_string {
+        let str_slice = state
+            .module
+            .get_function("vp_str_slice")
+            .ok_or_else(|| "vp_str_slice not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                str_slice,
+                &[obj_val.into(), start_untagged.into(), end_untagged.into()],
+                "str_slice",
+            )
+            .ok_or_else(|| "build call failed".to_string())?;
+
+        return Ok(result);
+    }
+
+    // For bytearray, use vp_bytearray_slice
+    if is_bytearray {
+        let ba_slice = state
+            .module
+            .get_function("vp_bytearray_slice")
+            .ok_or_else(|| "vp_bytearray_slice not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                ba_slice,
+                &[obj_val.into(), start_untagged.into(), end_untagged.into(), step_untagged.into()],
+                "ba_slice",
+            )
+            .ok_or_else(|| "build call failed".to_string())?;
+
+        return Ok(result);
+    }
 
     // Call appropriate slice function based on element type
     let slice_func = if is_bool_list {
@@ -122,7 +207,7 @@ pub fn generate_slice<'ctx>(
         .build_call(
             state.builder,
             slice_func,
-            &[obj_val.into(), start_val.into(), end_val.into(), step_val.into()],
+            &[obj_val.into(), start_untagged.into(), end_untagged.into(), step_untagged.into()],
             "list_slice",
         )
         .ok_or_else(|| "build call failed".to_string())?;
@@ -498,5 +583,89 @@ pub fn generate_set_call<'ctx>(
         }
     };
 
+    Ok(result)
+}
+
+/// Generate bytearray() call - create mutable byte array
+pub fn generate_bytearray_call<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    args: &[Expr],
+) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
+    // bytearray() with no args returns empty bytearray
+    if args.is_empty() {
+        let ba_func = state
+            .module
+            .get_function("vp_bytearray_create")
+            .ok_or_else(|| "vp_bytearray_create not declared".to_string())?;
+        let result = state.ir_builder.build_call(state.builder, ba_func, &[], "empty_bytearray")
+            .ok_or_else(|| "bytearray_create returned None".to_string())?;
+        return Ok(result);
+    }
+
+    if args.len() > 1 {
+        return crate::codegen::codegen_error(format!(
+            "bytearray() takes at most 1 argument, got {}",
+            args.len()
+        ));
+    }
+
+    let arg = &args[0];
+
+    // Handle bytearray([1, 2, 3]) - create from list of integers
+    if let Expr::List { elements, .. } = arg {
+        if elements.is_empty() {
+            let ba_func = state
+                .module
+                .get_function("vp_bytearray_create")
+                .ok_or_else(|| "vp_bytearray_create not declared".to_string())?;
+            let result = state.ir_builder.build_call(state.builder, ba_func, &[], "empty_bytearray")
+                .ok_or_else(|| "bytearray_create returned None".to_string())?;
+            return Ok(result);
+        }
+
+        // Create bytearray with capacity
+        let ba_func = state
+            .module
+            .get_function("vp_bytearray_create_with_capacity")
+            .ok_or_else(|| "vp_bytearray_create_with_capacity not declared".to_string())?;
+        let capacity = state.ir_builder.i64_const(elements.len() as i64);
+        let result = state.ir_builder.build_call(state.builder, ba_func, &[capacity.into()], "bytearray_with_cap")
+            .ok_or_else(|| "bytearray_create_with_capacity returned None".to_string())?;
+        let ba_ptr = result.into_pointer_value();
+
+        // Append each element
+        let append_func = state
+            .module
+            .get_function("vp_bytearray_append")
+            .ok_or_else(|| "vp_bytearray_append not declared".to_string())?;
+
+        for (i, elem) in elements.iter().enumerate() {
+            let elem_val = generate_expr(state, elem)?;
+            let elem_i64 = if elem_val.is_int_value() {
+                elem_val.into_int_value()
+            } else {
+                // Convert to i64
+                let to_i64_func = state.module.get_function("tagged_int_to_i64")
+                    .ok_or_else(|| "tagged_int_to_i64 not declared".to_string())?;
+                state.ir_builder.build_call(
+                    state.builder,
+                    to_i64_func,
+                    &[elem_val.into()],
+                    "to_i64",
+                ).ok_or_else(|| "to_i64 returned None".to_string())?.into_int_value()
+            };
+            state.ir_builder.build_call(state.builder, append_func, &[ba_ptr.into(), elem_i64.into()], &format!("ba_append_{}", i));
+        }
+
+        return Ok(ba_ptr.into());
+    }
+
+    // For other cases, create empty bytearray
+    let ba_func = state
+        .module
+        .get_function("vp_bytearray_create")
+        .ok_or_else(|| "vp_bytearray_create not declared".to_string())?;
+    let result = state.ir_builder.build_call(state.builder, ba_func, &[], "bytearray")
+        .ok_or_else(|| "bytearray_create returned None".to_string())?;
     Ok(result)
 }

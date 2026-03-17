@@ -2,7 +2,7 @@ use inkwell::values::BasicValueEnum;
 
 use crate::ast::{Expr, Type};
 use crate::codegen::state::CodeGenState;
-use crate::codegen::variables::VarInfo;
+use crate::codegen::variables::{VarInfo, VarType};
 
 use crate::codegen::expressions::{generate_expr, infer_expr_type};
 
@@ -96,251 +96,339 @@ pub fn generate_list<'ctx>(
     Ok(list_val)
 }
 
-/// Generate list comprehension: [expr for var in iter]
-/// Currently supports: [expr for var in range(n)] and [expr for var in range(start, end)]
+/// Generate list comprehension: [expr for target in iter] or [expr for t1, t2 in iter if cond]
 pub fn generate_list_comprehension<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     element: &Expr,
-    var: &str,
+    target: &Expr,
     iter: &Expr,
+    ifs: &[Expr],
     _span: crate::utils::Span,
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
-    // Determine element type by analyzing the element expression
+    // Determine element type
     let elem_type = crate::codegen::expressions::infer_expr_type(element);
-    let is_float_list = matches!(elem_type, crate::ast::Type::F64);
-    let is_bool_list = matches!(elem_type, crate::ast::Type::Bool);
+    let is_float_list = matches!(elem_type, Type::F64);
+    let is_bool_list = matches!(elem_type, Type::Bool);
 
     let (list_func_name, append_func_name) = if is_float_list {
         ("vp_list_create_f64", "vp_list_append_f64")
     } else if is_bool_list {
-        ("vp_bitvec_create", "vp_bitvec_append") // Use bit vector for bool lists
+        ("vp_bitvec_create", "vp_bitvec_append")
     } else {
         ("vp_list_create", "vp_list_append")
     };
 
     // Create result list
-    let list_func = state
-        .module
-        .get_function(list_func_name)
+    let list_func = state.module.get_function(list_func_name)
         .ok_or_else(|| format!("{} not declared", list_func_name))?;
-
-    let result_list =
-        state.ir_builder.build_call(state.builder, list_func, &[], "comp_result").unwrap();
+    let result_list = state.ir_builder.build_call(
+        state.builder, list_func, &[], "comp_result"
+    ).expect("list_create");
 
     // Append function
-    let append_func = state
-        .module
-        .get_function(append_func_name)
+    let append_func = state.module.get_function(append_func_name)
         .ok_or_else(|| format!("{} not declared", append_func_name))?;
 
-    // Check if iterator is range() or a list/iterable
-    let mut is_range = false;
-    let mut iter_val = None;
-    let mut iter_is_float_list = false;
+    // Analyze iterator
+    // Check if this is an enumerate() call - we need to handle tuple unpacking specially
+    let is_enumerate = match iter {
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                name == "enumerate"
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
 
-    let (start_val, end_val) = if let Expr::Call { func, args, .. } = iter {
+    let (is_range, start_val, end_val, iter_val, iter_is_float_list, _enumerate_start) = if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
-                is_range = true;
-                match args.len() {
-                    0 => {
-                        return crate::codegen::codegen_error(
-                            "range expected at least 1 argument, got 0".to_string(),
-                        )
-                    }
+                let (start, end) = match args.len() {
+                    0 => return crate::codegen::codegen_error("range() requires at least 1 argument".to_string()),
                     1 => (
-                        state.ir_builder.i64_const(0),
+                        state.context.i64_type().const_int(0, false),
                         generate_expr(state, &args[0])?.into_int_value(),
                     ),
                     _ => (
                         generate_expr(state, &args[0])?.into_int_value(),
                         generate_expr(state, &args[1])?.into_int_value(),
                     ),
-                }
+                };
+                (true, start, end, None, false, state.context.i64_type().const_int(0, false))
+            } else if name == "enumerate" {
+                // enumerate(iterable, start=0) - returns list of (index, value) tuples
+                let iterable_arg = if args.is_empty() {
+                    return crate::codegen::codegen_error("enumerate() requires at least 1 argument".to_string());
+                } else {
+                    &args[0]
+                };
+                let iterable_val = generate_expr(state, iterable_arg)?;
+                let start = if args.len() > 1 {
+                    generate_expr(state, &args[1])?.into_int_value()
+                } else {
+                    state.context.i64_type().const_int(0, false)
+                };
+                
+                // Check if iterable is a bytearray
+                let is_bytearray_iter = match iterable_arg {
+                    Expr::Ident(arg_name, _) => state.is_bytearray(arg_name),
+                    _ => false,
+                };
+                
+                // Generate the enumerate call to get the list of tuples
+                let enumerate_func_name = if is_bytearray_iter {
+                    "vp_enumerate_bytearray"
+                } else {
+                    "vp_enumerate"
+                };
+                let enumerate_func = state.module.get_function(enumerate_func_name)
+                    .ok_or(format!("{} not declared", enumerate_func_name))?;
+                let enum_list = state.ir_builder.build_call(
+                    state.builder, enumerate_func,
+                    &[iterable_val.into(), start.into()],
+                    "enum_list"
+                ).unwrap();
+                let len_func = state.module.get_function("vp_list_len")
+                    .ok_or("vp_list_len not declared")?;
+                let len = state.ir_builder.build_call(
+                    state.builder, len_func, &[enum_list.into()], "iter_len"
+                ).unwrap().into_int_value();
+                (false, state.context.i64_type().const_int(0, false), len, Some(enum_list), false, start)
             } else {
-                // Not range(), evaluate as regular expression
                 let v = generate_expr(state, iter)?;
-                iter_val = Some(v);
-                let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
-                let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
-                (state.ir_builder.i64_const(0), len)
+                let len_func = state.module.get_function("vp_list_len")
+                    .ok_or("vp_list_len not declared")?;
+                let len = state.ir_builder.build_call(
+                    state.builder, len_func, &[v.into()], "iter_len"
+                ).unwrap().into_int_value();
+                (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
             }
         } else {
             let v = generate_expr(state, iter)?;
-            iter_val = Some(v);
-            let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
-            let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
-            (state.ir_builder.i64_const(0), len)
+            let len_func = state.module.get_function("vp_list_len")
+                .ok_or("vp_list_len not declared")?;
+            let len = state.ir_builder.build_call(
+                state.builder, len_func, &[v.into()], "iter_len"
+            ).unwrap().into_int_value();
+            (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
         }
     } else {
         let v = generate_expr(state, iter)?;
-        iter_val = Some(v);
-        
-        // Determine if iter is a float list for optimized get
-        let iter_type = infer_expr_type(iter);
-        iter_is_float_list = matches!(iter_type, Type::List(inner) if matches!(*inner, Type::F64));
+        let len_func = state.module.get_function("vp_list_len")
+            .ok_or("vp_list_len not declared")?;
+        let len = state.ir_builder.build_call(
+            state.builder, len_func, &[v.into()], "iter_len"
+        ).unwrap().into_int_value();
+        (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
+    };
 
-        let len_func = state.module.get_function("vp_list_len").ok_or("vp_list_len not declared")?;
-        let len = state.ir_builder.build_call(state.builder, len_func, &[v.into()], "iter_len").unwrap().into_int_value();
-        (state.ir_builder.i64_const(0), len)
+    // Extract target variable names
+    let target_names: Vec<String> = match target {
+        Expr::Ident(name, _) => vec![name.clone()],
+        Expr::Tuple { elements, .. } => {
+            elements.iter().filter_map(|e| {
+                if let Expr::Ident(name, _) = e {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            }).collect()
+        }
+        _ => vec!["var".to_string()],
     };
 
     // Create loop blocks
-    let func = state
-        .builder
-        .get_insert_block()
+    let func = state.builder.get_insert_block()
         .ok_or("No insertion block")?
         .get_parent()
         .ok_or("No parent function")?;
 
-    let init_block = state.context.append_basic_block(func, "list_comp_init");
-    let cond_block = state.context.append_basic_block(func, "list_comp_cond");
-    let body_block = state.context.append_basic_block(func, "list_comp_body");
-    let step_block = state.context.append_basic_block(func, "list_comp_step");
-    let after_loop_block = state.context.append_basic_block(func, "list_comp_after");
+    let init_block = state.context.append_basic_block(func, "comp_init");
+    let cond_block = state.context.append_basic_block(func, "comp_cond");
+    let body_block = state.context.append_basic_block(func, "comp_body");
+    let step_block = state.context.append_basic_block(func, "comp_step");
+    let after_block = state.context.append_basic_block(func, "comp_after");
 
-    // Branch to init block
-    state.builder.build_unconditional_branch(init_block).expect("branch to init");
+    // Branch to init
+    state.ir_builder.build_branch(state.builder, init_block);
 
-    // Init block: create counter variable
+    // Init: counter = start
     state.builder.position_at_end(init_block);
-    let counter =
-        state.builder.build_alloca(state.context.i64_type(), "comp_counter").expect("alloca");
-    state.builder.build_store(counter, start_val).expect("store counter");
+    let counter = state.builder.build_alloca(state.context.i64_type(), "comp_counter").expect("alloca");
+    state.builder.build_store(counter, start_val).expect("store");
+    state.ir_builder.build_branch(state.builder, cond_block);
 
-    // Branch to condition
-    state.builder.build_unconditional_branch(cond_block).expect("branch to cond");
-
-    // Condition block
+    // Condition: counter < end
     state.builder.position_at_end(cond_block);
-
-    // Load counter
-    let counter_val = state
-        .builder
-        .build_load(state.context.i64_type(), counter, "counter_val")
-        .expect("load counter")
+    let counter_val = state.builder.build_load(state.context.i64_type(), counter, "counter_val")
+        .expect("load")
         .into_int_value();
-
-    // Check if counter < end
     let cond = state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "comp_cond");
+    state.ir_builder.build_cond_branch(state.builder, cond, body_block, after_block);
 
-    // Branch based on condition: if true -> body, if false -> after
-    state.ir_builder.build_cond_branch(state.builder, cond, body_block, after_loop_block);
-
-    // Body block
+    // Body: bind variables, check filters, generate element, append
     state.builder.position_at_end(body_block);
 
-    // Load counter as the current value (if range) or index (if list)
-    let counter_val = state
-        .builder
-        .build_load(state.context.i64_type(), counter, "counter_val")
-        .expect("load counter")
-        .into_int_value();
+    // Bind loop variables
+    // When iterating over enumerate(), we get tuples (index, value) that need to be unpacked
+    for (idx, var_name) in target_names.iter().enumerate() {
+        let var_val = if is_enumerate && !target_names.is_empty() {
+            // enumerate() returns list of tuples - we need to unpack them
+            // Fetch the tuple from the list at current counter position
+            if let Some(list_val) = iter_val {
+                let get_func = state.module.get_function("vp_list_get")
+                    .ok_or_else(|| "vp_list_get not declared".to_string())?;
+                let tuple_val_tagged = state.ir_builder.build_call(
+                    state.builder, get_func,
+                    &[list_val.into(), counter_val.into()],
+                    "tuple_elem"
+                ).unwrap();
 
-    let loop_var_val = if is_range {
-        counter_val.into()
-    } else {
-        // Fetch element from list: list[counter]
-        let list_val = iter_val.expect("iter_val should be present if not range");
-        let get_func_name = if iter_is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
-        let get_func = state.module.get_function(get_func_name).ok_or_else(|| format!("{} not declared", get_func_name))?;
+                // Convert tagged i64 to pointer for vp_tuple_get
+                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                let tuple_val_ptr = state.builder.build_int_to_ptr(
+                    tuple_val_tagged.into_int_value(),
+                    ptr_type,
+                    "tuple_ptr"
+                ).expect("int to ptr");
 
-        state.ir_builder.build_call(state.builder, get_func, &[list_val.into(), counter_val.into()], "extracted_elem").unwrap()
-    };
+                // Now extract the appropriate element from the tuple
+                // idx=0 -> first element (index), idx=1 -> second element (value)
+                let tuple_get_func = state.module.get_function("vp_tuple_get")
+                    .ok_or_else(|| "vp_tuple_get not declared".to_string())?;
 
-    // Create a separate variable for the loop variable
-    let var_type = if is_range { 
-        crate::codegen::variables::VarType::Int 
-    } else if iter_is_float_list {
-        crate::codegen::variables::VarType::Float
-    } else {
-        crate::codegen::variables::VarType::Int
-    };
-    
-    let storage_type: inkwell::types::BasicTypeEnum = if matches!(var_type, crate::codegen::variables::VarType::Float) {
-        state.context.f64_type().into()
-    } else {
-        state.context.i64_type().into()
-    };
+                let tuple_index = state.context.i64_type().const_int(idx as u64, false);
+                state.ir_builder.build_call(
+                    state.builder, tuple_get_func,
+                    &[tuple_val_ptr.into(), tuple_index.into()],
+                    &format!("enum_elem_{}", idx)
+                ).unwrap()
+            } else {
+                // No list value, fall back to counter
+                counter_val.into()
+            }
+        } else if is_range {
+            // For range(), the variable gets the counter value
+            counter_val.into()
+        } else if let Some(list_val) = iter_val {
+            // For list iteration, fetch the element from the list
+            let get_func_name = if iter_is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
+            let get_func = state.module.get_function(get_func_name)
+                .ok_or_else(|| format!("{} not declared", get_func_name))?;
+            state.ir_builder.build_call(
+                state.builder, get_func,
+                &[list_val.into(), counter_val.into()],
+                "elem"
+            ).unwrap()
+        } else {
+            counter_val.into()
+        };
 
-    let var_ptr = state.builder.build_alloca(storage_type, var).expect("alloca");
-    state.builder.build_store(var_ptr, loop_var_val).expect("store var");
+        let var_type = VarType::Int;
+        let storage_type: inkwell::types::BasicTypeEnum = state.context.i64_type().into();
 
-    // Set up the loop variable in the symbol table
-    let old_var = state.variables.insert(
-        var.to_string(),
-        VarInfo::new_stack(var_ptr, var_type),
-    );
+        let var_ptr = state.builder.build_alloca(storage_type, var_name).expect("alloca");
+        state.builder.build_store(var_ptr, var_val).expect("store");
+        state.variables.insert(var_name.clone(), VarInfo::new_stack(var_ptr, var_type));
+    }
 
-    // Generate the element expression
+    // Check filter conditions
+    if !ifs.is_empty() {
+        let filter_block = state.context.append_basic_block(func, "comp_filter");
+        let pass_block = state.context.append_basic_block(func, "comp_pass");
+        let fail_block = state.context.append_basic_block(func, "comp_fail");
+
+        state.ir_builder.build_branch(state.builder, filter_block);
+
+        state.builder.position_at_end(filter_block);
+        let mut combined_cond: Option<inkwell::values::IntValue> = None;
+        for if_expr in ifs {
+            let cond_val = generate_expr(state, if_expr)?;
+            let cond_i1 = if cond_val.is_int_value() {
+                state.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond_val.into_int_value(),
+                    state.context.i64_type().const_zero(),
+                    "if_cond"
+                ).expect("compare")
+            } else {
+                cond_val.into_int_value()
+            };
+
+            combined_cond = Some(if let Some(prev) = combined_cond {
+                state.builder.build_and(prev, cond_i1, "combined_if").expect("and")
+            } else {
+                cond_i1
+            });
+        }
+
+        if let Some(cond) = combined_cond {
+            state.ir_builder.build_cond_branch(state.builder, cond, pass_block, fail_block);
+        } else {
+            state.ir_builder.build_branch(state.builder, pass_block);
+        }
+
+        // Fail block: skip append
+        state.builder.position_at_end(fail_block);
+        state.ir_builder.build_branch(state.builder, step_block);
+
+        // Pass block: continue to element generation
+        state.builder.position_at_end(pass_block);
+    }
+
+    // Generate element expression
     let elem_val = generate_expr(state, element)?;
 
-    // Handle type conversions
+    // Type conversion for append
     let elem_val = if is_float_list && elem_val.is_int_value() {
-        let int_val = elem_val.into_int_value();
-        state
-            .builder
-            .build_signed_int_to_float(int_val, state.context.f64_type(), "int_to_float")
-            .expect("int to float conversion")
-            .into()
-    } else if is_bool_list
-        && elem_val.is_int_value()
-        && elem_val.get_type().into_int_type().get_bit_width() > 1
-    {
-        // Convert i64 to bool for bool list (only if not already i1)
-        let int_val = elem_val.into_int_value();
-        state
-            .builder
-            .build_int_compare(
-                inkwell::IntPredicate::NE,
-                int_val,
-                state.context.i64_type().const_zero(),
-                "i64_to_bool",
-            )
-            .expect("i64 to bool conversion")
-            .into()
+        state.builder.build_signed_int_to_float(
+            elem_val.into_int_value(),
+            state.context.f64_type(),
+            "int_to_float"
+        ).expect("int_to_float").into()
+    } else if is_bool_list && elem_val.is_int_value() {
+        state.builder.build_int_compare(
+            inkwell::IntPredicate::NE,
+            elem_val.into_int_value(),
+            state.context.i64_type().const_zero(),
+            "to_bool"
+        ).expect("to_bool").into()
     } else {
         elem_val
     };
 
     // Append to result list
     let _ = state.ir_builder.build_call(
-        state.builder,
-        append_func,
+        state.builder, append_func,
         &[result_list.into(), elem_val.into()],
-        "list_append",
+        "append"
     );
 
-    // Restore the variable after body
-    if let Some(old) = old_var {
-        state.variables.insert(var.to_string(), old);
-    } else {
-        state.variables.remove(var);
+    // Remove loop variables from symbol table
+    for var_name in &target_names {
+        state.variables.remove(var_name);
     }
 
-    // Branch to step block
-    state.builder.build_unconditional_branch(step_block).expect("branch to step");
+    // Branch to step
+    state.ir_builder.build_branch(state.builder, step_block);
 
-    // Step block: increment counter
+    // Step: counter++
     state.builder.position_at_end(step_block);
-    let counter_val = state
-        .builder
-        .build_load(state.context.i64_type(), counter, "counter_step")
-        .expect("load counter")
+    let counter_val = state.builder.build_load(state.context.i64_type(), counter, "counter_step")
+        .expect("load")
         .into_int_value();
-    let next_val = state.ir_builder.build_add(
-        state.builder,
-        counter_val,
+    let next = state.ir_builder.build_add(
+        state.builder, counter_val,
         state.context.i64_type().const_int(1, false),
-        "next_counter",
+        "next"
     );
-    state.builder.build_store(counter, next_val).expect("store counter");
-
-    // Branch back to condition
-    state.builder.build_unconditional_branch(cond_block).expect("branch back to cond");
+    state.builder.build_store(counter, next).expect("store");
+    state.ir_builder.build_branch(state.builder, cond_block);
 
     // After loop
-    state.builder.position_at_end(after_loop_block);
+    state.builder.position_at_end(after_block);
 
-    Ok(result_list)
+    Ok(result_list.into())
 }

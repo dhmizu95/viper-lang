@@ -14,7 +14,7 @@ use crate::semantic::escape_analysis::EscapeAnalyzer;
 
 // Import helper functions from sibling modules
 use crate::codegen::statements::assignment::{
-    generate_assign, generate_aug_assign, generate_tuple_unpack,
+    generate_assign, generate_aug_assign, generate_slice_assign, generate_tuple_unpack,
 };
 use crate::codegen::statements::concurrency::{
     generate_chan, generate_recv, generate_send, generate_sync, generate_task, generate_waitgroup,
@@ -38,6 +38,7 @@ pub fn generate_stmt<'ctx>(
     list_vars: &mut HashSet<String>,
     dict_vars: &mut HashSet<String>,
     bool_list_vars: &mut HashSet<String>,
+    bytearray_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
@@ -55,6 +56,7 @@ pub fn generate_stmt<'ctx>(
         list_vars,
         dict_vars,
         bool_list_vars,
+        bytearray_vars,
         bigint_vars,
         var_types,
         &mut closure_cells,
@@ -76,6 +78,7 @@ pub fn generate_stmt_with_escape<'ctx>(
     list_vars: &mut HashSet<String>,
     dict_vars: &mut HashSet<String>,
     bool_list_vars: &mut HashSet<String>,
+    bytearray_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
@@ -96,6 +99,7 @@ pub fn generate_stmt_with_escape<'ctx>(
         list_vars,
         dict_vars,
         bool_list_vars,
+        bytearray_vars,
         bigint_vars,
         var_types,
         escape_analyzer,
@@ -120,6 +124,7 @@ pub fn generate_stmt_with_closure<'ctx>(
     list_vars: &mut HashSet<String>,
     dict_vars: &mut HashSet<String>,
     bool_list_vars: &mut HashSet<String>,
+    bytearray_vars: &mut HashSet<String>,
     bigint_vars: &mut HashSet<String>,
     var_types: &mut HashMap<String, Type>,
     stmt: &Stmt,
@@ -144,6 +149,7 @@ pub fn generate_stmt_with_closure<'ctx>(
         list_vars,
         dict_vars,
         bool_list_vars,
+        bytearray_vars,
         bigint_vars,
         var_types,
         escape_analyzer,
@@ -187,6 +193,9 @@ pub(crate) fn generate_stmt_internal<'ctx>(
         }
         Stmt::AugAssign { target, op, value, .. } => {
             generate_aug_assign(state, target, op, value)?;
+        }
+        Stmt::SliceAssign { obj, start, end, step, value, .. } => {
+            generate_slice_assign(state, obj, start, end, step, value)?;
         }
         Stmt::Return { value, .. } => {
             return crate::codegen::control_flow::generate_return(state, value);
@@ -305,6 +314,7 @@ pub(crate) fn generate_stmt_internal<'ctx>(
                         state.list_vars,
                         state.dict_vars,
                         state.bool_list_vars,
+                        state.bytearray_vars,
                         state.bigint_vars,
                         state.var_types,
                         stmt,
