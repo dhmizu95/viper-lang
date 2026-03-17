@@ -27,6 +27,39 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
+        // PRE-PASS: Analyze all function bodies for bytearray returns
+        // This must be done before defining functions so that call sites can
+        // properly infer return types
+        let mut funcs_to_analyze: Vec<(&str, &[Stmt])> = Vec::new();
+        for stmt in stmts {
+            if let Stmt::Function { name, body, .. } = stmt {
+                funcs_to_analyze.push((name, body.as_slice()));
+            }
+        }
+        
+        // Iteratively analyze until no new bytearray functions are found
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for (name, body) in &funcs_to_analyze {
+                let key = format!("__func_returns_bytearray_{}", name);
+                if self.var_types.contains_key(&key) {
+                    continue; // Already analyzed
+                }
+                
+                let known_bytearray_funcs: std::collections::HashSet<String> = self
+                    .var_types
+                    .keys()
+                    .filter_map(|k| k.strip_prefix("__func_returns_bytearray_").map(|s| s.to_string()))
+                    .collect();
+                
+                if crate::codegen::functions::infer_returns_bytearray_from_body(body, &known_bytearray_funcs) {
+                    self.var_types.insert(key, Type::None);
+                    changed = true;
+                }
+            }
+        }
+
         // First pass: declare all functions at this level with closure cell parameters
         for stmt in stmts {
             if let Stmt::Function { name, params, return_type, body, decorators, is_async, .. } = stmt {
@@ -214,11 +247,26 @@ impl<'ctx> CodeGen<'ctx> {
         }
         
         // Save variables from previous function scope
+        // Preserve __func_returns_bytearray_* markers across function scopes
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);
         let saved_list_vars = std::mem::take(&mut self.list_vars);
         let saved_bigint_vars = std::mem::take(&mut self.bigint_vars);
+        
+        // Extract and preserve bytearray function markers
+        let bytearray_markers: std::collections::HashMap<String, Type> = self
+            .var_types
+            .iter()
+            .filter(|(k, _)| k.starts_with("__func_returns_bytearray_"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        
         let saved_var_types = std::mem::take(&mut self.var_types);
+        // Restore bytearray markers
+        for (k, v) in bytearray_markers {
+            self.var_types.insert(k, v);
+        }
+        
         let saved_current_function = self.current_function.clone();
         // Use original (unmangled) name for escape analysis
         self.current_function = Some(original_name.to_string());
@@ -509,11 +557,23 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         // Restore variables for next function
+        // Preserve bytearray function markers
+        let bytearray_markers: std::collections::HashMap<String, Type> = self
+            .var_types
+            .iter()
+            .filter(|(k, _)| k.starts_with("__func_returns_bytearray_"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
         self.bigint_vars = saved_bigint_vars;
         self.var_types = saved_var_types;
+        // Restore bytearray markers
+        for (k, v) in bytearray_markers {
+            self.var_types.insert(k, v);
+        }
         self.current_function = saved_current_function;
 
         Ok(())
@@ -756,11 +816,23 @@ impl<'ctx> CodeGen<'ctx> {
         let _ = self.builder.build_return(Some(&i64_type.const_zero()));
 
         // Restore state
+        // Preserve bytearray function markers
+        let bytearray_markers: std::collections::HashMap<String, Type> = self
+            .var_types
+            .iter()
+            .filter(|(k, _)| k.starts_with("__func_returns_bytearray_"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
         self.bigint_vars = saved_bigint_vars;
         self.var_types = saved_var_types;
+        // Restore bytearray markers
+        for (k, v) in bytearray_markers {
+            self.var_types.insert(k, v);
+        }
         self.current_function = saved_current_function;
 
         Ok(())
@@ -885,11 +957,23 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         // Restore state (including builder position will be reset when we position at wrapper_entry)
+        // Preserve bytearray function markers
+        let bytearray_markers: std::collections::HashMap<String, Type> = self
+            .var_types
+            .iter()
+            .filter(|(k, _)| k.starts_with("__func_returns_bytearray_"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        
         self.variables = saved_variables;
         self.loop_stack = saved_loop_stack;
         self.list_vars = saved_list_vars;
         self.bigint_vars = saved_bigint_vars;
         self.var_types = saved_var_types;
+        // Restore bytearray markers
+        for (k, v) in bytearray_markers {
+            self.var_types.insert(k, v);
+        }
         self.current_function = saved_current_function;
 
         // Now generate the wrapper function with cache logic
