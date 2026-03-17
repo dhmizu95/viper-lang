@@ -304,6 +304,38 @@ pub extern "C" fn vp_math_factorial_large(n: i64) -> f64 {
     result
 }
 
+pub extern "C" fn vp_math_isqrt(n: i64) -> i64 {
+    // Extract the small int value (if it's a small int)
+    // Small ints have LSB = 0, bigints have LSB = 1
+    if (n & 1) != 0 {
+        // This is a tagged pointer (bigint) - can't handle in JIT stub
+        return 0;
+    }
+    
+    // Small int - extract value by shifting right
+    let n_val = n >> 1;
+    
+    if n_val < 0 {
+        return 0;  // Error: negative input, return 0
+    }
+    if n_val == 0 {
+        return 0;  // Tagged 0
+    }
+
+    // Initial guess
+    let mut x = n_val;
+    let mut y = (x + 1) / 2;
+
+    // Newton's method iteration
+    while y < x {
+        x = y;
+        y = (x + n_val / x) / 2;
+    }
+
+    // Tag the result (shift left by 1, LSB = 0 for small int)
+    x << 1
+}
+
 pub extern "C" fn vp_math_comb(n: i64, k: i64) -> i64 {
     if k < 0 || k > n {
         return 0;

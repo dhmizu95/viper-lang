@@ -178,6 +178,7 @@ pub fn register_math_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_math_lcm" => super::super::math_mod::vp_math_lcm,
         "vp_math_factorial" => super::super::math_mod::vp_math_factorial,
         "vp_math_factorial_large" => super::super::math_mod::vp_math_factorial_large,
+        "vp_math_isqrt" => super::super::math_mod::vp_math_isqrt,
         "vp_math_comb" => super::super::math_mod::vp_math_comb,
         "vp_math_perm" => super::super::math_mod::vp_math_perm,
     ]);
