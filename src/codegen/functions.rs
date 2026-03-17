@@ -102,6 +102,7 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
+        Expr::Bytes(_, _) => Type::Bytes,
         Expr::BigInt(_, _) => Type::Int,
         Expr::None(_) => Type::None,
         Expr::Ident(name, _) => param_types
@@ -131,6 +132,13 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
                     | "vp_list_reversed"
                     | "vp_list_zeros"
                     | "vp_list_ones" => Type::List(Box::new(Type::Infer)),
+                    // Bytearray-producing builtins
+                    "bytearray"
+                    | "vp_bytearray_create"
+                    | "vp_bytearray_create_with_capacity"
+                    | "vp_bytearray_repeat"
+                    | "vp_bytearray_slice"
+                    | "vp_bytearray_from_list" => Type::Bytes,
                     // Tuple-producing builtins
                     "tuple" => Type::Tuple(vec![Type::Infer]),
                     // Dict-producing builtins
@@ -185,6 +193,27 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
                 } else if lt == Type::F64 || rt == Type::F64 {
                     Type::F64
                 } else {
+                    Type::Int
+                }
+            }
+            BinOp::Mul => {
+                // Bytearray repetition: bytearray * int = bytearray
+                let lt = infer_type_from_expr(left, param_types);
+                let rt = infer_type_from_expr(right, param_types);
+                if lt == Type::Bytes && (rt == Type::Int || rt == Type::I64) {
+                    Type::Bytes
+                } else if (lt == Type::Int || lt == Type::I64) && rt == Type::Bytes {
+                    Type::Bytes
+                } else if lt == Type::Str && (rt == Type::Int || rt == Type::I64) {
+                    Type::Str
+                } else if (lt == Type::Int || lt == Type::I64) && rt == Type::Str {
+                    Type::Str
+                } else if matches!(lt, Type::List(_)) && (rt == Type::Int || rt == Type::I64) {
+                    lt
+                } else if (lt == Type::Int || lt == Type::I64) && matches!(rt, Type::List(_)) {
+                    rt
+                } else {
+                    // Default to Int for numeric multiplication
                     Type::Int
                 }
             }
