@@ -25,6 +25,7 @@ pub struct CodeGen<'ctx> {
     pub(crate) list_vars: HashSet<String>,
     pub(crate) dict_vars: HashSet<String>,
     pub(crate) bool_list_vars: HashSet<String>,
+    pub(crate) bytearray_vars: HashSet<String>,
     pub(crate) bigint_vars: HashSet<String>,
     pub(crate) var_types: HashMap<String, Type>,
     /// Functions that contain BigInt variables (need special optimization handling)
@@ -66,6 +67,7 @@ impl<'ctx> CodeGen<'ctx> {
             list_vars: HashSet::new(),
             dict_vars: HashSet::new(),
             bool_list_vars: HashSet::new(),
+            bytearray_vars: HashSet::new(),
             bigint_vars: HashSet::new(),
             var_types: HashMap::new(),
             bigint_functions: HashSet::new(),

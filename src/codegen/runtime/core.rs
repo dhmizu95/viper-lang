@@ -28,6 +28,7 @@ pub fn declare_runtime_functions<'ctx>(
     super::logging::declare_logging_functions(context, module)?;
     super::typing::declare_typing_functions(context, module)?;
     super::iterator::declare_iterator_functions(context, module)?;
+    super::time::declare_time_functions(context, module)?;
     Ok(())
 }
 

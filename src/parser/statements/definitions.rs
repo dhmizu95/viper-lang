@@ -412,10 +412,13 @@ fn parse_base_type(parser: &mut StatementParser) -> crate::error::Result<Type> {
             // Generic type application for user-defined types: MyType[T, U]
             _ => {
                 let type_name = name.clone();
-                parser.advance();
-
+                // Check if we reached the end of the identifier but we still need to advance
+                // Note: we advance LATER if it's not a generic application
+                
                 // Check for generic application: Type[T, U, ...]
-                if parser.match_token(&TokenKind::LBracket) {
+                if parser.peek().map_or(false, |t| matches!(t.kind, TokenKind::LBracket)) {
+                    parser.advance(); // consume ident
+                    parser.expect(&TokenKind::LBracket)?;
                     let mut type_args = Vec::new();
                     loop {
                         type_args.push(parse_type_annotation(parser)?);
@@ -428,10 +431,61 @@ fn parse_base_type(parser: &mut StatementParser) -> crate::error::Result<Type> {
                 }
 
                 // Simple type variable or named type
+                parser.advance();
                 Type::Var(type_name)
             }
         },
-        TokenKind::None | TokenKind::Void => Type::None,
+        TokenKind::LParen => {
+            parser.advance();
+            let mut types = Vec::new();
+            if !parser.match_token(&TokenKind::RParen) {
+                loop {
+                    types.push(parse_type_annotation(parser)?);
+                    if !parser.match_token(&TokenKind::Comma) {
+                        break;
+                    }
+                }
+                parser.expect(&TokenKind::RParen)?;
+            }
+            return Ok(Type::Tuple(types));
+        }
+        TokenKind::Tuple => {
+            parser.advance();
+            // Handle tuple[T, U]
+            if parser.match_token(&TokenKind::LBracket) {
+                let mut type_args = Vec::new();
+                loop {
+                    type_args.push(parse_type_annotation(parser)?);
+                    if !parser.match_token(&TokenKind::Comma) {
+                        break;
+                    }
+                }
+                parser.expect(&TokenKind::RBracket)?;
+                return Ok(Type::Tuple(type_args));
+            }
+            // Just "tuple" as a type (placeholder for generic list of objects)
+            return Ok(Type::List(Box::new(Type::Infer)));
+        }
+        TokenKind::Optional => {
+            parser.advance();
+            parser.expect(&TokenKind::LBracket)?;
+            let inner = parse_type_annotation(parser)?;
+            parser.expect(&TokenKind::RBracket)?;
+            return Ok(Type::Optional(Box::new(inner)));
+        }
+        TokenKind::Result => {
+            parser.advance();
+            parser.expect(&TokenKind::LBracket)?;
+            let ok_ty = parse_type_annotation(parser)?;
+            parser.expect(&TokenKind::Comma)?;
+            let err_ty = parse_type_annotation(parser)?;
+            parser.expect(&TokenKind::RBracket)?;
+            return Ok(Type::Result(Box::new(ok_ty), Box::new(err_ty)));
+        }
+        TokenKind::None | TokenKind::Void => {
+            parser.advance();
+            Type::None
+        }
         _ => {
             return crate::parser::parse_error(format!(
                 "Expected type name, found {:?}",
@@ -439,7 +493,6 @@ fn parse_base_type(parser: &mut StatementParser) -> crate::error::Result<Type> {
             ))
         }
     };
-    parser.advance();
 
     // Handle Optional suffix: T?
     if parser.match_token(&TokenKind::Question) {

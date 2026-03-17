@@ -8,6 +8,7 @@ pub mod iterator;
 pub mod json;
 pub mod lists;
 pub mod logging;
+pub mod time;
 pub mod math;
 pub mod memoization;
 pub mod memory;

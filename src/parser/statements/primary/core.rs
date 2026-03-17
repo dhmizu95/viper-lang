@@ -461,7 +461,7 @@ pub fn is_slice_pattern(parser: &mut StatementParser) -> bool {
     while pos < parser.tokens.len() {
         match &parser.tokens[pos].kind {
             TokenKind::Colon if bracket_depth == 1 => return true,
-            TokenKind::RBracket => {
+            TokenKind::RBracket | TokenKind::RParen => {
                 bracket_depth -= 1;
                 if bracket_depth == 0 {
                     return false;

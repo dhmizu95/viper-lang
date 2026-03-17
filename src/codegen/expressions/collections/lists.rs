@@ -319,11 +319,11 @@ pub fn generate_list_comprehension<'ctx>(
     };
 
     // Append to result list
-    state.ir_builder.build_call(
+    let _ = state.ir_builder.build_call(
         state.builder, append_func,
         &[result_list.into(), elem_val.into()],
         "append"
-    ).expect("append failed");
+    );
 
     // Remove loop variables from symbol table
     for var_name in &target_names {

@@ -43,8 +43,20 @@ pub fn generate_len_call<'ctx>(
         let result = state
             .ir_builder
             .build_call(state.builder, tuple_len_func, &[obj_val.into()], "tuple_len")
-            .ok_or_else(|| "Failed to call vp_tuple_len".to_string())?;
-        return Ok(result);
+            .ok_or_else(|| "Failed to call vp_tuple_len".to_string())?
+            .into_int_value();
+
+        // Tag the return value (runtime returns untagged length)
+        let result_tagged = state
+            .builder
+            .build_left_shift(
+                result,
+                state.context.i64_type().const_int(1, false),
+                "tuple_len_tagged",
+            )
+            .expect("failed to tag tuple_len result");
+
+        return Ok(result_tagged.into());
     }
 
     // Check if it's a list (literal, variable, or list repetition/slice)

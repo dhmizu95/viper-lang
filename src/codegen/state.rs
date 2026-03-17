@@ -34,6 +34,7 @@ pub struct CodeGenState<'a, 'ctx> {
     pub list_vars: &'a mut HashSet<String>,
     pub dict_vars: &'a mut HashSet<String>,
     pub bool_list_vars: &'a mut HashSet<String>, // Track bool-specific lists
+    pub bytearray_vars: &'a mut HashSet<String>, // Track bytearray variables
     pub bigint_vars: &'a mut HashSet<String>,    // Track BigInt variables
     pub var_types: &'a mut HashMap<String, Type>, // Type information for variables
     pub escape_analyzer: Option<&'a mut EscapeAnalyzer>,
@@ -66,6 +67,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        bytearray_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
         closure_cells: &'a mut HashMap<String, ClosureCellInfo<'ctx>>,
@@ -82,6 +84,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            bytearray_vars,
             bigint_vars,
             var_types,
             escape_analyzer: None,
@@ -110,6 +113,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        bytearray_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
         escape_analyzer: &'a mut EscapeAnalyzer,
@@ -128,6 +132,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            bytearray_vars,
             bigint_vars,
             var_types,
             escape_analyzer: Some(escape_analyzer),
@@ -156,6 +161,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
         list_vars: &'a mut HashSet<String>,
         dict_vars: &'a mut HashSet<String>,
         bool_list_vars: &'a mut HashSet<String>,
+        bytearray_vars: &'a mut HashSet<String>,
         bigint_vars: &'a mut HashSet<String>,
         var_types: &'a mut HashMap<String, Type>,
         escape_analyzer: &'a mut EscapeAnalyzer,
@@ -175,6 +181,7 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
             list_vars,
             dict_vars,
             bool_list_vars,
+            bytearray_vars,
             bigint_vars,
             var_types,
             escape_analyzer: Some(escape_analyzer),
@@ -294,6 +301,16 @@ impl<'a, 'ctx> CodeGenState<'a, 'ctx> {
     /// Check if a variable is a bool list
     pub fn is_bool_list(&self, name: &str) -> bool {
         self.bool_list_vars.contains(name)
+    }
+
+    /// Mark a variable as a bytearray
+    pub fn mark_as_bytearray(&mut self, name: String) {
+        self.bytearray_vars.insert(name);
+    }
+
+    /// Check if a variable is a bytearray
+    pub fn is_bytearray(&self, name: &str) -> bool {
+        self.bytearray_vars.contains(name)
     }
 
     /// Check if a variable is a dict

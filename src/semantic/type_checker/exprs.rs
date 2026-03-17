@@ -50,6 +50,8 @@ impl TypeChecker {
                                 // Also allow float for list/string repetition
                                 (Type::List(_), Type::F64) | (Type::F64, Type::List(_)) => true,
                                 (Type::Str, Type::F64) | (Type::F64, Type::Str) => true,
+                                (Type::Bytes, Type::I64) | (Type::Bytes, Type::Int) => true,
+                                (Type::I64, Type::Bytes) | (Type::Int, Type::Bytes) => true,
                                 _ => false,
                             };
                             if !is_list_repeat {
@@ -254,6 +256,10 @@ impl TypeChecker {
                                 // Math builtins (not requiring import)
                                 crate::semantic::symbol_table::BuiltinSignature::Abs => {
                                     Some(Type::F64)
+                                }
+                                crate::semantic::symbol_table::BuiltinSignature::Bytearray
+                                | crate::semantic::symbol_table::BuiltinSignature::Bytes => {
+                                    Some(Type::Bytes)
                                 }
                                 _ => None,
                             };

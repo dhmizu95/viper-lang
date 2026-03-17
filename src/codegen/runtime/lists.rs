@@ -469,7 +469,7 @@ pub fn declare_bytearray_functions<'ctx>(
     module.add_function("vp_bytearray_print", bytearray_print_type, None);
 
     // bytearray repeat
-    let bytearray_repeat_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+    let bytearray_repeat_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_bytearray_repeat", bytearray_repeat_type, None);
 
     Ok(())

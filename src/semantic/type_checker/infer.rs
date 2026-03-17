@@ -135,6 +135,7 @@ impl TypeChecker {
                         "int" => Some(Type::I64),
                         "float" => Some(Type::F64),
                         "bool" => Some(Type::Bool),
+                        "bytearray" | "bytes" => Some(Type::Bytes),
                         _ => {
                             // For function calls, use get_function_overloads to find by name prefix
                             let overloads = self.symbol_table.get_function_overloads(name);
@@ -181,6 +182,10 @@ impl TypeChecker {
                                         }
                                         crate::semantic::symbol_table::BuiltinSignature::MaxBigint => {
                                             Some(Type::BigInt)
+                                        }
+                                        crate::semantic::symbol_table::BuiltinSignature::Bytearray
+                                        | crate::semantic::symbol_table::BuiltinSignature::Bytes => {
+                                            Some(Type::Bytes)
                                         }
                                         _ => Some(Type::Infer),
                                     }

@@ -21,6 +21,7 @@ use crate::codegen::expressions::builtins::str::{
     generate_bytes_call, generate_str_call, generate_type_convert,
 };
 use crate::codegen::expressions::builtins::gather::generate_gather_call;
+use crate::codegen::expressions::builtins::time::generate_time_func;
 use crate::codegen::expressions::calls::methods::generate_dict_call;
 use crate::codegen::expressions::collections::{
     generate_bytearray_call, generate_list_call, generate_set_call, generate_tuple_call,
@@ -47,28 +48,33 @@ pub fn generate_call<'ctx>(
         // Handle module.function() calls
         if let Expr::Ident(module_name, _) = obj.as_ref() {
             // Handle math module functions
-            if module_name == "math" {
-                match attr.as_str() {
-                    "isqrt" | "gcd" | "lcm" | "factorial" | "comb" | "perm" => {
-                        // Always use BigInt path for these functions
-                        return generate_math_bigint_func(state, attr, args);
+                if module_name == "math" {
+                    match attr.as_str() {
+                        "isqrt" | "gcd" | "lcm" | "factorial" | "comb" | "perm" => {
+                            // Always use BigInt path for these functions
+                            return generate_math_bigint_func(state, attr, args);
+                        }
+                        "sqrt" | "ln" | "log" | "log10" | "log2" | "exp" | "exp2" | "exp10" => {
+                            return generate_math_float_func(state, attr, args);
+                        }
+                        "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "atan2" => {
+                            return generate_math_float_func(state, attr, args);
+                        }
+                        "floor" | "ceil" | "trunc" | "round" => {
+                            return generate_math_float_func(state, attr, args);
+                        }
+                        "pi" | "e" | "tau" => {
+                            // Math constants - return as float
+                            return generate_math_constant(state, attr);
+                        }
+                        _ => {} // Fall through to standard method dispatch
                     }
-                    "sqrt" | "ln" | "log" | "log10" | "log2" | "exp" | "exp2" | "exp10" => {
-                        return generate_math_float_func(state, attr, args);
-                    }
-                    "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "atan2" => {
-                        return generate_math_float_func(state, attr, args);
-                    }
-                    "floor" | "ceil" | "trunc" | "round" => {
-                        return generate_math_float_func(state, attr, args);
-                    }
-                    "pi" | "e" | "tau" => {
-                        // Math constants - return as float
-                        return generate_math_constant(state, attr);
-                    }
-                    _ => {} // Fall through to standard method dispatch
                 }
-            }
+                
+                // Handle time module functions
+                if module_name == "time" {
+                    return generate_time_func(state, attr, args);
+                }
         }
 
         // First try user-defined class method call
