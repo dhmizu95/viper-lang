@@ -920,7 +920,14 @@ ViperList* vp_enumerate(ViperList* iterable, int64_t start_tagged) {
     for (int64_t i = 0; i < iterable->length; i++) {
         ViperTuple* t = vp_tuple_create(2);
         t->elements[0] = tagged_int_from_i64(start + i);
-        t->elements[1] = vp_list_get(iterable, i);
+        
+        // Handle bit vectors (bool lists) specially
+        if (iterable->elem_type == VIPER_LIST_BITVEC) {
+            bool val = vp_bitvec_get(iterable, i);
+            t->elements[1] = tagged_int_from_i64(val ? 1 : 0);
+        } else {
+            t->elements[1] = vp_list_get(iterable, i);
+        }
         tagged_int_retain(t->elements[1]);
 
         vp_list_append(result, (int64_t)t); // List will retain t

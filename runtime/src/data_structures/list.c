@@ -221,6 +221,9 @@ int64_t vp_list_get(ViperList* list, int64_t index) {
     }
     if (list->elem_type == VIPER_LIST_BOOL) {
         return list->data.data_bool[index];
+    } else if (list->elem_type == VIPER_LIST_GENERIC) {
+        /* Return pointer as int64_t - caller must cast back to appropriate type */
+        return (int64_t)list->data.data_generic[index];
     }
     return list->data.data_i64[index];
 }

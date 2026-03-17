@@ -130,7 +130,19 @@ pub fn generate_list_comprehension<'ctx>(
         .ok_or_else(|| format!("{} not declared", append_func_name))?;
 
     // Analyze iterator
-    let (is_range, start_val, end_val, iter_val, iter_is_float_list) = if let Expr::Call { func, args, .. } = iter {
+    // Check if this is an enumerate() call - we need to handle tuple unpacking specially
+    let is_enumerate = match iter {
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                name == "enumerate"
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
+    let (is_range, start_val, end_val, iter_val, iter_is_float_list, _enumerate_start) = if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
                 let (start, end) = match args.len() {
@@ -144,7 +156,33 @@ pub fn generate_list_comprehension<'ctx>(
                         generate_expr(state, &args[1])?.into_int_value(),
                     ),
                 };
-                (true, start, end, None, false)
+                (true, start, end, None, false, state.context.i64_type().const_int(0, false))
+            } else if name == "enumerate" {
+                // enumerate(iterable, start=0) - returns list of (index, value) tuples
+                let iterable_val = if args.is_empty() {
+                    return crate::codegen::codegen_error("enumerate() requires at least 1 argument".to_string());
+                } else {
+                    generate_expr(state, &args[0])?
+                };
+                let start = if args.len() > 1 {
+                    generate_expr(state, &args[1])?.into_int_value()
+                } else {
+                    state.context.i64_type().const_int(0, false)
+                };
+                // Generate the enumerate call to get the list of tuples
+                let enumerate_func = state.module.get_function("vp_enumerate")
+                    .ok_or("vp_enumerate not declared")?;
+                let enum_list = state.ir_builder.build_call(
+                    state.builder, enumerate_func,
+                    &[iterable_val.into(), start.into()],
+                    "enum_list"
+                ).unwrap();
+                let len_func = state.module.get_function("vp_list_len")
+                    .ok_or("vp_list_len not declared")?;
+                let len = state.ir_builder.build_call(
+                    state.builder, len_func, &[enum_list.into()], "iter_len"
+                ).unwrap().into_int_value();
+                (false, state.context.i64_type().const_int(0, false), len, Some(enum_list), false, start)
             } else {
                 let v = generate_expr(state, iter)?;
                 let len_func = state.module.get_function("vp_list_len")
@@ -152,7 +190,7 @@ pub fn generate_list_comprehension<'ctx>(
                 let len = state.ir_builder.build_call(
                     state.builder, len_func, &[v.into()], "iter_len"
                 ).unwrap().into_int_value();
-                (false, state.context.i64_type().const_int(0, false), len, Some(v), false)
+                (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
             }
         } else {
             let v = generate_expr(state, iter)?;
@@ -161,7 +199,7 @@ pub fn generate_list_comprehension<'ctx>(
             let len = state.ir_builder.build_call(
                 state.builder, len_func, &[v.into()], "iter_len"
             ).unwrap().into_int_value();
-            (false, state.context.i64_type().const_int(0, false), len, Some(v), false)
+            (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
         }
     } else {
         let v = generate_expr(state, iter)?;
@@ -170,7 +208,7 @@ pub fn generate_list_comprehension<'ctx>(
         let len = state.ir_builder.build_call(
             state.builder, len_func, &[v.into()], "iter_len"
         ).unwrap().into_int_value();
-        (false, state.context.i64_type().const_int(0, false), len, Some(v), false)
+        (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
     };
 
     // Extract target variable names
@@ -221,14 +259,48 @@ pub fn generate_list_comprehension<'ctx>(
     state.builder.position_at_end(body_block);
 
     // Bind loop variables
+    // When iterating over enumerate(), we get tuples (index, value) that need to be unpacked
     for (idx, var_name) in target_names.iter().enumerate() {
-        let var_val = if idx == 0 {
-            // First variable is the index/counter
-            counter_val.into()
+        let var_val = if is_enumerate && !target_names.is_empty() {
+            // enumerate() returns list of tuples - we need to unpack them
+            // Fetch the tuple from the list at current counter position
+            if let Some(list_val) = iter_val {
+                let get_func = state.module.get_function("vp_list_get")
+                    .ok_or_else(|| "vp_list_get not declared".to_string())?;
+                let tuple_val_tagged = state.ir_builder.build_call(
+                    state.builder, get_func,
+                    &[list_val.into(), counter_val.into()],
+                    "tuple_elem"
+                ).unwrap();
+
+                // Convert tagged i64 to pointer for vp_tuple_get
+                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                let tuple_val_ptr = state.builder.build_int_to_ptr(
+                    tuple_val_tagged.into_int_value(),
+                    ptr_type,
+                    "tuple_ptr"
+                ).expect("int to ptr");
+
+                // Now extract the appropriate element from the tuple
+                // idx=0 -> first element (index), idx=1 -> second element (value)
+                let tuple_get_func = state.module.get_function("vp_tuple_get")
+                    .ok_or_else(|| "vp_tuple_get not declared".to_string())?;
+
+                let tuple_index = state.context.i64_type().const_int(idx as u64, false);
+                state.ir_builder.build_call(
+                    state.builder, tuple_get_func,
+                    &[tuple_val_ptr.into(), tuple_index.into()],
+                    &format!("enum_elem_{}", idx)
+                ).unwrap()
+            } else {
+                // No list value, fall back to counter
+                counter_val.into()
+            }
         } else if is_range {
+            // For range(), the variable gets the counter value
             counter_val.into()
         } else if let Some(list_val) = iter_val {
-            // Fetch from list
+            // For list iteration, fetch the element from the list
             let get_func_name = if iter_is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
             let get_func = state.module.get_function(get_func_name)
                 .ok_or_else(|| format!("{} not declared", get_func_name))?;
@@ -241,12 +313,8 @@ pub fn generate_list_comprehension<'ctx>(
             counter_val.into()
         };
 
-        let var_type = if idx == 0 { VarType::Int } else if iter_is_float_list { VarType::Float } else { VarType::Int };
-        let storage_type: inkwell::types::BasicTypeEnum = if matches!(var_type, VarType::Float) {
-            state.context.f64_type().into()
-        } else {
-            state.context.i64_type().into()
-        };
+        let var_type = VarType::Int;
+        let storage_type: inkwell::types::BasicTypeEnum = state.context.i64_type().into();
 
         let var_ptr = state.builder.build_alloca(storage_type, var_name).expect("alloca");
         state.builder.build_store(var_ptr, var_val).expect("store");

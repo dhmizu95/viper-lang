@@ -58,3 +58,9 @@ viper compile --auto-memoize program.vp
 # Or via vpm.toml (not working yet)
 [compiler]
 auto_memoize = true
+
+
+JIT mode crashes - The prime sieve crashes in JIT mode but works in AOT mode
+Tagged int multiplication - i * i produces incorrect results
+Enumerate list comprehension - Tuple unpacking in [i for i, v in enumerate(sieve)] not working
+Negative list indexing - list[-1] not working

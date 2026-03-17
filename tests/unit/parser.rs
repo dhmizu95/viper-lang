@@ -572,7 +572,7 @@ fn test_parse_list_comprehension() {
     let expr = parse_expr("[x for x in lst]").unwrap();
     match &expr {
         Expr::ListComprehension { target, .. } => {
-            if let Expr::Ident(name, _) = target {
+            if let Expr::Ident(name, _) = &**target {
                 assert_eq!(name, "x");
             } else {
                 panic!("Expected identifier as target, got {:?}", target);
