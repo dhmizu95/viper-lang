@@ -167,6 +167,20 @@ test()
 }
 
 #[test]
+fn test_for_enumerate_tuple_unpacking() {
+    let code = r#"
+def test():
+    data = [10, 20, 30]
+    total = 0
+    for i, val in enumerate(data):
+        total = total + i + val
+    print(total)
+test()
+"#;
+    assert!(run_viper_code(code).is_ok());
+}
+
+#[test]
 fn test_for_range_two_args() {
     let code = r#"
 def test():

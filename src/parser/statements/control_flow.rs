@@ -75,14 +75,8 @@ pub fn parse_for_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt
     let start_span = parser.current().span;
     parser.expect(&TokenKind::For)?;
 
-    let target = if matches!(parser.current().kind, TokenKind::Ident(_))
-        && matches!(parser.peek().map(|t| &t.kind), Some(TokenKind::In))
-    {
-        let name = parser.expect_ident()?;
-        Ok(Expr::Ident(name, start_span.merge(parser.previous().span)))
-    } else {
-        parse_expression(parser)
-    }?;
+    // Parse the target - can be identifier, tuple unpacking, or expression
+    let target = parse_for_target(parser)?;
     parser.expect(&TokenKind::In)?;
     let iter = parse_expression(parser)?;
     parser.expect(&TokenKind::Colon)?;
@@ -112,14 +106,8 @@ pub fn parse_async_for_stmt(parser: &mut StatementParser) -> crate::error::Resul
     parser.expect(&TokenKind::Async)?;
     parser.expect(&TokenKind::For)?;
 
-    let target = if matches!(parser.current().kind, TokenKind::Ident(_))
-        && matches!(parser.peek().map(|t| &t.kind), Some(TokenKind::In))
-    {
-        let name = parser.expect_ident()?;
-        Ok(Expr::Ident(name, start_span.merge(parser.previous().span)))
-    } else {
-        parse_expression(parser)
-    }?;
+    // Parse the target - can be identifier, tuple unpacking, or expression
+    let target = parse_for_target(parser)?;
     parser.expect(&TokenKind::In)?;
     let iter = parse_expression(parser)?;
     parser.expect(&TokenKind::Colon)?;
@@ -142,6 +130,26 @@ pub fn parse_async_for_stmt(parser: &mut StatementParser) -> crate::error::Resul
         is_async: true,
         span,
     })
+}
+
+fn parse_for_target(parser: &mut StatementParser) -> crate::error::Result<Expr> {
+    let mut target = parse_primary_expr(parser)?;
+
+    // Tuple unpacking: for i, val in ...
+    if parser.match_token(&TokenKind::Comma) {
+        let mut elements = vec![target];
+        loop {
+            elements.push(parse_primary_expr(parser)?);
+            if !parser.match_token(&TokenKind::Comma) {
+                break;
+            }
+        }
+        let last_span = parser.previous().span;
+        let merged_span = elements.first().unwrap().span().merge(last_span);
+        target = Expr::Tuple { elements, span: merged_span };
+    }
+
+    Ok(target)
 }
 pub fn parse_try_stmt(parser: &mut StatementParser) -> crate::error::Result<Stmt> {
     let start_span = parser.current().span;

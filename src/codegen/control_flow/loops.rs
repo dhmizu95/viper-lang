@@ -290,6 +290,65 @@ fn generate_for_with_iterator<'ctx>(
             state
                 .variables
                 .insert(target_name.clone(), VarInfo::new_stack(target_alloca, VarType::Int));
+        } else if let Expr::Tuple { elements, .. } = target {
+            // Tuple unpacking: for i, j in enumerate(ba):
+            // The value from iterator is a pointer to a tuple (as tagged i64)
+            // We need to unpack it into individual variables
+            
+            // Convert the BasicValueEnum to IntValue first
+            let value_int = value.into_int_value();
+            
+            // Convert the i64 value to a pointer
+            let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+            let tuple_ptr = state.builder
+                .build_int_to_ptr(value_int, ptr_type, "tuple_ptr")
+                .expect("int_to_ptr");
+            
+            // Load the elements pointer from the tuple struct (offset 8 = 1 * i64)
+            let elements_ptr_ptr = unsafe {
+                state.builder.build_in_bounds_gep(
+                    state.context.i64_type(),
+                    tuple_ptr,
+                    &[state.context.i64_type().const_int(1, false)],
+                    "elements_ptr_ptr",
+                )
+            }.expect("gep elements_ptr");
+            
+            let elements_ptr = state.builder
+                .build_load(ptr_type, elements_ptr_ptr, "elements_ptr")
+                .expect("load elements_ptr")
+                .into_pointer_value();
+            
+            // For each target element, load and bind the variable
+            for (i, elem) in elements.iter().enumerate() {
+                if let Expr::Ident(name, _) = elem {
+                    // Get the element from the elements array using GEP
+                    let elem_ptr = unsafe {
+                        state.builder.build_in_bounds_gep(
+                            state.context.i64_type(),
+                            elements_ptr,
+                            &[state.context.i64_type().const_int(i as u64, false)],
+                            &format!("elem_{}_ptr", i),
+                        )
+                    }.expect(&format!("gep elem_{}", i));
+                    
+                    // Load the element value
+                    let elem_val = state.builder
+                        .build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
+                        .expect(&format!("load elem_{}", i));
+                    
+                    // Allocate and store
+                    let target_alloca = state.builder
+                        .build_alloca(state.context.i64_type(), name)
+                        .expect(&format!("alloca {}", name));
+                    state.builder.build_store(target_alloca, elem_val).expect("store elem");
+                    
+                    state.variables.insert(
+                        name.clone(),
+                        VarInfo::new_stack(target_alloca, VarType::Int)
+                    );
+                }
+            }
         }
 
         // Push loop context
@@ -770,6 +829,65 @@ pub fn generate_for<'ctx>(
                 },
             )
         }
+    } else if let Expr::Tuple { elements, .. } = target {
+        // Tuple unpacking: for i, j in enumerate(ba):
+        // enumerate returns a list of tuples, we need to unpack each tuple
+        // item_val is a tagged i64 that needs to be converted to a pointer
+        
+        // Convert the tagged i64 to pointer
+        let item_int = item_val.into_int_value();
+        let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+        let item_ptr = state.builder
+            .build_int_to_ptr(item_int, ptr_type, "tuple_ptr")
+            .expect("int_to_ptr");
+        
+        // Load the elements pointer from the tuple struct (offset 8 = 1 * i64)
+        let elements_ptr_ptr = unsafe {
+            state.builder.build_in_bounds_gep(
+                state.context.i64_type(),
+                item_ptr,
+                &[state.context.i64_type().const_int(1, false)],
+                "elements_ptr_ptr",
+            )
+        }.expect("gep elements_ptr");
+        
+        let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+        let elements_ptr = state.builder
+            .build_load(ptr_type, elements_ptr_ptr, "elements_ptr")
+            .expect("load elements_ptr")
+            .into_pointer_value();
+        
+        // For each target element, load and bind the variable
+        for (i, elem) in elements.iter().enumerate() {
+            if let Expr::Ident(name, _) = elem {
+                // Get the element from the elements array using GEP
+                let elem_ptr = unsafe {
+                    state.builder.build_in_bounds_gep(
+                        state.context.i64_type(),
+                        elements_ptr,
+                        &[state.context.i64_type().const_int(i as u64, false)],
+                        &format!("elem_{}_ptr", i),
+                    )
+                }.expect(&format!("gep elem_{}", i));
+                
+                // Load the element value
+                let elem_val = state.builder
+                    .build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
+                    .expect(&format!("load elem_{}", i));
+                
+                // Allocate and store
+                let target_alloca = state.builder
+                    .build_alloca(state.context.i64_type(), name)
+                    .expect(&format!("alloca {}", name));
+                state.builder.build_store(target_alloca, elem_val).expect("store elem");
+                
+                state.variables.insert(
+                    name.clone(),
+                    VarInfo::new_stack(target_alloca, VarType::Int)
+                );
+            }
+        }
+        None
     } else {
         None
     };
