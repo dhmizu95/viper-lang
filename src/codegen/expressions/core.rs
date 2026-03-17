@@ -510,7 +510,7 @@ pub fn generate_expr<'ctx>(
                 // Must promote to tagged BigInt at runtime
                 let func = state
                     .module
-                    .get_function("tagged_int_from_i64")
+                    .get_function("tagged_int_from_i64_export")
                     .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
                 let const_val = state.ir_builder.i64_const(val);
                 let result = state

@@ -72,6 +72,9 @@ static inline TaggedInt tagged_int_from_i64(int64_t value) {
     return ((uint64_t)value << 1) | TAGGED_INT_SMALL;
 }
 
+/* Exported version for LLVM codegen */
+TaggedInt tagged_int_from_i64_export(int64_t value);
+
 /**
  * Create a TaggedInt from a BigInt
  */

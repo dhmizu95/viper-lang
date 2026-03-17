@@ -114,7 +114,7 @@ pub fn declare_tagged_int_functions<'ctx>(
 
     // Utility functions
     // tagged_int_from_i64
-    let func = module.add_function("tagged_int_from_i64", tagged_unary_type, None);
+    let func = module.add_function("tagged_int_from_i64_export", tagged_unary_type, None);
     add_opt_attrs(func);
 
     // tagged_int_from_str (has side effects - parses string)
@@ -470,13 +470,13 @@ pub fn generate_tagged_int_from_i64<'ctx>(
 ) -> crate::codegen::Result<BasicValueEnum<'ctx>> {
     let func = state
         .module
-        .get_function("tagged_int_from_i64")
-        .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
+        .get_function("tagged_int_from_i64_export")
+        .ok_or_else(|| "tagged_int_from_i64_export not declared".to_string())?;
 
     let result = state
         .ir_builder
         .build_call(state.builder, func, &[value.into()], "tagged_from_i64")
-        .expect("tagged_int_from_i64 call");
+        .expect("tagged_int_from_i64_export call");
 
     Ok(result.into())
 }

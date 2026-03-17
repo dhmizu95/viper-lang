@@ -58,7 +58,7 @@ pub fn generate_type_convert<'ctx>(
                 // Already an i64, convert to tagged int
                 let from_i64_func = state
                     .module
-                    .get_function("tagged_int_from_i64")
+                    .get_function("tagged_int_from_i64_export")
                     .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
                 let result = state
                     .ir_builder
@@ -74,7 +74,7 @@ pub fn generate_type_convert<'ctx>(
                     .expect("float to int conversion");
                 let from_i64_func = state
                     .module
-                    .get_function("tagged_int_from_i64")
+                    .get_function("tagged_int_from_i64_export")
                     .ok_or_else(|| "tagged_int_from_i64 not declared".to_string())?;
                 let result = state
                     .ir_builder

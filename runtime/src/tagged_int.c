@@ -960,3 +960,11 @@ bool vp_runtime_gt(TaggedInt a, TaggedInt b) {
 TaggedInt vp_runtime_neg(TaggedInt a) {
     return tagged_int_neg(a);
 }
+
+/**
+ * Exported version of tagged_int_from_i64 for LLVM codegen
+ * This is needed because the inline version isn't exported in the library
+ */
+TaggedInt tagged_int_from_i64_export(int64_t value) {
+    return tagged_int_from_i64(value);
+}
