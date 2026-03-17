@@ -158,6 +158,31 @@ pub fn generate_index<'ctx>(
         inferred_type
     };
 
+    // Check if this is a bytearray access
+    let is_bytearray = match obj {
+        Expr::Ident(name, _) => state.is_bytearray(name),
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bytearray"
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            // Handle bytearray * n pattern
+            if let Expr::Call { func, .. } = left.as_ref() {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "bytearray"
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
     let (is_list, is_float_list, is_bool_list) = match &obj_type {
         Type::List(inner) => match &**inner {
             Type::F64 => (true, true, false),
@@ -204,9 +229,40 @@ pub fn generate_index<'ctx>(
     // For pointer-typed objects, distinguish between lists and other pointers (strings, etc.)
     let is_pointer_type = obj_val.is_pointer_value();
 
-    
+    // Handle bytearray indexing - bytearray stores raw bytes (i8), returns i64
+    if is_bytearray && is_pointer_type {
+        let bytearray_ptr = obj_val.into_pointer_value();
+        
+        // Untag the index (tagged ints are shifted left by 1)
+        let index_untagged = state
+            .builder
+            .build_right_shift(
+                index_val,
+                state.context.i64_type().const_int(1, false),
+                false,
+                "index_untagged",
+            )
+            .map_err(|e| format!("Failed to untag index: {:?}", e))?;
 
-    
+        // Call vp_bytearray_get(bytearray: ViperByteArray*, index: i64) -> i64
+        let bytearray_get = state
+            .module
+            .get_function("vp_bytearray_get")
+            .ok_or_else(|| "vp_bytearray_get not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                bytearray_get,
+                &[bytearray_ptr.into(), index_untagged.into()],
+                "bytearray_get",
+            )
+            .ok_or_else(|| "vp_bytearray_get call failed".to_string())?;
+
+        return Ok(result);
+    }
+
     // Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {

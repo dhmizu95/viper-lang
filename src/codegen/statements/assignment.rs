@@ -641,8 +641,14 @@ pub(crate) fn generate_assign<'ctx>(
             matches!(obj.as_ref(), Expr::List { .. })
         };
 
+        // Check if this is a bytearray
+        let is_bytearray_assign = match obj.as_ref() {
+            Expr::Ident(name, _) => state.is_bytearray(name),
+            _ => false,
+        };
+
         // Check if this is an array (pointer) or list
-        if obj_val.is_pointer_value() && !is_list {
+        if obj_val.is_pointer_value() && !is_list && !is_bytearray_assign {
             // Array index assignment using GEP and store
             let obj_ptr = obj_val.into_pointer_value();
             let elem_type = value_val.get_type();
@@ -656,6 +662,37 @@ pub(crate) fn generate_assign<'ctx>(
                 .builder
                 .build_store(elem_ptr, value_val)
                 .map_err(|e| format!("Failed to store array element: {:?}", e))?;
+        } else if is_bytearray_assign && obj_val.is_pointer_value() {
+            // Bytearray index assignment using vp_bytearray_set
+            // Untag the index (tagged ints are shifted left by 1)
+            let index_untagged = state
+                .builder
+                .build_right_shift(
+                    index_val,
+                    state.context.i64_type().const_int(1, false),
+                    false,
+                    "index_untagged",
+                )
+                .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
+            // Value should be an integer
+            let value_int = if value_val.is_int_value() {
+                value_val.into_int_value()
+            } else {
+                return crate::codegen::codegen_error("Bytearray assignment requires integer value".to_string());
+            };
+
+            let bytearray_set = state
+                .module
+                .get_function("vp_bytearray_set")
+                .ok_or_else(|| "vp_bytearray_set not declared".to_string())?;
+
+            let _result = state.ir_builder.build_call(
+                state.builder,
+                bytearray_set,
+                &[obj_val.into(), index_untagged.into(), value_int.into()],
+                "bytearray_set",
+            );
         } else {
             let is_float_list = if let Expr::Ident(name, _) = obj.as_ref() {
                 matches!(name.as_str(), "x" | "y" | "z" | "vx" | "vy" | "vz" | "mass")
