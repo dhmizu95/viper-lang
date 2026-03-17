@@ -78,7 +78,9 @@ pub fn generate_print_call<'ctx>(
             let is_bytes_arg = match arg {
                 Expr::Bytes(_, _) => true,
                 Expr::Ident(name, _) => {
+                    // Check both VarType and Type for bytes
                     state.variables.get(name).map_or(false, |v| v.var_type == VarType::Bytes)
+                    || state.var_types.get(name).map_or(false, |t| matches!(t, Type::Bytes))
                 }
                 _ => false,
             };

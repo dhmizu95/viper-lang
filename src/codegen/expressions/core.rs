@@ -414,7 +414,9 @@ fn convert_value_to_string<'ctx>(
             .build_call(state.builder, str_func, &[elem_val.into()], "elem_to_str")
             .unwrap())
     } else if elem_val.is_pointer_value() {
-        // Already a string or other pointer - use directly
+        // Check if this is bytes - need to convert bytes to string for f-string
+        // For now, pass through as-is (bytes will be handled by print function)
+        // TODO: Add proper bytes-to-str conversion if needed
         Ok(elem_val)
     } else if elem_val.is_int_value() {
         let int_val = elem_val.into_int_value();
@@ -563,12 +565,17 @@ pub fn generate_expr<'ctx>(
             let create_func = state.module.get_function("vp_bytes_create").ok_or_else(|| {
                 "vp_bytes_create not declared. Add to runtime library.".to_string()
             })?;
+            
+            // Cast the array pointer to i8* for the runtime function
+            let i8_ptr_type = state.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+            let bytes_data = state.builder.build_pointer_cast(bytes_val, i8_ptr_type, "bytes_data").expect("cast");
+            
             let result = state
                 .ir_builder
                 .build_call(
                     state.builder,
                     create_func,
-                    &[bytes_val.into(), state.ir_builder.i64_const(b.len() as i64).into()],
+                    &[bytes_data.into(), state.ir_builder.i64_const(b.len() as i64).into()],
                     "bytes_create",
                 )
                 .unwrap();

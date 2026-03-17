@@ -182,14 +182,14 @@ pub fn generate_len_call<'ctx>(
             let result =
                 state.ir_builder.build_call(state.builder, str_len_func, &[str_val.into()], "str_len")
                 .unwrap().into_int_value();
-            
+
             // Tag the result
             let result_tagged = state.builder.build_left_shift(
                 result,
                 state.context.i64_type().const_int(1, false),
                 "bigint_str_len_tagged"
             ).expect("tag bigint str len");
-            
+
             return Ok(result_tagged.into());
         }
 
@@ -201,14 +201,47 @@ pub fn generate_len_call<'ctx>(
         let result =
             state.ir_builder.build_call(state.builder, str_len_func, &[obj_val.into()], "str_len")
             .unwrap().into_int_value();
-            
+
         // Tag the result
         let result_tagged = state.builder.build_left_shift(
             result,
             state.context.i64_type().const_int(1, false),
             "str_len_tagged"
         ).expect("tag str len");
-        
+
+        return Ok(result_tagged.into());
+    }
+
+    // Check if it's bytes
+    let is_bytes = match obj_expr {
+        Expr::Bytes(_, _) => true,
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, crate::ast::Type::Bytes)
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
+    if is_bytes && obj_val.is_pointer_value() {
+        // Call vp_bytes_len for bytes
+        let bytes_len_func = state
+            .module
+            .get_function("vp_bytes_len")
+            .ok_or_else(|| "vp_bytes_len not declared".to_string())?;
+        let result =
+            state.ir_builder.build_call(state.builder, bytes_len_func, &[obj_val.into()], "bytes_len")
+            .unwrap().into_int_value();
+
+        // Tag the result
+        let result_tagged = state.builder.build_left_shift(
+            result,
+            state.context.i64_type().const_int(1, false),
+            "bytes_len_tagged"
+        ).expect("tag bytes len");
+
         return Ok(result_tagged.into());
     }
 

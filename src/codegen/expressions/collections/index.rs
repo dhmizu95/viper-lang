@@ -263,6 +263,51 @@ pub fn generate_index<'ctx>(
         return Ok(result);
     }
 
+    // Handle bytes indexing - bytes stores raw bytes, returns i64
+    let is_bytes = match obj {
+        Expr::Bytes(_, _) => true,
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, Type::Bytes)
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+    if is_bytes && is_pointer_type {
+        let bytes_ptr = obj_val.into_pointer_value();
+        
+        // Untag the index (tagged ints are shifted left by 1)
+        let index_untagged = state
+            .builder
+            .build_right_shift(
+                index_val,
+                state.context.i64_type().const_int(1, false),
+                false,
+                "index_untagged",
+            )
+            .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
+        // Call vp_bytes_get(bytes: ViperBytes*, index: i64) -> i64
+        let bytes_get = state
+            .module
+            .get_function("vp_bytes_get")
+            .ok_or_else(|| "vp_bytes_get not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                bytes_get,
+                &[bytes_ptr.into(), index_untagged.into()],
+                "bytes_get",
+            )
+            .ok_or_else(|| "vp_bytes_get call failed".to_string())?;
+
+        return Ok(result);
+    }
+
     // Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {
