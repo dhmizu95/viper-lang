@@ -77,6 +77,25 @@ pub fn generate_slice<'ctx>(
         }
     };
 
+    // Untag start, end and step values if they are tagged integers
+    let untag_val = |state: &mut CodeGenState<'_, 'ctx>, val: BasicValueEnum<'ctx>| {
+        if val.is_int_value() {
+            let int_val = val.into_int_value();
+            // Tagged ints have bit 0 set to 0. We shift right by 1 to untag.
+            state.builder.build_right_shift(
+                int_val,
+                state.context.i64_type().const_int(1, false),
+                false,
+                "untagged"
+            ).unwrap().into()
+        } else {
+            val
+        }
+    };
+
+    let start_untagged = untag_val(state, start_val);
+    let end_untagged = untag_val(state, end_val);
+
     // For strings, use vp_str_slice (doesn't support step)
     if is_string {
         let str_slice = state
@@ -89,7 +108,7 @@ pub fn generate_slice<'ctx>(
             .build_call(
                 state.builder,
                 str_slice,
-                &[obj_val.into(), start_val.into(), end_val.into()],
+                &[obj_val.into(), start_untagged.into(), end_untagged.into()],
                 "str_slice",
             )
             .ok_or_else(|| "build call failed".to_string())?;
@@ -101,8 +120,10 @@ pub fn generate_slice<'ctx>(
     let step_val = if let Some(step_expr) = step {
         generate_expr(state, step_expr)?
     } else {
-        state.ir_builder.i64_const(1).into()
+        state.ir_builder.i64_const(2).into() // Tagged 1 is 2
     };
+
+    let step_untagged = untag_val(state, step_val);
 
     // Call appropriate slice function based on element type
     let slice_func = if is_bool_list {
@@ -122,7 +143,7 @@ pub fn generate_slice<'ctx>(
         .build_call(
             state.builder,
             slice_func,
-            &[obj_val.into(), start_val.into(), end_val.into(), step_val.into()],
+            &[obj_val.into(), start_untagged.into(), end_untagged.into(), step_untagged.into()],
             "list_slice",
         )
         .ok_or_else(|| "build call failed".to_string())?;

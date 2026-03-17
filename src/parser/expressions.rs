@@ -860,7 +860,7 @@ impl<'a> PrattParser<'a> {
         while pos < self.tokens.len() {
             match &self.tokens[pos].kind {
                 TokenKind::Colon if bracket_depth == 1 => return true,
-                TokenKind::RBracket => {
+                TokenKind::RBracket | TokenKind::RParen => {
                     bracket_depth -= 1;
                     if bracket_depth == 0 {
                         return false;

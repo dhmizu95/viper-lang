@@ -179,12 +179,15 @@ pub fn generate_index<'ctx>(
         _ => {
             // Fallback for cases where type inference failed but it might still be a list
             let is_list = match obj {
-                Expr::List { .. } | Expr::ListComprehension { .. } => true,
+                Expr::List { .. } | Expr::ListComprehension { .. } | Expr::Slice { .. } => true,
                 Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
                     matches!(left.as_ref(), Expr::List { .. })
                 }
                 Expr::Ident(name, _) => state.is_list(name),
-                _ => false,
+                _ => {
+                    let inferred = crate::codegen::expressions::core::infer_expr_type(obj);
+                    matches!(inferred, crate::ast::Type::List(_))
+                }
             };
             let is_bool_list = if is_list {
                 match obj {
@@ -272,8 +275,24 @@ pub fn generate_index<'ctx>(
         return Ok(result);
     }
 
-    // For non-list pointers (strings, arrays), use array indexing
-    if is_pointer_type {
+    // For non-list pointers (known strings or arrays), use array indexing
+    let is_string_or_array = match obj {
+        Expr::Str(..) | Expr::FString(..) => true,
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, Type::Str | Type::Array(..))
+            } else {
+                false
+            }
+        }
+        Expr::Array { .. } => true,
+        _ => {
+             let inferred = crate::codegen::expressions::core::infer_expr_type(obj);
+             matches!(inferred, Type::Str | Type::Array(..))
+        }
+    };
+
+    if is_pointer_type && is_string_or_array {
         let obj_ptr = obj_val.into_pointer_value();
 
         // Determine element type based on the object
@@ -378,9 +397,20 @@ pub fn generate_index<'ctx>(
         .get_function("vp_list_get")
         .ok_or_else(|| "vp_list_get not declared".to_string())?;
 
+    // Untag the index for the runtime call
+    let index_untagged = state
+        .builder
+        .build_right_shift(
+            index_val,
+            state.context.i64_type().const_int(1, false),
+            false,
+            "fallback_index_untagged",
+        )
+        .map_err(|e| format!("Failed to untag index: {:?}", e))?;
+
     let result = state
         .ir_builder
-        .build_call(state.builder, list_get, &[obj_val.into(), index_val.into()], "list_get")
+        .build_call(state.builder, list_get, &[obj_val.into(), index_untagged.into()], "list_get")
         .ok_or_else(|| "build call failed".to_string())?;
 
     Ok(result)

@@ -59,14 +59,12 @@ pub fn generate_print_call<'ctx>(
             // Check if this is a list - if so, use vp_list_print
             let is_list_arg = match arg {
                 Expr::Ident(name, _) => state.is_list(name),
-                Expr::List { .. } | Expr::ListComprehension { .. } => true,
-                // Check if it's a call to a list-returning function
-                Expr::Call { .. } => {
-                    // Check if the function returns a list type
+                Expr::List { .. } | Expr::ListComprehension { .. } | Expr::Slice { .. } => true,
+                // Check if it's a call/expression that returns a list type
+                _ => {
                     let inferred = infer_expr_type(arg);
                     matches!(inferred, Type::List(_))
                 }
-                _ => false,
             };
 
             // Check if this is a dict
