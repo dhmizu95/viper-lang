@@ -232,14 +232,14 @@ pub fn generate_index<'ctx>(
     // Handle bytearray indexing - bytearray stores raw bytes (i8), returns i64
     if is_bytearray && is_pointer_type {
         let bytearray_ptr = obj_val.into_pointer_value();
-        
+
         // Untag the index (tagged ints are shifted left by 1)
         let index_untagged = state
             .builder
             .build_right_shift(
                 index_val,
                 state.context.i64_type().const_int(1, false),
-                false,
+                true,
                 "index_untagged",
             )
             .map_err(|e| format!("Failed to untag index: {:?}", e))?;
@@ -277,14 +277,14 @@ pub fn generate_index<'ctx>(
     };
     if is_bytes && is_pointer_type {
         let bytes_ptr = obj_val.into_pointer_value();
-        
+
         // Untag the index (tagged ints are shifted left by 1)
         let index_untagged = state
             .builder
             .build_right_shift(
                 index_val,
                 state.context.i64_type().const_int(1, false),
-                false,
+                true,
                 "index_untagged",
             )
             .map_err(|e| format!("Failed to untag index: {:?}", e))?;
@@ -308,7 +308,42 @@ pub fn generate_index<'ctx>(
         return Ok(result);
     }
 
-    // Lists need to use inline GEP + load for better performance
+    // TEMPORARILY DISABLED: Lists need to use inline GEP + load for better performance
+    // Other pointers (strings, arrays) use array GEP
+    // if is_pointer_type && is_list {
+    //     let list_ptr = obj_val.into_pointer_value();
+
+    //     // Use inline bit vector get for bool lists (more memory efficient)
+    //     if is_bool_list {
+    //         let bool_val = inline_bool_list_get(state, list_ptr, index_val)
+    //             .map_err(|e| format!("Inline bool list get failed: {:?}", e))?;
+
+    //         // Convert bool to i64 for compatibility with print() and other functions
+    //         let bool_int = bool_val.into_int_value();
+    //         let i64_val = state
+    //             .builder
+    //             .build_int_z_extend(bool_int, state.context.i64_type(), "bool_to_i64")
+    //             .map_err(|e| format!("Failed to extend bool to i64: {:?}", e))?;
+
+    //         return Ok(i64_val.into());
+    //     }
+
+    //     // Use inline f64 get for float lists
+    //     if is_float_list {
+    //         let f64_val = inline_f64_list_get(state, list_ptr, index_val)
+    //             .map_err(|e| format!("Inline f64 list get failed: {:?}", e))?;
+
+    //         return Ok(f64_val);
+    //     }
+
+    //     // Use inline i64 get for standard integer lists
+    //     let i64_val = inline_i64_list_get(state, list_ptr, index_val)
+    //         .map_err(|e| format!("Inline i64 list get failed: {:?}", e))?;
+
+    //     return Ok(i64_val);
+    // }
+
+    // TEMPORARILY DISABLED: Lists need to use inline GEP + load for better performance
     // Other pointers (strings, arrays) use array GEP
     if is_pointer_type && is_list {
         let list_ptr = obj_val.into_pointer_value();
@@ -358,7 +393,7 @@ pub fn generate_index<'ctx>(
             .build_right_shift(
                 index_val,
                 state.context.i64_type().const_int(1, false),
-                false,
+                true,
                 "index_untagged",
             )
             .map_err(|e| format!("Failed to untag index: {:?}", e))?;
@@ -388,8 +423,8 @@ pub fn generate_index<'ctx>(
         }
         Expr::Array { .. } => true,
         _ => {
-             let inferred = crate::codegen::expressions::core::infer_expr_type(obj);
-             matches!(inferred, Type::Str | Type::Array(..))
+            let inferred = crate::codegen::expressions::core::infer_expr_type(obj);
+            matches!(inferred, Type::Str | Type::Array(..))
         }
     };
 
@@ -504,7 +539,7 @@ pub fn generate_index<'ctx>(
         .build_right_shift(
             index_val,
             state.context.i64_type().const_int(1, false),
-            false,
+            true,
             "fallback_index_untagged",
         )
         .map_err(|e| format!("Failed to untag index: {:?}", e))?;

@@ -42,12 +42,8 @@ fn create_viper_list_stub(capacity: i64) -> *mut ViperListStub {
         std::ptr::write_bytes(data_ptr, 0, capacity as usize);
     }
 
-    let list = Box::new(ViperListStub {
-        length: 0,
-        capacity,
-        elem_type: VIPER_LIST_I64,
-        data: data_ptr,
-    });
+    let list =
+        Box::new(ViperListStub { length: 0, capacity, elem_type: VIPER_LIST_I64, data: data_ptr });
 
     Box::into_raw(list)
 }
@@ -661,11 +657,7 @@ pub extern "C" fn vp_list_grow_stub(_list: *mut std::ffi::c_void) {
     }
     unsafe {
         let list_ref = &mut *(_list as *mut ViperListStub);
-        let new_capacity = if list_ref.capacity > 0 {
-            list_ref.capacity * 2
-        } else {
-            8
-        };
+        let new_capacity = if list_ref.capacity > 0 { list_ref.capacity * 2 } else { 8 };
 
         let new_data = libc::realloc(
             list_ref.data as *mut std::ffi::c_void,
