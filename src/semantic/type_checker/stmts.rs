@@ -1,6 +1,7 @@
 use crate::ast::{Expr, SelectCaseKind, Stmt, Type};
 use crate::semantic::symbol_table::{Symbol, SymbolKind};
 use crate::semantic::type_checker::{TypeChecker, TypeError};
+use crate::utils::mangle_function_name;
 
 impl TypeChecker {
     fn infer_return_type_from_stmts(&mut self, body: &[Stmt]) -> Option<Type> {
@@ -337,7 +338,7 @@ impl TypeChecker {
                 self.symbol_table.exit_scope();
             }
             Stmt::Function {
-                name: _,
+                name,
                 type_params: _,
                 params,
                 return_type,
@@ -359,6 +360,24 @@ impl TypeChecker {
                 }
 
                 self.current_return_type = inferred_return_type.clone();
+
+                // Update the function symbol with the inferred return type so callers can use it.
+                // This keeps return type inference consistent across the module.
+                let param_types: Vec<Type> = params
+                    .iter()
+                    .map(|p| {
+                        p.type_ann
+                            .as_ref()
+                            .map(|t| self.normalize_type(t))
+                            .unwrap_or(Type::Infer)
+                    })
+                    .collect();
+                let mangled_name = mangle_function_name(name, &param_types);
+                if let Some(symbol) = self.symbol_table.lookup_mut(&mangled_name) {
+                    if let SymbolKind::Function { return_type: sym_ret, .. } = &mut symbol.kind {
+                        *sym_ret = inferred_return_type.clone();
+                    }
+                }
 
                 // Add parameters to scope
                 for param in params {

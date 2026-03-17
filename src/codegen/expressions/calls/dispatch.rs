@@ -730,8 +730,8 @@ pub(crate) fn infer_named_call_return_type<'ctx>(
         return Some(Type::F64);
     }
     if return_type.is_pointer_type() {
-        // For pointer returns, check if this is a known bytearray-returning function
-        if name.contains("bytearray") || name.contains("byte") {
+        // For pointer returns, check if function is marked as returning bytearray
+        if state.var_types.contains_key(&format!("__func_returns_bytearray_{}", name)) {
             return Some(Type::Bytes);
         }
         // Check if any argument is a bytearray - function might return same type

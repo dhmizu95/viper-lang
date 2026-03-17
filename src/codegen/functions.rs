@@ -5,7 +5,7 @@ use crate::utils::mangle_function_name;
 use inkwell::context::Context;
 use inkwell::types::BasicType;
 use inkwell::values::FunctionValue;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::codegen::types::TypeMapper;
 
@@ -51,6 +51,52 @@ pub(crate) fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String,
     None
 }
 
+pub(crate) fn infer_returns_bytearray_from_body(
+    body: &[Stmt],
+    known_bytearray_funcs: &HashSet<String>,
+) -> bool {
+    let mut local_bytearray_vars: HashSet<String> = HashSet::new();
+    collect_local_bytearray_vars(body, &mut local_bytearray_vars, known_bytearray_funcs);
+
+    for stmt in body {
+        match stmt {
+            Stmt::Return { value: Some(expr), .. } => {
+                if expr_is_bytearray(expr, &local_bytearray_vars, known_bytearray_funcs) {
+                    return true;
+                }
+            }
+            Stmt::If { body, elif_blocks, else_body, .. } => {
+                if infer_returns_bytearray_from_body(body, known_bytearray_funcs) {
+                    return true;
+                }
+                for (_, elif_body) in elif_blocks {
+                    if infer_returns_bytearray_from_body(elif_body, known_bytearray_funcs) {
+                        return true;
+                    }
+                }
+                if let Some(else_stmts) = else_body {
+                    if infer_returns_bytearray_from_body(else_stmts, known_bytearray_funcs) {
+                        return true;
+                    }
+                }
+            }
+            Stmt::While { body, else_body, .. } | Stmt::For { body, else_body, .. } => {
+                if infer_returns_bytearray_from_body(body, known_bytearray_funcs) {
+                    return true;
+                }
+                if let Some(else_stmts) = else_body {
+                    if infer_returns_bytearray_from_body(else_stmts, known_bytearray_funcs) {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    false
+}
+
 /// Collect local variable types from assignment statements.
 /// Scans assignments like `e = 0.0` and infers that `e` is F64.
 fn collect_local_var_types(body: &[Stmt], param_types: &[(String, Type)], out: &mut Vec<(String, Type)>) {
@@ -91,6 +137,75 @@ fn collect_local_var_types(body: &[Stmt], param_types: &[(String, Type)], out: &
             }
             _ => {}
         }
+    }
+}
+
+fn collect_local_bytearray_vars(
+    body: &[Stmt],
+    bytearray_vars: &mut HashSet<String>,
+    known_bytearray_funcs: &HashSet<String>,
+) {
+    for stmt in body {
+        match stmt {
+            Stmt::Assign { target, value, .. } => {
+                if let Expr::Ident(var_name, _) = target.as_ref() {
+                    if expr_is_bytearray(value, bytearray_vars, known_bytearray_funcs) {
+                        bytearray_vars.insert(var_name.clone());
+                    }
+                }
+            }
+            Stmt::Declare { name, value, .. } => {
+                if let Some(val_expr) = value {
+                    if expr_is_bytearray(val_expr, bytearray_vars, known_bytearray_funcs) {
+                        bytearray_vars.insert(name.clone());
+                    }
+                }
+            }
+            Stmt::If { body, elif_blocks, else_body, .. } => {
+                collect_local_bytearray_vars(body, bytearray_vars, known_bytearray_funcs);
+                for (_, b) in elif_blocks {
+                    collect_local_bytearray_vars(b, bytearray_vars, known_bytearray_funcs);
+                }
+                if let Some(b) = else_body {
+                    collect_local_bytearray_vars(b, bytearray_vars, known_bytearray_funcs);
+                }
+            }
+            Stmt::While { body, .. } | Stmt::For { body, .. } => {
+                collect_local_bytearray_vars(body, bytearray_vars, known_bytearray_funcs);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn expr_is_bytearray(
+    expr: &Expr,
+    bytearray_vars: &HashSet<String>,
+    known_bytearray_funcs: &HashSet<String>,
+) -> bool {
+    use crate::ast::BinOp;
+
+    match expr {
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                matches!(
+                    name.as_str(),
+                    "bytearray"
+                        | "vp_bytearray_create"
+                        | "vp_bytearray_create_with_capacity"
+                        | "vp_bytearray_repeat"
+                        | "vp_bytearray_slice"
+                        | "vp_bytearray_from_list"
+                ) || known_bytearray_funcs.contains(name)
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: BinOp::Mul, left, .. } => {
+            expr_is_bytearray(left, bytearray_vars, known_bytearray_funcs)
+        }
+        Expr::Ident(name, _) => bytearray_vars.contains(name),
+        _ => false,
     }
 }
 

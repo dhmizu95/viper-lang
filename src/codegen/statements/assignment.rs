@@ -388,33 +388,23 @@ pub(crate) fn generate_assign<'ctx>(
             }
             _ => false,
         };
-        
-        // Also check for user-defined functions that might return bytearray
-        // by checking if the function's LLVM return type is a pointer and
-        // the function name suggests it returns bytes
+
+        // Also check for user-defined functions that return bytearray
+        // by checking if the function is marked as returning bytearray
         if !is_bytearray {
             if let Expr::Call { func, .. } = value {
                 if let Expr::Ident(func_name, _) = func.as_ref() {
-                    // Check if this is a user-defined function (not a runtime builtin)
-                    if !func_name.starts_with("vp_") && func_name != "bytearray" {
-                        // Check if the function exists and returns a pointer
-                        if let Some(func_val) = state.module.get_function(func_name) {
-                            if let Some(ret_type) = func_val.get_type().get_return_type() {
-                                if ret_type.is_pointer_type() {
-                                    // Function returns a pointer - could be bytearray
-                                    // Check function name for hints
-                                    if func_name.contains("bytearray") || func_name.contains("byte")
-                                        || func_name.contains("buffer") || func_name.contains("ba") {
-                                        is_bytearray = true;
-                                    }
-                                }
-                            }
-                        }
+                    // Check if function body analysis marked this as bytearray-returning
+                    if state
+                        .var_types
+                        .contains_key(&format!("__func_returns_bytearray_{}", func_name))
+                    {
+                        is_bytearray = true;
                     }
                 }
             }
         }
-        
+
         if is_bytearray {
             state.mark_as_bytearray(name.clone());
         } else {

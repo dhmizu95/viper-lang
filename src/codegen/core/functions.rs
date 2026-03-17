@@ -196,6 +196,22 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(ref ret_ty) = inferred_return_type {
             self.var_types.insert(format!("__func_return_{}", original_name), ret_ty.clone());
         }
+
+        // Track bytearray-returning functions so assignments can mark bytearray vars correctly.
+        let mut known_bytearray_funcs: std::collections::HashSet<String> = self
+            .var_types
+            .keys()
+            .filter_map(|k| k.strip_prefix("__func_returns_bytearray_").map(|s| s.to_string()))
+            .collect();
+        // Avoid self-recursion relying on a marker that isn't set yet.
+        known_bytearray_funcs.remove(original_name);
+        if crate::codegen::functions::infer_returns_bytearray_from_body(body, &known_bytearray_funcs)
+        {
+            self.var_types.insert(
+                format!("__func_returns_bytearray_{}", original_name),
+                Type::None,
+            );
+        }
         
         // Save variables from previous function scope
         let saved_variables = std::mem::take(&mut self.variables);
