@@ -1,5 +1,61 @@
 use crate::ast::{Expr, Stmt};
 use crate::codegen::state::CodeGenState;
+use inkwell::values::BasicValueEnum;
+
+/// Convert a value to a boolean (i1) for conditional branching.
+/// For pointers (lists): non-empty = true, empty = false
+/// For integers: non-zero = true, zero = false
+/// For bools (i1): use directly
+fn convert_to_bool<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    value: BasicValueEnum<'ctx>,
+    name: &str,
+) -> crate::codegen::Result<inkwell::values::IntValue<'ctx>> {
+    match value {
+        BasicValueEnum::PointerValue(ptr) => {
+            // For lists, check if length > 0 (Python: empty collections are falsy)
+            // ViperList struct: length is at offset 0 (i64)
+            let i64_ptr = state
+                .builder
+                .build_pointer_cast(ptr, state.context.i64_type().ptr_type(inkwell::AddressSpace::default()), &format!("{}_as_i64_ptr", name))
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to cast pointer: {:?}", e)))?;
+            let length = state
+                .builder
+                .build_load(state.context.i64_type(), i64_ptr, &format!("{}_length", name))
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to load length: {:?}", e)))?
+                .into_int_value();
+            state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    length,
+                    state.context.i64_type().const_zero(),
+                    &format!("{}_bool", name),
+                )
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare length: {:?}", e)))
+        }
+        BasicValueEnum::IntValue(int_val) => {
+            // For integers, check if non-zero
+            if int_val.get_type().get_bit_width() == 1 {
+                Ok(int_val)
+            } else {
+                state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        int_val,
+                        state.context.i64_type().const_zero(),
+                        &format!("{}_bool", name),
+                    )
+                    .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare integer: {:?}", e)))
+            }
+        }
+        _ => {
+            // For other types, default to true (shouldn't happen in normal code)
+            Ok(state.context.bool_type().const_all_ones())
+        }
+    }
+}
 
 /// Generate an if statement with elif chain support
 /// Returns true if all paths terminate (return/break/continue)
@@ -37,23 +93,10 @@ fn generate_if_chain<'ctx>(
 
     // Process the first elif block
     let (elif_cond, elif_body) = &elif_blocks[0];
-    let elif_cond_val =
-        crate::codegen::expressions::generate_expr(state, elif_cond)?.into_int_value();
+    let elif_cond_val = crate::codegen::expressions::generate_expr(state, elif_cond)?;
 
     // Convert condition to i1 (boolean) for branch
-    let elif_cond_i1 = if elif_cond_val.get_type().get_bit_width() == 1 {
-        elif_cond_val
-    } else {
-        state
-            .builder
-            .build_int_compare(
-                inkwell::IntPredicate::NE,
-                elif_cond_val,
-                state.context.i64_type().const_zero(),
-                "elif_cond_bool",
-            )
-            .map_err(|e| format!("Failed to build elif condition: {:?}", e))?
-    };
+    let elif_cond_i1 = convert_to_bool(state, elif_cond_val, "elif_cond")?;
 
     let elif_then = state.context.append_basic_block(func, "elif_then");
     // Recursively handle remaining elif blocks
@@ -93,21 +136,9 @@ pub fn generate_if<'ctx>(
     else_body: &Option<Vec<Stmt>>,
 ) -> crate::codegen::Result<()> {
     let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
-    let cond_val = crate::codegen::expressions::generate_expr(state, condition)?.into_int_value();
+    let cond_val = crate::codegen::expressions::generate_expr(state, condition)?;
 
-    let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
-        cond_val
-    } else {
-        state
-            .builder
-            .build_int_compare(
-                inkwell::IntPredicate::NE,
-                cond_val,
-                state.context.i64_type().const_zero(),
-                "cond_bool",
-            )
-            .expect("icmp")
-    };
+    let cond_i1 = convert_to_bool(state, cond_val, "cond")?;
 
     let then_block = state.context.append_basic_block(func, "then");
     let else_block = state.context.append_basic_block(func, "else");

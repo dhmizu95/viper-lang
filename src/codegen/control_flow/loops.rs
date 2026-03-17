@@ -1,9 +1,65 @@
 use crate::ast::{Expr, Stmt};
 use crate::codegen::state::CodeGenState;
 use crate::codegen::variables::{LoopContext, VarInfo, VarType};
+use inkwell::values::BasicValueEnum;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static WHILE_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+/// Convert a value to a boolean (i1) for conditional branching.
+/// For pointers (lists): non-empty = true, empty = false
+/// For integers: non-zero = true, zero = false
+/// For bools (i1): use directly
+fn convert_to_bool<'ctx>(
+    state: &mut CodeGenState<'_, 'ctx>,
+    value: BasicValueEnum<'ctx>,
+    name: &str,
+) -> crate::codegen::Result<inkwell::values::IntValue<'ctx>> {
+    match value {
+        BasicValueEnum::PointerValue(ptr) => {
+            // For lists, check if length > 0 (Python: empty collections are falsy)
+            // ViperList struct: length is at offset 0 (i64)
+            let i64_ptr = state
+                .builder
+                .build_pointer_cast(ptr, state.context.i64_type().ptr_type(inkwell::AddressSpace::default()), &format!("{}_as_i64_ptr", name))
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to cast pointer: {:?}", e)))?;
+            let length = state
+                .builder
+                .build_load(state.context.i64_type(), i64_ptr, &format!("{}_length", name))
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to load length: {:?}", e)))?
+                .into_int_value();
+            state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    length,
+                    state.context.i64_type().const_zero(),
+                    &format!("{}_bool", name),
+                )
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare length: {:?}", e)))
+        }
+        BasicValueEnum::IntValue(int_val) => {
+            // For integers, check if non-zero
+            if int_val.get_type().get_bit_width() == 1 {
+                Ok(int_val)
+            } else {
+                state
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::NE,
+                        int_val,
+                        state.context.i64_type().const_zero(),
+                        &format!("{}_bool", name),
+                    )
+                    .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare integer: {:?}", e)))
+            }
+        }
+        _ => {
+            // For other types, default to true (shouldn't happen in normal code)
+            Ok(state.context.bool_type().const_all_ones())
+        }
+    }
+}
 
 /// Generate a while loop with optional unrolling for hot loops
 pub fn generate_while<'ctx>(
@@ -37,20 +93,7 @@ fn generate_while_simple<'ctx>(
 
     state.builder.position_at_end(cond_block);
     let cond_expr = crate::codegen::expressions::generate_expr(state, condition)?;
-    let cond_val = cond_expr.into_int_value();
-    let cond_i1 = if cond_val.get_type().get_bit_width() == 1 {
-        cond_val
-    } else {
-        state
-            .builder
-            .build_int_compare(
-                inkwell::IntPredicate::NE,
-                cond_val,
-                state.context.i64_type().const_zero(),
-                "cond_bool",
-            )
-            .expect("icmp")
-    };
+    let cond_i1 = convert_to_bool(state, cond_expr, "while_cond")?;
 
     // If condition is true, go to body; if false, go to else (if exists) or exit
     let next_on_false = else_block.unwrap_or(exit_block);
