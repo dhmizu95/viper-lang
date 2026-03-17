@@ -414,10 +414,18 @@ fn convert_value_to_string<'ctx>(
             .build_call(state.builder, str_func, &[elem_val.into()], "elem_to_str")
             .unwrap())
     } else if elem_val.is_pointer_value() {
-        // Check if this is bytes - need to convert bytes to string for f-string
-        // For now, pass through as-is (bytes will be handled by print function)
-        // TODO: Add proper bytes-to-str conversion if needed
-        Ok(elem_val)
+        // Check if this is a list - convert to string representation
+        // For lists, we need to call vp_list_to_str or similar
+        let list_to_str_func = state.module.get_function("vp_list_to_str");
+        if let Some(func) = list_to_str_func {
+            Ok(state
+                .ir_builder
+                .build_call(state.builder, func, &[elem_val.into()], "list_to_str")
+                .unwrap())
+        } else {
+            // Fallback: pass through as-is (bytes will be handled by print function)
+            Ok(elem_val)
+        }
     } else if elem_val.is_int_value() {
         let int_val = elem_val.into_int_value();
         // Check if it's a bool (i1 type)

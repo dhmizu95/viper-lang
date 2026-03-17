@@ -34,6 +34,7 @@ pub fn register_collection_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_list_sum" => super::super::lists::vp_list_sum_stub,
         "vp_list_min" => super::super::lists::vp_list_min_stub,
         "vp_list_max" => super::super::lists::vp_list_max_stub,
+        "vp_list_to_str" => super::super::lists::vp_list_to_str,
     ]);
 
     // Float list functions (f64)
@@ -177,5 +178,20 @@ pub fn register_collection_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_tuple_set" => super::super::tuples::vp_tuple_set_stub,
         "vp_tuple_len" => super::super::tuples::vp_tuple_len_stub,
         "vp_tuple_to_str" => super::super::tuples::vp_tuple_to_str_stub,
+    ]);
+
+    // Bytearray functions
+    register_stubs!(ee, module, [
+        "vp_bytearray_create" => super::super::bytearray::vp_bytearray_create,
+        "vp_bytearray_create_with_capacity" => super::super::bytearray::vp_bytearray_create_with_capacity,
+        "vp_bytearray_len" => super::super::bytearray::vp_bytearray_len,
+        "vp_bytearray_append" => super::super::bytearray::vp_bytearray_append,
+        "vp_bytearray_get" => super::super::bytearray::vp_bytearray_get,
+        "vp_bytearray_set" => super::super::bytearray::vp_bytearray_set,
+        "vp_bytearray_print" => super::super::bytearray::vp_bytearray_print,
+        "vp_bytearray_repeat" => super::super::bytearray::vp_bytearray_repeat,
+        "vp_bytearray_slice" => super::super::bytearray::vp_bytearray_slice,
+        "vp_bytearray_free" => super::super::bytearray::vp_bytearray_free,
+        "vp_enumerate_bytearray" => super::super::bytearray::vp_enumerate_bytearray,
     ]);
 }
