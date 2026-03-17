@@ -21,7 +21,7 @@ fn convert_to_bool<'ctx>(
             // ViperList struct: length is at offset 0 (i64)
             let i64_ptr = state
                 .builder
-                .build_pointer_cast(ptr, state.context.i64_type().ptr_type(inkwell::AddressSpace::default()), &format!("{}_as_i64_ptr", name))
+                .build_pointer_cast(ptr, state.context.ptr_type(inkwell::AddressSpace::default()), &format!("{}_as_i64_ptr", name))
                 .map_err(|e| crate::codegen::codegen_err(format!("Failed to cast pointer: {:?}", e)))?;
             let length = state
                 .builder

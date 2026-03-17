@@ -829,7 +829,7 @@ pub fn generate_unary<'ctx>(
             let ptr_val = val.into_pointer_value();
             let i64_ptr = state
                 .builder
-                .build_pointer_cast(ptr_val, state.context.i64_type().ptr_type(inkwell::AddressSpace::default()), "list_as_i64_ptr")
+                .build_pointer_cast(ptr_val, state.context.ptr_type(inkwell::AddressSpace::default()), "list_as_i64_ptr")
                 .map_err(|e| crate::codegen::codegen_err(format!("Failed to cast list pointer: {:?}", e)))?;
             let length = state
                 .builder
