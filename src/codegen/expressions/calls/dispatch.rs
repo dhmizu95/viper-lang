@@ -682,6 +682,11 @@ pub(crate) fn infer_named_call_return_type<'ctx>(
     name: &str,
     args: &[Expr],
 ) -> Option<Type> {
+    // First check if we have a stored return type for this function
+    if let Some(stored_type) = state.var_types.get(&format!("__func_return_{}", name)) {
+        return Some(stored_type.clone());
+    }
+    
     let arg_types: Vec<Type> = args
         .iter()
         .map(|a| match a {
@@ -725,6 +730,22 @@ pub(crate) fn infer_named_call_return_type<'ctx>(
         return Some(Type::F64);
     }
     if return_type.is_pointer_type() {
+        // For pointer returns, check if this is a known bytearray-returning function
+        if name.contains("bytearray") || name.contains("byte") {
+            return Some(Type::Bytes);
+        }
+        // Check if any argument is a bytearray - function might return same type
+        for arg in args {
+            if let Expr::Ident(arg_name, _) = arg {
+                if state.is_bytearray(arg_name) {
+                    return Some(Type::Bytes);
+                }
+            }
+        }
+        // Check stored return type (from function declaration)
+        if let Some(stored_type) = state.var_types.get(&format!("__func_return_{}", name)) {
+            return Some(stored_type.clone());
+        }
         return Some(Type::Infer);
     }
     if return_type.is_int_type() {

@@ -181,6 +181,22 @@ impl<'ctx> CodeGen<'ctx> {
         body: &[Stmt],
         _nonlocal_vars_param: &[String],
     ) -> crate::codegen::Result<()> {
+        // Infer and store the function's return type for later lookup
+        let normalized_return_type = return_type.as_ref().cloned();
+        let param_types = crate::codegen::functions::infer_param_types_from_body(params, body);
+        let param_type_pairs: Vec<(String, Type)> =
+            params.iter().zip(param_types.iter()).map(|(p, t)| (p.name.clone(), t.clone())).collect();
+        let inferred_return_type: Option<Type> = if normalized_return_type.is_none() {
+            crate::codegen::functions::infer_return_type_from_body(body, &param_type_pairs)
+        } else {
+            normalized_return_type.clone()
+        };
+        
+        // Store the inferred return type for later lookup when calling this function
+        if let Some(ref ret_ty) = inferred_return_type {
+            self.var_types.insert(format!("__func_return_{}", original_name), ret_ty.clone());
+        }
+        
         // Save variables from previous function scope
         let saved_variables = std::mem::take(&mut self.variables);
         let saved_loop_stack = std::mem::take(&mut self.loop_stack);

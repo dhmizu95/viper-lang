@@ -355,10 +355,16 @@ pub(crate) fn generate_assign<'ctx>(
         }
 
         // Track bytearray variables
-        let is_bytearray = match value {
+        let mut is_bytearray = match value {
             Expr::Call { func, .. } => {
                 if let Expr::Ident(func_name, _) = func.as_ref() {
+                    // Direct bytearray() call or bytearray-returning runtime functions
                     func_name == "bytearray"
+                        || func_name == "vp_bytearray_create"
+                        || func_name == "vp_bytearray_create_with_capacity"
+                        || func_name == "vp_bytearray_repeat"
+                        || func_name == "vp_bytearray_slice"
+                        || func_name == "vp_bytearray_from_list"
                 } else {
                     false
                 }
@@ -376,8 +382,39 @@ pub(crate) fn generate_assign<'ctx>(
                     _ => false,
                 }
             }
+            Expr::Ident(other, _) => {
+                // Propagate bytearray type from another variable
+                state.is_bytearray(other)
+            }
             _ => false,
         };
+        
+        // Also check for user-defined functions that might return bytearray
+        // by checking if the function's LLVM return type is a pointer and
+        // the function name suggests it returns bytes
+        if !is_bytearray {
+            if let Expr::Call { func, .. } = value {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    // Check if this is a user-defined function (not a runtime builtin)
+                    if !func_name.starts_with("vp_") && func_name != "bytearray" {
+                        // Check if the function exists and returns a pointer
+                        if let Some(func_val) = state.module.get_function(func_name) {
+                            if let Some(ret_type) = func_val.get_type().get_return_type() {
+                                if ret_type.is_pointer_type() {
+                                    // Function returns a pointer - could be bytearray
+                                    // Check function name for hints
+                                    if func_name.contains("bytearray") || func_name.contains("byte")
+                                        || func_name.contains("buffer") || func_name.contains("ba") {
+                                        is_bytearray = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         if is_bytearray {
             state.mark_as_bytearray(name.clone());
         } else {

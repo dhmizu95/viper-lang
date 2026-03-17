@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use crate::codegen::types::TypeMapper;
 
-fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) -> Option<Type> {
+pub(crate) fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) -> Option<Type> {
     // Build a map of local variable name → inferred type from assignments in the body.
     // This lets us resolve `return e` where `e` is a local float variable.
     let mut local_types: Vec<(String, Type)> = param_types.to_vec();
