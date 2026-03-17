@@ -58,6 +58,7 @@ pub fn register_core_stubs(ee: &ExecutionEngine, module: &Module) {
         "tagged_int_print" => super::super::tagged_int::tagged_int_print,
         "tagged_int_free" => super::super::tagged_int::tagged_int_free,
         "tagged_int_release" => super::super::tagged_int::tagged_int_release,
+        "tagged_int_retain" => super::super::tagged_int::tagged_int_retain,
         "tagged_int_bitand" => super::super::tagged_int::tagged_int_bitand,
         "tagged_int_bitor" => super::super::tagged_int::tagged_int_bitor,
         "tagged_int_bitxor" => super::super::tagged_int::tagged_int_bitxor,

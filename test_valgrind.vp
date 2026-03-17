@@ -1,0 +1,4 @@
+ba = [10, 20, 30]
+for i, val in enumerate(ba):
+    print("Index:", i, "Value:", val)
+print("Done!")

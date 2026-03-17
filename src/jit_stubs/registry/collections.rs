@@ -35,6 +35,7 @@ pub fn register_collection_stubs(ee: &ExecutionEngine, module: &Module) {
         "vp_list_min" => super::super::lists::vp_list_min_stub,
         "vp_list_max" => super::super::lists::vp_list_max_stub,
         "vp_list_to_str" => super::super::lists::vp_list_to_str,
+        "vp_enumerate" => super::super::lists::vp_enumerate_stub,
     ]);
 
     // Float list functions (f64)
