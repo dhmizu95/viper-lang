@@ -244,6 +244,43 @@ pub fn generate_index<'ctx>(
             )
             .map_err(|e| format!("Failed to untag index: {:?}", e))?;
 
+        // Handle negative indices: if index < 0, index = length + index
+        let bytearray_len_func = state
+            .module
+            .get_function("vp_bytearray_len")
+            .ok_or_else(|| "vp_bytearray_len not declared".to_string())?;
+        let bytearray_len = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                bytearray_len_func,
+                &[bytearray_ptr.into()],
+                "ba_len",
+            )
+            .unwrap()
+            .into_int_value();
+        
+        let is_negative = state
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::SLT,
+                index_untagged,
+                state.context.i64_type().const_zero(),
+                "index_is_neg",
+            )
+            .expect("compare neg");
+        
+        let adjusted_index = state
+            .builder
+            .build_int_add(bytearray_len, index_untagged, "adjusted_index")
+            .expect("add len");
+        
+        let final_index = state
+            .builder
+            .build_select(is_negative, adjusted_index, index_untagged, "final_index")
+            .expect("select index")
+            .into_int_value();
+
         // Call vp_bytearray_get(bytearray: ViperByteArray*, index: i64) -> i64
         let bytearray_get = state
             .module
@@ -255,7 +292,7 @@ pub fn generate_index<'ctx>(
             .build_call(
                 state.builder,
                 bytearray_get,
-                &[bytearray_ptr.into(), index_untagged.into()],
+                &[bytearray_ptr.into(), final_index.into()],
                 "bytearray_get",
             )
             .ok_or_else(|| "vp_bytearray_get call failed".to_string())?;
@@ -398,12 +435,49 @@ pub fn generate_index<'ctx>(
             )
             .map_err(|e| format!("Failed to untag index: {:?}", e))?;
 
+        // Handle negative indices: if index < 0, index = length + index
+        let list_len_func = state
+            .module
+            .get_function("vp_list_len")
+            .ok_or_else(|| "vp_list_len not declared".to_string())?;
+        let list_len = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                list_len_func,
+                &[obj_val.into()],
+                "list_len",
+            )
+            .unwrap()
+            .into_int_value();
+        
+        let is_negative = state
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::SLT,
+                index_untagged,
+                state.context.i64_type().const_zero(),
+                "index_is_neg",
+            )
+            .expect("compare neg");
+        
+        let adjusted_index = state
+            .builder
+            .build_int_add(list_len, index_untagged, "adjusted_index")
+            .expect("add len");
+        
+        let final_index = state
+            .builder
+            .build_select(is_negative, adjusted_index, index_untagged, "final_index")
+            .expect("select index")
+            .into_int_value();
+
         let result = state
             .ir_builder
             .build_call(
                 state.builder,
                 list_get,
-                &[obj_val.into(), index_untagged.into()],
+                &[obj_val.into(), final_index.into()],
                 "list_get",
             )
             .expect("vp_list_get call failed");

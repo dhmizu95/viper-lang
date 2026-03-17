@@ -365,14 +365,15 @@ pub(crate) fn generate_assign<'ctx>(
             }
             Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
                 // Handle bytearray * n pattern
-                if let Expr::Call { func, .. } = left.as_ref() {
-                    if let Expr::Ident(func_name, _) = func.as_ref() {
-                        func_name == "bytearray"
-                    } else {
-                        false
+                match left.as_ref() {
+                    Expr::Call { func, .. } => {
+                        if let Expr::Ident(func_name, _) = func.as_ref() {
+                            func_name == "bytearray"
+                        } else {
+                            false
+                        }
                     }
-                } else {
-                    false
+                    _ => false,
                 }
             }
             _ => false,
@@ -1406,35 +1407,33 @@ pub(crate) fn generate_slice_assign<'ctx>(
         state.builder.build_store(counter, start_val).expect("store");
         state.ir_builder.build_branch(state.builder, cond_block);
 
-        // Condition: counter < end && (counter - start) < value_len
+        // Condition: counter < end && (counter - start) / step < value_len
         state.builder.position_at_end(cond_block);
         let counter_val = state.builder.build_load(state.context.i64_type(), counter, "counter_val")
             .expect("load counter")
             .into_int_value();
 
         let cond1 = state.ir_builder.build_icmp_lt(state.builder, counter_val, end_val, "slice_cond1");
-        
-        // Check if we're still within the value bounds
-        let value_offset = state.builder.build_int_sub(counter_val, start_val, "value_offset").expect("sub");
-        let cond2 = state.ir_builder.build_icmp_lt(state.builder, value_offset, value_len, "slice_cond2");
-        
+
+        // Check if we're still within the value bounds: (counter - start) / step < value_len
+        let offset = state.builder.build_int_sub(counter_val, start_val, "offset").expect("sub");
+        let elem_idx = state.builder.build_int_unsigned_div(offset, step_val, "elem_idx").expect("div");
+        let cond2 = state.ir_builder.build_icmp_lt(state.builder, elem_idx, value_len, "slice_cond2");
+
         let cond = state.builder.build_and(cond1, cond2, "slice_cond").expect("and");
         state.ir_builder.build_cond_branch(state.builder, cond, body_block, end_block);
 
-        // Body: bytearray[counter] = value[counter - start]
+        // Body: bytearray[counter] = value[elem_idx]
         state.builder.position_at_end(body_block);
-        
-        // Calculate byte index: counter - start
-        let byte_index = state.builder.build_int_sub(counter_val, start_val, "byte_idx").expect("sub");
-        
-        // Get byte value from bytes/bytearray object
+
+        // Get byte value from bytes/bytearray object using elem_idx
         let get_func_name = if is_bytes_value { "vp_bytes_get" } else { "vp_bytearray_get" };
         let get_func = state.module.get_function(get_func_name)
             .ok_or(format!("{} not declared", get_func_name))?;
         let byte_val = state.ir_builder.build_call(
             state.builder,
             get_func,
-            &[bytes_ptr.into(), byte_index.into()],
+            &[bytes_ptr.into(), elem_idx.into()],
             "byte_val",
         ).unwrap().into_int_value();
 

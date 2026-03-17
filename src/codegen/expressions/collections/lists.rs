@@ -159,19 +159,32 @@ pub fn generate_list_comprehension<'ctx>(
                 (true, start, end, None, false, state.context.i64_type().const_int(0, false))
             } else if name == "enumerate" {
                 // enumerate(iterable, start=0) - returns list of (index, value) tuples
-                let iterable_val = if args.is_empty() {
+                let iterable_arg = if args.is_empty() {
                     return crate::codegen::codegen_error("enumerate() requires at least 1 argument".to_string());
                 } else {
-                    generate_expr(state, &args[0])?
+                    &args[0]
                 };
+                let iterable_val = generate_expr(state, iterable_arg)?;
                 let start = if args.len() > 1 {
                     generate_expr(state, &args[1])?.into_int_value()
                 } else {
                     state.context.i64_type().const_int(0, false)
                 };
+                
+                // Check if iterable is a bytearray
+                let is_bytearray_iter = match iterable_arg {
+                    Expr::Ident(arg_name, _) => state.is_bytearray(arg_name),
+                    _ => false,
+                };
+                
                 // Generate the enumerate call to get the list of tuples
-                let enumerate_func = state.module.get_function("vp_enumerate")
-                    .ok_or("vp_enumerate not declared")?;
+                let enumerate_func_name = if is_bytearray_iter {
+                    "vp_enumerate_bytearray"
+                } else {
+                    "vp_enumerate"
+                };
+                let enumerate_func = state.module.get_function(enumerate_func_name)
+                    .ok_or(format!("{} not declared", enumerate_func_name))?;
                 let enum_list = state.ir_builder.build_call(
                     state.builder, enumerate_func,
                     &[iterable_val.into(), start.into()],

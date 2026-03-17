@@ -458,24 +458,29 @@ double vp_math_stddev(double* values, int64_t count) {
 /**
  * Integer square root using Newton's method.
  * Returns floor(sqrt(n)) for non-negative n.
+ * Input is a Viper tagged integer, output is also tagged.
  */
-int64_t vp_math_isqrt(int64_t n) {
+int64_t vp_math_isqrt(int64_t n_tagged) {
+    /* Untag the input */
+    int64_t n = n_tagged >> 1;
+    
     if (n < 0) {
-        return -1;  /* Error: negative input */
+        return 0;  /* Error: negative input, return 0 tagged */
     }
     if (n == 0) {
-        return 0;
+        return 0;  /* Tagged 0 */
     }
-    
+
     /* Initial guess */
     int64_t x = n;
     int64_t y = (x + 1) / 2;
-    
+
     /* Newton's method iteration */
     while (y < x) {
         x = y;
         y = (x + n / x) / 2;
     }
-    
-    return x;
+
+    /* Tag the result */
+    return (x << 1);
 }

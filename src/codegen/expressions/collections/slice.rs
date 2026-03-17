@@ -31,6 +31,30 @@ pub fn generate_slice<'ctx>(
         _ => false,
     };
 
+    // Check if this is a bytearray
+    let is_bytearray = match obj {
+        Expr::Ident(obj_name, _) => state.is_bytearray(obj_name),
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bytearray"
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            if let Expr::Call { func, .. } = left.as_ref() {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "bytearray"
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
     // Check if this is a bool list (bit vector)
     let is_bool_list = match obj {
         Expr::Ident(obj_name, _) => state.is_bool_list(obj_name),
@@ -124,6 +148,46 @@ pub fn generate_slice<'ctx>(
     };
 
     let step_untagged = untag_val(state, step_val);
+
+    // For strings, use vp_str_slice (doesn't support step)
+    if is_string {
+        let str_slice = state
+            .module
+            .get_function("vp_str_slice")
+            .ok_or_else(|| "vp_str_slice not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                str_slice,
+                &[obj_val.into(), start_untagged.into(), end_untagged.into()],
+                "str_slice",
+            )
+            .ok_or_else(|| "build call failed".to_string())?;
+
+        return Ok(result);
+    }
+
+    // For bytearray, use vp_bytearray_slice
+    if is_bytearray {
+        let ba_slice = state
+            .module
+            .get_function("vp_bytearray_slice")
+            .ok_or_else(|| "vp_bytearray_slice not declared".to_string())?;
+
+        let result = state
+            .ir_builder
+            .build_call(
+                state.builder,
+                ba_slice,
+                &[obj_val.into(), start_untagged.into(), end_untagged.into(), step_untagged.into()],
+                "ba_slice",
+            )
+            .ok_or_else(|| "build call failed".to_string())?;
+
+        return Ok(result);
+    }
 
     // Call appropriate slice function based on element type
     let slice_func = if is_bool_list {

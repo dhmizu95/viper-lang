@@ -17,12 +17,14 @@ def prime_sieve(limit):
             sieve[i*i:limit+1:i] = bytearray([0]) * len(sieve[i*i:limit+1:i])
 
     # Workaround: avoid list comprehension with enumerate (tuple unpacking issue)
-    result = []
-    for j in range(limit + 1):
-        if sieve[j]:
-            result.append(j)
-    return result
+    # result = []
+    # for j in range(limit + 1):
+    #     if sieve[j]:
+    #         result.append(j)
+    # return result
 
+    return [i for i, is_prime in enumerate(sieve) if is_prime]
+    
 def main():
     limit = 10**6  # Using 10^8 instead of 10^9 for practical runtime
     
