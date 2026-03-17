@@ -23,10 +23,36 @@ pub fn generate_enumerate_call<'ctx>(
         state.ir_builder.i64_const(0)
     };
 
+    // Check if iterable is a bytearray
+    let is_bytearray = match &args[0] {
+        Expr::Ident(name, _) => state.is_bytearray(name),
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bytearray"
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: crate::ast::BinOp::Mul, left, .. } => {
+            // Handle bytearray * n pattern
+            if let Expr::Call { func, .. } = left.as_ref() {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    func_name == "bytearray"
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
+    let func_name = if is_bytearray { "vp_enumerate_bytearray" } else { "vp_enumerate" };
     let func = state
         .module
-        .get_function("vp_enumerate")
-        .ok_or_else(|| "vp_enumerate not declared".to_string())?;
+        .get_function(func_name)
+        .ok_or_else(|| format!("{} not declared", func_name))?;
 
     let result = state.ir_builder.build_call(
         state.builder,

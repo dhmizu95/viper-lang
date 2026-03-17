@@ -10,14 +10,6 @@
 #include "viper_stdlib.h"
 #include "viper_arc.h"
 
-#define BYTEARRAY_INITIAL_CAPACITY 64
-
-typedef struct ViperByteArray {
-    int64_t length;
-    int64_t capacity;
-    uint8_t* data;
-} ViperByteArray;
-
 static void vp_bytearray_destroy(void* ptr) {
     ViperByteArray* ba = (ViperByteArray*)ptr;
     if (ba && ba->data) {

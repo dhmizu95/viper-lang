@@ -38,6 +38,7 @@ typedef struct ViperList ViperList;
 typedef struct ViperDict ViperDict;
 typedef struct ViperObject ViperObject;
 typedef struct ViperString ViperString;
+typedef struct ViperByteArray ViperByteArray;
 
 /* Generic Viper Value - Unified 24-byte layout */
 typedef struct {
@@ -342,6 +343,18 @@ struct ViperObject {
 VIPER_ALWAYS_INLINE void* vp_object_data_inline(ViperObject* obj) {
     return obj ? obj->data : NULL;
 }
+
+/* ============================================ */
+/* ByteArray (mutable byte array)               */
+/* ============================================ */
+
+#define BYTEARRAY_INITIAL_CAPACITY 64
+
+struct ViperByteArray {
+    int64_t length;       /* 0:  Number of bytes */
+    int64_t capacity;     /* 8:  Allocated capacity */
+    uint8_t* data;        /* 16: Byte data */
+};                        /* Total: 24 bytes */
 
 /* ============================================ */
 /* Tuple (fixed-size heterogeneous collection)  */

@@ -911,21 +911,49 @@ ViperList* vp_enumerate(ViperList* iterable, int64_t start_tagged) {
     if (!iterable) {
         return vp_list_create();
     }
-    
+
     int64_t start = tagged_int_is_small(start_tagged) ? tagged_int_get_small(start_tagged) : 0;
-    
+
     ViperList* result = vp_list_create_with_capacity(iterable->length);
     result->elem_type = VIPER_LIST_GENERIC;
-    
+
     for (int64_t i = 0; i < iterable->length; i++) {
         ViperTuple* t = vp_tuple_create(2);
         t->elements[0] = tagged_int_from_i64(start + i);
         t->elements[1] = vp_list_get(iterable, i);
         tagged_int_retain(t->elements[1]);
-        
+
         vp_list_append(result, (int64_t)t); // List will retain t
         // Result list now owns t, we as creator don't keep another reference
-        vp_arc_release(t); 
+        vp_arc_release(t);
+    }
+    return result;
+}
+
+/**
+ * enumerate_bytearray(iterable, start=0) - returns list of (index, value) tuples for bytearray
+ */
+ViperList* vp_enumerate_bytearray(ViperByteArray* iterable, int64_t start_tagged) {
+    if (!iterable) {
+        return vp_list_create();
+    }
+
+    int64_t start = tagged_int_is_small(start_tagged) ? tagged_int_get_small(start_tagged) : 0;
+
+    ViperList* result = vp_list_create_with_capacity(iterable->length);
+    result->elem_type = VIPER_LIST_GENERIC;
+
+    for (int64_t i = 0; i < iterable->length; i++) {
+        ViperTuple* t = vp_tuple_create(2);
+        t->elements[0] = tagged_int_from_i64(start + i);
+        // Get byte value and tag it as small int
+        int64_t byte_val = vp_bytearray_get(iterable, i);
+        t->elements[1] = tagged_int_from_i64(byte_val);
+        tagged_int_retain(t->elements[1]);
+
+        vp_list_append(result, (int64_t)t); // List will retain t
+        // Result list now owns t, we as creator don't keep another reference
+        vp_arc_release(t);
     }
     return result;
 }

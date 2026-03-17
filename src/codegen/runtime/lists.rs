@@ -348,6 +348,10 @@ pub fn declare_list_functions<'ctx>(
     let enumerate_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
     module.add_function("vp_enumerate", enumerate_type, None);
 
+    // enumerate_bytearray() - returns list of (index, value) tuples for bytearray
+    let enumerate_ba_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+    module.add_function("vp_enumerate_bytearray", enumerate_ba_type, None);
+
     // zip() - returns list of paired elements
     let zip_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_zip", zip_type, None);

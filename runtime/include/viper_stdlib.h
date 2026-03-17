@@ -12,6 +12,9 @@
 #include "viper_types.h"
 #include "viper_arc.h"
 
+/* Forward declarations */
+typedef struct ViperByteArray ViperByteArray;
+
 /* ============================================ */
 /* Basic I/O Functions - Defined later with ViperString* */
 /* ============================================ */
@@ -87,6 +90,7 @@ ViperList* vp_list_concat(ViperList* list1, ViperList* list2);
 
 /* Built-in iteration/functional functions */
 ViperList* vp_enumerate(ViperList* iterable, int64_t start);
+ViperList* vp_enumerate_bytearray(ViperByteArray* iterable, int64_t start);
 ViperList* vp_zip(ViperList* iter1, ViperList* iter2);
 int64_t vp_list_sum(ViperList* list);
 int64_t vp_list_min(ViperList* list);
@@ -308,8 +312,6 @@ bool vp_bool_from_str(ViperString* str);
 /* ============================================ */
 /* bytearray functions                          */
 /* ============================================ */
-
-typedef struct ViperByteArray ViperByteArray;
 
 ViperByteArray* vp_bytearray_create(void);
 ViperByteArray* vp_bytearray_create_with_capacity(int64_t cap);
