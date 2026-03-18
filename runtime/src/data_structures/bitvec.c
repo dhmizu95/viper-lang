@@ -266,9 +266,13 @@ static inline int64_t vp_bitvec_popcount_simd(uint64_t* data, int64_t word_count
 /**
  * SIMD-optimized sieve marking - clear bits at regular intervals
  * For prime sieve: mark multiples of p as composite
+ * 
+ * Optimized for power-of-2 strides (2, 4, 8, 16, 32) which divide 64 evenly.
  */
 static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, int64_t stride, int64_t limit) {
-    // For stride >= 64 and aligned start, use word-level clearing
+    if (stride <= 0 || start > limit) return;
+    
+    // Fast path: for large aligned strides, clear whole words at once
     if (stride >= 64 && start % 64 == 0) {
         int64_t start_word = start / 64;
         int64_t end_word = limit / 64 + 1;
@@ -277,15 +281,52 @@ static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, 
             end_word = vec->length / 64 + 1;
         }
         
-        // Clear whole words using SIMD
         if (start_word < end_word) {
             vp_bitvec_clear_range_simd(vec->data.data_bitvec, start_word, end_word);
         }
-    } else {
-        // Scalar path for non-aligned or small strides
-        for (int64_t i = start; i <= limit; i += stride) {
-            vp_bitvec_set_unchecked_inl(vec, i, false);
+        return;
+    }
+    
+    // Optimized path for power-of-2 strides that divide 64 evenly (2, 4, 8, 16, 32)
+    if (stride >= 2 && stride <= 32 && (64 % stride) == 0) {
+        uint64_t mask = 0;
+        for (int64_t i = 0; i < 64; i += stride) {
+            mask |= ((uint64_t)1 << i);
         }
+        
+        uint64_t* data = vec->data.data_bitvec;
+        int64_t word_idx = start / 64;
+        int64_t bit_offset = start % 64;
+        
+        // First word
+        if (word_idx < (limit / 64 + 1)) {
+            uint64_t first_mask = (mask >> bit_offset);
+            if (bit_offset > 0) {
+                first_mask |= (mask << (64 - bit_offset));
+            }
+            data[word_idx] &= ~first_mask;
+            word_idx++;
+        }
+        
+        // Full words
+        int64_t end_word = limit / 64;
+        while (word_idx < end_word) {
+            data[word_idx] &= ~mask;
+            word_idx++;
+        }
+        
+        // Last word
+        if (word_idx <= limit / 64 && word_idx < (vec->length / 64 + 1)) {
+            int64_t last_bits = limit % 64;
+            uint64_t last_mask = mask & ((uint64_t)(1ULL << (last_bits + 1)) - 1);
+            data[word_idx] &= ~last_mask;
+        }
+        return;
+    }
+    
+    // Fallback: scalar for non-power-of-2 strides (3, 5, 6, 7, 9, 10, etc.)
+    for (int64_t i = start; i <= limit; i += stride) {
+        vp_bitvec_set_unchecked_inl(vec, i, false);
     }
 }
 
