@@ -132,13 +132,13 @@ pub fn generate_math_bigint_func<'ctx>(
         .build_call(state.builder, to_i64_func, &[result_ptr.into()], "bigint_to_i64")
         .ok_or_else(|| "Failed to call vp_bigint_to_i64".to_string())?
         .into_int_value();
-    
-    // Tag the result
+
+    // Tag the result as small int: (val << 1) | TAGGED_INT_SMALL = (val << 1) | 0 = val << 1
     let tagged_result = state
         .builder
-        .build_int_add(result_i64, result_i64, "tagged_result")
+        .build_left_shift(result_i64, state.context.i64_type().const_int(1, false), "tagged_result")
         .expect("tag result");
-    
+
     Ok(tagged_result.into())
 }
 

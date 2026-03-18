@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include "viper_types.h"
 #include "viper_arc.h"
+#include "tagged_int.h"
 
 /* Forward declarations */
 typedef struct ViperByteArray ViperByteArray;
@@ -301,6 +302,7 @@ int64_t vp_async_context_exit(void* context, int64_t exc_type, int64_t exc_val, 
 ViperString* vp_str_from_i64(int64_t val);
 ViperString* vp_str_from_f64(double val);
 ViperString* vp_str_from_bool(bool val);
+ViperString* vp_str_format_int_comma(TaggedInt value);  /* Integer with comma separator */
 int64_t vp_i64_from_str(ViperString* str);
 double vp_f64_from_str(ViperString* str);
 bool vp_bool_from_i64(int64_t val);
@@ -326,3 +328,4 @@ ViperByteArray* vp_bytearray_slice(ViperByteArray* ba, int64_t start, int64_t en
 void vp_bytearray_print(ViperByteArray* ba);
 ViperByteArray* vp_bytearray_from_list(ViperList* list);
 ViperByteArray* vp_bytearray_repeat(ViperByteArray* ba, int64_t count);
+void vp_bytearray_slice_fill(ViperByteArray* ba, int64_t start, int64_t end, int64_t step, int64_t value);

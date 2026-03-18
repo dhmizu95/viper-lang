@@ -58,6 +58,10 @@ pub fn declare_print_functions<'ctx>(
     let str_to_i64_type = i64_type.fn_type(&[ptr_type.into()], false);
     module.add_function("vp_i64_from_str", str_to_i64_type, None);
 
+    // Get raw char* from ViperString
+    let str_data_type = ptr_type.fn_type(&[ptr_type.into()], false);
+    module.add_function("vp_str_data", str_data_type, None);
+
     // String comparison function
     let str_equals_type = bool_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_str_equals", str_equals_type, None);

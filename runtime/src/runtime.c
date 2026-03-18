@@ -352,6 +352,73 @@ ViperString* vp_str_from_f64(double val) {
     return vp_str_create(buffer);
 }
 
+/**
+ * Convert tagged integer to string with comma thousands separator
+ * Handles both SmallInt and BigInt tagged values
+ */
+ViperString* vp_str_format_int_comma(TaggedInt value) {
+    char buffer[64];
+    bool is_temp = false;
+    ViperBigInt* bigint;
+
+    // Extract BigInt from tagged value
+    if (tagged_int_is_bigint(value)) {
+        bigint = tagged_int_get_bigint(value);
+    } else {
+        bigint = tagged_int_to_bigint(value);
+        is_temp = true;
+    }
+
+    if (!bigint) {
+        return vp_str_create("0");
+    }
+
+    // Get string representation
+    char* c_str = vp_bigint_to_str(bigint, 10);
+    if (!c_str) {
+        if (is_temp) vp_arc_release(bigint);
+        return vp_str_create("0");
+    }
+
+    // Add commas for thousands separator
+    int64_t len = strlen(c_str);
+    bool negative = c_str[0] == '-';
+    int64_t digits = negative ? len - 1 : len;
+    int64_t commas = (digits - 1) / 3;
+    int64_t new_len = len + commas;
+
+    if (new_len >= (int64_t)(sizeof(buffer) - 1)) {
+        // Buffer too small, fall back to simple conversion
+        ViperString* result = vp_str_create(c_str);
+        free(c_str);
+        if (is_temp) vp_arc_release(bigint);
+        return result;
+    }
+
+    // Build result with commas
+    char* src = c_str + len - 1;
+    char* dst = buffer + new_len;
+    *dst = '\0';
+
+    int digit_count = 0;
+    while (src >= c_str) {
+        if (digit_count > 0 && digit_count % 3 == 0 && src >= c_str && *src != '-') {
+            *--dst = ',';
+        }
+        *--dst = *src--;
+        if (*dst != '-') digit_count++;
+    }
+
+    free(c_str);
+
+    // Free temporary bigint if we created one
+    if (is_temp) {
+        vp_arc_release(bigint);
+    }
+
+    return vp_str_create(buffer);
+}
+
 /* ============================================ */
 /* Utility Functions                            */
 /* ============================================ */

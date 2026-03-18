@@ -156,6 +156,8 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
                     Type::Str
                 } else if attr == "split" {
                     Type::List(Box::new(Type::Str))
+                } else if attr == "isqrt" || attr == "gcd" || attr == "lcm" || attr == "factorial" {
+                    Type::Int  // math.isqrt, math.gcd, etc. return tagged int
                 } else {
                     Type::Infer
                 }
@@ -223,7 +225,14 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
             }
         }
         Expr::UnaryOp { op: _, operand, .. } => infer_expr_type(operand),
-        Expr::Attribute { .. } => Type::Infer,
+        Expr::Attribute { obj, attr, .. } => {
+            if let Expr::Ident(module_name, _) = obj.as_ref() {
+                if module_name == "sys" && attr == "argv" {
+                    return Type::List(Box::new(Type::Str));
+                }
+            }
+            Type::Infer
+        }
         Expr::Index { obj, .. } => {
             // Infer element type from list/array type
             let obj_type = infer_expr_type(obj);
@@ -307,6 +316,8 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                     Type::Str
                 } else if attr == "split" {
                     Type::List(Box::new(Type::Str))
+                } else if attr == "isqrt" || attr == "gcd" || attr == "lcm" || attr == "factorial" {
+                    Type::Int  // math.isqrt, math.gcd, etc. return tagged int
                 } else {
                     Type::Infer
                 }
@@ -894,6 +905,16 @@ pub fn generate_expr<'ctx>(
                             return Ok(state.ir_builder.f64_const(std::f64::consts::TAU).into())
                         }
                         _ => {} // Fall through to function/method handling
+                    }
+                } else if module_name == "sys" {
+                    match attr.as_str() {
+                        "argv" => {
+                            let get_argv_func = state.module.get_function("vp_sys_get_argv")
+                                .ok_or_else(|| "vp_sys_get_argv not declared".to_string())?;
+                            let result = state.ir_builder.build_call(state.builder, get_argv_func, &[], "sys_argv");
+                            return Ok(result.unwrap());
+                        }
+                        _ => {}
                     }
                 }
             }

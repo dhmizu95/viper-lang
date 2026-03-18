@@ -6,7 +6,7 @@ __name__ = "sys"
 __version__ = "0.4.5"
 
 # Constants - populated at runtime
-argv: [str] = []  # Command-line arguments
+argv = []  # Command-line arguments
 version: str = "0.4.5"
 platform: str = "linux"
 
@@ -43,7 +43,7 @@ def get_machine() -> str:
     # Implemented in runtime
     return "unknown"
 
-def getargv() -> [str]:
+def getargv():
     """Get command-line arguments."""
     return argv
 

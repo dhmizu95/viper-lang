@@ -1389,7 +1389,10 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         stmts: &[Stmt],
     ) -> crate::codegen::Result<()> {
-        let main_type = self.context.i64_type().fn_type(&[], false);
+        let main_type = self.context.i64_type().fn_type(&[
+            self.context.i32_type().into(),
+            self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+        ], false);
 
         // Check if user defined main and save it
         // Note: main was already declared as __user_main in define_all_functions
@@ -1417,6 +1420,16 @@ impl<'ctx> CodeGen<'ctx> {
         let wrapper_main = self.module.add_function("main", main_type, None);
         let entry = self.context.append_basic_block(wrapper_main, "entry");
         self.builder.position_at_end(entry);
+
+        // Call vp_sys_init with argc and argv
+        if let Some(sys_init) = self.module.get_function("vp_sys_init") {
+            println!("   ℹ Calling vp_sys_init in main wrapper");
+            let argc = wrapper_main.get_nth_param(0).unwrap();
+            let argv = wrapper_main.get_nth_param(1).unwrap();
+            self.builder.build_call(sys_init, &[argc.into(), argv.into()], "call_sys_init");
+        } else {
+            println!("   ⚠ vp_sys_init NOT FOUND in module!");
+        }
 
         // Call viper_init first
         let _ = self.builder.build_call(init_func, &[], "call_init");

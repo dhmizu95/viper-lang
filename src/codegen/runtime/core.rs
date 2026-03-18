@@ -29,6 +29,7 @@ pub fn declare_runtime_functions<'ctx>(
     super::typing::declare_typing_functions(context, module)?;
     super::iterator::declare_iterator_functions(context, module)?;
     super::time::declare_time_functions(context, module)?;
+    declare_sys_functions(context, module)?;
     Ok(())
 }
 
@@ -41,5 +42,23 @@ fn declare_panic_function<'ctx>(
         .void_type()
         .fn_type(&[context.ptr_type(inkwell::AddressSpace::default()).into()], false);
     module.add_function("viper_panic", fn_type, Some(inkwell::module::Linkage::External));
+    Ok(())
+}
+
+/// Declare sys module functions
+fn declare_sys_functions<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+) -> crate::codegen::Result<()> {
+    let ptr_type = context.ptr_type(inkwell::AddressSpace::default());
+    let sys_get_argv_type = ptr_type.fn_type(&[], false);
+    module.add_function("vp_sys_get_argv", sys_get_argv_type, None);
+
+    let sys_init_type = context.void_type().fn_type(&[
+        context.i32_type().into(),
+        ptr_type.into(),
+    ], false);
+    module.add_function("vp_sys_init", sys_init_type, None);
+
     Ok(())
 }

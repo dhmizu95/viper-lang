@@ -72,6 +72,29 @@ impl<'ctx> IRBuilder<'ctx> {
 
         global.as_pointer_value()
     }
+    /// Tag a raw integer for the SMI (Small Integer) optimization
+    /// Logic: (val << 1) | TAGGED_INT_SMALL = (val << 1) | 0 = val << 1
+    pub fn build_tag_i64(
+        &self,
+        builder: &inkwell::builder::Builder<'ctx>,
+        val: IntValue<'ctx>,
+    ) -> IntValue<'ctx> {
+        builder
+            .build_left_shift(val, self.context.i64_type().const_int(1, false), "tag_shift")
+            .expect("tag_shift")
+    }
+
+    /// Untag an SMI-optimized integer to get the raw value
+    /// Logic: val >> 1
+    pub fn build_untag_i64(
+        &self,
+        builder: &inkwell::builder::Builder<'ctx>,
+        val: IntValue<'ctx>,
+    ) -> IntValue<'ctx> {
+        builder
+            .build_right_shift(val, self.context.i64_type().const_int(1, false), false, "untagged")
+            .expect("untagged")
+    }
 
     /// Build an addition
     pub fn build_add(

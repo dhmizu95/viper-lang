@@ -19,6 +19,7 @@ static int64_t vp_sys_argc = 0;
  * Called at program startup
  */
 void vp_sys_init(int argc, char** argv) {
+    fprintf(stderr, "[DEBUG] vp_sys_init: argc=%d, argv[0]=%s\n", argc, argv ? argv[0] : "NULL");
     vp_sys_argc = argc;
     vp_sys_argv_storage = argv;
 }
@@ -29,17 +30,19 @@ void vp_sys_init(int argc, char** argv) {
  */
 ViperList* vp_sys_get_argv(void) {
     ViperList* argv_list = vp_list_create();
+    argv_list->elem_type = VIPER_LIST_GENERIC;
     
     if (vp_sys_argv_storage == NULL) {
-        /* Simulated argv with just program name */
-        argv_list = vp_list_create();
+        fprintf(stderr, "[DEBUG] vp_sys_get_argv: storage is NULL!\n");
         return argv_list;
     }
     
+    fprintf(stderr, "[DEBUG] vp_sys_get_argv: populating %ld args\n", vp_sys_argc);
     for (int i = 0; i < vp_sys_argc; i++) {
-        /* For now, we just store the count - actual string access 
-         * requires integration with Viper string system */
-        (void)argv_list; /* Suppress unused warning */
+        fprintf(stderr, "[DEBUG] arg[%d]: %s\n", i, vp_sys_argv_storage[i]);
+        ViperString* s = vp_str_create(vp_sys_argv_storage[i]);
+        /* Use raw pointer as it is for GENERIC list */
+        vp_list_append(argv_list, (int64_t)s);
     }
     
     return argv_list;

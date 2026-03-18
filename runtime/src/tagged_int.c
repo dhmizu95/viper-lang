@@ -110,7 +110,6 @@ TaggedInt tagged_int_from_str(const char* str) {
     }
 
     if (mpz_set_str(bigint->value, actual_str, base) != 0) {
-        mpz_clear(bigint->value);
         vp_arc_release(bigint);
         return tagged_int_from_i64(0);
     }
@@ -119,7 +118,6 @@ TaggedInt tagged_int_from_str(const char* str) {
     if (mpz_fits_slong_p(bigint->value)) {
         int64_t small_val = mpz_get_si(bigint->value);
         if (small_val >= TAGGED_INT_MIN_SMALL && small_val <= TAGGED_INT_MAX_SMALL) {
-            mpz_clear(bigint->value);
             vp_arc_release(bigint);
             return tagged_int_from_i64(small_val);
         }

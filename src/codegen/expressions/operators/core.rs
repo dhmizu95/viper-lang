@@ -46,6 +46,7 @@ pub fn generate_binop<'ctx>(
                     false
                 }
             }
+            Expr::Ident(name, _) => state.is_bytearray(name),
             _ => false,
         };
 
