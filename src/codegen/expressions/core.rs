@@ -156,6 +156,8 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
                     Type::Str
                 } else if attr == "split" {
                     Type::List(Box::new(Type::Str))
+                } else if attr == "isqrt" || attr == "gcd" || attr == "lcm" || attr == "factorial" {
+                    Type::Int  // math.isqrt, math.gcd, etc. return tagged int
                 } else {
                     Type::Infer
                 }
@@ -223,7 +225,14 @@ pub fn infer_expr_type(expr: &Expr) -> Type {
             }
         }
         Expr::UnaryOp { op: _, operand, .. } => infer_expr_type(operand),
-        Expr::Attribute { .. } => Type::Infer,
+        Expr::Attribute { obj, attr, .. } => {
+            if let Expr::Ident(module_name, _) = obj.as_ref() {
+                if module_name == "sys" && attr == "argv" {
+                    return Type::List(Box::new(Type::Str));
+                }
+            }
+            Type::Infer
+        }
         Expr::Index { obj, .. } => {
             // Infer element type from list/array type
             let obj_type = infer_expr_type(obj);
@@ -307,6 +316,8 @@ pub fn infer_type_with_state(state: &CodeGenState, expr: &Expr) -> Type {
                     Type::Str
                 } else if attr == "split" {
                     Type::List(Box::new(Type::Str))
+                } else if attr == "isqrt" || attr == "gcd" || attr == "lcm" || attr == "factorial" {
+                    Type::Int  // math.isqrt, math.gcd, etc. return tagged int
                 } else {
                     Type::Infer
                 }
@@ -414,10 +425,18 @@ fn convert_value_to_string<'ctx>(
             .build_call(state.builder, str_func, &[elem_val.into()], "elem_to_str")
             .unwrap())
     } else if elem_val.is_pointer_value() {
-        // Check if this is bytes - need to convert bytes to string for f-string
-        // For now, pass through as-is (bytes will be handled by print function)
-        // TODO: Add proper bytes-to-str conversion if needed
-        Ok(elem_val)
+        // Check if this is a list - convert to string representation
+        // For lists, we need to call vp_list_to_str or similar
+        let list_to_str_func = state.module.get_function("vp_list_to_str");
+        if let Some(func) = list_to_str_func {
+            Ok(state
+                .ir_builder
+                .build_call(state.builder, func, &[elem_val.into()], "list_to_str")
+                .unwrap())
+        } else {
+            // Fallback: pass through as-is (bytes will be handled by print function)
+            Ok(elem_val)
+        }
     } else if elem_val.is_int_value() {
         let int_val = elem_val.into_int_value();
         // Check if it's a bool (i1 type)
@@ -886,6 +905,16 @@ pub fn generate_expr<'ctx>(
                             return Ok(state.ir_builder.f64_const(std::f64::consts::TAU).into())
                         }
                         _ => {} // Fall through to function/method handling
+                    }
+                } else if module_name == "sys" {
+                    match attr.as_str() {
+                        "argv" => {
+                            let get_argv_func = state.module.get_function("vp_sys_get_argv")
+                                .ok_or_else(|| "vp_sys_get_argv not declared".to_string())?;
+                            let result = state.ir_builder.build_call(state.builder, get_argv_func, &[], "sys_argv");
+                            return Ok(result.unwrap());
+                        }
+                        _ => {}
                     }
                 }
             }

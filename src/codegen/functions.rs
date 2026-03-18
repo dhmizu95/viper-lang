@@ -5,11 +5,11 @@ use crate::utils::mangle_function_name;
 use inkwell::context::Context;
 use inkwell::types::BasicType;
 use inkwell::values::FunctionValue;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::codegen::types::TypeMapper;
 
-fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) -> Option<Type> {
+pub(crate) fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) -> Option<Type> {
     // Build a map of local variable name → inferred type from assignments in the body.
     // This lets us resolve `return e` where `e` is a local float variable.
     let mut local_types: Vec<(String, Type)> = param_types.to_vec();
@@ -49,6 +49,52 @@ fn infer_return_type_from_body(body: &[Stmt], param_types: &[(String, Type)]) ->
         }
     }
     None
+}
+
+pub(crate) fn infer_returns_bytearray_from_body(
+    body: &[Stmt],
+    known_bytearray_funcs: &HashSet<String>,
+) -> bool {
+    let mut local_bytearray_vars: HashSet<String> = HashSet::new();
+    collect_local_bytearray_vars(body, &mut local_bytearray_vars, known_bytearray_funcs);
+
+    for stmt in body {
+        match stmt {
+            Stmt::Return { value: Some(expr), .. } => {
+                if expr_is_bytearray(expr, &local_bytearray_vars, known_bytearray_funcs) {
+                    return true;
+                }
+            }
+            Stmt::If { body, elif_blocks, else_body, .. } => {
+                if infer_returns_bytearray_from_body(body, known_bytearray_funcs) {
+                    return true;
+                }
+                for (_, elif_body) in elif_blocks {
+                    if infer_returns_bytearray_from_body(elif_body, known_bytearray_funcs) {
+                        return true;
+                    }
+                }
+                if let Some(else_stmts) = else_body {
+                    if infer_returns_bytearray_from_body(else_stmts, known_bytearray_funcs) {
+                        return true;
+                    }
+                }
+            }
+            Stmt::While { body, else_body, .. } | Stmt::For { body, else_body, .. } => {
+                if infer_returns_bytearray_from_body(body, known_bytearray_funcs) {
+                    return true;
+                }
+                if let Some(else_stmts) = else_body {
+                    if infer_returns_bytearray_from_body(else_stmts, known_bytearray_funcs) {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    false
 }
 
 /// Collect local variable types from assignment statements.
@@ -94,6 +140,75 @@ fn collect_local_var_types(body: &[Stmt], param_types: &[(String, Type)], out: &
     }
 }
 
+fn collect_local_bytearray_vars(
+    body: &[Stmt],
+    bytearray_vars: &mut HashSet<String>,
+    known_bytearray_funcs: &HashSet<String>,
+) {
+    for stmt in body {
+        match stmt {
+            Stmt::Assign { target, value, .. } => {
+                if let Expr::Ident(var_name, _) = target.as_ref() {
+                    if expr_is_bytearray(value, bytearray_vars, known_bytearray_funcs) {
+                        bytearray_vars.insert(var_name.clone());
+                    }
+                }
+            }
+            Stmt::Declare { name, value, .. } => {
+                if let Some(val_expr) = value {
+                    if expr_is_bytearray(val_expr, bytearray_vars, known_bytearray_funcs) {
+                        bytearray_vars.insert(name.clone());
+                    }
+                }
+            }
+            Stmt::If { body, elif_blocks, else_body, .. } => {
+                collect_local_bytearray_vars(body, bytearray_vars, known_bytearray_funcs);
+                for (_, b) in elif_blocks {
+                    collect_local_bytearray_vars(b, bytearray_vars, known_bytearray_funcs);
+                }
+                if let Some(b) = else_body {
+                    collect_local_bytearray_vars(b, bytearray_vars, known_bytearray_funcs);
+                }
+            }
+            Stmt::While { body, .. } | Stmt::For { body, .. } => {
+                collect_local_bytearray_vars(body, bytearray_vars, known_bytearray_funcs);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn expr_is_bytearray(
+    expr: &Expr,
+    bytearray_vars: &HashSet<String>,
+    known_bytearray_funcs: &HashSet<String>,
+) -> bool {
+    use crate::ast::BinOp;
+
+    match expr {
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(name, _) = func.as_ref() {
+                matches!(
+                    name.as_str(),
+                    "bytearray"
+                        | "vp_bytearray_create"
+                        | "vp_bytearray_create_with_capacity"
+                        | "vp_bytearray_repeat"
+                        | "vp_bytearray_slice"
+                        | "vp_bytearray_from_list"
+                ) || known_bytearray_funcs.contains(name)
+            } else {
+                false
+            }
+        }
+        Expr::BinOp { op: BinOp::Mul, left, .. } => {
+            expr_is_bytearray(left, bytearray_vars, known_bytearray_funcs)
+        }
+        Expr::Ident(name, _) => bytearray_vars.contains(name),
+        _ => false,
+    }
+}
+
 fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
     use crate::ast::BinOp;
 
@@ -102,6 +217,7 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
         Expr::Float(_, _) => Type::F64,
         Expr::Bool(_, _) => Type::Bool,
         Expr::Str(_, _) => Type::Str,
+        Expr::Bytes(_, _) => Type::Bytes,
         Expr::BigInt(_, _) => Type::Int,
         Expr::None(_) => Type::None,
         Expr::Ident(name, _) => param_types
@@ -131,6 +247,13 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
                     | "vp_list_reversed"
                     | "vp_list_zeros"
                     | "vp_list_ones" => Type::List(Box::new(Type::Infer)),
+                    // Bytearray-producing builtins
+                    "bytearray"
+                    | "vp_bytearray_create"
+                    | "vp_bytearray_create_with_capacity"
+                    | "vp_bytearray_repeat"
+                    | "vp_bytearray_slice"
+                    | "vp_bytearray_from_list" => Type::Bytes,
                     // Tuple-producing builtins
                     "tuple" => Type::Tuple(vec![Type::Infer]),
                     // Dict-producing builtins
@@ -185,6 +308,27 @@ fn infer_type_from_expr(expr: &Expr, param_types: &[(String, Type)]) -> Type {
                 } else if lt == Type::F64 || rt == Type::F64 {
                     Type::F64
                 } else {
+                    Type::Int
+                }
+            }
+            BinOp::Mul => {
+                // Bytearray repetition: bytearray * int = bytearray
+                let lt = infer_type_from_expr(left, param_types);
+                let rt = infer_type_from_expr(right, param_types);
+                if lt == Type::Bytes && (rt == Type::Int || rt == Type::I64) {
+                    Type::Bytes
+                } else if (lt == Type::Int || lt == Type::I64) && rt == Type::Bytes {
+                    Type::Bytes
+                } else if lt == Type::Str && (rt == Type::Int || rt == Type::I64) {
+                    Type::Str
+                } else if (lt == Type::Int || lt == Type::I64) && rt == Type::Str {
+                    Type::Str
+                } else if matches!(lt, Type::List(_)) && (rt == Type::Int || rt == Type::I64) {
+                    lt
+                } else if (lt == Type::Int || lt == Type::I64) && matches!(rt, Type::List(_)) {
+                    rt
+                } else {
+                    // Default to Int for numeric multiplication
                     Type::Int
                 }
             }

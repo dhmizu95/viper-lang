@@ -173,3 +173,23 @@ ViperByteArray* vp_bytearray_repeat(ViperByteArray* ba, int64_t count) {
     
     return result;
 }
+
+/**
+ * Fill a slice of a bytearray with a single byte value
+ * Optimized for hot loops like sieve
+ */
+void vp_bytearray_slice_fill(ViperByteArray* ba, int64_t start, int64_t end, int64_t step, int64_t value) {
+    if (!ba || step <= 0) return;
+
+    // Normalize indices (simplified for performance, assume positive for sieve)
+    if (start < 0) start = 0;
+    if (end > ba->length) end = ba->length;
+
+    uint8_t byte_val = (uint8_t)value;
+    uint8_t* data = ba->data;
+
+    // Hot loop
+    for (int64_t i = start; i < end; i += step) {
+        data[i] = byte_val;
+    }
+}

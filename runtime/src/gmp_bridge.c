@@ -94,8 +94,10 @@ ViperBigInt* vp_bigint_from_u64(uint64_t value) {
 void vp_bigint_destroy(ViperBigInt* bigint) {
     if (!bigint) return;
     
+    fprintf(stderr, "[DEBUG] vp_bigint_destroy: clearing bigint at %p\n", bigint);
     /* Clear GMP resources */
     mpz_clear(bigint->value);
+    fprintf(stderr, "[DEBUG] vp_bigint_destroy: cleared\n");
 }
 
 char* vp_bigint_to_str(ViperBigInt* bigint, int base) {

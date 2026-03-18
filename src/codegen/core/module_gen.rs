@@ -29,6 +29,55 @@ impl<'ctx> CodeGen<'ctx> {
         // Generate class definitions (defines class methods)
         self.generate_classes(&module.statements)?;
 
+        // PRE-PASS: Process imports to make them available in all functions
+        for stmt in &module.statements {
+            match stmt {
+                Stmt::Import { module, alias, .. } => {
+                    let mut closure_cells = std::collections::HashMap::new();
+                    let mut state = crate::codegen::state::CodeGenState::new(
+                        self.context,
+                        &self.module,
+                        &self.builder,
+                        &self.ir_builder,
+                        &mut self.variables,
+                        &self.functions,
+                        &mut self.global_constants,
+                        &mut self.loop_stack,
+                        &mut self.list_vars,
+                        &mut self.dict_vars,
+                        &mut self.bool_list_vars,
+                        &mut self.bytearray_vars,
+                        &mut self.bigint_vars,
+                        &mut self.var_types,
+                        &mut closure_cells,
+                    );
+                    crate::codegen::statements::core::imports::generate_import(&mut state, module, alias.as_deref())?;
+                }
+                Stmt::FromImport { module, names, .. } => {
+                    let mut closure_cells = std::collections::HashMap::new();
+                    let mut state = crate::codegen::state::CodeGenState::new(
+                        self.context,
+                        &self.module,
+                        &self.builder,
+                        &self.ir_builder,
+                        &mut self.variables,
+                        &self.functions,
+                        &mut self.global_constants,
+                        &mut self.loop_stack,
+                        &mut self.list_vars,
+                        &mut self.dict_vars,
+                        &mut self.bool_list_vars,
+                        &mut self.bytearray_vars,
+                        &mut self.bigint_vars,
+                        &mut self.var_types,
+                        &mut closure_cells,
+                    );
+                    crate::codegen::statements::core::imports::generate_from_import(&mut state, module, names)?;
+                }
+                _ => {}
+            }
+        }
+
         // Second pass: Process module-level constants and variables
         // Module-level assignments create immutable constants by default (Python UPPER_CASE convention)
         // Note: Complex types (tuples, lists, dicts, arrays) cannot be global initializers

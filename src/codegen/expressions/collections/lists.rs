@@ -142,7 +142,7 @@ pub fn generate_list_comprehension<'ctx>(
         _ => false,
     };
 
-    let (is_range, start_val, end_val, iter_val, iter_is_float_list, _enumerate_start) = if let Expr::Call { func, args, .. } = iter {
+    let (is_range, start_val, end_val, iter_val, iter_is_float_list, enumerate_start, is_bytearray_enumerate) = if let Expr::Call { func, args, .. } = iter {
         if let Expr::Ident(name, _) = func.as_ref() {
             if name == "range" {
                 let (start, end) = match args.len() {
@@ -156,7 +156,7 @@ pub fn generate_list_comprehension<'ctx>(
                         generate_expr(state, &args[1])?.into_int_value(),
                     ),
                 };
-                (true, start, end, None, false, state.context.i64_type().const_int(0, false))
+                (true, start, end, None, false, state.context.i64_type().const_int(0, false), false)
             } else if name == "enumerate" {
                 // enumerate(iterable, start=0) - returns list of (index, value) tuples
                 let iterable_arg = if args.is_empty() {
@@ -177,25 +177,31 @@ pub fn generate_list_comprehension<'ctx>(
                     _ => false,
                 };
                 
-                // Generate the enumerate call to get the list of tuples
-                let enumerate_func_name = if is_bytearray_iter {
-                    "vp_enumerate_bytearray"
+                if is_bytearray_iter {
+                    // OPTIMIZED: for bytearray enumerate, don't materialize the tuples
+                    let len_func = state.module.get_function("vp_bytearray_len")
+                        .ok_or("vp_bytearray_len not declared")?;
+                    let len = state.ir_builder.build_call(
+                        state.builder, len_func, &[iterable_val.into()], "ba_len"
+                    ).unwrap().into_int_value();
+                    (false, state.context.i64_type().const_int(0, false), len, Some(iterable_val), false, start, true)
                 } else {
-                    "vp_enumerate"
-                };
-                let enumerate_func = state.module.get_function(enumerate_func_name)
-                    .ok_or(format!("{} not declared", enumerate_func_name))?;
-                let enum_list = state.ir_builder.build_call(
-                    state.builder, enumerate_func,
-                    &[iterable_val.into(), start.into()],
-                    "enum_list"
-                ).unwrap();
-                let len_func = state.module.get_function("vp_list_len")
-                    .ok_or("vp_list_len not declared")?;
-                let len = state.ir_builder.build_call(
-                    state.builder, len_func, &[enum_list.into()], "iter_len"
-                ).unwrap().into_int_value();
-                (false, state.context.i64_type().const_int(0, false), len, Some(enum_list), false, start)
+                    // Standard enumerate call to get the list of tuples
+                    let enumerate_func_name = "vp_enumerate";
+                    let enumerate_func = state.module.get_function(enumerate_func_name)
+                        .ok_or(format!("{} not declared", enumerate_func_name))?;
+                    let enum_list = state.ir_builder.build_call(
+                        state.builder, enumerate_func,
+                        &[iterable_val.into(), start.into()],
+                        "enum_list"
+                    ).unwrap();
+                    let len_func = state.module.get_function("vp_list_len")
+                        .ok_or("vp_list_len not declared")?;
+                    let len = state.ir_builder.build_call(
+                        state.builder, len_func, &[enum_list.into()], "iter_len"
+                    ).unwrap().into_int_value();
+                    (false, state.context.i64_type().const_int(0, false), len, Some(enum_list), false, start, false)
+                }
             } else {
                 let v = generate_expr(state, iter)?;
                 let len_func = state.module.get_function("vp_list_len")
@@ -203,7 +209,7 @@ pub fn generate_list_comprehension<'ctx>(
                 let len = state.ir_builder.build_call(
                     state.builder, len_func, &[v.into()], "iter_len"
                 ).unwrap().into_int_value();
-                (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
+                (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false), false)
             }
         } else {
             let v = generate_expr(state, iter)?;
@@ -212,7 +218,7 @@ pub fn generate_list_comprehension<'ctx>(
             let len = state.ir_builder.build_call(
                 state.builder, len_func, &[v.into()], "iter_len"
             ).unwrap().into_int_value();
-            (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
+            (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false), false)
         }
     } else {
         let v = generate_expr(state, iter)?;
@@ -221,7 +227,7 @@ pub fn generate_list_comprehension<'ctx>(
         let len = state.ir_builder.build_call(
             state.builder, len_func, &[v.into()], "iter_len"
         ).unwrap().into_int_value();
-        (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false))
+        (false, state.context.i64_type().const_int(0, false), len, Some(v), false, state.context.i64_type().const_int(0, false), false)
     };
 
     // Extract target variable names
@@ -254,9 +260,14 @@ pub fn generate_list_comprehension<'ctx>(
     // Branch to init
     state.ir_builder.build_branch(state.builder, init_block);
 
-    // Init: counter = start
+    // Init: counter = start, declare loop variables
     state.builder.position_at_end(init_block);
     let counter = state.builder.build_alloca(state.context.i64_type(), "comp_counter").expect("alloca");
+    let mut loop_var_ptrs = Vec::new();
+    for var_name in &target_names {
+        let ptr = state.builder.build_alloca(state.context.i64_type(), var_name).expect("alloca");
+        loop_var_ptrs.push(ptr);
+    }
     state.builder.build_store(counter, start_val).expect("store");
     state.ir_builder.build_branch(state.builder, cond_block);
 
@@ -274,7 +285,25 @@ pub fn generate_list_comprehension<'ctx>(
     // Bind loop variables
     // When iterating over enumerate(), we get tuples (index, value) that need to be unpacked
     for (idx, var_name) in target_names.iter().enumerate() {
-        let var_val = if is_enumerate && !target_names.is_empty() {
+        let var_val = if is_bytearray_enumerate {
+            if idx == 0 {
+                // Index: counter_val + enumerate_start
+                let plain_idx = state.builder.build_int_add(counter_val, enumerate_start, "enum_idx").expect("add");
+                state.ir_builder.build_tag_i64(state.builder, plain_idx).into()
+            } else if idx == 1 {
+                // Value: vp_bytearray_get(iter_val, counter_val)
+                let get_func = state.module.get_function("vp_bytearray_get")
+                    .ok_or_else(|| "vp_bytearray_get not declared".to_string())?;
+                let byte_val = state.ir_builder.build_call(
+                    state.builder, get_func,
+                    &[iter_val.expect("ba_iter_val").into(), counter_val.into()],
+                    "ba_val"
+                ).unwrap().into_int_value();
+                state.ir_builder.build_tag_i64(state.builder, byte_val).into()
+            } else {
+                counter_val.into()
+            }
+        } else if is_enumerate && !target_names.is_empty() {
             // enumerate() returns list of tuples - we need to unpack them
             // Fetch the tuple from the list at current counter position
             if let Some(list_val) = iter_val {
@@ -326,10 +355,8 @@ pub fn generate_list_comprehension<'ctx>(
             counter_val.into()
         };
 
-        let var_type = VarType::Int;
-        let storage_type: inkwell::types::BasicTypeEnum = state.context.i64_type().into();
-
-        let var_ptr = state.builder.build_alloca(storage_type, var_name).expect("alloca");
+        let var_type = crate::codegen::types::VarType::Int;
+        let var_ptr = loop_var_ptrs[idx];
         state.builder.build_store(var_ptr, var_val).expect("store");
         state.variables.insert(var_name.clone(), VarInfo::new_stack(var_ptr, var_type));
     }

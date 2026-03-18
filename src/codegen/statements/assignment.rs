@@ -355,10 +355,16 @@ pub(crate) fn generate_assign<'ctx>(
         }
 
         // Track bytearray variables
-        let is_bytearray = match value {
+        let mut is_bytearray = match value {
             Expr::Call { func, .. } => {
                 if let Expr::Ident(func_name, _) = func.as_ref() {
+                    // Direct bytearray() call or bytearray-returning runtime functions
                     func_name == "bytearray"
+                        || func_name == "vp_bytearray_create"
+                        || func_name == "vp_bytearray_create_with_capacity"
+                        || func_name == "vp_bytearray_repeat"
+                        || func_name == "vp_bytearray_slice"
+                        || func_name == "vp_bytearray_from_list"
                 } else {
                     false
                 }
@@ -376,8 +382,29 @@ pub(crate) fn generate_assign<'ctx>(
                     _ => false,
                 }
             }
+            Expr::Ident(other, _) => {
+                // Propagate bytearray type from another variable
+                state.is_bytearray(other)
+            }
             _ => false,
         };
+
+        // Also check for user-defined functions that return bytearray
+        // by checking if the function is marked as returning bytearray
+        if !is_bytearray {
+            if let Expr::Call { func, .. } = value {
+                if let Expr::Ident(func_name, _) = func.as_ref() {
+                    // Check if function body analysis marked this as bytearray-returning
+                    if state
+                        .var_types
+                        .contains_key(&format!("__func_returns_bytearray_{}", func_name))
+                    {
+                        is_bytearray = true;
+                    }
+                }
+            }
+        }
+
         if is_bytearray {
             state.mark_as_bytearray(name.clone());
         } else {
@@ -1328,6 +1355,61 @@ pub(crate) fn generate_slice_assign<'ctx>(
     } else {
         state.context.i64_type().const_int(1, false)
     };
+
+
+    // OPTIMIZATION: ba[start:end:step] = bytearray([val]) * n
+    // Collapses massive temporary allocations and hot loops into a single runtime fill call
+    if is_bytearray_slice {
+        let mut fill_byte_expr: Option<&Expr> = None;
+
+        // Pattern 1: bytearray([const]) * anything
+        if let Expr::BinOp { op: BinOp::Mul, left, .. } = value {
+            if let Expr::Call { func, args, .. } = left.as_ref() {
+                if matches!(func.as_ref(), Expr::Ident(ref name, _) if name == "bytearray") && args.len() == 1 {
+                    if let Expr::List { ref elements, .. } = &args[0] {
+                        if elements.len() == 1 {
+                            fill_byte_expr = Some(&elements[0]);
+                        }
+                    }
+                }
+            }
+        } 
+        // Pattern 2: bytearray([const]) without multiplication
+        else if let Expr::Call { func, args, .. } = value {
+            if matches!(func.as_ref(), Expr::Ident(ref name, _) if name == "bytearray") && args.len() == 1 {
+                if let Expr::List { ref elements, .. } = &args[0] {
+                    if elements.len() == 1 {
+                        fill_byte_expr = Some(&elements[0]);
+                    }
+                }
+            }
+        }
+        // Pattern 3: Just a single integer literal (e.g., ba[s:e:st] = 0)
+        else if let Expr::Int(val, _) = value {
+            fill_byte_expr = Some(value);
+        }
+
+        if let Some(fill_expr) = fill_byte_expr {
+            let fill_byte_val = generate_expr(state, fill_expr)?;
+            let fill_byte_int = if fill_byte_val.is_int_value() {
+                untag_i64(state, fill_byte_val.into_int_value())
+            } else {
+                return crate::codegen::codegen_error("bytearray value must be an integer".to_string());
+            };
+
+            let fill_func = state.module.get_function("vp_bytearray_slice_fill")
+                .ok_or("vp_bytearray_slice_fill not declared")?;
+
+            state.ir_builder.build_call(
+                state.builder,
+                fill_func,
+                &[obj_val.into(), start_val.into(), end_val.into(), step_val.into(), fill_byte_int.into()],
+                "slice_fill"
+            );
+
+            return Ok(());
+        }
+    }
 
     // Generate the value
     let value_val = generate_expr(state, value)?;

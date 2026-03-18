@@ -113,6 +113,7 @@ pub fn generate_sum_call<'ctx>(
 }
 
 /// Generate min() call
+/// Supports both min(iterable) and min(arg1, arg2, ...) forms
 pub fn generate_min_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
@@ -121,6 +122,66 @@ pub fn generate_min_call<'ctx>(
         return crate::codegen::codegen_error("min() requires at least 1 argument".to_string());
     }
 
+    // Multiple arguments: min(a, b, c, ...) - compare and return minimum
+    if args.len() > 1 {
+        let mut min_val = generate_expr(state, &args[0])?;
+        
+        for arg in &args[1..] {
+            let arg_val = generate_expr(state, arg)?;
+            
+            // Both values should be integers for comparison
+            let min_int = min_val.into_int_value();
+            let arg_int = arg_val.into_int_value();
+            
+            let cmp = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::SLT,
+                    arg_int,
+                    min_int,
+                    "min_cmp",
+                )
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare in min(): {:?}", e)))?;
+            
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+            let then_block = state.context.append_basic_block(func, "min_then");
+            let else_block = state.context.append_basic_block(func, "min_else");
+            let merge_block = state.context.append_basic_block(func, "min_merge");
+            
+            state
+                .builder
+                .build_conditional_branch(cmp, then_block, else_block)
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to build min branch: {:?}", e)))?;
+            
+            // Then block: arg is smaller
+            state.builder.position_at_end(then_block);
+            state
+                .builder
+                .build_unconditional_branch(merge_block)
+                .map_err(|_e| crate::codegen::codegen_err("Failed to build min then branch".to_string()))?;
+            
+            // Else block: min stays the same
+            state.builder.position_at_end(else_block);
+            state
+                .builder
+                .build_unconditional_branch(merge_block)
+                .map_err(|_e| crate::codegen::codegen_err("Failed to build min else branch".to_string()))?;
+            
+            // Merge block with phi
+            state.builder.position_at_end(merge_block);
+            let phi = state
+                .builder
+                .build_phi(arg_int.get_type(), "min_result")
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to build min phi: {:?}", e)))?;
+            phi.add_incoming(&[(&arg_int, then_block), (&min_int, else_block)]);
+            
+            min_val = phi.as_basic_value();
+        }
+        
+        return Ok(min_val);
+    }
+
+    // Single argument: min(iterable) - use runtime function
     let iterable_val = generate_expr(state, &args[0])?;
 
     let func = state
@@ -134,6 +195,7 @@ pub fn generate_min_call<'ctx>(
 }
 
 /// Generate max() call
+/// Supports both max(iterable) and max(arg1, arg2, ...) forms
 pub fn generate_max_call<'ctx>(
     state: &mut CodeGenState<'_, 'ctx>,
     args: &[Expr],
@@ -142,6 +204,66 @@ pub fn generate_max_call<'ctx>(
         return crate::codegen::codegen_error("max() requires at least 1 argument".to_string());
     }
 
+    // Multiple arguments: max(a, b, c, ...) - compare and return maximum
+    if args.len() > 1 {
+        let mut max_val = generate_expr(state, &args[0])?;
+        
+        for arg in &args[1..] {
+            let arg_val = generate_expr(state, arg)?;
+            
+            // Both values should be integers for comparison
+            let max_int = max_val.into_int_value();
+            let arg_int = arg_val.into_int_value();
+            
+            let cmp = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::SGT,
+                    arg_int,
+                    max_int,
+                    "max_cmp",
+                )
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare in max(): {:?}", e)))?;
+            
+            let func = state.builder.get_insert_block().unwrap().get_parent().unwrap();
+            let then_block = state.context.append_basic_block(func, "max_then");
+            let else_block = state.context.append_basic_block(func, "max_else");
+            let merge_block = state.context.append_basic_block(func, "max_merge");
+            
+            state
+                .builder
+                .build_conditional_branch(cmp, then_block, else_block)
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to build max branch: {:?}", e)))?;
+            
+            // Then block: arg is larger
+            state.builder.position_at_end(then_block);
+            state
+                .builder
+                .build_unconditional_branch(merge_block)
+                .map_err(|_e| crate::codegen::codegen_err("Failed to build max then branch".to_string()))?;
+            
+            // Else block: max stays the same
+            state.builder.position_at_end(else_block);
+            state
+                .builder
+                .build_unconditional_branch(merge_block)
+                .map_err(|_e| crate::codegen::codegen_err("Failed to build max else branch".to_string()))?;
+            
+            // Merge block with phi
+            state.builder.position_at_end(merge_block);
+            let phi = state
+                .builder
+                .build_phi(arg_int.get_type(), "max_result")
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to build max phi: {:?}", e)))?;
+            phi.add_incoming(&[(&arg_int, then_block), (&max_int, else_block)]);
+            
+            max_val = phi.as_basic_value();
+        }
+        
+        return Ok(max_val);
+    }
+
+    // Single argument: max(iterable) - use runtime function
     let iterable_val = generate_expr(state, &args[0])?;
 
     let func = state

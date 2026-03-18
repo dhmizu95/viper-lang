@@ -3,6 +3,8 @@
 
 import time
 import math
+import sys
+
 
 def prime_sieve(limit):
     """Sieve of Eratosthenes to find all primes up to limit"""
@@ -26,7 +28,9 @@ def prime_sieve(limit):
     return [i for i, is_prime in enumerate(sieve) if is_prime]
     
 def main():
-    limit = 10**6  # Using 10^8 instead of 10^9 for practical runtime
+    limit = 10**9
+    if len(sys.argv) > 1:
+        limit = int(sys.argv[1])
     
     print(f"Prime Sieve up to {limit:,}")
     print("-" * 40)

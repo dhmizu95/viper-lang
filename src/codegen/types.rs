@@ -113,7 +113,8 @@ impl<'ctx> TypeMapper<'ctx> {
             | Some(Type::WaitGroup)
             | Some(Type::List(_))
             | Some(Type::Dict(_, _))
-            | Some(Type::Optional(_)) => {
+            | Some(Type::Optional(_))
+            | Some(Type::Bytes) => {
                 Some(self.context.ptr_type(inkwell::AddressSpace::default()).into())
             }
             Some(Type::Tuple(_types)) => {

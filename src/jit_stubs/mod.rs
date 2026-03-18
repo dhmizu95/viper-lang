@@ -3,6 +3,7 @@
 pub mod asyncio_mod;
 pub mod bigint;
 pub mod bitvec;
+pub mod bytearray;
 pub mod collections;
 pub mod concurrency;
 pub mod decimal_mod;
@@ -39,6 +40,7 @@ pub mod typing;
 pub use asyncio_mod::*;
 pub use bigint::*;
 pub use bitvec::*;
+pub use bytearray::*;
 pub use collections::*;
 pub use concurrency::*;
 pub use decimal_mod::*;

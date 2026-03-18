@@ -1,29 +1,28 @@
 // Stub implementations for list functions (JIT mode)
-// Using ViperList struct compatible with runtime
-// ViperList layout (40 bytes):
-//   offset 0-7: ref_count (i64)
-//   offset 8-15: length (i64)
-//   offset 16-23: capacity (i64)
-//   offset 24-31: elem_type (i64)
-//   offset 32-39: data pointer (direct pointer to array)
+// Using ViperList struct compatible with codegen expectations
+// ViperList layout (32 bytes):
+//   offset 0-7: length (i64)
+//   offset 8-15: capacity (i64)
+//   offset 16-23: elem_type (i64)
+//   offset 24-31: data pointer
 
 const VIPER_LIST_I64: i64 = 0;
 const VIPER_LIST_F64: i64 = 1;
 
 #[repr(C)]
 pub struct ViperListStub {
-    pub length: i64,
-    pub capacity: i64,
-    pub elem_type: i64,
-    pub data: *mut i64, // Direct pointer to array data
+    pub length: i64,      // offset 0
+    pub capacity: i64,    // offset 8
+    pub elem_type: i64,   // offset 16
+    pub data: *mut i64,   // offset 24
 }
 
 #[repr(C)]
 pub struct ViperListF64Stub {
-    pub length: i64,
-    pub capacity: i64,
-    pub elem_type: i64,
-    pub data: *mut f64, // Direct pointer to f64 array data
+    pub length: i64,      // offset 0
+    pub capacity: i64,    // offset 8
+    pub elem_type: i64,   // offset 16
+    pub data: *mut f64,   // offset 24
 }
 
 fn create_viper_list_stub(capacity: i64) -> *mut ViperListStub {
@@ -42,8 +41,12 @@ fn create_viper_list_stub(capacity: i64) -> *mut ViperListStub {
         std::ptr::write_bytes(data_ptr, 0, capacity as usize);
     }
 
-    let list =
-        Box::new(ViperListStub { length: 0, capacity, elem_type: VIPER_LIST_I64, data: data_ptr });
+    let list = Box::new(ViperListStub {
+        length: 0,
+        capacity,
+        elem_type: VIPER_LIST_I64,
+        data: data_ptr,
+    });
 
     Box::into_raw(list)
 }
@@ -349,6 +352,27 @@ pub extern "C" fn vp_list_print_stub(list: *mut std::ffi::c_void) {
         }
         print!("]");
     }
+}
+
+pub extern "C" fn vp_list_to_str(list: *mut std::ffi::c_void) -> *mut crate::jit_stubs::io::ViperString {
+    if list.is_null() {
+        return crate::jit_stubs::strings::create_viper_string("[]");
+    }
+    
+    let mut result = String::from("[");
+    unsafe {
+        let list_ref = &*(list as *mut ViperListStub);
+        for i in 0..list_ref.length as usize {
+            if i > 0 {
+                result.push_str(", ");
+            }
+            let val = *list_ref.data.add(i);
+            result.push_str(&val.to_string());
+        }
+        result.push(']');
+    }
+    
+    crate::jit_stubs::strings::create_viper_string(&result)
 }
 
 // Float list stubs (f64)
@@ -799,5 +823,50 @@ pub extern "C" fn vp_list_reversed_stub(list: *mut std::ffi::c_void) -> *mut std
         copy_ref.length = list_ref.length;
 
         copy as *mut std::ffi::c_void
+    }
+}
+
+// Import tuple functions from the tuples module
+use super::tuples::{vp_tuple_create_stub, vp_tuple_set_stub};
+use super::tagged_int::{tagged_int_from_i64, tagged_int_retain, get_small_int, is_bigint};
+
+/// enumerate() stub - returns list of (index, value) tuples
+pub extern "C" fn vp_enumerate_stub(list: *mut std::ffi::c_void, start: i64) -> *mut std::ffi::c_void {
+    if list.is_null() {
+        return create_viper_list_stub(0) as *mut std::ffi::c_void;
+    }
+    unsafe {
+        let list_ref = &*(list as *mut ViperListStub);
+        
+        // Extract the actual start value from the tagged int
+        let start_val = if is_bigint(start) { 0 } else { get_small_int(start) };
+        
+        let result = create_viper_list_stub(list_ref.length);
+        let result_ref = &mut *result;
+
+        for i in 0..list_ref.length {
+            // Create tuple with (index, value)
+            let tuple = vp_tuple_create_stub(2);
+            if tuple.is_null() {
+                continue;
+            }
+            
+            // Set index (element 0) - as tagged int
+            let index_val = tagged_int_from_i64(start_val + i);
+            vp_tuple_set_stub(tuple, 0, index_val);
+            
+            // Copy value (element 1) - get from list and retain it
+            let value = *list_ref.data.add(i as usize);
+            // Retain the value before storing in tuple (for bigints)
+            tagged_int_retain(value);
+            vp_tuple_set_stub(tuple, 1, value);
+            
+            // Append tuple pointer to result list (store as i64)
+            let tuple_ptr = tuple as i64;
+            *result_ref.data.add(result_ref.length as usize) = tuple_ptr;
+            result_ref.length += 1;
+        }
+
+        result as *mut std::ffi::c_void
     }
 }

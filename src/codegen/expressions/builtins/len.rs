@@ -245,6 +245,45 @@ pub fn generate_len_call<'ctx>(
         return Ok(result_tagged.into());
     }
 
+    // Check if it's bytearray
+    let is_bytearray = match obj_expr {
+        Expr::Ident(name, _) => {
+            if let Some(var_type) = state.var_types.get(name) {
+                matches!(var_type, crate::ast::Type::Bytes)
+            } else {
+                false
+            }
+        }
+        Expr::Call { func, .. } => {
+            if let Expr::Ident(func_name, _) = func.as_ref() {
+                func_name == "bytearray"
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
+    if is_bytearray && obj_val.is_pointer_value() {
+        // Call vp_bytearray_len for bytearray
+        let ba_len_func = state
+            .module
+            .get_function("vp_bytearray_len")
+            .ok_or_else(|| "vp_bytearray_len not declared".to_string())?;
+        let result =
+            state.ir_builder.build_call(state.builder, ba_len_func, &[obj_val.into()], "ba_len")
+            .unwrap().into_int_value();
+
+        // Tag the result
+        let result_tagged = state.builder.build_left_shift(
+            result,
+            state.context.i64_type().const_int(1, false),
+            "ba_len_tagged"
+        ).expect("tag bytearray len");
+
+        return Ok(result_tagged.into());
+    }
+
     // Fallback: treat as list/collection
     let list_len_func = state
         .module

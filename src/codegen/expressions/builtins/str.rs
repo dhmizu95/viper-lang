@@ -53,10 +53,43 @@ pub fn generate_type_convert<'ctx>(
             }
         }
         "int" => {
+            // Check type with state to be more accurate
+            let arg_type =
+                crate::codegen::expressions::core::infer_type_with_state(state, &args[0]);
+
             // Convert to int (Python-style: arbitrary precision using tagged ints)
-            if arg_val.is_int_value() {
-                // Already a tagged int, return as-is
+            if arg_val.is_int_value()
+                && (arg_type == Type::Int || arg_type == Type::I64 || arg_type == Type::Bool)
+            {
+                // Already a tagged int (or bool), return as-is (bool will be 0/1 tagged)
                 Ok(arg_val)
+            } else if arg_type == Type::BigInt {
+                // BigInt to tagged int: Untag the pointer first, call vp_bigint_to_i64, then tag the result
+                let to_i64_func = state
+                    .module
+                    .get_function("vp_bigint_to_i64")
+                    .ok_or_else(|| "vp_bigint_to_i64 not declared".to_string())?;
+                // Untag the BigInt pointer: bigint_ptr = value & ~1
+                let untagged_ptr = state
+                    .builder
+                    .build_and(
+                        arg_val.into_int_value(),
+                        state.context.i64_type().const_int(!1u64, false),
+                        "untagged_bigint_ptr",
+                    )
+                    .expect("untag bigint ptr");
+                let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                let bigint_ptr = state
+                    .builder
+                    .build_int_to_ptr(untagged_ptr, ptr_type, "bigint_ptr")
+                    .expect("i64 to ptr");
+                let untagged = state
+                    .ir_builder
+                    .build_call(state.builder, to_i64_func, &[bigint_ptr.into()], "bigint_to_i64")
+                    .unwrap()
+                    .into_int_value();
+                let tagged = state.ir_builder.build_tag_i64(state.builder, untagged);
+                Ok(tagged.into())
             } else if arg_val.is_float_value() {
                 // Float to int: first convert to i64, then to tagged int
                 let float_val = arg_val.into_float_value();
@@ -73,19 +106,52 @@ pub fn generate_type_convert<'ctx>(
                     .build_call(state.builder, from_i64_func, &[int_val.into()], "int_from_float")
                     .unwrap();
                 Ok(result)
-            } else if arg_val.is_pointer_value() {
+            } else if arg_val.is_pointer_value() || arg_type == Type::Str || arg_type == Type::Infer
+            {
                 // String to int (arbitrary precision) using tagged int
                 let str_to_int = state
                     .module
                     .get_function("tagged_int_from_str")
                     .ok_or_else(|| "tagged_int_from_str not declared".to_string())?;
+
+                // If it's a pointer to ViperString, we MUST extract the char* data first
+                let char_ptr = if arg_val.is_pointer_value() {
+                    let str_data_func = state
+                        .module
+                        .get_function("vp_str_data")
+                        .ok_or_else(|| "vp_str_data not declared".to_string())?;
+                    state
+                        .ir_builder
+                        .build_call(state.builder, str_data_func, &[arg_val.into()], "str_data")
+                        .unwrap()
+                        .into_pointer_value()
+                } else {
+                    // It's an i64 but might be a pointer (common in untyped collections)
+                    // We check if it's LSB=0 (could be small int or pointer)
+                    // For now, assume it's a pointer if we got here and type is Str/Infer
+                    let str_data_func = state
+                        .module
+                        .get_function("vp_str_data")
+                        .ok_or_else(|| "vp_str_data not declared".to_string())?;
+                    let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
+                    let arg_ptr = state
+                        .builder
+                        .build_int_to_ptr(arg_val.into_int_value(), ptr_type, "i64_to_ptr")
+                        .unwrap();
+                    state
+                        .ir_builder
+                        .build_call(state.builder, str_data_func, &[arg_ptr.into()], "str_data")
+                        .unwrap()
+                        .into_pointer_value()
+                };
+
                 let result = state
                     .ir_builder
-                    .build_call(state.builder, str_to_int, &[arg_val.into()], "str_to_int")
+                    .build_call(state.builder, str_to_int, &[char_ptr.into()], "str_to_int")
                     .unwrap();
                 Ok(result)
             } else {
-                crate::codegen::codegen_error("Cannot convert to int".to_string())
+                crate::codegen::codegen_error(format!("Cannot convert {:?} to int", arg_type))
             }
         }
         "bool" => {
@@ -167,7 +233,7 @@ pub fn generate_str_call<'ctx>(
         let arg_val = generate_expr(state, arg)?;
         // Create an array with the argument to pass to generate_tagged_int_to_str
         // Or directly call the generation logic here to avoid arg repackaging:
-        
+
         let to_str_func = state
             .module
             .get_function("tagged_int_to_viper_str")

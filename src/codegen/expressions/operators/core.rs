@@ -46,6 +46,7 @@ pub fn generate_binop<'ctx>(
                     false
                 }
             }
+            Expr::Ident(name, _) => state.is_bytearray(name),
             _ => false,
         };
 
@@ -819,6 +820,34 @@ pub fn generate_unary<'ctx>(
 
         if op_type == crate::ast::Type::Int {
             return arithmetic::generate_tagged_int_unary(state, op, val);
+        }
+
+        // Handle pointer types (lists, etc.) for the 'not' operator
+        if matches!(op, UnaryOp::Not) && val.is_pointer_value() {
+            // For lists: not [] = True, not [1,2,3] = False
+            // Check if list length is 0 (empty list = True)
+            // ViperList struct: length is at offset 0 (i64)
+            let ptr_val = val.into_pointer_value();
+            let i64_ptr = state
+                .builder
+                .build_pointer_cast(ptr_val, state.context.ptr_type(inkwell::AddressSpace::default()), "list_as_i64_ptr")
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to cast list pointer: {:?}", e)))?;
+            let length = state
+                .builder
+                .build_load(state.context.i64_type(), i64_ptr, "list_length")
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to load list length: {:?}", e)))?
+                .into_int_value();
+            let is_empty = state
+                .builder
+                .build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    length,
+                    state.context.i64_type().const_zero(),
+                    "is_empty",
+                )
+                .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare length: {:?}", e)))?;
+            // not list = is_empty (empty = True, non-empty = False)
+            return Ok(is_empty.into());
         }
 
         let int_val = val.into_int_value();

@@ -480,5 +480,9 @@ pub fn declare_bytearray_functions<'ctx>(
     let bytearray_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_bytearray_slice", bytearray_slice_type, None);
 
+    // bytearray slice fill
+    let bytearray_slice_fill_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_bytearray_slice_fill", bytearray_slice_fill_type, None);
+
     Ok(())
 }
