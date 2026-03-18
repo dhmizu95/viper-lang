@@ -280,6 +280,11 @@ pub fn declare_list_functions<'ctx>(
     let bitvec_concat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
     module.add_function("vp_bitvec_concat", bitvec_concat_type, None);
 
+    // SIMD-optimized strided marking - critical for prime sieve
+    let bitvec_mark_multiples_type = void_type
+        .fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    module.add_function("vp_bitvec_mark_multiples", bitvec_mark_multiples_type, None);
+
     // Range function: vp_range(start, end) returns a list
     let range_type = ptr_type.fn_type(&[i64_type.into(), i64_type.into()], false);
     module.add_function("vp_range", range_type, None);
@@ -465,7 +470,8 @@ pub fn declare_bytearray_functions<'ctx>(
     module.add_function("vp_bytearray_get", bytearray_get_type, None);
 
     // bytearray set
-    let bytearray_set_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+    let bytearray_set_type =
+        void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_bytearray_set", bytearray_set_type, None);
 
     // bytearray print
@@ -477,11 +483,15 @@ pub fn declare_bytearray_functions<'ctx>(
     module.add_function("vp_bytearray_repeat", bytearray_repeat_type, None);
 
     // bytearray slice
-    let bytearray_slice_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    let bytearray_slice_type = ptr_type
+        .fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
     module.add_function("vp_bytearray_slice", bytearray_slice_type, None);
 
     // bytearray slice fill
-    let bytearray_slice_fill_type = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    let bytearray_slice_fill_type = void_type.fn_type(
+        &[ptr_type.into(), i64_type.into(), i64_type.into(), i64_type.into(), i64_type.into()],
+        false,
+    );
     module.add_function("vp_bytearray_slice_fill", bytearray_slice_fill_type, None);
 
     Ok(())

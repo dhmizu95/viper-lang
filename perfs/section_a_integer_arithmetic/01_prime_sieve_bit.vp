@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Prime sieve using bitvec - 8x more memory efficient than bytearray"""
+
+import time
+import math
+import sys
+
+
+def prime_sieve_bit(limit):
+    """Sieve of Eratosthenes using bitvec for 8x memory savings"""
+    if limit < 2:
+        return []
+    
+    n = limit + 1
+    
+    # Use bitvec instead of bytearray: 8x less memory
+    sieve = [True] * n
+    
+    # Mark 0 and 1 as non-prime
+    sieve[0] = False
+    sieve[1] = False
+    
+    # Wheel factorization: only process odd numbers
+    sqrt_limit = int(math.isqrt(limit))
+    for i in range(3, sqrt_limit + 1, 2):
+        if sieve[i]:
+            # Mark odd multiples: i*i, i*i+2i, i*i+4i, ...
+            # stride = 2*i skips even multiples
+            start = i * i
+            sieve[start:n:(i * 2)] = False
+    
+    # Collect primes (only odd numbers after 2)
+    primes = [2]
+    for j in range(1, n // 2):
+        if sieve[2 * j + 1]:
+            primes.append(2 * j + 1)
+    return primes
+
+
+def main():
+    limit = 10**8
+    if len(sys.argv) > 1:
+        limit = int(sys.argv[1])
+    
+    print(f"Prime Sieve (bitvec) up to {limit:,}")
+    print("-" * 40)
+    
+    start = time.perf_counter()
+    primes = prime_sieve_bit(limit)
+    elapsed = time.perf_counter() - start
+    
+    print(f"Primes found: {len(primes):,}")
+    print(f"Time: {elapsed:.3f} seconds")
+    print(f"Last prime: {primes[-1]:,}")
+
+
+if __name__ == "__main__":
+    main()

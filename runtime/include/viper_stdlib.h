@@ -152,6 +152,11 @@ int64_t vp_bitvec_len(ViperList* vec);
 
 /* Extended bit vector operations */
 void vp_bitvec_extend(ViperList* vec, ViperList* other);
+
+/* SIMD-optimized strided marking - critical for prime sieve
+ * Clears bits at positions: start, start+stride, start+2*stride, ... up to limit
+ * Uses AVX2/SSE2 when available for 4x/2x speedup */
+void vp_bitvec_mark_multiples(ViperList* vec, int64_t start, int64_t stride, int64_t limit);
 int64_t vp_bitvec_index(ViperList* vec, bool value);
 int64_t vp_bitvec_count(ViperList* vec, bool value);
 void vp_bitvec_reverse(ViperList* vec);
