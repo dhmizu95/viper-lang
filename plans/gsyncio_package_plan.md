@@ -470,3 +470,92 @@ See `examples/` directory for:
 - Real-time scheduling guarantees
 - Hardware-assisted context switching
 - Integration with data processing frameworks (Apache Arrow, etc.)
+
+## Phase 8: Go-Style Coroutine Features (Future Implementation)
+
+### Additional Synchronization Primitives
+1. **Mutex** (`gsync.Mutex`)
+   - Basic mutual exclusion lock
+   - `lock()`, `unlock()`, `try_lock()`
+
+2. **RWMutex** (`gsync.RWMutex`)
+   - Reader-writer lock for read-heavy workloads
+   - `lock()`, `unlock()`, `rlock()`, `runlock()`, `try_rlock()`
+
+3. **Once** (`gsync.Once`)
+   - Execute exactly once
+   - `do(func)` - Call function exactly once
+
+4. **Cond** (`gsync.Cond`)
+   - Condition variable for signaling
+   - `wait()`, `signal()`, `broadcast()`
+
+5. **Pool** (`gsync.Pool`)
+   - Object pool for reducing allocations
+   - `get()`, `put()`
+
+6. **Map** (`gsync.Map`)
+   - Concurrent map operations
+   - `load()`, `store()`, `delete()`, `range()`
+
+7. **Atomic** (`gsync.atomic`)
+   - Atomic operations
+   - `add()`, `load()`, `store()`, `swap()`, `compare_exchange()`
+
+### Advanced Task Management
+
+8. **ErrGroup** (`gsync.ErrGroup`)
+   - Parallel tasks with error handling
+   - `go(func)`, `wait()` - Returns first error or nil
+
+9. **Semaphore** (`gsync.Semaphore`)
+   - Resource limiting
+   - `acquire()`, `release()` - Limit concurrent operations
+
+10. **Context** (`gsync.Context`)
+    - Cancellation and deadlines
+    - `with_cancel()`, `with_timeout()`, `with_deadline()`, `with_value()`
+
+## Phase 9: Synchronous I/O (syncio Features) (Future Implementation)
+
+### File I/O Operations
+1. **Async File Operations**
+   - `gsyncio.open()` - Async file open
+   - `gsyncio.read()` - Async file read
+   - `gsyncio.write()` - Async file write
+   - `gsyncio.seek()` - Async file seek
+   - `gsyncio.close()` - Async file close
+
+### Network I/O Operations
+2. **Async Socket Operations**
+   - `gsyncio.connect()` - Async TCP connect
+   - `gsyncio.accept()` - Async TCP accept
+   - `gsyncio.send()` - Async socket send
+   - `gsyncio.recv()` - Async socket receive
+   - `gsyncio.udp_socket()` - Async UDP socket
+
+3. **Async DNS Lookup**
+   - `gsyncio.gethostbyname()` - Async DNS resolution
+   - `gsyncio.getaddrinfo()` - Async address lookup
+
+### Time Operations
+4. **Async Time Functions**
+   - `gsyncio.sleep()` - Async sleep (already implemented)
+   - `gsyncio.timeout()` - Run with timeout
+   - `gsyncio.wait_for()` - Wait for future with timeout
+
+### Signal Handling
+5. **Async Signal Handling**
+   - `gsyncio.signal()` - Async signal handler
+   - `gsyncio.ignore_signal()` - Ignore signals
+
+### Additional I/O Patterns
+6. **Pipe Operations**
+   - `gsyncio.pipe()` - Create async pipe
+
+7. **Subprocess Management**
+   - `gsyncio.create_subprocess()` - Async subprocess creation
+   - `gsyncio.wait_process()` - Async process waiting
+
+8. **Memory-mapped Files**
+   - `gsyncio.mmap()` - Async memory-mapped file operations
