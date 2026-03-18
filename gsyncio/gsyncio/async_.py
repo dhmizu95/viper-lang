@@ -84,7 +84,8 @@ async def sleep(ms: int) -> None:
         ms: Number of milliseconds to sleep
     """
     if _HAS_CYTHON:
-        sleep_ms(ms)
+        # sleep_ms now returns a coroutine to await
+        await sleep_ms(ms)
     else:
         await asyncio.sleep(ms / 1000.0)
 

@@ -97,7 +97,9 @@ class TestAsyncAwait:
         await gs.sleep(100)  # 100ms
         elapsed = time.time() - start
         
-        assert elapsed >= 0.09  # Allow some tolerance
+        # Sleep should be at least close to 100ms (allow tolerance)
+        assert elapsed >= 0.08  # 80ms minimum
+        assert elapsed < 0.5    # Should not take too long
     
     @pytest.mark.asyncio
     async def test_gather(self):

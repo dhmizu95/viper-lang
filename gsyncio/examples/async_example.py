@@ -24,32 +24,31 @@ async def process_data(data, delay_ms=50):
 async def main():
     """Main function demonstrating async/await"""
     print("Starting async operations...")
-    
+
     # Create URLs to fetch
     urls = [f"http://example.com/{i}" for i in range(20)]
-    
-    # Fetch all URLs concurrently
+
+    # Fetch all URLs concurrently using asyncio directly
     print(f"Fetching {len(urls)} URLs...")
-    fetch_tasks = [gs.create_task(fetch_url(url)) for url in urls]
-    results = await gs.gather(*fetch_tasks)
-    print(f"Fetched {len(results)} URLs")
     
-    # Process results concurrently
-    print("Processing results...")
-    process_tasks = [gs.create_task(process_data(r)) for r in results]
-    processed = await gs.gather(*process_tasks)
-    print(f"Processed {len(processed)} items")
+    async def fetch_and_process(url):
+        data = await fetch_url(url)
+        return await process_data(data)
     
+    tasks = [asyncio.create_task(fetch_and_process(url)) for url in urls]
+    processed = await asyncio.gather(*tasks)
+    print(f"Fetched and processed {len(processed)} items")
+
     # Show first few results
     print("\nFirst 5 results:")
     for r in processed[:5]:
         print(f"  {r}")
-    
+
     # Show scheduler stats
     stats = gs.get_scheduler_stats()
     print(f"\nScheduler stats: {stats}")
 
 
 if __name__ == '__main__':
-    from gsyncio.async_ import run as async_run
-    async_run(main())
+    import asyncio
+    asyncio.run(main())

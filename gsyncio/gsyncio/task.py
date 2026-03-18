@@ -26,11 +26,10 @@ Usage:
 import threading
 from typing import Callable, Any, List
 from .core import spawn, yield_execution, init_scheduler, shutdown_scheduler
+import weakref
 
-
-# Global task tracking
-_tasks_lock = threading.Lock()
-_active_tasks: List[threading.Thread] = []
+# Global task tracking using WeakSet (lock-free)
+_active_tasks = weakref.WeakSet()
 
 
 def task(func: Callable, *args, **kwargs) -> threading.Thread:
@@ -49,16 +48,12 @@ def task(func: Callable, *args, **kwargs) -> threading.Thread:
         try:
             func(*args, **kwargs)
         finally:
-            with _tasks_lock:
-                # Remove from active tasks (use discard to avoid errors)
-                current = threading.current_thread()
-                if current in _active_tasks:
-                    _active_tasks.remove(current)
+            pass  # WeakSet handles cleanup automatically
     
     t = spawn(wrapper)
     
-    with _tasks_lock:
-        _active_tasks.append(t)
+    # WeakSet.add() is thread-safe and lock-free
+    _active_tasks.add(t)
     
     return t
 
@@ -69,13 +64,13 @@ def sync():
     
     This blocks until all tasks created with gs.task() have finished.
     """
-    global _active_tasks
+    # Get snapshot of current tasks
+    tasks = list(_active_tasks)
     
-    with _tasks_lock:
-        tasks = list(_active_tasks)
-    
+    # Join all tasks
     for t in tasks:
-        t.join()
+        if hasattr(t, 'join'):
+            t.join()
 
 
 def sync_timeout(timeout: float) -> bool:
@@ -93,10 +88,10 @@ def sync_timeout(timeout: float) -> bool:
     deadline = time.time() + timeout
     
     while True:
-        with _tasks_lock:
-            if not _active_tasks:
-                return True
-            tasks = list(_active_tasks)
+        tasks = list(_active_tasks)
+        
+        if not tasks:
+            return True
         
         remaining = deadline - time.time()
         if remaining <= 0:
@@ -104,16 +99,12 @@ def sync_timeout(timeout: float) -> bool:
         
         # Join one task with remaining timeout
         for t in tasks:
-            t.join(timeout=remaining)
-            if not t.is_alive():
-                with _tasks_lock:
-                    if t in _active_tasks:
-                        _active_tasks.remove(t)
-                break
+            if hasattr(t, 'join'):
+                t.join(timeout=min(remaining, 0.01))  # Small timeout for responsiveness
+            break  # Check for more tasks
         
         if time.time() >= deadline:
-            with _tasks_lock:
-                return len(_active_tasks) == 0
+            return len(list(_active_tasks)) == 0
 
 
 def task_count() -> int:
@@ -123,8 +114,8 @@ def task_count() -> int:
     Returns:
         Number of currently running tasks
     """
-    with _tasks_lock:
-        return len(_active_tasks)
+    # WeakSet can be converted to list without lock
+    return len(list(_active_tasks))
 
 
 def run(func: Callable, *args, **kwargs) -> Any:

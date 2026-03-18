@@ -101,14 +101,13 @@ except ImportError:
             return self.result()
     
     class Channel:
-        """Pure Python Channel implementation"""
+        """Pure Python Channel implementation - non-blocking"""
         def __init__(self, capacity=0):
             self._capacity = capacity
             self._queue = []
             self._closed = False
-            self._lock = threading.Lock()
-            self._not_empty = threading.Condition(self._lock)
-            self._not_full = threading.Condition(self._lock)
+            self._waiters_send = []  # Fibers waiting to send
+            self._waiters_recv = []  # Fibers waiting to receive
         
         @property
         def capacity(self):
@@ -116,68 +115,109 @@ except ImportError:
         
         @property
         def size(self):
-            with self._lock:
-                return len(self._queue)
+            return len(self._queue)
         
         @property
         def closed(self):
-            with self._lock:
-                return self._closed
+            return self._closed
         
         async def send(self, value):
-            with self._not_full:
-                while len(self._queue) >= self._capacity and self._capacity > 0:
-                    if self._closed:
-                        raise RuntimeError("Channel closed")
-                    self._not_full.wait()
-                
-                if self._closed:
-                    raise RuntimeError("Channel closed")
-                
-                self._queue.append(value)
-                self._not_empty.notify()
+            """Send value - non-blocking with async wait"""
+            # Try non-blocking send first
+            if self.send_nowait(value):
+                return
+            
+            # Need to wait for space
+            await self._wait_for_space()
+            # Try again after waiting
+            if not self.send_nowait(value):
+                raise RuntimeError("Channel closed")
         
         async def recv(self):
-            with self._not_empty:
-                while len(self._queue) == 0:
-                    if self._closed:
-                        raise StopAsyncIteration("Channel closed")
-                    self._not_empty.wait()
-                
-                value = self._queue.pop(0)
-                self._not_full.notify()
+            """Receive value - non-blocking with async wait"""
+            # Try non-blocking receive first
+            value = self.recv_nowait()
+            if value is not None:
                 return value
+            
+            # Need to wait for data
+            await self._wait_for_data()
+            # Try again after waiting
+            value = self.recv_nowait()
+            if value is None and self._closed:
+                raise StopAsyncIteration("Channel closed")
+            return value
+        
+        async def _wait_for_space(self):
+            """Wait for space in channel (async)"""
+            import asyncio
+            event = asyncio.Event()
+            self._waiters_send.append(event)
+            try:
+                await event.wait()
+            finally:
+                if event in self._waiters_send:
+                    self._waiters_send.remove(event)
+        
+        async def _wait_for_data(self):
+            """Wait for data in channel (async)"""
+            import asyncio
+            event = asyncio.Event()
+            self._waiters_recv.append(event)
+            try:
+                await event.wait()
+            finally:
+                if event in self._waiters_recv:
+                    self._waiters_recv.remove(event)
+        
+        def _wake_send_waiters(self):
+            """Wake up waiting senders"""
+            import asyncio
+            for event in self._waiters_send[:]:
+                event.set()
+            self._waiters_send.clear()
+        
+        def _wake_recv_waiters(self):
+            """Wake up waiting receivers"""
+            import asyncio
+            for event in self._waiters_recv[:]:
+                event.set()
+            self._waiters_recv.clear()
         
         def send_nowait(self, value):
-            with self._lock:
-                if self._closed:
-                    return False
-                if len(self._queue) >= self._capacity and self._capacity > 0:
-                    return False
-                self._queue.append(value)
-                self._not_empty.notify()
-                return True
+            """Send value without blocking"""
+            if self._closed:
+                return False
+            if len(self._queue) >= self._capacity and self._capacity > 0:
+                return False
+            self._queue.append(value)
+            # Wake up a waiting receiver
+            if self._waiters_recv:
+                self._wake_recv_waiters()
+            return True
         
         def recv_nowait(self):
-            with self._lock:
-                if len(self._queue) == 0:
-                    return None
-                value = self._queue.pop(0)
-                self._not_full.notify()
-                return value
+            """Receive value without blocking"""
+            if not self._queue:
+                return None
+            value = self._queue.pop(0)
+            # Wake up a waiting sender
+            if self._waiters_send:
+                self._wake_send_waiters()
+            return value
         
         def close(self):
-            with self._lock:
-                self._closed = True
-                self._not_empty.notify_all()
-                self._not_full.notify_all()
+            """Close the channel"""
+            self._closed = True
+            # Wake up all waiters
+            self._wake_send_waiters()
+            self._wake_recv_waiters()
         
         def __len__(self):
-            with self._lock:
-                return len(self._queue)
+            return len(self._queue)
         
         def __bool__(self):
-            return not self.closed
+            return not self._closed
     
     class WaitGroup:
         """Pure Python WaitGroup implementation"""
