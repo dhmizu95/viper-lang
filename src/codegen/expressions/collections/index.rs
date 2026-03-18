@@ -251,15 +251,10 @@ pub fn generate_index<'ctx>(
             .ok_or_else(|| "vp_bytearray_len not declared".to_string())?;
         let bytearray_len = state
             .ir_builder
-            .build_call(
-                state.builder,
-                bytearray_len_func,
-                &[bytearray_ptr.into()],
-                "ba_len",
-            )
+            .build_call(state.builder, bytearray_len_func, &[bytearray_ptr.into()], "ba_len")
             .unwrap()
             .into_int_value();
-        
+
         let is_negative = state
             .builder
             .build_int_compare(
@@ -269,12 +264,12 @@ pub fn generate_index<'ctx>(
                 "index_is_neg",
             )
             .expect("compare neg");
-        
+
         let adjusted_index = state
             .builder
             .build_int_add(bytearray_len, index_untagged, "adjusted_index")
             .expect("add len");
-        
+
         let final_index = state
             .builder
             .build_select(is_negative, adjusted_index, index_untagged, "final_index")
@@ -385,13 +380,38 @@ pub fn generate_index<'ctx>(
     if is_pointer_type && is_list {
         let list_ptr = obj_val.into_pointer_value();
 
-        // Use inline bit vector get for bool lists (more memory efficient)
+        // Use vp_bitvec_get for bool lists (bitvec uses bit-packed storage, not bytes)
+        // Note: inline_bool_list_get doesn't work for bitvec because it assumes byte storage
         if is_bool_list {
-            let bool_val = inline_bool_list_get(state, list_ptr, index_val)
-                .map_err(|e| format!("Inline bool list get failed: {:?}", e))?;
+            // Get the untagged index
+            let index_untagged = state
+                .builder
+                .build_right_shift(
+                    index_val,
+                    state.context.i64_type().const_int(1, false),
+                    true,
+                    "index_untagged",
+                )
+                .map_err(|e| format!("Failed to untag index: {:?}", e))?;
 
-            // Convert bool to i64 for compatibility with print() and other functions
-            let bool_int = bool_val.into_int_value();
+            // Call vp_bitvec_get which handles bit-packed storage
+            let bitvec_get = state
+                .module
+                .get_function("vp_bitvec_get")
+                .ok_or_else(|| "vp_bitvec_get not declared".to_string())?;
+
+            let bool_result = state
+                .ir_builder
+                .build_call(
+                    state.builder,
+                    bitvec_get,
+                    &[list_ptr.into(), index_untagged.into()],
+                    "bitvec_get",
+                )
+                .ok_or_else(|| "vp_bitvec_get call failed".to_string())?;
+
+            // Convert i1 bool to i64 for compatibility with print() and other functions
+            let bool_int = bool_result.into_int_value();
             let i64_val = state
                 .builder
                 .build_int_z_extend(bool_int, state.context.i64_type(), "bool_to_i64")
@@ -442,15 +462,10 @@ pub fn generate_index<'ctx>(
             .ok_or_else(|| "vp_list_len not declared".to_string())?;
         let list_len = state
             .ir_builder
-            .build_call(
-                state.builder,
-                list_len_func,
-                &[obj_val.into()],
-                "list_len",
-            )
+            .build_call(state.builder, list_len_func, &[obj_val.into()], "list_len")
             .unwrap()
             .into_int_value();
-        
+
         let is_negative = state
             .builder
             .build_int_compare(
@@ -460,12 +475,12 @@ pub fn generate_index<'ctx>(
                 "index_is_neg",
             )
             .expect("compare neg");
-        
+
         let adjusted_index = state
             .builder
             .build_int_add(list_len, index_untagged, "adjusted_index")
             .expect("add len");
-        
+
         let final_index = state
             .builder
             .build_select(is_negative, adjusted_index, index_untagged, "final_index")
@@ -474,12 +489,7 @@ pub fn generate_index<'ctx>(
 
         let result = state
             .ir_builder
-            .build_call(
-                state.builder,
-                list_get,
-                &[obj_val.into(), final_index.into()],
-                "list_get",
-            )
+            .build_call(state.builder, list_get, &[obj_val.into(), final_index.into()], "list_get")
             .expect("vp_list_get call failed");
 
         return Ok(result);
