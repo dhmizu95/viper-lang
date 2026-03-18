@@ -21,12 +21,20 @@ fn convert_to_bool<'ctx>(
             // ViperList struct: length is at offset 0 (i64)
             let i64_ptr = state
                 .builder
-                .build_pointer_cast(ptr, state.context.ptr_type(inkwell::AddressSpace::default()), &format!("{}_as_i64_ptr", name))
-                .map_err(|e| crate::codegen::codegen_err(format!("Failed to cast pointer: {:?}", e)))?;
+                .build_pointer_cast(
+                    ptr,
+                    state.context.ptr_type(inkwell::AddressSpace::default()),
+                    &format!("{}_as_i64_ptr", name),
+                )
+                .map_err(|e| {
+                    crate::codegen::codegen_err(format!("Failed to cast pointer: {:?}", e))
+                })?;
             let length = state
                 .builder
                 .build_load(state.context.i64_type(), i64_ptr, &format!("{}_length", name))
-                .map_err(|e| crate::codegen::codegen_err(format!("Failed to load length: {:?}", e)))?
+                .map_err(|e| {
+                    crate::codegen::codegen_err(format!("Failed to load length: {:?}", e))
+                })?
                 .into_int_value();
             state
                 .builder
@@ -36,7 +44,9 @@ fn convert_to_bool<'ctx>(
                     state.context.i64_type().const_zero(),
                     &format!("{}_bool", name),
                 )
-                .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare length: {:?}", e)))
+                .map_err(|e| {
+                    crate::codegen::codegen_err(format!("Failed to compare length: {:?}", e))
+                })
         }
         BasicValueEnum::IntValue(int_val) => {
             // For integers, check if non-zero
@@ -51,7 +61,9 @@ fn convert_to_bool<'ctx>(
                         state.context.i64_type().const_zero(),
                         &format!("{}_bool", name),
                     )
-                    .map_err(|e| crate::codegen::codegen_err(format!("Failed to compare integer: {:?}", e)))
+                    .map_err(|e| {
+                        crate::codegen::codegen_err(format!("Failed to compare integer: {:?}", e))
+                    })
             }
         }
         _ => {
@@ -146,7 +158,7 @@ fn generate_while_simple<'ctx>(
                 state.list_vars,
                 state.dict_vars,
                 state.bool_list_vars,
-            state.bytearray_vars,
+                state.bytearray_vars,
                 state.bigint_vars,
                 state.var_types,
                 stmt,
@@ -294,16 +306,17 @@ fn generate_for_with_iterator<'ctx>(
             // Tuple unpacking: for i, j in enumerate(ba):
             // The value from iterator is a pointer to a tuple (as tagged i64)
             // We need to unpack it into individual variables
-            
+
             // Convert the BasicValueEnum to IntValue first
             let value_int = value.into_int_value();
-            
+
             // Convert the i64 value to a pointer
             let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-            let tuple_ptr = state.builder
+            let tuple_ptr = state
+                .builder
                 .build_int_to_ptr(value_int, ptr_type, "tuple_ptr")
                 .expect("int_to_ptr");
-            
+
             // Load the elements pointer from the tuple struct (offset 8 = 1 * i64)
             let elements_ptr_ptr = unsafe {
                 state.builder.build_in_bounds_gep(
@@ -312,13 +325,15 @@ fn generate_for_with_iterator<'ctx>(
                     &[state.context.i64_type().const_int(1, false)],
                     "elements_ptr_ptr",
                 )
-            }.expect("gep elements_ptr");
-            
-            let elements_ptr = state.builder
+            }
+            .expect("gep elements_ptr");
+
+            let elements_ptr = state
+                .builder
                 .build_load(ptr_type, elements_ptr_ptr, "elements_ptr")
                 .expect("load elements_ptr")
                 .into_pointer_value();
-            
+
             // For each target element, load and bind the variable
             for (i, elem) in elements.iter().enumerate() {
                 if let Expr::Ident(name, _) = elem {
@@ -330,23 +345,25 @@ fn generate_for_with_iterator<'ctx>(
                             &[state.context.i64_type().const_int(i as u64, false)],
                             &format!("elem_{}_ptr", i),
                         )
-                    }.expect(&format!("gep elem_{}", i));
-                    
+                    }
+                    .expect(&format!("gep elem_{}", i));
+
                     // Load the element value
-                    let elem_val = state.builder
+                    let elem_val = state
+                        .builder
                         .build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
                         .expect(&format!("load elem_{}", i));
-                    
+
                     // Allocate and store
-                    let target_alloca = state.builder
+                    let target_alloca = state
+                        .builder
                         .build_alloca(state.context.i64_type(), name)
                         .expect(&format!("alloca {}", name));
                     state.builder.build_store(target_alloca, elem_val).expect("store elem");
-                    
-                    state.variables.insert(
-                        name.clone(),
-                        VarInfo::new_stack(target_alloca, VarType::Int)
-                    );
+
+                    state
+                        .variables
+                        .insert(name.clone(), VarInfo::new_stack(target_alloca, VarType::Int));
                 }
             }
         }
@@ -371,7 +388,7 @@ fn generate_for_with_iterator<'ctx>(
                 state.list_vars,
                 state.dict_vars,
                 state.bool_list_vars,
-            state.bytearray_vars,
+                state.bytearray_vars,
                 state.bigint_vars,
                 state.var_types,
                 stmt,
@@ -402,7 +419,7 @@ fn generate_for_with_iterator<'ctx>(
                         state.list_vars,
                         state.dict_vars,
                         state.bool_list_vars,
-            state.bytearray_vars,
+                        state.bytearray_vars,
                         state.bigint_vars,
                         state.var_types,
                         stmt,
@@ -498,11 +515,16 @@ pub fn generate_for<'ctx>(
                 // Get the current position and create blocks for the loop
                 let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
                 let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-                let alloca_block = state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
-                let init_block = state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
-                let cond_block = state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
-                let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
-                let step_block = state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
+                let alloca_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
+                let init_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
+                let cond_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
+                let body_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
+                let step_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_step{}", for_num));
                 let else_block = if else_body.is_some() {
                     Some(
                         state.context.append_basic_block(func_ctx, &format!("for_else{}", for_num)),
@@ -510,7 +532,8 @@ pub fn generate_for<'ctx>(
                 } else {
                     None
                 };
-                let exit_block = state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
+                let exit_block =
+                    state.context.append_basic_block(func_ctx, &format!("for_exit{}", for_num));
 
                 // Branch from current position to alloca block
                 let old_position = state.builder.get_insert_block().unwrap();
@@ -674,7 +697,7 @@ pub fn generate_for<'ctx>(
                             state.list_vars,
                             state.dict_vars,
                             state.bool_list_vars,
-            state.bytearray_vars,
+                            state.bytearray_vars,
                             state.bigint_vars,
                             state.var_types,
                             stmt,
@@ -721,7 +744,8 @@ pub fn generate_for<'ctx>(
 
     let func_ctx = state.builder.get_insert_block().unwrap().get_parent().unwrap();
     let for_num = WHILE_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let alloca_block = state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
+    let alloca_block =
+        state.context.append_basic_block(func_ctx, &format!("for_alloca{}", for_num));
     let init_block = state.context.append_basic_block(func_ctx, &format!("for_init{}", for_num));
     let cond_block = state.context.append_basic_block(func_ctx, &format!("for_cond{}", for_num));
     let body_block = state.context.append_basic_block(func_ctx, &format!("for_body{}", for_num));
@@ -782,7 +806,19 @@ pub fn generate_for<'ctx>(
         _ => false,
     };
 
-    let func_name = if is_float_list { "vp_list_get_f64" } else { "vp_list_get" };
+    // Check if iterating over a bool list (bitvec)
+    let is_bool_list_iter = match iter {
+        Expr::Ident(name, _) => state.is_bool_list(name),
+        _ => false,
+    };
+
+    let func_name = if is_float_list {
+        "vp_list_get_f64"
+    } else if is_bool_list_iter {
+        "vp_bitvec_get"
+    } else {
+        "vp_list_get"
+    };
     let list_get_func = state
         .module
         .get_function(func_name)
@@ -814,6 +850,31 @@ pub fn generate_for<'ctx>(
                     closure_value_ptr: None,
                 },
             )
+        } else if is_bool_list_iter {
+            // For bool lists, convert i1 bool to tagged int
+            // bool_val (i1) -> untagged (val << 1)
+            let bool_val = item_val.into_int_value();
+            let tagged_val = state
+                .builder
+                .build_left_shift(
+                    bool_val,
+                    state.context.i64_type().const_int(1, false),
+                    "bool_to_tagged",
+                )
+                .expect("bool to tagged");
+            let val_alloca =
+                state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
+            state.builder.build_store(val_alloca, tagged_val).expect("store");
+
+            state.variables.insert(
+                target_name.clone(),
+                VarInfo {
+                    storage: crate::codegen::variables::VarStorage::Stack(val_alloca),
+                    var_type: VarType::Int,
+                    class_name: None,
+                    closure_value_ptr: None,
+                },
+            )
         } else {
             let val_alloca =
                 state.builder.build_alloca(state.context.i64_type(), &target_name).expect("alloca");
@@ -833,14 +894,13 @@ pub fn generate_for<'ctx>(
         // Tuple unpacking: for i, j in enumerate(ba):
         // enumerate returns a list of tuples, we need to unpack each tuple
         // item_val is a tagged i64 that needs to be converted to a pointer
-        
+
         // Convert the tagged i64 to pointer
         let item_int = item_val.into_int_value();
         let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-        let item_ptr = state.builder
-            .build_int_to_ptr(item_int, ptr_type, "tuple_ptr")
-            .expect("int_to_ptr");
-        
+        let item_ptr =
+            state.builder.build_int_to_ptr(item_int, ptr_type, "tuple_ptr").expect("int_to_ptr");
+
         // Load the elements pointer from the tuple struct (offset 8 = 1 * i64)
         let elements_ptr_ptr = unsafe {
             state.builder.build_in_bounds_gep(
@@ -849,14 +909,16 @@ pub fn generate_for<'ctx>(
                 &[state.context.i64_type().const_int(1, false)],
                 "elements_ptr_ptr",
             )
-        }.expect("gep elements_ptr");
-        
+        }
+        .expect("gep elements_ptr");
+
         let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-        let elements_ptr = state.builder
+        let elements_ptr = state
+            .builder
             .build_load(ptr_type, elements_ptr_ptr, "elements_ptr")
             .expect("load elements_ptr")
             .into_pointer_value();
-        
+
         // For each target element, load and bind the variable
         for (i, elem) in elements.iter().enumerate() {
             if let Expr::Ident(name, _) = elem {
@@ -868,23 +930,25 @@ pub fn generate_for<'ctx>(
                         &[state.context.i64_type().const_int(i as u64, false)],
                         &format!("elem_{}_ptr", i),
                     )
-                }.expect(&format!("gep elem_{}", i));
-                
+                }
+                .expect(&format!("gep elem_{}", i));
+
                 // Load the element value
-                let elem_val = state.builder
+                let elem_val = state
+                    .builder
                     .build_load(state.context.i64_type(), elem_ptr, &format!("elem_{}", i))
                     .expect(&format!("load elem_{}", i));
-                
+
                 // Allocate and store
-                let target_alloca = state.builder
+                let target_alloca = state
+                    .builder
                     .build_alloca(state.context.i64_type(), name)
                     .expect(&format!("alloca {}", name));
                 state.builder.build_store(target_alloca, elem_val).expect("store elem");
-                
-                state.variables.insert(
-                    name.clone(),
-                    VarInfo::new_stack(target_alloca, VarType::Int)
-                );
+
+                state
+                    .variables
+                    .insert(name.clone(), VarInfo::new_stack(target_alloca, VarType::Int));
             }
         }
         None
@@ -1078,8 +1142,7 @@ pub fn generate_async_for<'ctx>(
 
     // Store iterator in alloca (use fixed pointer type)
     let ptr_type = state.context.ptr_type(inkwell::AddressSpace::default());
-    let iterator_ptr =
-        state.builder.build_alloca(ptr_type, "iterator_ptr").expect("alloca");
+    let iterator_ptr = state.builder.build_alloca(ptr_type, "iterator_ptr").expect("alloca");
     state.builder.build_store(iterator_ptr, iterator).expect("store");
 
     // Allocate storage for the iteration variable (in init block, before loop)
@@ -1127,7 +1190,7 @@ pub fn generate_async_for<'ctx>(
     // Store the item value in the pre-allocated alloca
     if let Some((target_name, alloca)) = &item_alloca {
         state.builder.build_store(*alloca, item.into_int_value()).expect("store item");
-        
+
         // Bind the target variable
         state.variables.insert(
             target_name.clone(),

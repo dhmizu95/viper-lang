@@ -289,6 +289,14 @@ static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, 
     }
 }
 
+/* Public wrapper for SIMD-optimized strided marking */
+void vp_bitvec_mark_multiples(ViperList* vec, int64_t start, int64_t stride, int64_t limit) {
+    if (!vec || start < 0 || stride <= 0 || limit < start) {
+        return;
+    }
+    vp_bitvec_mark_multiples_simd(vec, start, stride, limit);
+}
+
 /* ============================================ */
 /* Bit Vector Public Functions                  */
 /* ============================================ */
