@@ -267,7 +267,7 @@ static inline int64_t vp_bitvec_popcount_simd(uint64_t* data, int64_t word_count
  * SIMD-optimized sieve marking - clear bits at regular intervals
  * For prime sieve: mark multiples of p as composite
  * 
- * Optimized for power-of-2 strides (2, 4, 8, 16, 32) which divide 64 evenly.
+ * Optimized for power-of-2 strides (2, 4, 8, 16, 32) - divide 64 evenly.
  */
 static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, int64_t stride, int64_t limit) {
     if (stride <= 0 || start > limit) return;
@@ -287,7 +287,7 @@ static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, 
         return;
     }
     
-    // Optimized path for power-of-2 strides that divide 64 evenly (2, 4, 8, 16, 32)
+    // Optimized path for power-of-2 strides (2, 4, 8, 16, 32)
     if (stride >= 2 && stride <= 32 && (64 % stride) == 0) {
         uint64_t mask = 0;
         for (int64_t i = 0; i < 64; i += stride) {
@@ -324,7 +324,7 @@ static inline void vp_bitvec_mark_multiples_simd(ViperList* vec, int64_t start, 
         return;
     }
     
-    // Fallback: scalar for non-power-of-2 strides (3, 5, 6, 7, 9, 10, etc.)
+    // Fallback: scalar for all other cases
     for (int64_t i = start; i <= limit; i += stride) {
         vp_bitvec_set_unchecked_inl(vec, i, false);
     }
